@@ -1,16 +1,24 @@
-import type { CapabilityRequirement, GuardPolicy } from "@minix/contracts";
+import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
 import { defineFeatureManifest, type AppKernel, type FeatureConfig } from "@minix/core";
 
 import { createFeedController } from "./controller";
-import { createInitialFeedState, type FeedState } from "./model";
+import { createDefaultFeedState, type FeedState } from "./model";
 
 export interface FeedFeatureControllerOptions {
+  feedRouteId?: AppRouteId;
+  detailRouteId?: AppRouteId;
+  settingsRouteId?: AppRouteId;
+  loginRouteId?: AppRouteId;
+  requestPath?: string;
+  authRedirectSource?: string;
   initialState?: Partial<FeedState>;
 }
 
 export const feedCapabilityRequirements: CapabilityRequirement[] = [];
 export const feedGuardPolicy: GuardPolicy | undefined = undefined;
-export const feedFeatureConfig: FeatureConfig = {};
+export const feedFeatureConfig: FeatureConfig = {
+  surface: "feed",
+};
 
 export const feedFeatureManifest = defineFeatureManifest<
   FeedFeatureControllerOptions,
@@ -23,12 +31,20 @@ export const feedFeatureManifest = defineFeatureManifest<
   exportName: "feedFeatureManifest",
   createController(
     _host,
-    _kernel: AppKernel,
+    kernel: AppKernel,
     options: FeedFeatureControllerOptions,
     pageData: FeedState,
   ) {
     return createFeedController({
+      kernel,
+      ...(options.feedRouteId ? { feedRouteId: options.feedRouteId } : {}),
+      ...(options.detailRouteId ? { detailRouteId: options.detailRouteId } : {}),
+      ...(options.settingsRouteId ? { settingsRouteId: options.settingsRouteId } : {}),
+      ...(options.loginRouteId ? { loginRouteId: options.loginRouteId } : {}),
+      ...(options.requestPath ? { requestPath: options.requestPath } : {}),
+      ...(options.authRedirectSource ? { authRedirectSource: options.authRedirectSource } : {}),
       initialState: {
+        ...createDefaultFeedState(),
         ...pageData,
         ...options.initialState,
       },
@@ -37,17 +53,27 @@ export const feedFeatureManifest = defineFeatureManifest<
   hosts: {
     wechat: {
       entryActions: {
-        onShow: "markReady",
-        onTapReady: "markReady",
+        onShow: "loadInitial",
+        onPullDownRefresh: "refresh",
+        onReachBottom: "loadMore",
+        onTapLoadMore: "loadMore",
+        onTapSearch: "submitSearch",
+        onTapClearSearch: "clearSearch",
+        onTapOpenItem: "openItem",
+        onTapSettings: "goToSettings",
       },
     },
     h5: {
       entryActions: {
-        onShow: "markReady",
-        onTapReady: "markReady",
+        onShow: "loadInitial",
+        onTapLoadMore: "loadMore",
+        onTapSearch: "submitSearch",
+        onTapClearSearch: "clearSearch",
+        onTapOpenItem: "openItem",
+        onTapSettings: "goToSettings",
       },
     },
   },
 });
 
-export { createInitialFeedState };
+export { createDefaultFeedState };
