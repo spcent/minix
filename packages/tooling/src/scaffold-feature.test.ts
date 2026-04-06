@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { normalizeFeatureName, scaffoldFeature } from "./scaffold-feature";
+import { normalizeFeatureName, normalizeFeatureTemplate, scaffoldFeature } from "./scaffold-feature";
 
 test("scaffoldFeature creates a feature package and tsconfig alias", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "minix-feature-scaffold-"));
@@ -73,6 +73,56 @@ test("scaffoldFeature creates a feature package and tsconfig alias", async () =>
   }
 });
 
+test("scaffoldFeature supports list templates with page protocol defaults", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "minix-feature-scaffold-list-"));
+
+  try {
+    await mkdir(path.join(tempRoot, "packages", "features"), { recursive: true });
+    await writeFile(
+      path.join(tempRoot, "tsconfig.base.json"),
+      `${JSON.stringify(
+        {
+          compilerOptions: {
+            paths: {
+              "@minix/contracts": ["packages/contracts/src"],
+              "@minix/core": ["packages/core/src"],
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    const result = await scaffoldFeature({
+      featureName: "article-feed",
+      template: "list",
+      repoRoot: tempRoot,
+    });
+
+    const modelFile = await readFile(path.join(result.featureDir, "src", "model", "index.ts"), "utf8");
+    assert.match(modelFile, /createDefaultListPageState/);
+    assert.match(modelFile, /type ArticleFeedState = ListPageState<ArticleFeedItem>/);
+
+    const controllerFile = await readFile(path.join(result.featureDir, "src", "controller", "index.ts"), "utf8");
+    assert.match(controllerFile, /loadInitial\(\)/);
+    assert.match(controllerFile, /selectItem\(itemId: string\)/);
+
+    const manifestFile = await readFile(path.join(result.featureDir, "src", "feature.manifest.ts"), "utf8");
+    assert.match(manifestFile, /template: "list"/);
+    assert.match(manifestFile, /onPullDownRefresh: "refresh"/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("normalizeFeatureName rejects invalid names", () => {
   assert.throws(() => normalizeFeatureName("UserProfile"), /kebab-case/);
+});
+
+test("normalizeFeatureTemplate rejects invalid templates", () => {
+  assert.equal(normalizeFeatureTemplate(undefined), "generic");
+  assert.equal(normalizeFeatureTemplate("profile"), "profile");
+  assert.throws(() => normalizeFeatureTemplate("chat"), /Invalid feature template/);
 });

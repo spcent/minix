@@ -54,7 +54,7 @@ Do not expand scope casually. New top-level packages, new platform targets, or n
 Use the existing scripts before creating files manually:
 
 ```bash
-pnpm scaffold:feature <feature-name>
+pnpm scaffold:feature <feature-name> [generic|list|detail|form|profile]
 pnpm scaffold:page <feature-name> <page-key>
 pnpm gen:manifests
 pnpm gen:shells

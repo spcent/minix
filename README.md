@@ -192,7 +192,7 @@ pnpm verify:release
 pnpm build
 pnpm dev
 pnpm preview
-pnpm scaffold:feature <feature-name>
+pnpm scaffold:feature <feature-name> [generic|list|detail|form|profile]
 pnpm scaffold:page <feature-name> <page-key>
 pnpm gen:shells
 ```

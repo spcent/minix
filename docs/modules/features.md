@@ -21,7 +21,7 @@ Feature packages should not contain:
 - host app wiring
 - cross-feature catch-all abstractions
 
-Create new features with `pnpm scaffold:feature <feature-name>`.
+Create new features with `pnpm scaffold:feature <feature-name> [generic|list|detail|form|profile]`.
 
 Related references:
 
