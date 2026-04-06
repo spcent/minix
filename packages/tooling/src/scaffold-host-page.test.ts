@@ -68,7 +68,7 @@ test("scaffoldHostPage reuses an existing feature import without duplicating it"
     await writeTempFile(
       tempRoot,
       "packages/contracts/src/routes/app.ts",
-      `export const APP_ROUTE_IDS = {\n  login: "auth.login",\n} as const;\n`,
+      `export const APP_ROUTE_IDS = {\n  login: "auth.login",\n  settings: "settings.index",\n  articlesDetail: "article-detail.detail",\n} as const;\n`,
     );
     await writeTempFile(tempRoot, "packages/features/auth/package.json", `{"name":"@minix/feature-auth"}`);
     await writeTempFile(
@@ -156,6 +156,10 @@ test("scaffoldHostPage uses detected feature template metadata for list-shaped p
 
     assert.match(h5Source, /createDefaultArticleFeedState/);
     assert.match(h5Source, /pageData: createDefaultArticleFeedState\(\{/);
+    assert.match(h5Source, /detailRouteId: APP_ROUTE_IDS\.articlesDetail/);
+    assert.match(h5Source, /loginRouteId: APP_ROUTE_IDS\.login/);
+    assert.match(h5Source, /settingsRouteId: APP_ROUTE_IDS\.settings/);
+    assert.match(h5Source, /initialState: \{\},/);
     assert.match(h5Source, /emptyText: "No articles items are available yet."/);
     assert.match(wechatSource, /enablePullDownRefresh: true/);
   } finally {
@@ -187,7 +191,7 @@ test("scaffoldHostPage uses detail route shape for detail templates", async () =
     await writeTempFile(
       tempRoot,
       "packages/contracts/src/routes/app.ts",
-      `export const APP_ROUTE_IDS = {\n  login: "auth.login",\n} as const;\n`,
+      `export const APP_ROUTE_IDS = {\n  login: "auth.login",\n  settings: "settings.index",\n} as const;\n`,
     );
     await writeTempFile(
       tempRoot,
@@ -217,6 +221,8 @@ test("scaffoldHostPage uses detail route shape for detail templates", async () =
     const h5Source = await readFile(path.join(tempRoot, "apps/host-h5/src/manifest/page-definitions.ts"), "utf8");
     assert.match(h5Source, /routePath: "\/articleDetail\/:id"/);
     assert.match(h5Source, /createDefaultArticleDetailState/);
+    assert.match(h5Source, /loginRouteId: APP_ROUTE_IDS\.login/);
+    assert.match(h5Source, /settingsRouteId: APP_ROUTE_IDS\.settings/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

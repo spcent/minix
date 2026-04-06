@@ -220,7 +220,7 @@ pnpm verify:host novel-h5
 pnpm verify:host novel-wechat
 ```
 
-`scaffold:page` now derives default host page data, route shape, and page wiring from the feature package when the feature exposes scaffold template metadata.
+`scaffold:page` now derives default host page data, route shape, and page wiring from the feature package when the feature exposes scaffold template metadata, including semantic controller placeholders such as `detailRouteId`, `loginRouteId`, and `settingsRouteId` when the feature manifest supports them.
 
 ## Editing Rules
 

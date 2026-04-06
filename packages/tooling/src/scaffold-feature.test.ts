@@ -108,10 +108,16 @@ test("scaffoldFeature supports list templates with page protocol defaults", asyn
     const controllerFile = await readFile(path.join(result.featureDir, "src", "controller", "index.ts"), "utf8");
     assert.match(controllerFile, /loadInitial\(\)/);
     assert.match(controllerFile, /selectItem\(itemId: string\)/);
+    assert.match(controllerFile, /detailRouteId\?: AppRouteId/);
+    assert.match(controllerFile, /goToSettings\(\)/);
+    assert.match(controllerFile, /goToLogin\(\)/);
 
     const manifestFile = await readFile(path.join(result.featureDir, "src", "feature.manifest.ts"), "utf8");
     assert.match(manifestFile, /template: "list"/);
     assert.match(manifestFile, /onPullDownRefresh: "refresh"/);
+    assert.match(manifestFile, /detailRouteId\?: AppRouteId/);
+    assert.match(manifestFile, /loginRouteId: options\.loginRouteId/);
+    assert.match(manifestFile, /settingsRouteId: options\.settingsRouteId/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

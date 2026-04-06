@@ -86,19 +86,32 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
 }
 
 function listControllerSource(names: FeatureNames): string {
-  return `import { createStore, type AppKernel } from "@minix/core";
+  return `import type { AppRouteId } from "@minix/contracts";
+import { createStore, type AppKernel } from "@minix/core";
 import { createDefault${names.pascal}State, type ${names.pascal}State } from "../model";
 
 export interface Create${names.pascal}ControllerOptions {
   kernel: AppKernel;
+  detailRouteId?: AppRouteId;
+  loginRouteId?: AppRouteId;
+  settingsRouteId?: AppRouteId;
   initialState?: Partial<${names.pascal}State>;
 }
 
 export function create${names.pascal}Controller(options: Create${names.pascal}ControllerOptions) {
+  const { kernel, detailRouteId, loginRouteId, settingsRouteId, initialState } = options;
   const store = createStore<${names.pascal}State>({
     ...createDefault${names.pascal}State(),
-    ...options.initialState,
+    ...initialState,
   });
+
+  async function routeToOptional(routeId?: AppRouteId, params?: Record<string, string | number | boolean>) {
+    if (!routeId) {
+      return undefined;
+    }
+
+    return kernel.router.toRoute(routeId, params);
+  }
 
   return {
     store,
@@ -124,25 +137,50 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
         selectedItemId: itemId,
       });
     },
+
+    openDetail(itemId?: string) {
+      const nextItemId = itemId ?? store.getState().selectedItemId;
+      return routeToOptional(detailRouteId, nextItemId ? { id: nextItemId } : undefined);
+    },
+
+    goToLogin() {
+      return routeToOptional(loginRouteId);
+    },
+
+    goToSettings() {
+      return routeToOptional(settingsRouteId);
+    },
   };
 }
 `;
 }
 
 function detailControllerSource(names: FeatureNames): string {
-  return `import { createStore, type AppKernel } from "@minix/core";
+  return `import type { AppRouteId } from "@minix/contracts";
+import { createStore, type AppKernel } from "@minix/core";
 import { createDefault${names.pascal}State, type ${names.pascal}State } from "../model";
 
 export interface Create${names.pascal}ControllerOptions {
   kernel: AppKernel;
+  loginRouteId?: AppRouteId;
+  settingsRouteId?: AppRouteId;
   initialState?: Partial<${names.pascal}State>;
 }
 
 export function create${names.pascal}Controller(options: Create${names.pascal}ControllerOptions) {
+  const { kernel, loginRouteId, settingsRouteId, initialState } = options;
   const store = createStore<${names.pascal}State>({
     ...createDefault${names.pascal}State(),
-    ...options.initialState,
+    ...initialState,
   });
+
+  async function routeToOptional(routeId?: AppRouteId) {
+    if (!routeId) {
+      return undefined;
+    }
+
+    return kernel.router.toRoute(routeId);
+  }
 
   return {
     store,
@@ -155,25 +193,45 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
         errorText: undefined,
       });
     },
+
+    goToLogin() {
+      return routeToOptional(loginRouteId);
+    },
+
+    goToSettings() {
+      return routeToOptional(settingsRouteId);
+    },
   };
 }
 `;
 }
 
 function formControllerSource(names: FeatureNames): string {
-  return `import { createStore, type AppKernel } from "@minix/core";
+  return `import type { AppRouteId } from "@minix/contracts";
+import { createStore, type AppKernel } from "@minix/core";
 import { createDefault${names.pascal}State, type ${names.pascal}State, type ${names.pascal}Values } from "../model";
 
 export interface Create${names.pascal}ControllerOptions {
   kernel: AppKernel;
+  successRouteId?: AppRouteId;
+  cancelRouteId?: AppRouteId;
   initialState?: Partial<${names.pascal}State>;
 }
 
 export function create${names.pascal}Controller(options: Create${names.pascal}ControllerOptions) {
+  const { kernel, successRouteId, cancelRouteId, initialState } = options;
   const store = createStore<${names.pascal}State>({
     ...createDefault${names.pascal}State(),
-    ...options.initialState,
+    ...initialState,
   });
+
+  async function routeToOptional(routeId?: AppRouteId) {
+    if (!routeId) {
+      return undefined;
+    }
+
+    return kernel.router.toRoute(routeId);
+  }
 
   return {
     store,
@@ -192,13 +250,19 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
       });
     },
 
-    submit() {
+    async submit() {
       store.setState({
         ready: true,
         submitting: false,
         errorCode: undefined,
         errorText: undefined,
       });
+
+      return routeToOptional(successRouteId);
+    },
+
+    cancel() {
+      return routeToOptional(cancelRouteId);
     },
   };
 }
@@ -206,19 +270,31 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
 }
 
 function profileControllerSource(names: FeatureNames): string {
-  return `import { createStore, type AppKernel } from "@minix/core";
+  return `import type { AppRouteId } from "@minix/contracts";
+import { createStore, type AppKernel } from "@minix/core";
 import { createDefault${names.pascal}State, type ${names.pascal}State } from "../model";
 
 export interface Create${names.pascal}ControllerOptions {
   kernel: AppKernel;
+  loginRouteId?: AppRouteId;
+  settingsRouteId?: AppRouteId;
   initialState?: Partial<${names.pascal}State>;
 }
 
 export function create${names.pascal}Controller(options: Create${names.pascal}ControllerOptions) {
+  const { kernel, loginRouteId, settingsRouteId, initialState } = options;
   const store = createStore<${names.pascal}State>({
     ...createDefault${names.pascal}State(),
-    ...options.initialState,
+    ...initialState,
   });
+
+  async function routeToOptional(routeId?: AppRouteId) {
+    if (!routeId) {
+      return undefined;
+    }
+
+    return kernel.router.toRoute(routeId);
+  }
 
   return {
     store,
@@ -236,6 +312,14 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
       store.setState({
         selectedActionKey: actionKey,
       });
+    },
+
+    goToLogin() {
+      return routeToOptional(loginRouteId);
+    },
+
+    goToSettings() {
+      return routeToOptional(settingsRouteId);
     },
   };
 }
@@ -319,13 +403,16 @@ export { createDefault${names.pascal}State };
 }
 
 function listFeatureManifestSource(names: FeatureNames): string {
-  return `import type { CapabilityRequirement, GuardPolicy } from "@minix/contracts";
+  return `import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
 import { defineFeatureManifest, type AppKernel, type FeatureConfig } from "@minix/core";
 
 import { create${names.pascal}Controller } from "./controller";
 import { createDefault${names.pascal}State, type ${names.pascal}State } from "./model";
 
 export interface ${names.pascal}FeatureControllerOptions {
+  detailRouteId?: AppRouteId;
+  loginRouteId?: AppRouteId;
+  settingsRouteId?: AppRouteId;
   initialState?: Partial<${names.pascal}State>;
 }
 
@@ -353,6 +440,9 @@ export const ${names.camel}FeatureManifest = defineFeatureManifest<
   ) {
     return create${names.pascal}Controller({
       kernel,
+      detailRouteId: options.detailRouteId,
+      loginRouteId: options.loginRouteId,
+      settingsRouteId: options.settingsRouteId,
       initialState: {
         ...createDefault${names.pascal}State(),
         ...pageData,
@@ -380,13 +470,15 @@ export { createDefault${names.pascal}State };
 }
 
 function detailFeatureManifestSource(names: FeatureNames): string {
-  return `import type { CapabilityRequirement, GuardPolicy } from "@minix/contracts";
+  return `import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
 import { defineFeatureManifest, type AppKernel, type FeatureConfig } from "@minix/core";
 
 import { create${names.pascal}Controller } from "./controller";
 import { createDefault${names.pascal}State, type ${names.pascal}State } from "./model";
 
 export interface ${names.pascal}FeatureControllerOptions {
+  loginRouteId?: AppRouteId;
+  settingsRouteId?: AppRouteId;
   initialState?: Partial<${names.pascal}State>;
 }
 
@@ -414,6 +506,8 @@ export const ${names.camel}FeatureManifest = defineFeatureManifest<
   ) {
     return create${names.pascal}Controller({
       kernel,
+      loginRouteId: options.loginRouteId,
+      settingsRouteId: options.settingsRouteId,
       initialState: {
         ...createDefault${names.pascal}State(),
         ...pageData,
@@ -440,13 +534,15 @@ export { createDefault${names.pascal}State };
 }
 
 function formFeatureManifestSource(names: FeatureNames): string {
-  return `import type { CapabilityRequirement, GuardPolicy } from "@minix/contracts";
+  return `import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
 import { defineFeatureManifest, type AppKernel, type FeatureConfig } from "@minix/core";
 
 import { create${names.pascal}Controller } from "./controller";
 import { createDefault${names.pascal}State, type ${names.pascal}State } from "./model";
 
 export interface ${names.pascal}FeatureControllerOptions {
+  successRouteId?: AppRouteId;
+  cancelRouteId?: AppRouteId;
   initialState?: Partial<${names.pascal}State>;
 }
 
@@ -474,6 +570,8 @@ export const ${names.camel}FeatureManifest = defineFeatureManifest<
   ) {
     return create${names.pascal}Controller({
       kernel,
+      successRouteId: options.successRouteId,
+      cancelRouteId: options.cancelRouteId,
       initialState: {
         ...createDefault${names.pascal}State(),
         ...pageData,
@@ -500,13 +598,15 @@ export { createDefault${names.pascal}State };
 }
 
 function profileFeatureManifestSource(names: FeatureNames): string {
-  return `import type { CapabilityRequirement, GuardPolicy } from "@minix/contracts";
+  return `import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
 import { defineFeatureManifest, type AppKernel, type FeatureConfig } from "@minix/core";
 
 import { create${names.pascal}Controller } from "./controller";
 import { createDefault${names.pascal}State, type ${names.pascal}State } from "./model";
 
 export interface ${names.pascal}FeatureControllerOptions {
+  loginRouteId?: AppRouteId;
+  settingsRouteId?: AppRouteId;
   initialState?: Partial<${names.pascal}State>;
 }
 
@@ -534,6 +634,8 @@ export const ${names.camel}FeatureManifest = defineFeatureManifest<
   ) {
     return create${names.pascal}Controller({
       kernel,
+      loginRouteId: options.loginRouteId,
+      settingsRouteId: options.settingsRouteId,
       initialState: {
         ...createDefault${names.pascal}State(),
         ...pageData,

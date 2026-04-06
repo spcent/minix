@@ -31,6 +31,7 @@ interface FeaturePageScaffoldMetadata {
   pageDataFactoryName: string;
   pageDataFactoryKind: "initial" | "default";
   template: FeatureTemplate;
+  controllerOptionKeys: Set<string>;
 }
 
 function toPascalFromKey(value: string): string {
@@ -152,6 +153,36 @@ function findHostPageDefinitionsObjectLiteral(sourceFile: ts.SourceFile, exportN
   }
 
   throw new Error(`Unable to find host page definitions export "${exportName}"`);
+}
+
+function findInterfaceDeclaration(sourceFile: ts.SourceFile, interfaceName: string): ts.InterfaceDeclaration | null {
+  for (const statement of sourceFile.statements) {
+    if (ts.isInterfaceDeclaration(statement) && statement.name.text === interfaceName) {
+      return statement;
+    }
+  }
+
+  return null;
+}
+
+function getInterfacePropertyNames(interfaceDeclaration: ts.InterfaceDeclaration | null): Set<string> {
+  if (!interfaceDeclaration) {
+    return new Set<string>();
+  }
+
+  const propertyNames = new Set<string>();
+  for (const member of interfaceDeclaration.members) {
+    if (!ts.isPropertySignature(member)) {
+      continue;
+    }
+
+    const propertyName = getPropertyNameText(member.name);
+    if (propertyName) {
+      propertyNames.add(propertyName);
+    }
+  }
+
+  return propertyNames;
 }
 
 function getObjectLiteralPropertyNames(objectLiteral: ts.ObjectLiteralExpression): Set<string> {
@@ -288,19 +319,43 @@ function createDefaultPageDataExpression(
   }
 }
 
-function createControllerSnippet(metadata: FeaturePageScaffoldMetadata): string {
-  switch (metadata.template) {
-    case "list":
-      return `{\n      initialState: {},\n    }`;
-    case "detail":
-      return `{\n      initialState: {},\n    }`;
-    case "form":
-      return `{\n      initialState: {},\n    }`;
-    case "profile":
-      return `{\n      initialState: {},\n    }`;
-    default:
-      return `{\n      initialState: {},\n    }`;
+function createControllerSnippet(
+  page: PageNames,
+  metadata: FeaturePageScaffoldMetadata,
+  routeKeys: Set<string>,
+): string {
+  const lines = ["{"];
+
+  function addRouteOption(optionKey: string, routeKey: string | undefined, fallbackRouteKey: string) {
+    if (!metadata.controllerOptionKeys.has(optionKey)) {
+      return;
+    }
+
+    if (routeKey) {
+      lines.push(`      ${optionKey}: APP_ROUTE_IDS.${routeKey},`);
+      return;
+    }
+
+    lines.push(`      // ${optionKey}: APP_ROUTE_IDS.${fallbackRouteKey},`);
   }
+
+  addRouteOption(
+    "detailRouteId",
+    routeKeys.has(`${page.key}Detail`) ? `${page.key}Detail` : routeKeys.has("detail") ? "detail" : undefined,
+    `${page.key}Detail`,
+  );
+  addRouteOption("loginRouteId", routeKeys.has("login") ? "login" : undefined, "login");
+  addRouteOption("settingsRouteId", routeKeys.has("settings") ? "settings" : undefined, "settings");
+  addRouteOption("overviewRouteId", routeKeys.has("overview") ? "overview" : undefined, "overview");
+  addRouteOption("successRouteId", routeKeys.has("success") ? "success" : undefined, "success");
+  addRouteOption("cancelRouteId", routeKeys.has("cancel") ? "cancel" : undefined, "cancel");
+
+  if (metadata.controllerOptionKeys.has("initialState")) {
+    lines.push("      initialState: {},");
+  }
+
+  lines.push("    }");
+  return lines.join("\n");
 }
 
 async function detectFeaturePageScaffoldMetadata(
@@ -309,6 +364,12 @@ async function detectFeaturePageScaffoldMetadata(
 ): Promise<FeaturePageScaffoldMetadata> {
   const featureManifestSource = await readFileIfExists(path.join(featureDir, "src", "feature.manifest.ts"));
   const modelSource = await readFileIfExists(path.join(featureDir, "src", "model", "index.ts"));
+  const featureManifestModule = featureManifestSource
+    ? parseTypeScriptModule(path.join(featureDir, "src", "feature.manifest.ts"), featureManifestSource)
+    : null;
+  const controllerOptionsInterface = featureManifestModule
+    ? findInterfaceDeclaration(featureManifestModule, `${feature.pascal}FeatureControllerOptions`)
+    : null;
 
   const templateMatch = featureManifestSource?.match(/template:\s*"(?<template>generic|list|detail|form|profile)"/);
   const pageDataExportMatch =
@@ -321,6 +382,7 @@ async function detectFeaturePageScaffoldMetadata(
     pageDataFactoryName,
     pageDataFactoryKind: pageDataFactoryName.startsWith("createDefault") ? "default" : "initial",
     template: (templateMatch?.groups?.template as FeatureTemplate | undefined) ?? "generic",
+    controllerOptionKeys: getInterfacePropertyNames(controllerOptionsInterface),
   };
 }
 
@@ -347,18 +409,20 @@ function createWechatPageDefinitionSnippet(
   feature: { camel: string; pascal: string },
   registrationModule: string,
   metadata: FeaturePageScaffoldMetadata,
+  routeKeys: Set<string>,
 ): string {
   const enablePullDownRefresh = metadata.template === "list" ? `\n    enablePullDownRefresh: true,` : "";
-  return `  ${page.key}: {\n    feature: ${feature.camel}FeatureManifest,\n    routeId: APP_ROUTE_IDS.${page.key},\n    routePath: "/pages/${page.key}/index",\n    pageData: ${createDefaultPageDataExpression(page, metadata)},\n    controller: ${createControllerSnippet(metadata)},\n    miniprogramPage: "pages/${page.key}/index",\n    registrationModule: "${registrationModule}",\n    navigationBarTitleText: "${page.title}",${enablePullDownRefresh}\n    shellTemplate: "generic",\n    shellStyle: "generic",\n  },\n`;
+  return `  ${page.key}: {\n    feature: ${feature.camel}FeatureManifest,\n    routeId: APP_ROUTE_IDS.${page.key},\n    routePath: "/pages/${page.key}/index",\n    pageData: ${createDefaultPageDataExpression(page, metadata)},\n    controller: ${createControllerSnippet(page, metadata, routeKeys)},\n    miniprogramPage: "pages/${page.key}/index",\n    registrationModule: "${registrationModule}",\n    navigationBarTitleText: "${page.title}",${enablePullDownRefresh}\n    shellTemplate: "generic",\n    shellStyle: "generic",\n  },\n`;
 }
 
 function createH5PageDefinitionSnippet(
   page: PageNames,
   feature: { camel: string; pascal: string },
   metadata: FeaturePageScaffoldMetadata,
+  routeKeys: Set<string>,
 ): string {
   const routePath = metadata.template === "detail" ? `/${page.key}/:id` : `/${page.key}`;
-  return `  ${page.key}: {\n    feature: ${feature.camel}FeatureManifest,\n    routeId: APP_ROUTE_IDS.${page.key},\n    routePath: "${routePath}",\n    pageData: ${createDefaultPageDataExpression(page, metadata)},\n    controller: ${createControllerSnippet(metadata)},\n    renderMode: "generic",\n  },\n`;
+  return `  ${page.key}: {\n    feature: ${feature.camel}FeatureManifest,\n    routeId: APP_ROUTE_IDS.${page.key},\n    routePath: "${routePath}",\n    pageData: ${createDefaultPageDataExpression(page, metadata)},\n    controller: ${createControllerSnippet(page, metadata, routeKeys)},\n    renderMode: "generic",\n  },\n`;
 }
 
 function createHostShellRegistrationSource(hostName: string, page: PageNames): string {
@@ -423,7 +487,11 @@ export async function scaffoldHostPage(options: ScaffoldHostPageOptions) {
   const routeContractPath = path.join(repoRoot, repoSpec.host_wiring.route_contract.module);
 
   const routeContractSource = await readFile(routeContractPath, "utf8");
-  await writeFile(routeContractPath, updateRouteContract(routeContractPath, routeContractSource, page.key, routeId), "utf8");
+  const nextRouteContractSource = updateRouteContract(routeContractPath, routeContractSource, page.key, routeId);
+  const routeKeys = getObjectLiteralPropertyNames(
+    findConstObjectLiteral(parseTypeScriptModule(routeContractPath, nextRouteContractSource), "APP_ROUTE_IDS"),
+  );
+  await writeFile(routeContractPath, nextRouteContractSource, "utf8");
 
   for (const hostSpec of hostSpecs) {
     const sourcePath = resolveHostFile(hostSpec, hostSpec.manifest.source_module);
@@ -436,8 +504,14 @@ export async function scaffoldHostPage(options: ScaffoldHostPageOptions) {
     );
     const nextEntry =
       hostSpec.miniprogram.page_mode === "required_aligned"
-        ? createWechatPageDefinitionSnippet(page, feature, createRegistrationModuleSpecifier(hostSpec, page.key), featureMetadata)
-        : createH5PageDefinitionSnippet(page, feature, featureMetadata);
+        ? createWechatPageDefinitionSnippet(
+            page,
+            feature,
+            createRegistrationModuleSpecifier(hostSpec, page.key),
+            featureMetadata,
+            routeKeys,
+          )
+        : createH5PageDefinitionSnippet(page, feature, featureMetadata, routeKeys);
     const nextSource = updateHostPageDefinitions(
       sourcePath,
       withImport,
