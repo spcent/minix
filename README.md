@@ -220,6 +220,8 @@ pnpm verify:host novel-h5
 pnpm verify:host novel-wechat
 ```
 
+`scaffold:page` now derives default host page data, route shape, and page wiring from the feature package when the feature exposes scaffold template metadata.
+
 ## Editing Rules
 
 - Shared code must not call `wx.*` or `window.*` directly.

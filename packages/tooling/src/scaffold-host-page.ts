@@ -4,7 +4,7 @@ import ts from "typescript";
 
 import { syncHostManifestGeneratedFiles } from "./host-manifest-compiler";
 import { syncHostWechatShellFiles } from "./host-wechat-shells";
-import { normalizeFeatureName } from "./scaffold-feature";
+import { normalizeFeatureName, type FeatureTemplate } from "./scaffold-feature";
 import {
   type RepoSpecHostApp,
   loadRepoSpec,
@@ -25,6 +25,12 @@ interface PageNames {
   key: string;
   pascal: string;
   title: string;
+}
+
+interface FeaturePageScaffoldMetadata {
+  pageDataFactoryName: string;
+  pageDataFactoryKind: "initial" | "default";
+  template: FeatureTemplate;
 }
 
 function toPascalFromKey(value: string): string {
@@ -55,6 +61,14 @@ async function exists(targetPath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function readFileIfExists(targetPath: string): Promise<string | null> {
+  if (!(await exists(targetPath))) {
+    return null;
+  }
+
+  return readFile(targetPath, "utf8");
 }
 
 function parseTypeScriptModule(filePath: string, source: string): ts.SourceFile {
@@ -211,6 +225,105 @@ function updateHostManifestImport(sourcePath: string, source: string, feature: {
   return `${source.slice(0, insertionIndex)}${importLine}${source.slice(insertionIndex)}`;
 }
 
+function updateHostManifestImportSpecifiers(
+  sourcePath: string,
+  source: string,
+  feature: { kebab: string; camel: string; pascal: string },
+  pageDataFactoryName: string,
+): string {
+  const sourceFile = parseTypeScriptModule(sourcePath, source);
+  const moduleSpecifier = `@minix/feature-${feature.kebab}`;
+  const requiredSpecifiers = [pageDataFactoryName, `${feature.camel}FeatureManifest`];
+
+  for (const statement of sourceFile.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) {
+      continue;
+    }
+
+    if (statement.moduleSpecifier.text !== moduleSpecifier) {
+      continue;
+    }
+
+    const namedBindings = statement.importClause?.namedBindings;
+    if (!namedBindings || !ts.isNamedImports(namedBindings)) {
+      throw new Error(`Feature import "${moduleSpecifier}" must use named imports`);
+    }
+
+    const existingSpecifiers = new Set(namedBindings.elements.map((element) => element.name.text));
+    const missingSpecifiers = requiredSpecifiers.filter((specifier) => !existingSpecifiers.has(specifier));
+    if (missingSpecifiers.length === 0) {
+      return source;
+    }
+
+    const insertionIndex = namedBindings.getEnd() - 1;
+    const separator = namedBindings.elements.length === 0 ? "" : ", ";
+    return `${source.slice(0, insertionIndex)}${separator}${missingSpecifiers.join(", ")}${source.slice(insertionIndex)}`;
+  }
+
+  const lastImport = [...sourceFile.statements].reverse().find((statement) => ts.isImportDeclaration(statement));
+  const insertionIndex = lastImport ? lastImport.getEnd() : 0;
+  const importLine = `\nimport { ${requiredSpecifiers.join(", ")} } from "${moduleSpecifier}";`;
+  return `${source.slice(0, insertionIndex)}${importLine}${source.slice(insertionIndex)}`;
+}
+
+function createDefaultPageDataExpression(
+  page: PageNames,
+  metadata: FeaturePageScaffoldMetadata,
+): string {
+  if (metadata.pageDataFactoryKind === "initial") {
+    return `${metadata.pageDataFactoryName}()`;
+  }
+
+  switch (metadata.template) {
+    case "list":
+      return `${metadata.pageDataFactoryName}({\n      title: "${page.title}",\n      subtitle: "${page.title} workspace",\n      pageSize: 20,\n      emptyText: "No ${page.key} items are available yet.",\n    })`;
+    case "detail":
+      return `${metadata.pageDataFactoryName}({\n      title: "${page.title}",\n      subtitle: "${page.title} detail workspace",\n    })`;
+    case "form":
+      return `${metadata.pageDataFactoryName}({\n      title: "${page.title}",\n      subtitle: "${page.title} form workspace",\n    })`;
+    case "profile":
+      return `${metadata.pageDataFactoryName}({\n      title: "${page.title}",\n      subtitle: "${page.title} profile workspace",\n    })`;
+    default:
+      return `${metadata.pageDataFactoryName}({\n      title: "${page.title}",\n      subtitle: "${page.title} workspace",\n    })`;
+  }
+}
+
+function createControllerSnippet(metadata: FeaturePageScaffoldMetadata): string {
+  switch (metadata.template) {
+    case "list":
+      return `{\n      initialState: {},\n    }`;
+    case "detail":
+      return `{\n      initialState: {},\n    }`;
+    case "form":
+      return `{\n      initialState: {},\n    }`;
+    case "profile":
+      return `{\n      initialState: {},\n    }`;
+    default:
+      return `{\n      initialState: {},\n    }`;
+  }
+}
+
+async function detectFeaturePageScaffoldMetadata(
+  featureDir: string,
+  feature: { pascal: string },
+): Promise<FeaturePageScaffoldMetadata> {
+  const featureManifestSource = await readFileIfExists(path.join(featureDir, "src", "feature.manifest.ts"));
+  const modelSource = await readFileIfExists(path.join(featureDir, "src", "model", "index.ts"));
+
+  const templateMatch = featureManifestSource?.match(/template:\s*"(?<template>generic|list|detail|form|profile)"/);
+  const pageDataExportMatch =
+    featureManifestSource?.match(/export\s*\{\s*(?<factory>create(?:Default|Initial)[A-Za-z0-9]+(?:State|PageModel))\s*\}/) ??
+    modelSource?.match(/export function (?<factory>create(?:Default|Initial)[A-Za-z0-9]+(?:State|PageModel))/);
+
+  const pageDataFactoryName = pageDataExportMatch?.groups?.factory ?? `createInitial${feature.pascal}State`;
+
+  return {
+    pageDataFactoryName,
+    pageDataFactoryKind: pageDataFactoryName.startsWith("createDefault") ? "default" : "initial",
+    template: (templateMatch?.groups?.template as FeatureTemplate | undefined) ?? "generic",
+  };
+}
+
 function updateHostPageDefinitions(
   sourcePath: string,
   source: string,
@@ -233,15 +346,19 @@ function createWechatPageDefinitionSnippet(
   page: PageNames,
   feature: { camel: string; pascal: string },
   registrationModule: string,
+  metadata: FeaturePageScaffoldMetadata,
 ): string {
-  return `  ${page.key}: {\n    feature: ${feature.camel}FeatureManifest,\n    routeId: APP_ROUTE_IDS.${page.key},\n    routePath: "/pages/${page.key}/index",\n    pageData: createInitial${feature.pascal}State(),\n    controller: {\n      initialState: {},\n    },\n    miniprogramPage: "pages/${page.key}/index",\n    registrationModule: "${registrationModule}",\n    navigationBarTitleText: "${page.title}",\n    shellTemplate: "generic",\n    shellStyle: "generic",\n  },\n`;
+  const enablePullDownRefresh = metadata.template === "list" ? `\n    enablePullDownRefresh: true,` : "";
+  return `  ${page.key}: {\n    feature: ${feature.camel}FeatureManifest,\n    routeId: APP_ROUTE_IDS.${page.key},\n    routePath: "/pages/${page.key}/index",\n    pageData: ${createDefaultPageDataExpression(page, metadata)},\n    controller: ${createControllerSnippet(metadata)},\n    miniprogramPage: "pages/${page.key}/index",\n    registrationModule: "${registrationModule}",\n    navigationBarTitleText: "${page.title}",${enablePullDownRefresh}\n    shellTemplate: "generic",\n    shellStyle: "generic",\n  },\n`;
 }
 
 function createH5PageDefinitionSnippet(
   page: PageNames,
   feature: { camel: string; pascal: string },
+  metadata: FeaturePageScaffoldMetadata,
 ): string {
-  return `  ${page.key}: {\n    feature: ${feature.camel}FeatureManifest,\n    routeId: APP_ROUTE_IDS.${page.key},\n    routePath: "/${page.key}",\n    pageData: createInitial${feature.pascal}State(),\n    controller: {\n      initialState: {},\n    },\n    renderMode: "generic",\n  },\n`;
+  const routePath = metadata.template === "detail" ? `/${page.key}/:id` : `/${page.key}`;
+  return `  ${page.key}: {\n    feature: ${feature.camel}FeatureManifest,\n    routeId: APP_ROUTE_IDS.${page.key},\n    routePath: "${routePath}",\n    pageData: ${createDefaultPageDataExpression(page, metadata)},\n    controller: ${createControllerSnippet(metadata)},\n    renderMode: "generic",\n  },\n`;
 }
 
 function createHostShellRegistrationSource(hostName: string, page: PageNames): string {
@@ -289,7 +406,6 @@ export async function scaffoldHostPage(options: ScaffoldHostPageOptions) {
   const repoSpec = await loadRepoSpec(repoRoot);
   const feature = normalizeFeatureName(options.featureName);
   const page = normalizePageKey(options.pageKey);
-  const routeId = options.routeId ?? `${feature.kebab}.index`;
   const featureDir = path.join(repoRoot, "packages", "features", feature.kebab);
   const hostSpecs = Object.entries(repoSpec.host_wiring.hosts).map(([name, hostSpec]) => ({
     name,
@@ -301,6 +417,9 @@ export async function scaffoldHostPage(options: ScaffoldHostPageOptions) {
     throw new Error(`Feature package does not exist: packages/features/${feature.kebab}`);
   }
 
+  const featureMetadata = await detectFeaturePageScaffoldMetadata(featureDir, feature);
+  const routeId = options.routeId ?? `${feature.kebab}.${featureMetadata.template === "detail" ? "detail" : "index"}`;
+
   const routeContractPath = path.join(repoRoot, repoSpec.host_wiring.route_contract.module);
 
   const routeContractSource = await readFile(routeContractPath, "utf8");
@@ -309,11 +428,16 @@ export async function scaffoldHostPage(options: ScaffoldHostPageOptions) {
   for (const hostSpec of hostSpecs) {
     const sourcePath = resolveHostFile(hostSpec, hostSpec.manifest.source_module);
     const sourceText = await readFile(sourcePath, "utf8");
-    const withImport = updateHostManifestImport(sourcePath, sourceText, feature);
+    const withImport = updateHostManifestImportSpecifiers(
+      sourcePath,
+      sourceText,
+      feature,
+      featureMetadata.pageDataFactoryName,
+    );
     const nextEntry =
       hostSpec.miniprogram.page_mode === "required_aligned"
-        ? createWechatPageDefinitionSnippet(page, feature, createRegistrationModuleSpecifier(hostSpec, page.key))
-        : createH5PageDefinitionSnippet(page, feature);
+        ? createWechatPageDefinitionSnippet(page, feature, createRegistrationModuleSpecifier(hostSpec, page.key), featureMetadata)
+        : createH5PageDefinitionSnippet(page, feature, featureMetadata);
     const nextSource = updateHostPageDefinitions(
       sourcePath,
       withImport,

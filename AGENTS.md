@@ -60,6 +60,8 @@ pnpm gen:manifests
 pnpm gen:shells
 ```
 
+`scaffold:page` should be preferred after `scaffold:feature` because it can now reuse the feature's scaffold template and default page-data factory when present.
+
 ## Validation
 
 Run after code changes:

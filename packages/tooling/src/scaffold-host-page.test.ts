@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { scaffoldFeature } from "./scaffold-feature";
 import { scaffoldHostPage } from "./scaffold-host-page";
 import { writeDefaultRepoSpec, writeTempFile } from "./test-helpers";
 
@@ -95,6 +96,127 @@ test("scaffoldHostPage reuses an existing feature import without duplicating it"
     assert.equal(wechatSource.match(/@minix\/feature-auth/g)?.length, 1);
     assert.match(h5Source, /relogin: \{/);
     assert.match(wechatSource, /relogin: \{/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("scaffoldHostPage uses detected feature template metadata for list-shaped pages", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "minix-host-page-scaffold-template-list-"));
+
+  try {
+    await writeDefaultRepoSpec(tempRoot);
+    await writeTempFile(
+      tempRoot,
+      "tsconfig.base.json",
+      `${JSON.stringify(
+        {
+          compilerOptions: {
+            paths: {
+              "@minix/contracts": ["packages/contracts/src"],
+              "@minix/core": ["packages/core/src"],
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    await writeTempFile(
+      tempRoot,
+      "packages/contracts/src/routes/app.ts",
+      `export const APP_ROUTE_IDS = {\n  login: "auth.login",\n} as const;\n`,
+    );
+    await writeTempFile(
+      tempRoot,
+      "apps/host-h5/src/manifest/page-definitions.ts",
+      `import { APP_ROUTE_IDS } from "@minix/contracts";\nimport { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags } from "@minix/core";\n\nexport const hostH5FeatureFlags = defineHostFeatureFlags({\n  ...loadFeatureFlags(),\n  enableAutoLogin: false,\n});\n\nexport const hostH5PageDefinitions = defineHostPageDefinitions({\n});\n`,
+    );
+    await writeTempFile(
+      tempRoot,
+      "apps/host-wechat/src/manifest/page-definitions.ts",
+      `import { APP_ROUTE_IDS } from "@minix/contracts";\nimport { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags } from "@minix/core";\n\nexport const hostWechatFeatureFlags = defineHostFeatureFlags({\n  ...loadFeatureFlags(),\n  enableAutoLogin: false,\n});\n\nexport const hostWechatPageDefinitions = defineHostPageDefinitions({\n});\n`,
+    );
+
+    await scaffoldFeature({
+      featureName: "article-feed",
+      template: "list",
+      repoRoot: tempRoot,
+    });
+
+    await scaffoldHostPage({
+      featureName: "article-feed",
+      pageKey: "articles",
+      repoRoot: tempRoot,
+      skipSync: true,
+    });
+
+    const h5Source = await readFile(path.join(tempRoot, "apps/host-h5/src/manifest/page-definitions.ts"), "utf8");
+    const wechatSource = await readFile(path.join(tempRoot, "apps/host-wechat/src/manifest/page-definitions.ts"), "utf8");
+
+    assert.match(h5Source, /createDefaultArticleFeedState/);
+    assert.match(h5Source, /pageData: createDefaultArticleFeedState\(\{/);
+    assert.match(h5Source, /emptyText: "No articles items are available yet."/);
+    assert.match(wechatSource, /enablePullDownRefresh: true/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("scaffoldHostPage uses detail route shape for detail templates", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "minix-host-page-scaffold-template-detail-"));
+
+  try {
+    await writeDefaultRepoSpec(tempRoot);
+    await writeTempFile(
+      tempRoot,
+      "tsconfig.base.json",
+      `${JSON.stringify(
+        {
+          compilerOptions: {
+            paths: {
+              "@minix/contracts": ["packages/contracts/src"],
+              "@minix/core": ["packages/core/src"],
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    await writeTempFile(
+      tempRoot,
+      "packages/contracts/src/routes/app.ts",
+      `export const APP_ROUTE_IDS = {\n  login: "auth.login",\n} as const;\n`,
+    );
+    await writeTempFile(
+      tempRoot,
+      "apps/host-h5/src/manifest/page-definitions.ts",
+      `import { APP_ROUTE_IDS } from "@minix/contracts";\nimport { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags } from "@minix/core";\n\nexport const hostH5FeatureFlags = defineHostFeatureFlags({\n  ...loadFeatureFlags(),\n  enableAutoLogin: false,\n});\n\nexport const hostH5PageDefinitions = defineHostPageDefinitions({\n});\n`,
+    );
+    await writeTempFile(
+      tempRoot,
+      "apps/host-wechat/src/manifest/page-definitions.ts",
+      `import { APP_ROUTE_IDS } from "@minix/contracts";\nimport { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags } from "@minix/core";\n\nexport const hostWechatFeatureFlags = defineHostFeatureFlags({\n  ...loadFeatureFlags(),\n  enableAutoLogin: false,\n});\n\nexport const hostWechatPageDefinitions = defineHostPageDefinitions({\n});\n`,
+    );
+
+    await scaffoldFeature({
+      featureName: "article-detail",
+      template: "detail",
+      repoRoot: tempRoot,
+    });
+
+    const result = await scaffoldHostPage({
+      featureName: "article-detail",
+      pageKey: "articleDetail",
+      repoRoot: tempRoot,
+      skipSync: true,
+    });
+
+    assert.equal(result.routeId, "article-detail.detail");
+    const h5Source = await readFile(path.join(tempRoot, "apps/host-h5/src/manifest/page-definitions.ts"), "utf8");
+    assert.match(h5Source, /routePath: "\/articleDetail\/:id"/);
+    assert.match(h5Source, /createDefaultArticleDetailState/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
