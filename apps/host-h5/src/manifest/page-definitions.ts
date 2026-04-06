@@ -96,6 +96,16 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "overview",
     },
+    guardPolicy: {
+      name: "authenticated-overview",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    requiredCapabilities: [{ capability: "device" }],
+    featureConfig: {
+      landingVariant: "overview",
+    },
     renderMode: "custom",
   },
   items: {
@@ -114,6 +124,17 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "plan",
     },
+    guardPolicy: {
+      name: "authenticated-plan",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    requiredCapabilities: [{ capability: "device" }],
+    featureConfig: {
+      experience: "daily-plan",
+      showCompletionSummary: true,
+    },
     renderMode: "custom",
   },
   settings: {
@@ -126,6 +147,16 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       overviewRouteId: APP_ROUTE_IDS.overview,
       authRedirectSource: "preferences",
       showErrorToast: false,
+    },
+    guardPolicy: {
+      name: "authenticated-settings",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    requiredCapabilities: [{ capability: "clipboard" }],
+    featureConfig: {
+      sectionDensity: "comfortable",
     },
     renderMode: "custom",
   },

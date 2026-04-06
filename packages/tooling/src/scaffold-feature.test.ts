@@ -39,6 +39,7 @@ test("scaffoldFeature creates a feature package and tsconfig alias", async () =>
       dependencies: Record<string, string>;
     };
     assert.equal(packageJson.name, "@minix/feature-user-profile");
+    assert.equal(packageJson.dependencies["@minix/contracts"], "workspace:*");
     assert.equal(packageJson.dependencies["@minix/core"], "workspace:*");
 
     const controllerFile = await readFile(path.join(result.featureDir, "src", "controller", "index.ts"), "utf8");
@@ -46,6 +47,9 @@ test("scaffoldFeature creates a feature package and tsconfig alias", async () =>
     const manifestFile = await readFile(path.join(result.featureDir, "src", "feature.manifest.ts"), "utf8");
     assert.match(manifestFile, /userProfileFeatureManifest/);
     assert.match(manifestFile, /createInitialUserProfileState/);
+    assert.match(manifestFile, /userProfileCapabilityRequirements/);
+    assert.match(manifestFile, /userProfileGuardPolicy/);
+    assert.match(manifestFile, /userProfileFeatureConfig/);
 
     const tsconfig = JSON.parse(await readFile(path.join(tempRoot, "tsconfig.base.json"), "utf8")) as {
       compilerOptions: {

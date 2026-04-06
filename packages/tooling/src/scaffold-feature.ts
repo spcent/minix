@@ -69,7 +69,8 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
 }
 
 function featureManifestSource(names: FeatureNames): string {
-  return `import { defineFeatureManifest, type AppKernel } from "@minix/core";
+  return `import type { CapabilityRequirement, GuardPolicy } from "@minix/contracts";
+import { defineFeatureManifest, type AppKernel, type FeatureConfig } from "@minix/core";
 
 import { create${names.pascal}Controller } from "./controller";
 import { createInitial${names.pascal}State, type ${names.pascal}State } from "./model";
@@ -77,6 +78,10 @@ import { createInitial${names.pascal}State, type ${names.pascal}State } from "./
 export interface ${names.pascal}FeatureControllerOptions {
   initialState?: Partial<${names.pascal}State>;
 }
+
+export const ${names.camel}CapabilityRequirements: CapabilityRequirement[] = [];
+export const ${names.camel}GuardPolicy: GuardPolicy | undefined = undefined;
+export const ${names.camel}FeatureConfig: FeatureConfig = {};
 
 export const ${names.camel}FeatureManifest = defineFeatureManifest<
   ${names.pascal}FeatureControllerOptions,
@@ -165,6 +170,7 @@ function packageJsonSource(names: FeatureNames): string {
       main: "src/index.ts",
       types: "src/index.ts",
       dependencies: {
+        "@minix/contracts": "workspace:*",
         "@minix/core": "workspace:*",
       },
     },

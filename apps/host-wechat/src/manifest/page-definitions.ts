@@ -108,6 +108,16 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "overview",
     },
+    guardPolicy: {
+      name: "authenticated-overview",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    requiredCapabilities: [{ capability: "device" }],
+    featureConfig: {
+      landingVariant: "overview",
+    },
     miniprogramPage: "pages/overview/index",
     registrationModule: "../../../src/registrations/wechat/pages/overview",
     navigationBarTitleText: "Overview",
@@ -129,6 +139,17 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       overviewRouteId: APP_ROUTE_IDS.overview,
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "plan",
+    },
+    guardPolicy: {
+      name: "authenticated-plan",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    requiredCapabilities: [{ capability: "device" }],
+    featureConfig: {
+      experience: "daily-plan",
+      showCompletionSummary: true,
     },
     miniprogramPage: "pages/items/index",
     registrationModule: "../../../src/registrations/wechat/pages/items",
@@ -158,6 +179,16 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
         icon: "success",
       },
       showErrorToast: true,
+    },
+    guardPolicy: {
+      name: "authenticated-settings",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    requiredCapabilities: [{ capability: "clipboard" }],
+    featureConfig: {
+      sectionDensity: "comfortable",
     },
     miniprogramPage: "pages/settings/index",
     registrationModule: "../../../src/registrations/wechat/pages/settings",

@@ -31,6 +31,9 @@
       "@minix/tooling": [
         "packages/tooling/src"
       ],
+      "@minix/feature-account": [
+        "packages/features/account/src"
+      ],
       "@minix/feature-auth": [
         "packages/features/auth/src"
       ],

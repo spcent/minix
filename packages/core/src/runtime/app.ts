@@ -1,6 +1,16 @@
 import { createCacheService } from "../store/cache";
 import type { CacheService } from "../store/cache";
-import type { AuthAdapter, RequestAdapter, RouterAdapter, StorageAdapter, UIAdapter } from "../ports/index";
+import type {
+  AuthAdapter,
+  CapabilityAdapter,
+  ConfigAdapter,
+  LifecycleAdapter,
+  RequestAdapter,
+  RouterAdapter,
+  StorageAdapter,
+  TelemetryAdapter,
+  UIAdapter,
+} from "../ports/index";
 import type { FeatureFlags, RuntimeEnv } from "../types/index";
 
 import { createAuthService, type AuthService } from "./auth";
@@ -14,6 +24,10 @@ export interface PlatformAdapters {
   auth: AuthAdapter;
   router: RouterAdapter;
   ui: UIAdapter;
+  capability?: CapabilityAdapter;
+  config?: ConfigAdapter;
+  lifecycle?: LifecycleAdapter;
+  telemetry?: TelemetryAdapter;
 }
 
 export interface CreateAppKernelOptions {
@@ -32,6 +46,10 @@ export interface AppKernel {
   auth: AuthService;
   router: RouterService;
   ui: UIAdapter;
+  capability?: CapabilityAdapter;
+  config?: ConfigAdapter;
+  lifecycle?: LifecycleAdapter;
+  telemetry?: TelemetryAdapter;
 }
 
 export function loadFeatureFlags(): FeatureFlags {
@@ -71,6 +89,10 @@ export function createAppKernel(options: CreateAppKernelOptions): AppKernel {
     auth,
     router,
     ui: options.adapters.ui,
+    ...(options.adapters.capability ? { capability: options.adapters.capability } : {}),
+    ...(options.adapters.config ? { config: options.adapters.config } : {}),
+    ...(options.adapters.lifecycle ? { lifecycle: options.adapters.lifecycle } : {}),
+    ...(options.adapters.telemetry ? { telemetry: options.adapters.telemetry } : {}),
   };
 }
 

@@ -1,7 +1,7 @@
-import type { AppRouteId, AppRouteMap } from "@minix/contracts";
+import { CAPABILITY_KINDS, type AppRouteId, type AppRouteMap, type CapabilityRequirement, type GuardPolicy } from "@minix/contracts";
 
 import type { AppKernel } from "./app";
-import type { FeatureFlags } from "../types/index";
+import type { FeatureConfig, FeatureFlags } from "../types/index";
 
 export type HostKind = "wechat" | "h5";
 
@@ -74,6 +74,9 @@ export interface HostPageDefinition<
   routePath: string;
   controller: TControllerOptions;
   pageData: TPageData;
+  requiredCapabilities?: CapabilityRequirement[];
+  guardPolicy?: GuardPolicy;
+  featureConfig?: FeatureConfig;
   renderMode?: "custom" | "generic";
   miniprogramPage?: string;
   registrationModule?: string;
@@ -96,6 +99,8 @@ function assertNonEmptyString(value: unknown, label: string): asserts value is s
 }
 
 function assertHostPageDefinition(pageKey: string, definition: HostPageDefinition) {
+  const validCapabilities = new Set<string>(CAPABILITY_KINDS);
+
   assertNonEmptyString(definition.routeId, `page "${pageKey}" routeId`);
   assertNonEmptyString(definition.routePath, `page "${pageKey}" routePath`);
 
@@ -123,6 +128,30 @@ function assertHostPageDefinition(pageKey: string, definition: HostPageDefinitio
   const hasShellStyle = typeof definition.shellStyle === "string";
   if (hasShellTemplate !== hasShellStyle) {
     throw new Error(`page "${pageKey}" shellTemplate and shellStyle must be configured together`);
+  }
+
+  if (definition.requiredCapabilities !== undefined) {
+    if (!Array.isArray(definition.requiredCapabilities)) {
+      throw new Error(`page "${pageKey}" requiredCapabilities must be an array when provided`);
+    }
+
+    for (const requirement of definition.requiredCapabilities) {
+      if (!requirement || typeof requirement !== "object") {
+        throw new Error(`page "${pageKey}" requiredCapabilities entries must be objects`);
+      }
+
+      if (typeof requirement.capability !== "string" || !validCapabilities.has(requirement.capability)) {
+        throw new Error(`page "${pageKey}" requiredCapabilities contains unknown capability "${String(requirement.capability)}"`);
+      }
+    }
+  }
+
+  if (definition.guardPolicy !== undefined && (typeof definition.guardPolicy !== "object" || definition.guardPolicy === null)) {
+    throw new Error(`page "${pageKey}" guardPolicy must be an object when provided`);
+  }
+
+  if (definition.featureConfig !== undefined && (typeof definition.featureConfig !== "object" || definition.featureConfig === null || Array.isArray(definition.featureConfig))) {
+    throw new Error(`page "${pageKey}" featureConfig must be an object when provided`);
   }
 }
 

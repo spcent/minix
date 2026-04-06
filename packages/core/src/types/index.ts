@@ -1,3 +1,12 @@
+import type {
+  CapabilityKind,
+  ConfigValue,
+  FeatureConfig as ContractFeatureConfig,
+  FeatureConfigMap as ContractFeatureConfigMap,
+  TelemetryAttributeMap,
+  TelemetryLevel,
+} from "@minix/contracts";
+
 export type PlatformKind = "wechat" | "h5";
 
 export interface SessionToken {
@@ -39,6 +48,37 @@ export interface FeatureFlags {
   enableAutoLogin: boolean;
   enableRouteGuard: boolean;
 }
+
+export type FeatureConfig = ContractFeatureConfig;
+export type FeatureConfigMap = ContractFeatureConfigMap;
+
+export interface UserContext {
+  userId: string;
+  platform: PlatformKind;
+  loggedIn: boolean;
+  tenantId?: string;
+  roles?: string[];
+  permissions?: string[];
+  profile?: UserProfile;
+}
+
+export interface AppContext {
+  env: RuntimeEnv;
+  user?: UserContext;
+  featureConfig?: FeatureConfigMap;
+  capabilityStatus?: Partial<Record<CapabilityKind, boolean>>;
+  traceId?: string;
+}
+
+export interface TelemetryContext {
+  traceId?: string;
+  sessionId?: string;
+  viewId?: string;
+  level?: TelemetryLevel;
+  attributes?: TelemetryAttributeMap;
+}
+
+export type { ConfigValue };
 
 export interface ToastOptions {
   title: string;

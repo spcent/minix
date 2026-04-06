@@ -63,11 +63,37 @@ test("defineHostPageDefinitions keeps valid definitions unchanged", () => {
       routePath: "/login",
       controller: {},
       pageData: {},
+      requiredCapabilities: [{ capability: "device" }],
+      guardPolicy: {
+        requirements: {
+          authenticated: false,
+        },
+      },
+      featureConfig: {
+        surface: "public",
+      },
       renderMode: "custom",
     },
   });
 
   assert.equal(definitions.login.routePath, "/login");
+});
+
+test("defineHostPageDefinitions rejects unknown required capabilities", () => {
+  assert.throws(
+    () =>
+      defineHostPageDefinitions({
+        login: {
+          feature: testFeatureManifest,
+          routeId: APP_ROUTE_IDS.login,
+          routePath: "/login",
+          controller: {},
+          pageData: {},
+          requiredCapabilities: [{ capability: "unsupported-capability" as "device" }],
+        },
+      }),
+    /unknown capability/,
+  );
 });
 
 test("defineHostPageDefinitions rejects incomplete wechat shell metadata", () => {
