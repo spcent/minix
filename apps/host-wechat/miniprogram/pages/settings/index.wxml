@@ -1,0 +1,50 @@
+<view class="page">
+  <view class="header-menu card profile-menu">
+    <view class="brand-block">
+      <view class="brand-title">Minute English</view>
+      <view class="brand-subtitle">Calmer profile and settings view for study setup, session status, and sign-out</view>
+    </view>
+    <view class="menu-title">Profile Menu</view>
+    <view class="nav-row">
+      <view class="nav-chip">Home</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapOverview">Overview</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapPlan">Today's Plan</view>
+      <view class="nav-chip nav-chip-active">Preferences</view>
+    </view>
+  </view>
+
+  <view class="hero profile-hero">
+    <view class="eyebrow">Learning Profile</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">Review your study goal, pace, and account status for this demo session.</view>
+  </view>
+
+  <view class="card profile-card">
+    <view wx:for="{{sections}}" wx:for-item="section" wx:key="key">
+      <view class="section-title" wx:if="{{section.title}}">{{section.title}}</view>
+      <view wx:for="{{section.items}}" wx:key="key" class="item">
+        <view class="item-title">{{item.label}}</view>
+        <view class="subtitle" wx:if="{{item.value}}">{{item.value}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card profile-actions">
+    <view class="section-title">Session Control</view>
+    <view class="subtitle">Leave this page quiet and utility-focused. Use it for profile review, then move back into overview or today's plan when you are done.</view>
+    <button class="button" bindtap="onTapOverview">Back to Overview</button>
+    <button class="button" bindtap="onTapPlan">Back to Today's Plan</button>
+    <button class="button" type="warn" bindtap="onTapLogout">Sign Out</button>
+  </view>
+
+  <view class="footer-nav card profile-footer">
+    <view class="footer-title">Profile Links</view>
+    <view class="footer-copy">You are reviewing preferences. Use Overview for the dashboard view, or go back to today's plan to keep practicing.</view>
+    <view class="nav-row">
+      <view class="nav-chip">Home</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapOverview">Overview</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapPlan">Today's Plan</view>
+      <view class="nav-chip nav-chip-active">Preferences</view>
+    </view>
+  </view>
+</view>

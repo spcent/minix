@@ -1,0 +1,200 @@
+version: 1
+
+workspace:
+  roots:
+    - apps/*
+    - packages/*
+    - packages/features/*
+  runtime_scope: v0.1
+  release_target: v1.0
+  official_v1_samples:
+    - apps/host-h5
+    - apps/host-wechat
+    - apps/novel-h5
+    - apps/novel-wechat
+  flow:
+    - login
+    - /auth/login
+    - protected/items
+    - settings
+    - logout
+
+package_shapes:
+  feature_workspace:
+    root: packages/features
+    package_pattern: packages/features/<feature-name>
+    required_files:
+      - package.json
+      - src/index.ts
+    notes:
+      - Keep one package per feature area.
+      - Do not create a catch-all shared features package.
+  shared_packages:
+    - packages/contracts
+    - packages/core
+    - packages/platform-wechat
+    - packages/platform-h5
+    - packages/testkit
+    - packages/tooling
+  host_apps:
+    - apps/host-wechat
+    - apps/host-h5
+    - apps/novel-wechat
+    - apps/novel-h5
+  host_apps_notes:
+    - "`host-*` and `novel-*` are both frozen as official `v1.0` sample apps."
+    - "`runtime_scope` continues to describe the narrow proof path currently used by shared host validation."
+    - richer novel routes remain part of the official sample surface without implying that every capability is shared core surface.
+
+host_wiring:
+  route_contract:
+    module: packages/contracts/src/routes/app.ts
+    export: APP_ROUTE_IDS
+  route_source_of_truth:
+    - apps/host-wechat/src/manifest
+    - apps/host-wechat/src/registrations
+    - apps/host-h5/src
+    - apps/novel-wechat/src/manifest
+    - apps/novel-wechat/src/registrations
+    - apps/novel-h5/src
+  generated_artifacts:
+    - apps/host-wechat/miniprogram
+    - apps/novel-wechat/miniprogram
+  hosts:
+    host-h5:
+      dir: apps/host-h5
+      platform: h5
+      manifest:
+        source_module: src/manifest/page-definitions.ts
+        feature_flags_export: hostH5FeatureFlags
+        page_definitions_export: hostH5PageDefinitions
+        app_module: src/manifest/app.manifest.ts
+        app_export: hostH5Manifest
+        page_manifest_module: src/manifest/page-manifest.ts
+        page_manifest_export: hostH5PageManifest
+        page_config_module: src/manifest/page-config.ts
+        page_config_export: hostH5ManifestPages
+        route_map_export: hostH5Routes
+        routes_module: src/manifest/routes.ts
+        routes_export: HOST_H5_ROUTES
+      runtime:
+        platform_package: "@minix/platform-h5"
+        create_adapters_export: createH5Adapters
+        env_module: src/bootstrap/env.ts
+        load_env_export: loadHostH5Env
+        mock_api_module: src/bootstrap/mock-api.ts
+        create_mock_api_export: createHostH5MockApiAdapter
+      registry:
+        page_module: src/registrations/page-registry.ts
+        page_export: hostH5PageRegistryFactories
+      render:
+        custom_mode: custom
+        registry_module: src/render/page-registry.ts
+        registry_export: hostH5PageRenderers
+      miniprogram:
+        page_mode: forbidden
+    host-wechat:
+      dir: apps/host-wechat
+      platform: wechat
+      manifest:
+        source_module: src/manifest/page-definitions.ts
+        feature_flags_export: hostWechatFeatureFlags
+        page_definitions_export: hostWechatPageDefinitions
+        app_module: src/manifest/app.manifest.ts
+        app_export: hostWechatManifest
+        page_manifest_module: src/manifest/page-manifest.ts
+        page_manifest_export: hostWechatPageManifest
+        page_config_module: src/manifest/page-config.ts
+        page_config_export: hostWechatManifestPages
+        route_map_export: hostWechatRoutes
+        routes_module: src/manifest/routes.ts
+        routes_export: HOST_WECHAT_ROUTES
+        miniprogram_pages_module: src/manifest/page-manifest.ts
+        miniprogram_pages_export: HOST_WECHAT_MINIPROGRAM_PAGES
+      runtime:
+        platform_package: "@minix/platform-wechat"
+        create_adapters_export: createWechatAdapters
+        env_module: src/bootstrap/env.ts
+        load_env_export: loadHostWechatEnv
+        mock_api_module: src/bootstrap/mock-api.ts
+        create_mock_api_export: createHostWechatMockApiAdapter
+      registry:
+        page_module: src/registrations/page-registry.ts
+        page_export: hostWechatPageRegistryFactories
+        shell_module: src/registrations/wechat/page-registry.ts
+        shell_export: hostWechatShellPageRegistry
+        shell_pages_dir: src/registrations/wechat/pages
+      miniprogram:
+        page_mode: required_aligned
+        pages_dir: miniprogram/pages
+    novel-h5:
+      dir: apps/novel-h5
+      platform: h5
+      manifest:
+        source_module: src/manifest/page-definitions.ts
+        feature_flags_export: novelH5FeatureFlags
+        page_definitions_export: novelH5PageDefinitions
+        app_module: src/manifest/app.manifest.ts
+        app_export: novelH5Manifest
+        page_manifest_module: src/manifest/page-manifest.ts
+        page_manifest_export: novelH5PageManifest
+        page_config_module: src/manifest/page-config.ts
+        page_config_export: novelH5ManifestPages
+        route_map_export: novelH5Routes
+        routes_module: src/manifest/routes.ts
+        routes_export: NOVEL_H5_ROUTES
+      runtime:
+        platform_package: "@minix/platform-h5"
+        create_adapters_export: createH5Adapters
+        env_module: src/bootstrap/env.ts
+        load_env_export: loadNovelH5Env
+        mock_api_module: src/bootstrap/mock-api.ts
+        create_mock_api_export: createNovelH5MockApiAdapter
+      registry:
+        page_module: src/registrations/page-registry.ts
+        page_export: novelH5PageRegistryFactories
+      render:
+        custom_mode: custom
+        registry_module: src/render/page-registry.ts
+        registry_export: novelH5PageRenderers
+      miniprogram:
+        page_mode: forbidden
+    novel-wechat:
+      dir: apps/novel-wechat
+      platform: wechat
+      manifest:
+        source_module: src/manifest/page-definitions.ts
+        feature_flags_export: novelWechatFeatureFlags
+        page_definitions_export: novelWechatPageDefinitions
+        app_module: src/manifest/app.manifest.ts
+        app_export: novelWechatManifest
+        page_manifest_module: src/manifest/page-manifest.ts
+        page_manifest_export: novelWechatPageManifest
+        page_config_module: src/manifest/page-config.ts
+        page_config_export: novelWechatManifestPages
+        route_map_export: novelWechatRoutes
+        routes_module: src/manifest/routes.ts
+        routes_export: NOVEL_WECHAT_ROUTES
+        miniprogram_pages_module: src/manifest/page-manifest.ts
+        miniprogram_pages_export: NOVEL_WECHAT_MINIPROGRAM_PAGES
+      runtime:
+        platform_package: "@minix/platform-wechat"
+        create_adapters_export: createWechatAdapters
+        env_module: src/bootstrap/env.ts
+        load_env_export: loadNovelWechatEnv
+        mock_api_module: src/bootstrap/mock-api.ts
+        create_mock_api_export: createNovelWechatMockApiAdapter
+      registry:
+        page_module: src/registrations/page-registry.ts
+        page_export: novelWechatPageRegistryFactories
+        shell_module: src/registrations/wechat/page-registry.ts
+        shell_export: novelWechatShellPageRegistry
+        shell_pages_dir: src/registrations/wechat/pages
+      miniprogram:
+        page_mode: required_aligned
+        pages_dir: miniprogram/pages
+  commands:
+    scaffold_feature: pnpm scaffold:feature <feature-name>
+    scaffold_page: pnpm scaffold:page <feature-name> <page-key>
+    sync_shells: pnpm gen:shells
+    verify: pnpm verify

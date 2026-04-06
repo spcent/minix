@@ -1,0 +1,82 @@
+const apiBaseUrl = process.env.MINIX_API_BASE_URL;
+let traceCounter = 0;
+
+if (!apiBaseUrl) {
+  console.error("MINIX_API_BASE_URL is required for remote API verification");
+  process.exit(1);
+}
+
+async function request(path, options = {}) {
+  const traceId = options.headers?.["x-trace-id"] ?? `verify_remote_${traceCounter += 1}`;
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    ...options,
+    headers: {
+      Accept: "application/json",
+      "x-trace-id": traceId,
+      ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
+      ...options.headers,
+    },
+  });
+
+  const echoedTraceId = response.headers.get("x-trace-id");
+  if (echoedTraceId !== traceId) {
+    throw new Error(`${options.method ?? "GET"} ${path} returned mismatched x-trace-id header: ${echoedTraceId ?? "missing"}`);
+  }
+
+  const bodyText = await response.text();
+  const json = bodyText ? JSON.parse(bodyText) : undefined;
+  if (!response.ok) {
+    throw new Error(`${options.method ?? "GET"} ${path} failed with ${response.status} [trace ${traceId}]: ${bodyText}`);
+  }
+
+  return json;
+}
+
+async function main() {
+  await request("/");
+  const session = await request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({
+      platform: "h5",
+      credential: { anonymousId: "host-h5-anonymous" },
+    }),
+  });
+
+  await request("/items?page=1&pageSize=2", {
+    headers: {
+      authorization: `Bearer ${session.accessToken}`,
+      origin: "http://localhost:4173",
+    },
+  });
+
+  const refreshed = await request("/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({
+      platform: "h5",
+      refreshToken: session.refreshToken,
+    }),
+  });
+
+  await request("/membership", {
+    headers: {
+      authorization: `Bearer ${refreshed.accessToken}`,
+    },
+  });
+
+  await request("/auth/logout", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${refreshed.accessToken}`,
+    },
+    body: JSON.stringify({
+      refreshToken: refreshed.refreshToken,
+    }),
+  });
+
+  console.log(`remote api verification passed against ${apiBaseUrl}`);
+}
+
+void main().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});

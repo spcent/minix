@@ -1,0 +1,162 @@
+<view class="page">
+  <view class="header-menu card workspace-menu">
+    <view class="brand-block">
+      <view class="brand-title">Title dossier</view>
+      <view class="brand-subtitle">Editorial detail, access cues, and re-entry actions kept on one mobile surface</view>
+    </view>
+    <view class="menu-title">Detail Menu</view>
+    <view class="nav-row">
+      <view class="nav-chip nav-chip-link" bindtap="onTapCatalog">Home</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapToc">TOC</view>
+      <view class="nav-chip nav-chip-active">Detail</view>
+    </view>
+  </view>
+
+  <view class="hero workspace-hero">
+    <view class="eyebrow">{{detail ? detail.categoryLabel : 'Novel detail'}}</view>
+    <view class="title">{{detail ? detail.title : title}}</view>
+    <view class="subtitle">{{detail ? (detail.subtitle || 'A title page should turn curiosity into reading intent, shelf intent, or membership intent.') : (errorText || 'Loading title dossier...')}}</view>
+    <view class="chip-row" wx:if="{{detail}}">
+      <view class="plan-chip">{{detail.status}}</view>
+      <view class="plan-chip">{{accessBadgeLabel || (detail.requiresMembership ? 'Membership title' : 'Open title')}}</view>
+      <view class="plan-chip" wx:if="{{detail.inBookshelf}}">On shelf</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Reading status</view>
+    <view class="subtitle" wx:if="{{membershipMessage}}">{{membershipMessage}}</view>
+    <view class="subtitle" wx:if="{{bookshelfNotice}}">{{bookshelfNotice}}</view>
+    <view class="subtitle" wx:if="{{accessSummary}}">{{accessSummary}}</view>
+    <view class="summary-row" wx:if="{{detail}}">
+      <view class="summary-stat">
+        <view class="summary-value">{{detail.chapterCount}}</view>
+        <view class="summary-label">Chapters</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{detail.continueChapterId || detail.firstChapterId || 'Start'}}</view>
+        <view class="summary-label">Resume route</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{detail.inBookshelf ? 'Shelf' : 'Direct'}}</view>
+        <view class="summary-label">Return mode</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{detail.ratingScore || 'New'}}</view>
+        <view class="summary-label">Reader score</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Primary actions</view>
+    <button class="button" type="primary" bindtap="onTapContinue">{{primaryActionLabel || 'Continue reading'}}</button>
+    <button class="button" bindtap="onTapRead">{{startActionLabel || 'Start from first chapter'}}</button>
+    <button class="button" bindtap="onTapToc">Open TOC</button>
+    <button wx:if="{{detail && !detail.inBookshelf}}" class="button" bindtap="onTapAddToBookshelf">Add to shelf</button>
+    <button wx:if="{{detail && detail.inBookshelf}}" class="button" type="warn" bindtap="onTapRemoveFromBookshelf">Remove from shelf</button>
+    <button wx:if="{{membershipLocked || (detail && detail.isTrial && !detail.isPurchased)}}" class="button" bindtap="onTapMembership">{{membershipActionLabel || 'Unlock membership'}}</button>
+    <button class="button" bindtap="onTapCatalog">Back to home</button>
+  </view>
+
+  <view class="card" wx:if="{{detail}}">
+    <view class="section-label">Story dossier</view>
+    <view class="subtitle">{{detail.summary}}</view>
+    <view class="subtitle" wx:if="{{detail.authorPresenceLabel}}">{{detail.authorPresenceLabel}}</view>
+    <button class="button" bindtap="onTapToggleSummary">{{summaryExpanded ? 'Collapse summary' : 'Expand summary'}}</button>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">{{detail.author.name}}</view>
+        <view class="summary-label">Author</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{detail.latestChapter ? detail.latestChapter.title : 'Pending'}}</view>
+        <view class="summary-label">Latest chapter</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{detail.favoriteCount || detail.bookshelfCount || '0'}}</view>
+        <view class="summary-label">Favorites</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{detail}}">
+    <view class="section-label">Title signals</view>
+    <view class="item">
+      <view class="item-title">Reader reputation</view>
+      <view class="subtitle">{{reputationSummary || (detail.ratingScore ? (detail.ratingScore + ' score · ' + (detail.ratingCount || 0) + ' ratings') : 'Reader sentiment will collect here once the title starts building social proof.')}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Update cadence</view>
+      <view class="subtitle">{{cadenceSummary || detail.updateCadenceLabel || 'Release rhythm becomes visible here once the title establishes a stable cadence.'}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Update history</view>
+      <view class="subtitle">{{detail.updateHistoryLabel || (detail.latestChapter ? ('Latest update · ' + detail.latestChapter.title) : 'Recent chapter motion becomes visible here once the title establishes a pattern.')}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Trial rule</view>
+      <view class="subtitle">{{trialSummary || detail.trialRuleLabel || 'Access rules and trial boundaries will appear here.'}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Access explanation</view>
+      <view class="subtitle">{{detail.accessRuleSummaryLabel || accessSummary || 'Access expectations should stay explicit before the reader or membership flow opens.'}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{latestMilestoneTitle}}" class="card">
+    <view class="section-label">Latest milestone</view>
+    <view class="item-title">{{latestMilestoneTitle}}</view>
+    <view class="subtitle">{{latestMilestoneCopy || 'The detail surface should remember the latest completed reading milestone, not only the next chapter to resume.'}}</view>
+    <view wx:if="{{latestMilestoneSourceLabel}}" class="subtitle">{{latestMilestoneSourceLabel}}</view>
+    <view wx:if="{{latestMilestoneRecencyLabel}}" class="subtitle">{{latestMilestoneRecencyLabel}}</view>
+    <view wx:if="{{latestMilestoneMeta}}" class="subtitle">{{latestMilestoneMeta}}</view>
+    <view wx:if="{{latestMilestoneReturnHint}}" class="subtitle">{{latestMilestoneReturnHint}}</view>
+    <button class="button" type="primary" bindtap="onTapLatestMilestone">{{latestMilestoneReturnLabel || 'Resume milestone'}}</button>
+  </view>
+
+  <view wx:if="{{milestoneHistory.length > 0}}" class="card">
+    <view class="section-label">Milestone history</view>
+    <view wx:for="{{milestoneHistory}}" wx:key="title" class="item">
+      <view class="item-badge item-badge-soft">{{item.typeLabel}}</view>
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle">{{item.copy}}</view>
+      <view class="subtitle">{{item.sourceLabel}}</view>
+      <view wx:if="{{item.recencyLabel}}" class="subtitle">{{item.recencyLabel}}</view>
+      <view wx:if="{{item.meta}}" class="subtitle">{{item.meta}}</view>
+      <view class="subtitle">{{item.returnHint}}</view>
+      <button class="button button-inline" data-value="{{index}}" bindtap="onTapMilestoneHistoryItem">{{item.returnLabel}}</button>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{detail && detail.relatedNovels && detail.relatedNovels.length > 0}}">
+    <view class="section-label">Related reads</view>
+    <view class="subtitle">{{detail.relatedLaneLabel || 'Related titles should feel like a deliberate next step, not a generic carousel.'}}</view>
+    <view wx:for="{{detail.relatedNovels}}" wx:key="id" class="item">
+      <view class="item-meta">
+        <view class="item-badge">{{item.categoryLabel}}</view>
+        <view class="item-badge item-badge-soft">{{item.status}}</view>
+      </view>
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle">{{item.authorName}}</view>
+      <view class="reason-text">{{item.highlight}}</view>
+      <view class="button-row">
+        <button class="button button-inline" data-value="{{item.id}}" bindtap="onTapRelatedNovel">Open detail</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{detail}}">
+    <view class="section-label">Bookshelf framing</view>
+    <view class="subtitle">{{bookshelfSummary || 'The detail page should explain what changes once this title is added to shelf.'}}</view>
+  </view>
+
+  <view class="card" wx:if="{{detail}}">
+    <view class="section-label">Author presence</view>
+    <view class="subtitle">{{detail.authorPresenceLabel || detail.author.bio || 'Author framing should help the title feel deliberate before the first chapter opens.'}}</view>
+    <view class="item">
+      <view class="item-title">{{detail.author.name}}</view>
+      <view class="subtitle">{{detail.author.bio || 'Author biography placeholder.'}}</view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,42 @@
+version: 1
+
+ownership:
+  - paths:
+      - packages/contracts/**
+    area: contracts
+    description: Shared route ids and backend-facing contract types.
+  - paths:
+      - packages/core/**
+    area: core-runtime
+    description: Shared ports, orchestration, state, and base primitives.
+  - paths:
+      - packages/features/**
+    area: feature-workspace
+    description: Platform-agnostic business behavior packages.
+  - paths:
+      - packages/platform-wechat/**
+    area: platform-wechat
+    description: WeChat-specific adapters and bridge code.
+  - paths:
+      - packages/platform-h5/**
+    area: platform-h5
+    description: Browser-specific adapters and host bridge behavior.
+  - paths:
+      - packages/tooling/**
+      - scripts/**
+    area: tooling
+    description: Scaffolding, manifest sync, and repo validation scripts.
+  - paths:
+      - apps/host-wechat/**
+    area: host-wechat
+    description: WeChat host bootstrap, manifest, registrations, and generated shell.
+  - paths:
+      - apps/host-h5/**
+    area: host-h5
+    description: H5 host bootstrap, manifests, and render registry.
+  - paths:
+      - docs/**
+      - specs/**
+      - tasks/**
+    area: repo-docs
+    description: Human-facing docs, machine-readable specs, and task queue artifacts.

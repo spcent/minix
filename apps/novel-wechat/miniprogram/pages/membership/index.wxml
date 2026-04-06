@@ -1,0 +1,128 @@
+<view class="page">
+  <view class="header-menu card workspace-menu">
+    <view class="brand-block">
+      <view class="brand-title">Membership center</view>
+      <view class="brand-subtitle">Unlock state, plan choice, and return path should stay visible on one mobile surface</view>
+    </view>
+    <view class="menu-title">Membership Menu</view>
+    <view class="nav-row">
+      <view class="nav-chip nav-chip-link" bindtap="onTapCatalog">Home</view>
+      <view class="nav-chip nav-chip-active">Membership</view>
+    </view>
+  </view>
+
+  <view class="hero workspace-hero">
+    <view class="eyebrow">{{source || 'direct'}}</view>
+    <view class="title">{{overview ? overview.headline : title}}</view>
+    <view class="subtitle">{{overview ? overview.subheadline : (lockedMessage || 'Loading membership state and return context...')}}</view>
+    <view class="chip-row">
+      <view class="plan-chip">{{overview ? overview.tier : 'guest'}}</view>
+      <view class="plan-chip">{{overview ? overview.entitlementScope : 'none'}}</view>
+      <view class="plan-chip">{{overview && overview.active ? 'Unlocked' : 'Locked'}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Unlock status</view>
+    <view class="subtitle" wx:if="{{lockedMessage}}">{{lockedMessage}}</view>
+    <view class="subtitle" wx:if="{{purchaseSuccessMessage}}">{{purchaseSuccessMessage}}</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">{{overview ? overview.statusLabel : 'Loading'}}</view>
+        <view class="summary-label">Status</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{source || 'direct'}}</view>
+        <view class="summary-label">Entry source</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{recommendedPlanId || 'quarterly'}}</view>
+        <view class="summary-label">Recommended plan</view>
+      </view>
+    </view>
+    <view class="subtitle" wx:if="{{entitlementSummary}}">{{entitlementSummary}}</view>
+    <view class="subtitle" wx:if="{{unlockOutcomeLabel}}">{{unlockOutcomeLabel}}</view>
+    <view class="subtitle" wx:if="{{returnContextLabel}}">{{returnContextLabel}}</view>
+  </view>
+
+  <view class="card" wx:if="{{overview && !overview.active}}">
+    <view class="section-label">Plans</view>
+    <view class="subtitle">{{unlockOutcomeLabel || 'The Mini Program should make the unlock promise explicit: pay once here, then return to the blocked flow with access already resolved.'}}</view>
+    <view class="button-row">
+      <button class="button button-inline" data-value="monthly" bindtap="onTapPurchaseMembership">{{purchasing && lastPurchasedPlanId === 'monthly' ? 'Unlocking...' : 'Unlock Monthly'}}</button>
+      <button class="button button-inline" type="primary" data-value="quarterly" bindtap="onTapPurchaseMembership">{{purchasing && lastPurchasedPlanId === 'quarterly' ? 'Unlocking...' : 'Unlock Quarterly'}}</button>
+      <button class="button button-inline" data-value="annual" bindtap="onTapPurchaseMembership">{{purchasing && lastPurchasedPlanId === 'annual' ? 'Unlocking...' : 'Unlock Annual'}}</button>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Conversion clarity</view>
+    <view class="item">
+      <view class="item-title">Recommended plan</view>
+      <view class="subtitle">{{recommendedPlanId || 'quarterly'}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Immediate unlock effect</view>
+      <view class="subtitle">{{unlockOutcomeLabel || 'Membership purchase should immediately unlock the blocked premium flow.'}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Return path</view>
+      <view class="subtitle">{{returnContextLabel || 'Return path should remain visible until the reader leaves this surface.'}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Stay in flow</view>
+    <view class="item">
+      <view class="item-title">Return without losing context</view>
+      <view class="subtitle">{{returnContextLabel || 'The return path should stay visible until the reader re-enters the blocked surface.'}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Immediate, then calm</view>
+      <view class="subtitle">{{unlockOutcomeLabel || 'Unlock should happen immediately, then the page should step back into a quiet recovery role.'}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Retention posture</view>
+      <view class="subtitle">{{overview && overview.active ? 'Membership is already active, so this page should behave like quiet infrastructure instead of a repeated sales wall.' : 'Choose the plan that reduces repeat interruption for the reading cadence you actually keep.'}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{latestMilestoneTitle}}" class="card">
+    <view class="section-label">Latest milestone</view>
+    <view class="item-title">{{latestMilestoneTitle}}</view>
+    <view class="subtitle">{{latestMilestoneCopy || 'Premium continuity should remember the latest completed milestone as well as the next blocked step.'}}</view>
+    <view wx:if="{{latestMilestoneSourceLabel}}" class="subtitle">{{latestMilestoneSourceLabel}}</view>
+    <view wx:if="{{latestMilestoneRecencyLabel}}" class="subtitle">{{latestMilestoneRecencyLabel}}</view>
+    <view wx:if="{{latestMilestoneMeta}}" class="subtitle">{{latestMilestoneMeta}}</view>
+    <view wx:if="{{latestMilestoneReturnHint}}" class="subtitle">{{latestMilestoneReturnHint}}</view>
+    <button class="button" bindtap="onTapLatestMilestone">{{latestMilestoneReturnLabel || 'Resume milestone'}}</button>
+  </view>
+
+  <view wx:if="{{milestoneHistory.length > 0}}" class="card">
+    <view class="section-label">Milestone history</view>
+    <view wx:for="{{milestoneHistory}}" wx:key="title" class="item">
+      <view class="item-badge item-badge-soft">{{item.typeLabel}}</view>
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle">{{item.copy}}</view>
+      <view class="subtitle">{{item.sourceLabel}}</view>
+      <view wx:if="{{item.recencyLabel}}" class="subtitle">{{item.recencyLabel}}</view>
+      <view wx:if="{{item.meta}}" class="subtitle">{{item.meta}}</view>
+      <view class="subtitle">{{item.returnHint}}</view>
+      <button class="button button-inline" data-value="{{index}}" bindtap="onTapMilestoneHistoryItem">{{item.returnLabel}}</button>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{overview && overview.benefits && overview.benefits.length > 0}}">
+    <view class="section-label">Membership value</view>
+    <view wx:for="{{overview.benefits}}" wx:key="key" class="item">
+      <view class="item-title">{{item.label}}</view>
+      <view class="subtitle">{{item.description}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Return actions</view>
+    <button wx:if="{{overview && overview.active}}" class="button" type="primary" bindtap="onTapContinueAfterPurchase">{{returnActionLabel || 'Return to unlocked flow'}}</button>
+    <button class="button" bindtap="onTapCatalog">{{overview && overview.active ? 'Back to home' : 'Back to catalog'}}</button>
+  </view>
+</view>

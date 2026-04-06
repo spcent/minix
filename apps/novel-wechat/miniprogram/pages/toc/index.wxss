@@ -1,0 +1,146 @@
+.header-menu {
+  margin-bottom: 24rpx;
+}
+
+.workspace-menu,
+.profile-menu,
+.workspace-footer {
+  background: rgba(255, 253, 248, 0.96);
+}
+
+.workspace-hero,
+.profile-hero {
+  margin-bottom: 24rpx;
+}
+
+.eyebrow {
+  font-size: 22rpx;
+  letter-spacing: 4rpx;
+  text-transform: uppercase;
+  color: #8a5d3b;
+}
+
+.brand-block {
+  display: grid;
+  gap: 8rpx;
+}
+
+.brand-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #14213d;
+}
+
+.brand-subtitle,
+.menu-title,
+.footer-copy,
+.summary-label {
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.menu-title,
+.footer-title,
+.section-label {
+  margin-bottom: 12rpx;
+  font-size: 22rpx;
+  letter-spacing: 4rpx;
+  text-transform: uppercase;
+  color: #5c677d;
+}
+
+.nav-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.nav-chip {
+  padding: 12rpx 22rpx;
+  border-radius: 999rpx;
+  background: #eef2f7;
+  color: #475569;
+  font-size: 24rpx;
+}
+
+.nav-chip-active {
+  background: #14213d;
+  color: #fffaf4;
+}
+
+.nav-chip-link {
+  border: 1rpx solid #d7dee8;
+}
+
+.summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 12rpx;
+}
+
+.summary-stat {
+  flex: 1;
+  min-width: 180rpx;
+  padding: 20rpx;
+  border-radius: 20rpx;
+  background: #f8fafc;
+}
+
+.summary-value {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.item {
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #e2e8f0;
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-bottom: 10rpx;
+}
+
+.item-badge {
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  background: #f0e7dc;
+  color: #8a5d3b;
+  font-size: 22rpx;
+}
+
+.item-badge-soft {
+  background: #eef2f7;
+  color: #475569;
+}
+
+.item-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #14213d;
+}
+
+.button {
+  margin-top: 20rpx;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.button-inline {
+  margin-top: 0;
+}

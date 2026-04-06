@@ -1,0 +1,76 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  // Safe committed template. Keep real remote ids in the ignored
+  // `apps/api/wrangler.private.jsonc` file instead of this tracked file.
+  "name": "minix-api",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-04-05",
+  "workers_dev": true,
+  "vars": {
+    "MINIX_DEPLOY_ENV": "local",
+    "MINIX_CORS_ALLOWED_ORIGINS": "",
+    "MINIX_AUTH_RATE_LIMIT_WINDOW_SECONDS": "60",
+    "MINIX_AUTH_LOGIN_MAX_ATTEMPTS": "10",
+    "MINIX_AUTH_REFRESH_MAX_ATTEMPTS": "20"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "minix-api",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "env": {
+    "preview": {
+      "name": "minix-api-preview",
+      "workers_dev": true,
+      "vars": {
+        "MINIX_DEPLOY_ENV": "preview",
+        "MINIX_CORS_ALLOWED_ORIGINS": "https://preview.minix-host-h5.pages.dev,https://preview.minix-novel-h5.pages.dev",
+        "MINIX_AUTH_RATE_LIMIT_WINDOW_SECONDS": "60",
+        "MINIX_AUTH_LOGIN_MAX_ATTEMPTS": "10",
+        "MINIX_AUTH_REFRESH_MAX_ATTEMPTS": "20"
+      },
+      "kv_namespaces": [
+        {
+          "binding": "AUTH_RATE_LIMIT_KV",
+          "id": "REPLACE_WITH_PREVIEW_AUTH_RATE_LIMIT_KV_ID"
+        }
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "minix-api-preview",
+          "database_id": "REPLACE_WITH_PREVIEW_D1_DATABASE_ID",
+          "migrations_dir": "migrations"
+        }
+      ]
+    },
+    "production": {
+      "name": "minix-api-production",
+      "workers_dev": true,
+      "vars": {
+        "MINIX_DEPLOY_ENV": "production",
+        "MINIX_CORS_ALLOWED_ORIGINS": "https://minix-host-h5.pages.dev,https://minix-novel-h5.pages.dev",
+        "MINIX_AUTH_RATE_LIMIT_WINDOW_SECONDS": "60",
+        "MINIX_AUTH_LOGIN_MAX_ATTEMPTS": "10",
+        "MINIX_AUTH_REFRESH_MAX_ATTEMPTS": "20"
+      },
+      "kv_namespaces": [
+        {
+          "binding": "AUTH_RATE_LIMIT_KV",
+          "id": "REPLACE_WITH_PRODUCTION_AUTH_RATE_LIMIT_KV_ID"
+        }
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "minix-api-production",
+          "database_id": "REPLACE_WITH_PRODUCTION_D1_DATABASE_ID",
+          "migrations_dir": "migrations"
+        }
+      ]
+    }
+  }
+}

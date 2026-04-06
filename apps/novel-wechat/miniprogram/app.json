@@ -1,0 +1,21 @@
+{
+  "pages": [
+    "pages/login/index",
+    "pages/catalog/index",
+    "pages/novelDetail/index",
+    "pages/toc/index",
+    "pages/reader/index",
+    "pages/bookshelf/index",
+    "pages/settings/index",
+    "pages/membership/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "MiniX Novel",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f5f5f5",
+    "backgroundTextStyle": "light"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

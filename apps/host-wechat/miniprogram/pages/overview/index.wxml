@@ -1,0 +1,72 @@
+<view class="page">
+  <view class="header-menu card workspace-menu">
+    <view class="brand-block">
+      <view class="brand-title">Minute English</view>
+      <view class="brand-subtitle">Personal dashboard for today's study focus and next action</view>
+    </view>
+    <view class="menu-title">Dashboard Menu</view>
+    <view class="nav-row">
+      <view class="nav-chip">Home</view>
+      <view class="nav-chip nav-chip-active">Overview</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapPlan">Today's Plan</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapSettings">Preferences</view>
+    </view>
+  </view>
+
+  <view class="hero workspace-hero">
+    <view class="eyebrow">Overview</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{completedItemIds.length === items.length && items.length > 0 ? 'Today\'s lesson is complete. Use Overview to review the finished flow and reopen any step for a recap pass.' : 'Start here after home to understand today\'s focus, current progress, and the fastest next action.'}}</view>
+    <view class="chip-row">
+      <view class="plan-chip">{{completedItemIds.length === items.length && items.length > 0 ? 'Lesson complete' : '3-task preview'}}</view>
+      <view class="plan-chip">{{completedItemIds.length === items.length && items.length > 0 ? 'Ready to review' : 'Dashboard first'}}</view>
+      <view class="plan-chip">{{completedItemIds.length === items.length && items.length > 0 ? 'Recap available' : 'Plan one tap away'}}</view>
+    </view>
+  </view>
+
+  <view class="card workspace-summary">
+    <view class="section-label">Today's recommendation</view>
+    <view class="subtitle">{{completedItemIds.length === items.length && items.length > 0 ? 'Today\'s lesson is complete. Overview has shifted from progress tracking to review guidance.' : (featuredReason || 'Start with overview to understand today\'s focus before opening the full lesson plan.')}}</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">{{items.length}}</view>
+        <view class="summary-label">Visible tasks</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{completedItemIds.length === items.length && items.length > 0 ? 'Ready' : completedItemIds.length}}</view>
+        <view class="summary-label">{{completedItemIds.length === items.length && items.length > 0 ? 'Review state' : 'Completed now'}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card workspace-focus">
+    <view class="section-label">{{completedItemIds.length === items.length && items.length > 0 ? 'Completed lesson' : 'Today\'s focus'}}</view>
+    <view class="subtitle" wx:if="{{loading}}">Loading your overview...</view>
+    <view class="subtitle" wx:if="{{errorText}}">{{errorText}}</view>
+    <view class="subtitle" wx:if="{{!loading && items.length === 0 && emptyText}}">{{emptyText}}</view>
+    <view class="subtitle" wx:if="{{!loading && !errorText && items.length > 0 && completedItemIds.length === items.length}}">The queue below is now a finished lesson preview. Reopen the plan when you want a quick recap.</view>
+
+    <view wx:for="{{items}}" wx:key="id" class="item">
+      <view class="item-meta">
+        <view class="item-badge {{item.completed ? 'item-badge-complete' : ''}}">{{item.completed ? 'Completed' : (item.categoryLabel || 'Today')}}</view>
+      </view>
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle" wx:if="{{item.subtitle}}">{{item.subtitle}}</view>
+      <view class="reason-text" wx:if="{{item.recommendedReason}}">{{item.recommendedReason}}</view>
+    </view>
+
+    <button class="button" type="primary" bindtap="onTapPlan">{{completedItemIds.length === items.length && items.length > 0 ? 'Review Completed Lesson' : 'Open Today\'s Plan'}}</button>
+    <button class="button" bindtap="onTapSettings">Learning Preferences</button>
+  </view>
+
+  <view class="footer-nav card workspace-footer">
+    <view class="footer-title">Workspace Links</view>
+    <view class="footer-copy">{{completedItemIds.length === items.length && items.length > 0 ? 'Overview is now in recap mode. Open Today\'s Plan to review the finished lesson, or stay here to confirm the session is complete.' : 'Overview is the dashboard layer. Use it to choose the next best step before opening the full plan.'}}</view>
+    <view class="nav-row">
+      <view class="nav-chip">Home</view>
+      <view class="nav-chip nav-chip-active">Overview</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapPlan">Today's Plan</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapSettings">Preferences</view>
+    </view>
+  </view>
+</view>

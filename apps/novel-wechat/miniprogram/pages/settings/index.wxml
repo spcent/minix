@@ -1,0 +1,92 @@
+<view class="page">
+  <view class="header-menu card profile-menu">
+    <view class="brand-block">
+      <view class="brand-title">Reading Center</view>
+      <view class="brand-subtitle">Calmer profile surface for display defaults, continuity, digest behavior, and session state</view>
+    </view>
+    <view class="menu-title">Profile Menu</view>
+    <view class="nav-row">
+      <view class="nav-chip nav-chip-link" bindtap="onTapOverview">Home</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapPlan">Bookshelf</view>
+      <view class="nav-chip nav-chip-active">Preferences</view>
+    </view>
+  </view>
+
+  <view class="hero profile-hero">
+    <view class="eyebrow">Reading center</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">This surface now acts as the reading center for display defaults, continuity controls, digest posture, and account state.</view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Reading center snapshot</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">{{sections.length}}</view>
+        <view class="summary-label">Preference groups</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{sections[0].title || sections[0].key}}</view>
+        <view class="summary-label">Primary section</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Retention posture</view>
+    <view class="item">
+      <view class="item-title">Calmer defaults</view>
+      <view class="subtitle">Reading Center should reduce friction between sessions, not add another administrative stop.</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Quiet signals</view>
+      <view class="subtitle">Digest, reminders, and sync should behave like background support for long-form reading, not a notification engine.</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Return confidence</view>
+      <view class="subtitle">This surface should keep home, shelf, and reader feeling like one stable reading system.</view>
+    </view>
+  </view>
+
+  <view wx:for="{{sections}}" wx:for-item="section" wx:key="key" class="card">
+    <view class="section-label">{{section.title || section.key}}</view>
+    <view wx:for="{{section.items}}" wx:key="key" class="item">
+      <view class="item-title">{{item.label}}</view>
+      <view class="subtitle" wx:if="{{item.value}}">{{item.value}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Reader controls</view>
+    <view class="subtitle">Update the same display preferences the reader hydrates, including the night-mode default used for late reading sessions.</view>
+    <view class="button-row">
+      <button class="button button-inline" bindtap="onTapDecreaseReaderFontScale">A-</button>
+      <button class="button button-inline" bindtap="onTapIncreaseReaderFontScale">A+</button>
+      <button class="button button-inline" bindtap="onTapCycleReaderTheme">Cycle theme</button>
+      <button class="button button-inline" bindtap="onTapCycleReaderMode">Cycle mode</button>
+      <button class="button button-inline" bindtap="onTapCycleNightModeDefault">Night default</button>
+    </view>
+    <button class="button" type="primary" bindtap="onTapApplyReader">Apply and Return</button>
+    <button class="button" bindtap="onTapReader">Back to Reader</button>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Reading center controls</view>
+    <view class="subtitle">Continuity, shelf order, reminders, digest behavior, and sync posture now live as stored reading-center preferences.</view>
+    <view class="button-row">
+      <button class="button button-inline" bindtap="onTapCycleResumeMode">Resume mode</button>
+      <button class="button button-inline" bindtap="onTapCycleShelfOrder">Shelf order</button>
+      <button class="button button-inline" bindtap="onTapCycleReminderMode">Reminders</button>
+      <button class="button button-inline" bindtap="onTapCycleDigestMode">Digest</button>
+      <button class="button button-inline" bindtap="onTapCycleSyncMode">Sync</button>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Quick actions</view>
+    <button class="button" bindtap="onTapOverview">Open Home</button>
+    <button class="button" bindtap="onTapReader">Back to Reader</button>
+    <button class="button" bindtap="onTapPlan">Open Bookshelf</button>
+    <button class="button" type="warn" bindtap="onTapLogout">Sign Out</button>
+  </view>
+</view>

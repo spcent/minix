@@ -1,0 +1,63 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "declaration": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@minix/contracts": [
+        "packages/contracts/src"
+      ],
+      "@minix/core": [
+        "packages/core/src"
+      ],
+      "@minix/platform-wechat": [
+        "packages/platform-wechat/src"
+      ],
+      "@minix/platform-h5": [
+        "packages/platform-h5/src"
+      ],
+      "@minix/testkit": [
+        "packages/testkit/src"
+      ],
+      "@minix/tooling": [
+        "packages/tooling/src"
+      ],
+      "@minix/feature-auth": [
+        "packages/features/auth/src"
+      ],
+      "@minix/feature-bookshelf": [
+        "packages/features/bookshelf/src"
+      ],
+      "@minix/feature-catalog": [
+        "packages/features/catalog/src"
+      ],
+      "@minix/feature-items": [
+        "packages/features/items/src"
+      ],
+      "@minix/feature-novel-detail": [
+        "packages/features/novel-detail/src"
+      ],
+      "@minix/feature-reader": [
+        "packages/features/reader/src"
+      ],
+      "@minix/feature-settings": [
+        "packages/features/settings/src"
+      ],
+      "@minix/feature-subscription": [
+        "packages/features/subscription/src"
+      ],
+      "@minix/feature-toc": [
+        "packages/features/toc/src"
+      ]
+    }
+  }
+}

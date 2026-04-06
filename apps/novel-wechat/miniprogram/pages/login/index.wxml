@@ -1,0 +1,30 @@
+<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Novel App</view>
+    <view class="title">Novel Login</view>
+    <view class="subtitle">Base authentication shell for the standalone novel app host.</view>
+  </view>
+
+  <view class="card">
+    <view class="title">Novel Login</view>
+    <view class="subtitle">{{authenticated ? 'Session restored. Continue into the app shell.' : 'Sign in flow is wired. Novel feature pages now live on dedicated routes.'}}</view>
+    <view wx:if="{{errorMessage}}" class="subtitle">{{errorMessage}}</view>
+    <view wx:if="{{noticeMessage}}" class="subtitle">{{noticeMessage}}</view>
+
+    <button class="button" type="primary" loading="{{loading}}" bindtap="onTapLogin">
+      Sign In
+    </button>
+    <button class="button" wx:if="{{!authenticated}}" bindtap="onTapEnsureLogin">
+      Restore Session
+    </button>
+    <button class="button" wx:if="{{authenticated}}" bindtap="onTapOverview">
+      Open Catalog
+    </button>
+    <button class="button" wx:if="{{authenticated}}" bindtap="onTapPlan">
+      Open Bookshelf
+    </button>
+    <button class="button" wx:if="{{authenticated}}" bindtap="onTapSettings">
+      Open Settings
+    </button>
+  </view>
+</view>

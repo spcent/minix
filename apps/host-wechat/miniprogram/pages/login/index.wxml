@@ -1,0 +1,138 @@
+<view class="page">
+  <view class="header-menu card landing-menu">
+    <view class="brand-block">
+      <view class="brand-title">Minute English</view>
+      <view class="brand-subtitle">Home for a compact daily English routine across shared MiniX hosts</view>
+    </view>
+    <view class="menu-title">Landing Menu</view>
+    <view class="nav-row">
+      <view class="nav-chip nav-chip-active">Home</view>
+      <view wx:if="{{authenticated}}" class="nav-chip nav-chip-link" bindtap="onTapOverview">Overview</view>
+      <view wx:if="{{authenticated}}" class="nav-chip nav-chip-link" bindtap="onTapPlan">Today's Plan</view>
+      <view wx:if="{{authenticated}}" class="nav-chip nav-chip-link" bindtap="onTapSettings">Preferences</view>
+    </view>
+  </view>
+
+  <view class="hero landing-hero">
+    <view class="eyebrow">Minute English</view>
+    <view class="title">Build Everyday English in 10 Minutes</view>
+    <view class="subtitle">A compact English routine for busy learners who want real vocabulary, useful listening, and steady speaking practice.</view>
+  </view>
+
+  <view class="card landing-card">
+    <view class="section-label">Product promise</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">10 min</view>
+        <view class="summary-label">Typical daily lesson length</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">5 tasks</view>
+        <view class="summary-label">Short activities in one routine</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">Daily</view>
+        <view class="summary-label">Designed for repeatable practice</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card landing-card">
+    <view class="section-label">Lesson preview</view>
+    <view class="subtitle">Home previews the product. Personal progress does not start here. After sign-in, Overview becomes the first learner dashboard.</view>
+
+    <view class="item">
+      <view class="item-meta">
+        <view class="item-badge">Warm-up</view>
+      </view>
+      <view class="item-title">Travel Vocabulary</view>
+      <view class="subtitle">8 useful words for airport and hotel check-in.</view>
+    </view>
+
+    <view class="item">
+      <view class="item-meta">
+        <view class="item-badge">Listen</view>
+      </view>
+      <view class="item-title">Listening Practice</view>
+      <view class="subtitle">A 45-second dialogue built for daily situations.</view>
+    </view>
+
+    <view class="item">
+      <view class="item-meta">
+        <view class="item-badge">Speak</view>
+      </view>
+      <view class="item-title">Speak Out Loud</view>
+      <view class="subtitle">Repeat 5 lines and practice natural rhythm before you finish.</view>
+    </view>
+  </view>
+
+  <view class="card landing-card landing-cta">
+    <view class="section-label">Start from Home</view>
+    <view class="subtitle">{{authenticated ? (redirectTarget === 'overview' ? 'You are signed in. Continue back to Overview, or choose another unlocked page from Home.' : (redirectTarget === 'plan' ? 'You are signed in. Continue back to Today\'s Plan, or choose another unlocked page from Home.' : (redirectTarget === 'preferences' ? 'You are signed in. Continue back to Preferences, or choose another unlocked page from Home.' : 'You are signed in. Home stays in place and the rest of the product unlocks through the menu and actions below.'))) : 'Home explains the product and previews the lesson shape. The rest of the product unlocks after sign-in.'}}</view>
+    <view class="status-text">{{loading ? 'Preparing your lesson...' : (authenticated ? (redirectTarget === 'overview' ? 'Signed in. Continue to Overview.' : (redirectTarget === 'plan' ? 'Signed in. Continue to Today\'s Plan.' : (redirectTarget === 'preferences' ? 'Signed in. Continue to Preferences.' : 'Signed in. Choose where to go next.'))) : 'Ready for today\'s practice')}}</view>
+
+    <button wx:if="{{!authenticated}}" class="button" type="primary" loading="{{loading}}" bindtap="onTapLogin">
+      Sign In To Continue
+    </button>
+
+    <button wx:if="{{!authenticated}}" class="button" bindtap="onTapEnsureLogin">
+      Restore Learning Session
+    </button>
+
+    <button wx:if="{{authenticated && redirectTarget === 'overview'}}" class="button" type="primary" bindtap="onTapContinueDestination">
+      Continue to Overview
+    </button>
+
+    <button wx:if="{{authenticated && redirectTarget === 'plan'}}" class="button" type="primary" bindtap="onTapContinueDestination">
+      Continue to Today's Plan
+    </button>
+
+    <button wx:if="{{authenticated && redirectTarget === 'preferences'}}" class="button" type="primary" bindtap="onTapContinueDestination">
+      Continue to Preferences
+    </button>
+
+    <button wx:if="{{authenticated && !redirectTarget}}" class="button" type="primary" bindtap="onTapOverview">
+      Open Overview
+    </button>
+
+    <button wx:if="{{authenticated}}" class="button" bindtap="onTapPlan">
+      Open Today's Plan
+    </button>
+
+    <button wx:if="{{authenticated}}" class="button" bindtap="onTapSettings">
+      Open Preferences
+    </button>
+
+    <view wx:if="{{errorMessage}}" class="subtitle">{{errorMessage}}</view>
+    <view wx:if="{{noticeMessage}}" class="subtitle">{{noticeMessage}}</view>
+  </view>
+
+  <view class="card landing-card">
+    <view class="section-label">Built for short study windows</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">Commute</view>
+        <view class="summary-label">Quick input before work</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">Lunch</view>
+        <view class="summary-label">One lightweight review block</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">Evening</view>
+        <view class="summary-label">A short speaking reset</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="footer-nav card landing-footer">
+    <view class="footer-title">Explore Next</view>
+    <view class="footer-copy">{{authenticated ? 'You are signed in. Stay on Home until you want to open Overview, Today\'s Plan, or Preferences.' : 'Before login, Home is the only visible page. Sign in here to unlock the rest of the product flow.'}}</view>
+    <view class="nav-row">
+      <view class="nav-chip nav-chip-active">Home</view>
+      <view wx:if="{{authenticated}}" class="nav-chip nav-chip-link" bindtap="onTapOverview">Overview</view>
+      <view wx:if="{{authenticated}}" class="nav-chip nav-chip-link" bindtap="onTapPlan">Today's Plan</view>
+      <view wx:if="{{authenticated}}" class="nav-chip nav-chip-link" bindtap="onTapSettings">Preferences</view>
+    </view>
+  </view>
+</view>

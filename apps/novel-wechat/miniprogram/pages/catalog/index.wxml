@@ -1,0 +1,202 @@
+<view class="page">
+  <view class="header-menu card workspace-menu">
+    <view class="brand-block">
+      <view class="brand-title">Quiet Frontlist</view>
+      <view class="brand-subtitle">Editorial storefront with personal continuation kept near the top</view>
+    </view>
+    <view class="menu-title">Home Surface</view>
+    <view class="nav-row">
+      <view class="nav-chip nav-chip-active">Home</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapBookshelf">Bookshelf</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapSettings">Preferences</view>
+    </view>
+  </view>
+
+  <view class="hero workspace-hero">
+    <view class="eyebrow">Personalized home</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{items.length > 0 ? (storefrontReason || 'The Mini Program home now leads with active reading momentum, not only frontlist discovery.') : 'Loading the frontlist and reading continuity...'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Home snapshot</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">{{items.length}}</view>
+        <view class="summary-label">Visible frontlist titles</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{query.keyword ? '1' : '0'}}</view>
+        <view class="summary-label">Active search context</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{hasMore ? 'More' : 'Ready'}}</view>
+        <view class="summary-label">Catalog continuation state</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Reading profile</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">{{selectedNovelId ? 'Resume-first' : 'Browse-first'}}</view>
+        <view class="summary-label">Session mode</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{items.length > 0 ? items[0].categoryLabel : 'Frontlist'}}</view>
+        <view class="summary-label">Primary lane</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{selectedNovelId ? 'Pinned' : 'Open'}}</view>
+        <view class="summary-label">Current focus state</view>
+      </view>
+    </view>
+    <view class="subtitle">{{selectedReason || (selectedNovelId ? 'A selected or active title exists, so Home should behave like a return surface before it behaves like a cold storefront.' : 'No active title is pinned yet, so Home can lean harder on editorial discovery and lane browsing.')}}</view>
+  </view>
+
+  <view wx:if="{{latestMilestoneTitle}}" class="card">
+    <view class="section-label">Latest milestone</view>
+    <view class="item-title">{{latestMilestoneTitle}}</view>
+    <view class="subtitle">{{latestMilestoneCopy || 'The storefront should remember the latest completed reading milestone, not only the next unfinished return.'}}</view>
+    <view wx:if="{{latestMilestoneSourceLabel}}" class="subtitle">{{latestMilestoneSourceLabel}}</view>
+    <view wx:if="{{latestMilestoneRecencyLabel}}" class="subtitle">{{latestMilestoneRecencyLabel}}</view>
+    <view wx:if="{{latestMilestoneMeta}}" class="subtitle">{{latestMilestoneMeta}}</view>
+    <view wx:if="{{latestMilestoneReturnHint}}" class="subtitle">{{latestMilestoneReturnHint}}</view>
+    <button class="button" type="primary" bindtap="onTapLatestMilestone">{{latestMilestoneReturnLabel || 'Resume milestone'}}</button>
+  </view>
+
+  <view wx:if="{{milestoneHistory.length > 0}}" class="card">
+    <view class="section-label">Milestone history</view>
+    <view wx:for="{{milestoneHistory}}" wx:key="title" class="item">
+      <view class="item-badge item-badge-soft">{{item.typeLabel}}</view>
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle">{{item.copy}}</view>
+      <view class="subtitle">{{item.sourceLabel}}</view>
+      <view wx:if="{{item.recencyLabel}}" class="subtitle">{{item.recencyLabel}}</view>
+      <view wx:if="{{item.meta}}" class="subtitle">{{item.meta}}</view>
+      <view class="subtitle">{{item.returnHint}}</view>
+      <button class="button button-inline" data-value="{{index}}" bindtap="onTapMilestoneHistoryItem">{{item.returnLabel}}</button>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Continue lane</view>
+    <view class="subtitle">WeChat home should expose active reading continuity before asking the reader to browse again.</view>
+    <view wx:if="{{items.length === 0 && !loading}}" class="subtitle">{{errorText || 'No visible titles yet.'}}</view>
+    <view wx:for="{{items}}" wx:key="id">
+      <view wx:if="{{item.continueChapterId}}" class="item">
+        <view class="item-meta">
+          <view class="item-badge">Resume</view>
+          <view wx:if="{{item.requiresMembership}}" class="item-badge item-badge-soft">Premium</view>
+        </view>
+        <view class="item-title">{{item.title}}</view>
+        <view class="subtitle">{{item.recommendedReason || item.continueChapterTitle || item.latestChapterTitle || 'Saved reading position available'}}</view>
+        <view class="button-row">
+          <button class="button button-inline" data-value="{{item.id}}" bindtap="onTapSelectNovel">Focus</button>
+          <button class="button button-inline" type="primary" data-value="{{item.id}}" bindtap="onTapContinueNovel">Resume</button>
+          <button class="button button-inline" data-value="{{item.id}}" bindtap="onTapOpenNovel">Open</button>
+        </view>
+      </view>
+    </view>
+    <button class="button" type="primary" bindtap="onTapOpenSelected">Open selected title</button>
+    <button class="button" bindtap="onTapBookshelf">Open bookshelf</button>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Editor's desk</view>
+    <view class="subtitle">{{storefrontReason || 'Recommendation lanes should explain why discovery is arranged this way, not just expose a stack of cards.'}}</view>
+    <view class="item">
+      <view class="item-title">Because you read...</view>
+      <view class="subtitle">{{continueReason || (selectedNovelId ? 'The selected title remains near the top because it still carries the strongest continuation signal.' : 'No title is pinned yet, so the lead slot stays editorial and frontlist-driven.')}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Recently updated on your shelf</view>
+      <view class="subtitle">{{updateReason || (items.length > 0 ? (items[0].latestChapterTitle || 'Watch the active serial lane for fresh releases.') : 'Once titles load, recent updates and serial movement can be surfaced here.')}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Frontlist note</view>
+      <view class="subtitle">{{frontlistReason || 'One title should still explain why it anchors discovery right now, even on a compact WeChat surface.'}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Frontlist selection</view>
+    <view class="subtitle">{{frontlistReason || 'Discovery stays visible, but the page should no longer feel anonymous after reading progress exists.'}}</view>
+    <view wx:for="{{items}}" wx:key="id" class="item">
+      <view class="item-meta">
+        <view class="item-badge">{{item.categoryLabel}}</view>
+        <view class="item-badge item-badge-soft">{{item.status}}</view>
+      </view>
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle">{{item.recommendedReason || item.summary}}</view>
+      <view class="button-row">
+        <button class="button button-inline" data-value="{{item.id}}" bindtap="onTapSelectNovel">Focus</button>
+        <button class="button button-inline" type="primary" data-value="{{item.id}}" bindtap="onTapContinueNovel">Resume</button>
+        <button class="button button-inline" data-value="{{item.id}}" bindtap="onTapOpenNovel">Open</button>
+      </view>
+    </view>
+    <button wx:if="{{hasMore}}" class="button" bindtap="onTapLoadMore">Load More</button>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Storefront programming</view>
+    <view class="item">
+      <view class="item-title">Storefront note</view>
+      <view class="subtitle">{{storefrontReason || 'The home surface should explain why it behaves like a storefront instead of a cold catalog list.'}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Serial lane</view>
+      <view class="subtitle">{{serialReason || 'The serial lane should explain why ongoing publication cadence matters right now.'}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Ranking lane</view>
+      <view class="subtitle">{{rankingReason || 'The ranking lane should behave like a quick confidence signal for browsing readers.'}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Membership radar</view>
+    <view class="subtitle">{{membershipReason || 'Premium titles should stay visible as a quiet merchandising lane instead of interrupting the storefront rhythm.'}}</view>
+    <view wx:for="{{items}}" wx:key="id">
+      <view wx:if="{{item.requiresMembership}}" class="item">
+        <view class="item-meta">
+          <view class="item-badge">Membership</view>
+          <view class="item-badge item-badge-soft">{{item.categoryLabel}}</view>
+        </view>
+        <view class="item-title">{{item.title}}</view>
+        <view class="subtitle">{{item.recommendedReason || membershipReason || item.summary}}</view>
+        <view class="button-row">
+          <button class="button button-inline" data-value="{{item.id}}" bindtap="onTapOpenNovel">Open detail</button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Recommendation lanes</view>
+    <view class="subtitle">Use shared reasons so the Mini Program home explains the same programming logic as H5.</view>
+    <view class="item">
+      <view class="item-title">Because you read...</view>
+      <view class="subtitle">{{continueReason || 'Saved progress should surface the fastest route back into flow.'}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Recently updated on your shelf</view>
+      <view class="subtitle">{{updateReason || 'Recent chapter movement should remain visible without scanning the full frontlist.'}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Membership lane</view>
+      <view class="subtitle">{{membershipReason || 'Premium discovery should remain legible without taking over the home surface.'}}</view>
+    </view>
+  </view>
+
+  <view class="footer-nav card workspace-footer">
+    <view class="footer-title">Workspace links</view>
+    <view class="footer-copy">Use Home for discovery and quick continuation. Move to Bookshelf when sorting, filtering, or focused return paths matter more.</view>
+    <view class="nav-row">
+      <view class="nav-chip nav-chip-active">Home</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapBookshelf">Bookshelf</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapSettings">Preferences</view>
+    </view>
+  </view>
+</view>

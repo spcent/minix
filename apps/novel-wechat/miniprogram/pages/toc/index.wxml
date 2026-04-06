@@ -1,0 +1,87 @@
+<view class="page">
+  <view class="header-menu card workspace-menu">
+    <view class="brand-block">
+      <view class="brand-title">Reading directory</view>
+      <view class="brand-subtitle">Current, continue, read, and locked states should stay visible before the reader opens</view>
+    </view>
+    <view class="menu-title">TOC Menu</view>
+    <view class="nav-row">
+      <view class="nav-chip nav-chip-link" bindtap="onTapCatalog">Home</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapNovelDetail">Detail</view>
+      <view class="nav-chip nav-chip-active">TOC</view>
+    </view>
+  </view>
+
+  <view class="hero workspace-hero">
+    <view class="eyebrow">Directory</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">The chapter list should preserve reading position, not just structure.</view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">TOC snapshot</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">{{volumes.length}}</view>
+        <view class="summary-label">Volumes</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{readChapterIds.length}}</view>
+        <view class="summary-label">Read in trail</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{currentChapterId || 'None'}}</view>
+        <view class="summary-label">Pinned highlight</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{currentVolumeId || 'Current'}}</view>
+        <view class="summary-label">Current volume</view>
+      </view>
+    </view>
+    <view class="subtitle">{{selectedChapterAccessSummary || (continueChapterId ? 'The directory should preserve both the saved continuation point and any chapter the reader just carried back into TOC.' : 'The directory is loading continuation context from the active reading trail.')}}</view>
+    <view wx:if="{{currentVolumeProgressLabel}}" class="subtitle">{{currentVolumeProgressLabel}}</view>
+    <view wx:if="{{currentVolumeSummary}}" class="subtitle">{{currentVolumeSummary}}</view>
+    <button class="button" type="primary" bindtap="onTapOpenSelected">{{selectedChapterPrimaryActionLabel || 'Open selected chapter'}}</button>
+    <button wx:if="{{currentChapterId}}" class="button" bindtap="onTapCurrentChapter">Back to current chapter</button>
+    <button wx:if="{{selectedChapterLocked}}" class="button" bindtap="onTapMembership">{{selectedChapterMembershipActionLabel || 'Unlock membership'}}</button>
+    <button class="button" bindtap="onTapNovelDetail">Back to detail</button>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Active reading program</view>
+    <view class="item-title">{{currentVolumeProgressLabel || 'Volume progress will appear once a current lane exists.'}}</view>
+    <view class="subtitle">{{currentVolumeSummary || 'The directory should explain which volume is still alive in the current reading run.'}}</view>
+    <view wx:if="{{nextVolumeHandoffLabel}}" class="subtitle">{{nextVolumeHandoffLabel}}</view>
+    <view class="subtitle">{{backlogReentryLabel || 'Backlog re-entry stays quiet until a finished volume exists.'}}</view>
+  </view>
+
+  <view wx:if="{{programMilestoneTitle}}" class="card">
+    <view class="section-label">Volume milestone</view>
+    <view class="item-title">{{programMilestoneTitle}}</view>
+    <view class="subtitle">{{programMilestoneCopy || 'Completed volumes should remain first-class milestones inside the directory.'}}</view>
+    <view wx:if="{{programMilestoneMeta}}" class="subtitle">{{programMilestoneMeta}}</view>
+  </view>
+
+  <view wx:for="{{volumes}}" wx:key="id" class="card">
+    <view class="section-label">{{item.title}}</view>
+    <view class="subtitle">{{currentVolumeId === item.id ? 'Current reading volume kept expanded for faster jump-back.' : (expandedVolumeId === item.id ? 'Expanded for chapter scanning.' : 'Collapsed to keep the long-session directory quieter.')}}</view>
+    <button class="button" bindtap="onTapToggleVolume" data-value="{{item.id}}">{{expandedVolumeId === item.id ? 'Collapse volume' : 'Expand volume'}}</button>
+    <view wx:if="{{expandedVolumeId === item.id}}" wx:for="{{item.chapters}}" wx:key="id" class="item">
+      <view class="item-meta">
+        <view class="item-badge">Ch. {{item.order}}</view>
+        <view wx:if="{{currentChapterId === item.id}}" class="item-badge">Current</view>
+        <view wx:if="{{highlightedChapterId === item.id}}" class="item-badge">Pinned</view>
+        <view wx:if="{{continueChapterId === item.id}}" class="item-badge item-badge-soft">Continue</view>
+        <view wx:if="{{item.isTrial}}" class="item-badge item-badge-soft">Trial</view>
+        <view wx:if="{{item.requiresMembership && !item.isPurchased}}" class="item-badge item-badge-soft">Locked</view>
+      </view>
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle">{{currentChapterId === item.id ? 'Current resume point from the latest reading session.' : (highlightedChapterId === item.id ? 'Pinned highlight carried over from the reader session.' : (continueChapterId === item.id ? 'Saved continuation point for the active trail.' : (item.requiresMembership && !item.isPurchased ? 'Beyond the current membership boundary.' : 'Available to open from the directory.')))}}</view>
+      <view class="button-row">
+        <button class="button button-inline" data-value="{{item.id}}" bindtap="onTapSelectChapter">Focus</button>
+        <button class="button button-inline" type="primary" data-value="{{item.id}}" bindtap="onTapReadChapter">{{currentChapterId === item.id ? 'Resume' : 'Read'}}</button>
+        <button wx:if="{{item.requiresMembership && !item.isPurchased}}" class="button button-inline" data-value="{{item.id}}" bindtap="onTapMembership">{{item.isTrial ? 'Unlock after trial' : 'Unlock'}}</button>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,94 @@
+<view class="page">
+  <view class="header-menu card execution-menu">
+    <view class="brand-block">
+      <view class="brand-title">Minute English</view>
+      <view class="brand-subtitle">Active execution workspace for today's lesson queue</view>
+    </view>
+    <view class="menu-title">Execution Menu</view>
+    <view class="nav-row">
+      <view class="nav-chip">Home</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapOverview">Overview</view>
+      <view class="nav-chip nav-chip-active">Today's Plan</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapSettings">Preferences</view>
+    </view>
+  </view>
+
+  <view class="hero execution-hero">
+    <view class="eyebrow">Today's Plan</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{completedItemIds.length === items.length && items.length > 0 ? 'You finished today\'s lesson. This page is now the review surface for the completed queue and final wrap-up.' : 'Use this page as the execution surface for today\'s tasks, completion state, and queue controls.'}}</view>
+    <view class="chip-row">
+      <view class="plan-chip">10 min plan</view>
+      <view class="plan-chip">{{items.length}} tasks</view>
+      <view class="plan-chip">{{completedItemIds.length === items.length && items.length > 0 ? 'Lesson complete' : 'Execution active'}}</view>
+    </view>
+  </view>
+
+  <view class="card execution-summary">
+    <view class="section-label">Execution status</view>
+    <view class="subtitle">{{completedItemIds.length === items.length && items.length > 0 ? 'The single-lesson loop is complete. Reopen the finished queue, review the wrap-up, or step back to Overview for the completed lesson summary.' : (featuredReason || 'This execution queue moves from vocabulary to listening and then active speaking.')}}</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">{{completedItemIds.length}}</view>
+        <view class="summary-label">{{completedItemIds.length === items.length && items.length > 0 ? 'Tasks completed' : 'Completed now'}}</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{completedItemIds.length === items.length && items.length > 0 ? 'Review' : (hasMore ? 'More' : 'Ready')}}</view>
+        <view class="summary-label">{{completedItemIds.length === items.length && items.length > 0 ? 'Queue state' : 'Load state'}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card execution-complete" wx:if="{{completedItemIds.length === items.length && items.length > 0}}">
+    <view class="section-label">Lesson Complete</view>
+    <view class="title completion-title">You completed today&#39;s lesson</view>
+    <view class="subtitle">The queue is now ready for review. Revisit the finished steps, reopen the wrap-up, or return to Overview for the recap state.</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">{{completedItemIds.length}}</view>
+        <view class="summary-label">Tasks finished</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">Saved</view>
+        <view class="summary-label">Lesson progress state</view>
+      </view>
+    </view>
+    <button class="button" type="primary" bindtap="onTapOverview">Back to Overview</button>
+  </view>
+
+  <view class="card execution-queue">
+    <view class="section-label">{{completedItemIds.length === items.length && items.length > 0 ? 'Completed queue' : 'Task queue'}}</view>
+    <view class="subtitle" wx:if="{{loading}}">Loading today's lesson...</view>
+    <view class="subtitle" wx:if="{{errorText}}">{{errorText}}</view>
+    <view class="subtitle" wx:if="{{!loading && items.length === 0 && emptyText}}">{{emptyText}}</view>
+    <view class="subtitle" wx:if="{{!loading && !errorText && items.length > 0 && completedItemIds.length === items.length}}">All tasks are complete. Use this queue as a finished lesson recap.</view>
+
+    <view wx:for="{{items}}" wx:key="id" class="item">
+      <view class="item-meta">
+        <view class="item-badge {{item.completed ? 'item-badge-complete' : ''}}">{{item.completed ? 'Completed' : 'Today'}}</view>
+      </view>
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle" wx:if="{{item.subtitle}}">{{item.subtitle}}</view>
+    </view>
+
+    <button class="button" wx:if="{{hasMore}}" bindtap="onTapLoadMore">Show More Practice</button>
+  </view>
+
+  <view class="card execution-controls">
+    <view class="section-label">{{completedItemIds.length === items.length && items.length > 0 ? 'Review controls' : 'Control panel'}}</view>
+    <view class="subtitle">{{completedItemIds.length === items.length && items.length > 0 ? 'Use Overview for the completed lesson recap, or open preferences while keeping today\'s finished session intact.' : 'Use Overview for the high-level dashboard, or open preferences without leaving the current study flow behind.'}}</view>
+    <button class="button" bindtap="onTapOverview">Back to Overview</button>
+    <button class="button" bindtap="onTapSettings">Learning Preferences</button>
+  </view>
+
+  <view class="footer-nav card execution-footer">
+    <view class="footer-title">Execution Links</view>
+    <view class="footer-copy">{{completedItemIds.length === items.length && items.length > 0 ? 'Today\'s Plan has shifted into review mode. Step back to Overview for the completed lesson summary, or stay here to revisit the finished queue.' : 'Today\'s Plan is the execution layer. Use it to work the queue, then step back to Overview when you want the summary view.'}}</view>
+    <view class="nav-row">
+      <view class="nav-chip">Home</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapOverview">Overview</view>
+      <view class="nav-chip nav-chip-active">Today's Plan</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapSettings">Preferences</view>
+    </view>
+  </view>
+</view>

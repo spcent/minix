@@ -1,0 +1,224 @@
+<view class="page">
+  <view class="header-menu card workspace-menu">
+    <view class="brand-block">
+      <view class="brand-title">Shelf Workspace</view>
+      <view class="brand-subtitle">Sorting, filtering, and selected-title continuation for active reading loops</view>
+    </view>
+    <view class="menu-title">Bookshelf Menu</view>
+    <view class="nav-row">
+      <view class="nav-chip nav-chip-link" bindtap="onTapCatalog">Home</view>
+      <view class="nav-chip nav-chip-active">Bookshelf</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapSettings">Preferences</view>
+    </view>
+  </view>
+
+  <view class="hero workspace-hero">
+    <view class="eyebrow">Bookshelf workspace</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">The shelf should now feel like an active workspace: recent reading first, updates visible, and completed runs one filter away.</view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Shelf snapshot</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">{{activeCount}}</view>
+        <view class="summary-label">Active titles</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{updatedCount}}</view>
+        <view class="summary-label">Updated titles</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{completedCount}}</view>
+        <view class="summary-label">Completed</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Shelf programming</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">{{pinnedNovelId ? 'Pinned' : 'Open'}}</view>
+        <view class="summary-label">Focus mode</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{activeFilterKey}}</view>
+        <view class="summary-label">Reading lane</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{activeSortKey}}</view>
+        <view class="summary-label">Ranking rule</view>
+      </view>
+    </view>
+    <view class="subtitle">{{selectionReason || 'The shelf should explain why a title is being surfaced as the next reading session, not only expose controls.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Because you paused here</view>
+    <view class="item-title">{{resumeCueTitle || 'Next reading return'}}</view>
+    <view class="subtitle">{{resumeCueMeta || 'No active return point is surfaced yet.'}}</view>
+    <view class="subtitle">{{resumeCueReason || 'The shelf should explain why one title is being surfaced as the fastest return path.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Active reading program</view>
+    <view class="item">
+      <view class="item-title">Current run</view>
+      <view class="subtitle">{{activeLaneReason || 'Active titles should remain warm between sessions.'}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">{{backlogCueTitle || 'Backlog lane'}}</view>
+      <view class="subtitle">{{backlogCueReason || 'Finished titles should become quiet re-entry candidates once the active run is complete.'}}</view>
+      <view wx:if="{{backlogQueueLabel}}" class="subtitle">{{backlogQueueLabel}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Reading milestone</view>
+    <view class="item-title">{{programMilestoneTitle || 'No archive milestone yet'}}</view>
+    <view class="subtitle">{{programMilestoneCopy || 'Finished titles should eventually accumulate into stable milestones instead of disappearing behind active continuation cues.'}}</view>
+    <view wx:if="{{programMilestoneMeta}}" class="subtitle">{{programMilestoneMeta}}</view>
+  </view>
+
+  <view wx:if="{{milestoneHistory.length > 0}}" class="card">
+    <view class="section-label">Milestone history</view>
+    <view wx:for="{{milestoneHistory}}" wx:key="title" class="item">
+      <view class="item-badge item-badge-soft">{{item.typeLabel}}</view>
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle">{{item.copy}}</view>
+      <view class="subtitle">{{item.sourceLabel}}</view>
+      <view wx:if="{{item.recencyLabel}}" class="subtitle">{{item.recencyLabel}}</view>
+      <view wx:if="{{item.meta}}" class="subtitle">{{item.meta}}</view>
+      <view class="subtitle">{{item.returnHint}}</view>
+      <button wx:if="{{item.source !== 'bookshelf'}}" class="button button-inline" data-value="{{index}}" bindtap="onTapMilestoneHistoryItem">{{item.returnLabel}}</button>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Filter view</view>
+    <view class="nav-row">
+      <view class="nav-chip {{activeFilterKey === 'all' ? 'nav-chip-active' : 'nav-chip-link'}}" bindtap="onTapFilterAll">All</view>
+      <view class="nav-chip {{activeFilterKey === 'updates' ? 'nav-chip-active' : 'nav-chip-link'}}" bindtap="onTapFilterUpdates">Updates</view>
+      <view class="nav-chip {{activeFilterKey === 'completed' ? 'nav-chip-active' : 'nav-chip-link'}}" bindtap="onTapFilterCompleted">Completed</view>
+    </view>
+    <view class="section-label">Sort view</view>
+    <view class="nav-row">
+      <view class="nav-chip {{activeSortKey === 'recent' ? 'nav-chip-active' : 'nav-chip-link'}}" bindtap="onTapSortRecent">Recent</view>
+      <view class="nav-chip {{activeSortKey === 'updated' ? 'nav-chip-active' : 'nav-chip-link'}}" bindtap="onTapSortUpdated">Updated</view>
+      <view class="nav-chip {{activeSortKey === 'progress' ? 'nav-chip-active' : 'nav-chip-link'}}" bindtap="onTapSortProgress">Progress</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Selected focus</view>
+    <view wx:if="{{pinnedItem}}" class="item">
+      <view class="item-meta">
+        <view class="item-badge">Pinned</view>
+      </view>
+      <view class="item-title">{{pinnedItem.title}}</view>
+      <view class="subtitle">{{pinnedItem.continueChapterTitle || pinnedItem.latestChapterTitle || 'Saved continuation available'}} · because you pinned it above the rest of the shelf lane.</view>
+      <view class="button-row">
+        <button class="button button-inline" type="primary" data-value="{{pinnedItem.novelId}}" bindtap="onTapContinueNovel">Continue</button>
+        <button class="button button-inline" bindtap="onTapClearPinned">Clear pin</button>
+      </view>
+    </view>
+    <view wx:for="{{visibleItems}}" wx:key="novelId">
+      <view wx:if="{{item.novelId === selectedNovelId}}" class="item">
+        <view class="item-meta">
+          <view wx:if="{{pinnedNovelId === item.novelId}}" class="item-badge">Pinned</view>
+          <view wx:if="{{item.hasUpdate}}" class="item-badge">Updated</view>
+          <view wx:if="{{item.progressPercent >= 0.99}}" class="item-badge item-badge-soft">Completed</view>
+        </view>
+        <view class="item-title">{{item.title}}</view>
+        <view class="subtitle">{{item.continueChapterTitle || item.latestChapterTitle || 'Ready to reopen'}}</view>
+        <view class="button-row">
+          <button wx:if="{{pinnedNovelId !== item.novelId}}" class="button button-inline" data-value="{{item.novelId}}" bindtap="onTapPinNovel">Pin</button>
+          <button wx:if="{{pinnedNovelId === item.novelId}}" class="button button-inline" bindtap="onTapClearPinned">Clear pin</button>
+        </view>
+        <button class="button" type="warn" data-value="{{item.novelId}}" bindtap="onTapRemoveNovel">Remove from shelf</button>
+      </view>
+    </view>
+    <view wx:if="{{visibleItems.length === 0 && !loading}}" class="subtitle">{{errorText || emptyText}}</view>
+    <button class="button" type="primary" bindtap="onTapContinueReading">Continue selected title</button>
+    <button class="button" bindtap="onTapOpenSelected">Open selected detail</button>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Curator note</view>
+    <view class="item">
+      <view class="item-title">Why this title</view>
+      <view class="subtitle">{{selectionReason || 'Choose a title to make the shelf read like an active workspace instead of a flat inventory.'}}</view>
+    </view>
+    <view class="item">
+      <view class="item-title">Because you paused here</view>
+      <view class="subtitle">{{resumeCueReason || (selectedNovelId ? 'Continue reading when a saved chapter exists. Otherwise, reopen detail to reset context before starting again.' : 'Pick a title, then either continue directly or inspect the detail dossier first.')}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Shelf inventory</view>
+    <view wx:for="{{visibleItems}}" wx:key="novelId" class="item">
+      <view class="item-meta">
+        <view wx:if="{{pinnedNovelId === item.novelId}}" class="item-badge">Pinned</view>
+        <view wx:if="{{item.hasUpdate}}" class="item-badge">Updated</view>
+        <view wx:if="{{item.progressPercent >= 0.99}}" class="item-badge item-badge-soft">Completed</view>
+      </view>
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle">{{item.continueChapterTitle || item.latestChapterTitle || 'Continue reading'}} · {{item.updatedAt}}</view>
+      <view class="button-row">
+        <button class="button button-inline" data-value="{{item.novelId}}" bindtap="onTapSelectNovel">Focus</button>
+        <button wx:if="{{pinnedNovelId !== item.novelId}}" class="button button-inline" data-value="{{item.novelId}}" bindtap="onTapPinNovel">Pin</button>
+        <button wx:if="{{pinnedNovelId === item.novelId}}" class="button button-inline" bindtap="onTapClearPinned">Clear pin</button>
+        <button class="button button-inline" type="primary" data-value="{{item.novelId}}" bindtap="onTapContinueNovel">Continue</button>
+        <button class="button button-inline" data-value="{{item.novelId}}" bindtap="onTapOpenNovel">Detail</button>
+        <button class="button button-inline" type="warn" data-value="{{item.novelId}}" bindtap="onTapRemoveNovel">Remove</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Active stack</view>
+    <view class="subtitle">{{activeLaneReason || 'Titles still in motion should remain visible as the warm reading lane.'}}</view>
+    <view wx:for="{{activeItems}}" wx:key="novelId" class="item">
+      <view class="item-meta">
+        <view wx:if="{{pinnedNovelId === item.novelId}}" class="item-badge">Pinned</view>
+        <view class="item-badge item-badge-soft">Active</view>
+      </view>
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle">{{item.continueChapterTitle || item.latestChapterTitle || 'Saved continuation available'}}{{pinnedNovelId === item.novelId ? ' · because you pinned it' : ''}}</view>
+      <view class="subtitle">{{item.continueChapterTitle ? ('Because you paused at ' + item.continueChapterTitle + ', this title stays warm in the active stack.') : 'This title stays warm because it still has unfinished reading momentum.'}}</view>
+      <view class="button-row">
+        <button class="button button-inline" type="primary" data-value="{{item.novelId}}" bindtap="onTapContinueNovel">Continue</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Completed archive</view>
+    <view class="subtitle">{{archiveReason || 'Finished titles are still part of the collection story and should remain easy to reopen.'}}</view>
+    <view wx:for="{{completedItems}}" wx:key="novelId">
+      <view class="item">
+        <view class="item-meta">
+          <view class="item-badge item-badge-soft">Completed</view>
+        </view>
+        <view class="item-title">{{item.title}}</view>
+        <view class="subtitle">Completed run, still available for detail re-entry and archive browsing.</view>
+        <view class="button-row">
+          <button class="button button-inline" data-value="{{item.novelId}}" bindtap="onTapOpenNovel">Open detail</button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="footer-nav card workspace-footer">
+    <view class="footer-title">Shelf controls</view>
+    <view class="footer-copy">This surface now exposes the same sorting and filtering logic as H5, even though Mini Program actions stay intentionally lighter.</view>
+    <view class="nav-row">
+      <view class="nav-chip nav-chip-link" bindtap="onTapCatalog">Home</view>
+      <view class="nav-chip nav-chip-active">Bookshelf</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapSettings">Preferences</view>
+    </view>
+  </view>
+</view>

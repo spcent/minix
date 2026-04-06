@@ -1,0 +1,100 @@
+version: 1
+
+layers:
+  contracts:
+    path:
+      - packages/contracts
+    may_depend_on: []
+    may_not_depend_on:
+      - features
+      - platforms
+      - apps
+      - testkit
+  core:
+    path:
+      - packages/core
+    may_depend_on:
+      - contracts
+    may_not_depend_on:
+      - features
+      - platforms
+      - apps
+      - testkit
+  features:
+    path:
+      - packages/features/*
+    may_depend_on:
+      - contracts
+      - core
+    may_not_depend_on:
+      - platforms
+      - apps
+      - testkit
+  platforms:
+    path:
+      - packages/platform-*
+    may_depend_on:
+      - contracts
+      - core
+    may_not_depend_on:
+      - features
+      - apps
+  testkit:
+    path:
+      - packages/testkit
+    may_depend_on:
+      - contracts
+      - core
+      - features
+      - platforms
+      - apps
+      - tooling
+  tooling:
+    path:
+      - packages/tooling
+    may_depend_on:
+      - contracts
+      - core
+      - features
+      - platforms
+      - testkit
+  apps:
+    path:
+      - apps/*
+    may_depend_on:
+      - contracts
+      - core
+      - features
+      - platforms
+      - tooling
+      - testkit
+
+cross_cutting_rules:
+  no_deep_imports:
+    description: Use package entry points only. Do not import paths such as @minix/core/...
+  no_cross_package_relative_imports:
+    description: Do not bypass a package root export with relative imports across packages.
+  no_platform_calls_in_shared_code:
+    description:
+      - Shared code must not call wx.* directly.
+      - Shared code must not call window.* directly.
+  registry_driven_host_wiring:
+    description: Do not create handwritten parallel route maps when host manifests or registries already exist.
+
+verification:
+  current_scripts:
+    - scripts/check-specs.mjs
+    - scripts/check-boundaries.mjs
+    - scripts/check-contract-purity.mjs
+    - scripts/check-contract-shapes.mjs
+    - scripts/check-contract-behaviors.mjs
+    - scripts/check-platform-calls.mjs
+    - scripts/check-result-discipline.mjs
+    - scripts/check-result-signatures.mjs
+    - scripts/check-package-entries.mjs
+    - scripts/check-feature-public-surface.mjs
+    - scripts/check-package-deps.mjs
+    - scripts/check-host-routes.mjs
+    - scripts/check-host-wiring.mjs
+  entry_command: pnpm verify
+  migration_note: Move hard-coded boundary rules into this spec incrementally instead of duplicating them.

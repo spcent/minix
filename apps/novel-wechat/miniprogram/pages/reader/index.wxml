@@ -1,0 +1,139 @@
+<view class="page">
+  <view class="header-menu card execution-menu">
+    <view class="brand-block">
+      <view class="brand-title">Live reader</view>
+      <view class="brand-subtitle">Continuous reading, chapter completion, and return paths kept in one compact execution view</view>
+    </view>
+    <view class="menu-title">Reader Menu</view>
+    <view class="nav-row">
+      <view class="nav-chip nav-chip-link" bindtap="onTapNovelDetail">Detail</view>
+      <view class="nav-chip nav-chip-link" bindtap="onTapToc">TOC</view>
+      <view class="nav-chip nav-chip-active">Reader</view>
+    </view>
+  </view>
+
+  <view class="hero execution-hero">
+    <view class="eyebrow">{{currentVolumeTitle || 'Reader'}}</view>
+    <view class="title">{{chapter ? chapter.title : title}}</view>
+    <view class="subtitle">{{accessMessage || (nextChapterTitle ? ('Next up: ' + nextChapterTitle) : 'You are at the latest available chapter in this run.')}}</view>
+    <view class="chip-row">
+      <view class="plan-chip">{{Math.round(progressPercent * 100)}}% read</view>
+      <view class="plan-chip">{{readChapterIds.length}} in trail</view>
+      <view wx:if="{{sessionElapsedLabel}}" class="plan-chip">{{sessionElapsedLabel}}</view>
+      <view class="plan-chip">{{accessBadgeLabel || accessState}}</view>
+      <view wx:if="{{readingStateLabel}}" class="plan-chip">{{readingStateLabel}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{displaySyncMessage}}" class="card">
+    <view class="section-label">Display refresh</view>
+    <view class="subtitle">{{displaySyncMessage}}</view>
+  </view>
+
+  <view class="card" wx:if="{{accessState !== 'open'}}">
+    <view class="section-label">Access gate</view>
+    <view class="subtitle">{{accessMessage || (accessState === 'trial' ? 'Trial preview is active for this chapter.' : 'This chapter is behind the current membership boundary.')}}</view>
+    <view class="button-row">
+      <button class="button button-inline" bindtap="onTapMembership">{{membershipActionLabel || (accessState === 'trial' ? 'Unlock after trial' : 'Unlock membership')}}</button>
+      <button class="button button-inline" bindtap="onTapToc">Review directory</button>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Reading trail</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">{{currentVolumeTitle || 'Current'}}</view>
+        <view class="summary-label">Volume lane</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{nextChapterTitle || 'Latest'}}</view>
+        <view class="summary-label">Next up</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{saveStatusLabel || lastSavedAt || 'Unsaved'}}</view>
+        <view class="summary-label">Save status</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{sessionElapsedLabel || 'Just opened'}}</view>
+        <view class="summary-label">Session length</view>
+      </view>
+    </view>
+    <view wx:if="{{volumeProgressLabel}}" class="subtitle">{{volumeProgressLabel}}</view>
+    <view wx:if="{{activeProgramSummary}}" class="subtitle">{{activeProgramSummary}}</view>
+    <view class="subtitle">{{nextStepLabel || (nextChapterTitle ? ('Next up: ' + nextChapterTitle) : 'No next chapter is currently available.')}}</view>
+    <button class="button" type="primary" bindtap="onTapCompleteNext">{{nextChapterTitle ? 'Complete + Continue' : 'Mark Chapter Complete'}}</button>
+    <button class="button" bindtap="onTapCompleteChapter">Save chapter complete</button>
+    <button class="button" bindtap="onTapToc">Back to current chapter in TOC</button>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Backlog re-entry</view>
+    <view class="subtitle">{{backlogReentryLabel || 'This run is still too early for backlog re-entry signals.'}}</view>
+    <view wx:if="{{volumeHandoffLabel}}" class="subtitle">{{volumeHandoffLabel}}</view>
+  </view>
+
+  <view wx:if="{{programMilestoneTitle}}" class="card">
+    <view class="section-label">Volume milestone</view>
+    <view class="item-title">{{programMilestoneTitle}}</view>
+    <view class="subtitle">{{programMilestoneCopy || 'Completed volumes should remain visible as stable milestones, not disappear behind chapter-level cues.'}}</view>
+    <view wx:if="{{programMilestoneMeta}}" class="subtitle">{{programMilestoneMeta}}</view>
+  </view>
+
+  <view class="card" wx:if="{{chapterCompletionState !== 'reading'}}">
+    <view class="section-label">Post-chapter recap</view>
+    <view class="item-title">{{completionSummaryTitle || 'Reading recap'}}</view>
+    <view class="subtitle">{{completionSummaryCopy || chapterCompletionMessage || 'The latest chapter action is saved and ready for the next step.'}}</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">{{completionSummaryMeta || 'Tracked'}}</view>
+        <view class="summary-label">Trail summary</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{sessionElapsedLabel || 'Just opened'}}</view>
+        <view class="summary-label">Session length</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{saveStatusLabel || 'Saved'}}</view>
+        <view class="summary-label">Progress state</view>
+      </view>
+    </view>
+    <button wx:if="{{nextChapterTitle}}" class="button" type="primary" bindtap="onTapNextChapter">Open next step</button>
+    <button wx:if="{{!nextChapterTitle}}" class="button" type="primary" bindtap="onTapNovelDetail">Back to title dossier</button>
+    <button class="button" bindtap="onTapToc">Review directory</button>
+  </view>
+
+  <view class="card" wx:if="{{chapterCompletionState === 'continued' && chapterCompletionMessage}}">
+    <view class="section-label">Continuous reading</view>
+    <view class="subtitle">{{chapterCompletionMessage}}</view>
+    <button wx:if="{{nextChapterTitle}}" class="button" type="primary" bindtap="onTapCompleteNext">Keep reading forward</button>
+    <button wx:if="{{!nextChapterTitle}}" class="button" type="primary" bindtap="onTapNovelDetail">Return to title dossier</button>
+    <button class="button" bindtap="onTapToc">Review queue</button>
+  </view>
+
+  <view class="card" wx:if="{{chapterCompletionState === 'completed'}}">
+    <view class="section-label">Chapter complete</view>
+    <view class="subtitle">{{chapterCompletionMessage || (nextChapterTitle ? 'This chapter is complete. The next chapter is ready to open immediately.' : 'This chapter is complete. You are at the end of the current available run.')}}</view>
+    <button wx:if="{{nextChapterTitle}}" class="button" type="primary" bindtap="onTapNextChapter">Open next chapter</button>
+    <button wx:if="{{!nextChapterTitle}}" class="button" bindtap="onTapNovelDetail">Back to detail</button>
+    <button class="button" bindtap="onTapToc">Open directory</button>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Reading surface</view>
+    <view class="subtitle" wx:if="{{chapter}}">{{chapter.content}}</view>
+    <view class="subtitle" wx:if="{{!chapter}}">{{errorText || 'Loading chapter content...'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Reader actions</view>
+    <view class="button-row">
+      <button class="button button-inline" bindtap="onTapPreviousChapter">Previous</button>
+      <button class="button button-inline" type="primary" bindtap="onTapNextChapter">Next</button>
+      <button class="button button-inline" bindtap="onTapToc">Open TOC</button>
+      <button class="button button-inline" bindtap="onTapNovelDetail">Detail</button>
+    </view>
+    <button class="button" bindtap="onTapBookshelf">Open bookshelf</button>
+    <button wx:if="{{accessState !== 'open'}}" class="button" bindtap="onTapMembership">{{membershipActionLabel || 'Unlock membership'}}</button>
+  </view>
+</view>

@@ -1,0 +1,15 @@
+{
+  "name": "@minix/host-h5",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@minix/contracts": "workspace:*",
+    "@minix/core": "workspace:*",
+    "@minix/feature-auth": "workspace:*",
+    "@minix/feature-items": "workspace:*",
+    "@minix/feature-settings": "workspace:*",
+    "@minix/platform-h5": "workspace:*"
+  }
+}

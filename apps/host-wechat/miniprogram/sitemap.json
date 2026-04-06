@@ -1,0 +1,9 @@
+{
+  "desc": "MiniX host wechat sitemap",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
+}

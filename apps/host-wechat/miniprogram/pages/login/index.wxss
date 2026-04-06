@@ -1,0 +1,97 @@
+.header-menu {
+  margin-bottom: 24rpx;
+}
+
+.landing-menu {
+  background: rgba(255, 253, 248, 0.96);
+}
+
+.hero {
+  margin-bottom: 24rpx;
+}
+
+.landing-hero {
+  padding: 8rpx 0 4rpx;
+}
+
+.landing-card {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.landing-cta {
+  background: linear-gradient(180deg, #fffaf1 0%, #ffffff 100%);
+}
+
+.landing-footer {
+  background: rgba(255, 252, 246, 0.96);
+}
+
+.eyebrow {
+  font-size: 22rpx;
+  letter-spacing: 4rpx;
+  text-transform: uppercase;
+  color: #123c69;
+}
+
+.status-text {
+  margin-top: 20rpx;
+  font-size: 24rpx;
+  color: #5c677d;
+}
+
+.section-label {
+  margin-bottom: 12rpx;
+  font-size: 22rpx;
+  letter-spacing: 4rpx;
+  text-transform: uppercase;
+  color: #5c677d;
+}
+
+.summary-row {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 12rpx;
+}
+
+.summary-stat {
+  flex: 1;
+  padding: 20rpx;
+  border-radius: 20rpx;
+  background: #f8fafc;
+}
+
+.summary-value {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.summary-label {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.item-meta {
+  margin-bottom: 12rpx;
+}
+
+.item-badge {
+  display: inline-block;
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  background: #fff2d7;
+  color: #8a5a00;
+  font-size: 20rpx;
+}
+
+.item-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.footer-nav {
+  margin-top: 24rpx;
+}

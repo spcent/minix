@@ -1,0 +1,52 @@
+version: 1
+
+entrypoints:
+  default_read_order:
+    - AGENTS.md
+    - README.md
+    - docs/AGENT_GUIDE.md
+    - docs/ARCHITECTURE.md
+    - packages/features/README.md
+  command_baseline:
+    install: pnpm install
+    verify: pnpm verify
+    typecheck: pnpm typecheck
+    test: pnpm test
+
+change_flows:
+  add_or_change_shared_contract:
+    read:
+      - docs/BACKEND_CONTRACT.md
+      - specs/repo.yaml
+      - specs/dependency-rules.yaml
+    edit_order:
+      - packages/contracts
+      - packages/core
+      - packages/features/*
+      - apps/host-*
+  add_or_change_feature_behavior:
+    read:
+      - packages/features/README.md
+      - docs/modules/features.md
+      - specs/change-recipes/add-feature.md
+    edit_order:
+      - packages/features/*
+      - packages/core
+      - packages/platform-*
+      - apps/host-*
+  add_host_visible_page:
+    read:
+      - docs/architecture/host-wiring.md
+      - specs/change-recipes/add-page.md
+    edit_order:
+      - packages/features/*
+      - apps/host-*/src/manifest
+      - apps/host-*/src/registrations
+      - apps/host-wechat/miniprogram
+
+guardrails:
+  - Keep changes local and reversible.
+  - Prefer existing scaffolds over ad hoc file creation.
+  - Do not widen v0.1 scope without an explicit reason.
+  - Run pnpm verify after code changes.
+  - If only docs or specs changed, state that code validation was intentionally skipped.

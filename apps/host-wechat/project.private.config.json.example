@@ -1,0 +1,8 @@
+{
+  "appid": "REPLACE_WITH_HOST_WECHAT_APP_ID",
+  "projectname": "minix-host-wechat-private",
+  "setting": {
+    "urlCheck": true,
+    "compileHotReLoad": true
+  }
+}
