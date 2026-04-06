@@ -44,16 +44,17 @@ export function normalizeFeatureName(value: string): FeatureNames {
 }
 
 function controllerSource(names: FeatureNames): string {
-  return `import { createStore } from "@minix/core";
-import { createInitial${names.pascal}State, type ${names.pascal}State } from "../model";
+  return `import { createStore, type AppKernel } from "@minix/core";
+import { createDefault${names.pascal}State, type ${names.pascal}State } from "../model";
 
 export interface Create${names.pascal}ControllerOptions {
+  kernel: AppKernel;
   initialState?: Partial<${names.pascal}State>;
 }
 
-export function create${names.pascal}Controller(options: Create${names.pascal}ControllerOptions = {}) {
+export function create${names.pascal}Controller(options: Create${names.pascal}ControllerOptions) {
   const store = createStore<${names.pascal}State>({
-    ...createInitial${names.pascal}State(),
+    ...createDefault${names.pascal}State(),
     ...options.initialState,
   });
 
@@ -73,7 +74,7 @@ function featureManifestSource(names: FeatureNames): string {
 import { defineFeatureManifest, type AppKernel, type FeatureConfig } from "@minix/core";
 
 import { create${names.pascal}Controller } from "./controller";
-import { createInitial${names.pascal}State, type ${names.pascal}State } from "./model";
+import { createDefault${names.pascal}State, type ${names.pascal}State } from "./model";
 
 export interface ${names.pascal}FeatureControllerOptions {
   initialState?: Partial<${names.pascal}State>;
@@ -81,7 +82,9 @@ export interface ${names.pascal}FeatureControllerOptions {
 
 export const ${names.camel}CapabilityRequirements: CapabilityRequirement[] = [];
 export const ${names.camel}GuardPolicy: GuardPolicy | undefined = undefined;
-export const ${names.camel}FeatureConfig: FeatureConfig = {};
+export const ${names.camel}FeatureConfig: FeatureConfig = {
+  surface: "${names.kebab}",
+};
 
 export const ${names.camel}FeatureManifest = defineFeatureManifest<
   ${names.pascal}FeatureControllerOptions,
@@ -94,12 +97,14 @@ export const ${names.camel}FeatureManifest = defineFeatureManifest<
   exportName: "${names.camel}FeatureManifest",
   createController(
     _host,
-    _kernel: AppKernel,
+    kernel: AppKernel,
     options: ${names.pascal}FeatureControllerOptions,
     pageData: ${names.pascal}State,
   ) {
     return create${names.pascal}Controller({
+      kernel,
       initialState: {
+        ...createDefault${names.pascal}State(),
         ...pageData,
         ...options.initialState,
       },
@@ -121,7 +126,7 @@ export const ${names.camel}FeatureManifest = defineFeatureManifest<
   },
 });
 
-export { createInitial${names.pascal}State };
+export { createDefault${names.pascal}State };
 `;
 }
 
@@ -129,10 +134,14 @@ function controllerTestSource(names: FeatureNames): string {
   return `import test from "node:test";
 import assert from "node:assert/strict";
 
+import type { AppKernel } from "@minix/core";
+
 import { create${names.pascal}Controller } from "./index";
 
 test("${names.kebab} controller marks state ready", () => {
-  const controller = create${names.pascal}Controller();
+  const controller = create${names.pascal}Controller({
+    kernel: {} as AppKernel,
+  });
 
   assert.equal(controller.store.getState().ready, false);
   controller.markReady();
@@ -141,15 +150,60 @@ test("${names.kebab} controller marks state ready", () => {
 `;
 }
 
+function featureManifestTestSource(names: FeatureNames): string {
+  return `import assert from "node:assert/strict";
+import test from "node:test";
+
+import type { AppKernel } from "@minix/core";
+
+import { ${names.camel}FeatureManifest } from "./feature.manifest";
+import { createDefault${names.pascal}State } from "./model";
+
+test("${names.kebab} feature manifest creates a controller from host page data", () => {
+  const controller = ${names.camel}FeatureManifest.createController(
+    "h5",
+    {} as AppKernel,
+    {},
+    createDefault${names.pascal}State(),
+  );
+
+  assert.equal(controller.store.getState().ready, false);
+});
+`;
+}
+
 function modelSource(names: FeatureNames): string {
   return `export interface ${names.pascal}State {
+  title: string;
+  subtitle: string;
   ready: boolean;
 }
 
-export function createInitial${names.pascal}State(): ${names.pascal}State {
+export interface Create${names.pascal}StateOptions {
+  title: string;
+  subtitle: string;
+}
+
+export interface CreateDefault${names.pascal}StateOptions {
+  title?: string;
+  subtitle?: string;
+}
+
+export function create${names.pascal}State(options: Create${names.pascal}StateOptions): ${names.pascal}State {
   return {
+    title: options.title,
+    subtitle: options.subtitle,
     ready: false,
   };
+}
+
+export function createDefault${names.pascal}State(
+  options: CreateDefault${names.pascal}StateOptions = {},
+): ${names.pascal}State {
+  return create${names.pascal}State({
+    title: options.title ?? "${names.pascal}",
+    subtitle: options.subtitle ?? "${names.kebab} workspace state",
+  });
 }
 `;
 }
@@ -235,6 +289,7 @@ export async function scaffoldFeature(options: ScaffoldFeatureOptions) {
   await writeFile(path.join(featureDir, "src", "controller", "index.ts"), controllerSource(names), "utf8");
   await writeFile(path.join(featureDir, "src", "controller", "index.test.ts"), controllerTestSource(names), "utf8");
   await writeFile(path.join(featureDir, "src", "feature.manifest.ts"), featureManifestSource(names), "utf8");
+  await writeFile(path.join(featureDir, "src", "feature.manifest.test.ts"), featureManifestTestSource(names), "utf8");
   await writeFile(path.join(featureDir, "src", "model", "index.ts"), modelSource(names), "utf8");
 
   await updateTsconfigPaths(repoRoot, names);

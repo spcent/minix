@@ -44,12 +44,23 @@ test("scaffoldFeature creates a feature package and tsconfig alias", async () =>
 
     const controllerFile = await readFile(path.join(result.featureDir, "src", "controller", "index.ts"), "utf8");
     assert.match(controllerFile, /createUserProfileController/);
+    assert.match(controllerFile, /kernel: AppKernel/);
+    assert.match(controllerFile, /createDefaultUserProfileState/);
     const manifestFile = await readFile(path.join(result.featureDir, "src", "feature.manifest.ts"), "utf8");
     assert.match(manifestFile, /userProfileFeatureManifest/);
-    assert.match(manifestFile, /createInitialUserProfileState/);
+    assert.match(manifestFile, /createDefaultUserProfileState/);
     assert.match(manifestFile, /userProfileCapabilityRequirements/);
     assert.match(manifestFile, /userProfileGuardPolicy/);
     assert.match(manifestFile, /userProfileFeatureConfig/);
+    assert.match(manifestFile, /surface: "user-profile"/);
+    const manifestTestFile = await readFile(path.join(result.featureDir, "src", "feature.manifest.test.ts"), "utf8");
+    assert.match(manifestTestFile, /user-profile feature manifest creates a controller from host page data/);
+    assert.match(manifestTestFile, /userProfileFeatureManifest.createController/);
+
+    const modelFile = await readFile(path.join(result.featureDir, "src", "model", "index.ts"), "utf8");
+    assert.match(modelFile, /title: string;/);
+    assert.match(modelFile, /subtitle: string;/);
+    assert.match(modelFile, /createDefaultUserProfileState/);
 
     const tsconfig = JSON.parse(await readFile(path.join(tempRoot, "tsconfig.base.json"), "utf8")) as {
       compilerOptions: {
