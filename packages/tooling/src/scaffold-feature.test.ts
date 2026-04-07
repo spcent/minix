@@ -103,7 +103,9 @@ test("scaffoldFeature supports list templates with page protocol defaults", asyn
 
     const modelFile = await readFile(path.join(result.featureDir, "src", "model", "index.ts"), "utf8");
     assert.match(modelFile, /createDefaultListPageState/);
-    assert.match(modelFile, /type ArticleFeedState = ListPageState<ArticleFeedItem>/);
+    assert.match(modelFile, /type ArticleFeedState = ListPageState<ArticleFeedItem> & \{/);
+    assert.match(modelFile, /filters: ArticleFeedFilter\[];/);
+    assert.match(modelFile, /sort: ArticleFeedSortOption \| undefined;/);
 
     const controllerFile = await readFile(path.join(result.featureDir, "src", "controller", "index.ts"), "utf8");
     assert.match(controllerFile, /loadInitial\(\)/);
@@ -155,15 +157,19 @@ test("scaffoldFeature supports auth templates with login-oriented defaults", asy
     const modelFile = await readFile(path.join(result.featureDir, "src", "model", "index.ts"), "utf8");
     assert.match(modelFile, /type AccountLoginMode = "wechat" \| "sms" \| "password" \| "guest"/);
     assert.match(modelFile, /authenticated: boolean;/);
+    assert.match(modelFile, /loginHint: string;/);
+    assert.match(modelFile, /loginMethods: AccountLoginMode\[];/);
 
     const controllerFile = await readFile(path.join(result.featureDir, "src", "controller", "index.ts"), "utf8");
     assert.match(controllerFile, /submitLogin\(mode: AccountLoginMode = "wechat"\)/);
     assert.match(controllerFile, /redirectAfterLogin\(\)/);
     assert.match(controllerFile, /successRouteId\?: AppRouteId/);
+    assert.match(controllerFile, /redirectRouteId\?: AppRouteId/);
 
     const manifestFile = await readFile(path.join(result.featureDir, "src", "feature.manifest.ts"), "utf8");
     assert.match(manifestFile, /template: "auth"/);
     assert.match(manifestFile, /successRouteId\?: AppRouteId/);
+    assert.match(manifestFile, /redirectRouteId\?: AppRouteId/);
     assert.match(manifestFile, /onTapSubmit: "submitLogin"/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
@@ -201,6 +207,10 @@ test("scaffoldFeature supports workspace templates with capability-workspace def
     const modelFile = await readFile(path.join(result.featureDir, "src", "model", "index.ts"), "utf8");
     assert.match(modelFile, /interface MediaWorkspaceResult/);
     assert.match(modelFile, /primaryActionLabel: string;/);
+    assert.match(modelFile, /capabilityHint: string;/);
+    assert.match(modelFile, /resultLabel: string;/);
+    assert.match(modelFile, /usageExamples: string\[];/);
+    assert.match(modelFile, /upload-style or share-style flows/);
 
     const controllerFile = await readFile(path.join(result.featureDir, "src", "controller", "index.ts"), "utf8");
     assert.match(controllerFile, /startPrimaryAction\(\)/);
@@ -251,10 +261,12 @@ test("scaffoldFeature keeps profile and detail templates on the normalized route
       path.join(profileResult.featureDir, "src", "feature.manifest.ts"),
       "utf8",
     );
+    const profileModelFile = await readFile(path.join(profileResult.featureDir, "src", "model", "index.ts"), "utf8");
     assert.match(profileControllerFile, /editRouteId\?: AppRouteId/);
     assert.match(profileManifestFile, /editRouteId\?: AppRouteId/);
     assert.match(profileManifestFile, /editRouteId: options\.editRouteId/);
     assert.match(profileManifestFile, /onPullDownRefresh: "refresh"/);
+    assert.match(profileModelFile, /actions\?: ProfileAction\[];/);
 
     const detailResult = await scaffoldFeature({
       featureName: "order-detail",
@@ -269,9 +281,12 @@ test("scaffoldFeature keeps profile and detail templates on the normalized route
       path.join(detailResult.featureDir, "src", "feature.manifest.ts"),
       "utf8",
     );
+    const detailModelFile = await readFile(path.join(detailResult.featureDir, "src", "model", "index.ts"), "utf8");
     assert.match(detailControllerFile, /shareRouteId\?: AppRouteId/);
     assert.match(detailManifestFile, /shareRouteId\?: AppRouteId/);
     assert.match(detailManifestFile, /shareRouteId: options\.shareRouteId/);
+    assert.match(detailModelFile, /detailId: string \| undefined;/);
+    assert.match(detailModelFile, /relatedItems: OrderDetailRelatedItem\[];/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -323,10 +338,13 @@ test("scaffoldFeature exposes the template controller vocabulary expected by hos
     });
     const formControllerFile = await readFile(path.join(formResult.featureDir, "src", "controller", "index.ts"), "utf8");
     const formManifestFile = await readFile(path.join(formResult.featureDir, "src", "feature.manifest.ts"), "utf8");
+    const formModelFile = await readFile(path.join(formResult.featureDir, "src", "model", "index.ts"), "utf8");
     assert.match(formControllerFile, /loadInitial\(\)/);
     assert.match(formControllerFile, /updateField\(values: Partial<ContactFormValues>\)/);
     assert.match(formControllerFile, /validateForm\(\)/);
     assert.match(formManifestFile, /onShow: "loadInitial"/);
+    assert.match(formModelFile, /errors: Record<string, string>;/);
+    assert.match(formModelFile, /submitResult: ContactFormSubmitResult \| undefined;/);
 
     const profileResult = await scaffoldFeature({
       featureName: "member-profile",

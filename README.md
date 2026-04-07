@@ -197,6 +197,8 @@ pnpm scaffold:page <feature-name> <page-key>
 pnpm gen:shells
 ```
 
+`workspace` is the shared starter template for upload-style and share-style capability features; keep using it instead of adding separate scaffold template names unless the generated surface truly diverges.
+
 `verify` expands to:
 
 ```bash

@@ -1284,13 +1284,21 @@ export interface ${names.pascal}State {
   authenticated: boolean;
   authMode: ${names.pascal}Mode;
   redirectTarget?: string;
+  title: string;
+  subtitle: string;
+  loginHint: string;
+  loginMethods: ${names.pascal}Mode[];
   errorCode?: string;
   errorText?: string;
 }
 
 export interface CreateDefault${names.pascal}StateOptions {
+  title?: string;
+  subtitle?: string;
+  loginHint?: string;
   authMode?: ${names.pascal}Mode;
   redirectTarget?: string;
+  loginMethods?: ${names.pascal}Mode[];
 }
 
 export function createDefault${names.pascal}State(
@@ -1300,7 +1308,11 @@ export function createDefault${names.pascal}State(
     ready: false,
     loading: false,
     authenticated: false,
+    title: options.title ?? "${names.pascal}",
+    subtitle: options.subtitle ?? "${names.kebab} sign-in workspace",
+    loginHint: options.loginHint ?? "Continue with the most suitable sign-in method for this host.",
     authMode: options.authMode ?? "wechat",
+    loginMethods: options.loginMethods ?? ["wechat", "sms", "password", "guest"],
     ...(options.redirectTarget !== undefined ? { redirectTarget: options.redirectTarget } : {}),
   };
 }
@@ -1316,7 +1328,20 @@ export interface ${names.pascal}Item {
   subtitle?: string;
 }
 
-export type ${names.pascal}State = ListPageState<${names.pascal}Item>;
+export interface ${names.pascal}Filter {
+  key: string;
+  label: string;
+}
+
+export interface ${names.pascal}SortOption {
+  key: string;
+  label: string;
+}
+
+export type ${names.pascal}State = ListPageState<${names.pascal}Item> & {
+  filters: ${names.pascal}Filter[];
+  sort: ${names.pascal}SortOption | undefined;
+};
 
 export interface CreateDefault${names.pascal}StateOptions {
   title?: string;
@@ -1324,18 +1349,24 @@ export interface CreateDefault${names.pascal}StateOptions {
   pageSize?: number;
   emptyText?: string;
   items?: ${names.pascal}Item[];
+  filters?: ${names.pascal}Filter[];
+  sort?: ${names.pascal}SortOption;
 }
 
 export function createDefault${names.pascal}State(
   options: CreateDefault${names.pascal}StateOptions = {},
 ): ${names.pascal}State {
-  return createDefaultListPageState<${names.pascal}Item>({
-    title: options.title ?? "${names.pascal}",
-    ...(options.subtitle !== undefined ? { subtitle: options.subtitle } : {}),
-    pageSize: options.pageSize ?? 20,
-    emptyText: options.emptyText ?? "No ${names.kebab} items are available yet.",
-    ...(options.items ? { items: options.items } : {}),
-  });
+  return {
+    ...createDefaultListPageState<${names.pascal}Item>({
+      title: options.title ?? "${names.pascal}",
+      ...(options.subtitle !== undefined ? { subtitle: options.subtitle } : {}),
+      pageSize: options.pageSize ?? 20,
+      emptyText: options.emptyText ?? "No ${names.kebab} items are available yet.",
+      ...(options.items ? { items: options.items } : {}),
+    }),
+    filters: options.filters ?? [],
+    sort: options.sort,
+  };
 }
 `;
 }
@@ -1349,22 +1380,36 @@ export interface ${names.pascal}Detail {
   description?: string;
 }
 
-export type ${names.pascal}State = DetailPageState<${names.pascal}Detail>;
+export interface ${names.pascal}RelatedItem {
+  id: string;
+  label: string;
+}
+
+export type ${names.pascal}State = DetailPageState<${names.pascal}Detail> & {
+  detailId: string | undefined;
+  relatedItems: ${names.pascal}RelatedItem[];
+};
 
 export interface CreateDefault${names.pascal}StateOptions {
   title?: string;
   subtitle?: string;
   data?: ${names.pascal}Detail;
+  detailId?: string;
+  relatedItems?: ${names.pascal}RelatedItem[];
 }
 
 export function createDefault${names.pascal}State(
   options: CreateDefault${names.pascal}StateOptions = {},
 ): ${names.pascal}State {
-  return createDefaultDetailPageState<${names.pascal}Detail>({
-    title: options.title ?? "${names.pascal}",
-    ...(options.subtitle !== undefined ? { subtitle: options.subtitle } : {}),
-    ...(options.data !== undefined ? { data: options.data } : {}),
-  });
+  return {
+    ...createDefaultDetailPageState<${names.pascal}Detail>({
+      title: options.title ?? "${names.pascal}",
+      ...(options.subtitle !== undefined ? { subtitle: options.subtitle } : {}),
+      ...(options.data !== undefined ? { data: options.data } : {}),
+    }),
+    detailId: options.detailId ?? options.data?.id,
+    relatedItems: options.relatedItems ?? [],
+  };
 }
 `;
 }
@@ -1377,47 +1422,67 @@ export interface ${names.pascal}Values {
   notes: string;
 }
 
-export type ${names.pascal}State = FormPageState<${names.pascal}Values>;
+export interface ${names.pascal}SubmitResult {
+  status: "idle" | "submitted";
+  message: string;
+}
+
+export type ${names.pascal}State = FormPageState<${names.pascal}Values, ${names.pascal}SubmitResult> & {
+  errors: Record<string, string>;
+  submitResult: ${names.pascal}SubmitResult | undefined;
+};
 
 export interface CreateDefault${names.pascal}StateOptions {
   title?: string;
   subtitle?: string;
   values?: Partial<${names.pascal}Values>;
+  errors?: Record<string, string>;
+  submitResult?: ${names.pascal}SubmitResult;
 }
 
 export function createDefault${names.pascal}State(
   options: CreateDefault${names.pascal}StateOptions = {},
 ): ${names.pascal}State {
-  return createDefaultFormPageState<${names.pascal}Values>({
-    title: options.title ?? "${names.pascal}",
-    ...(options.subtitle !== undefined ? { subtitle: options.subtitle } : {}),
-    values: {
-      name: "",
-      notes: "",
-      ...options.values,
-    },
-  });
+  return {
+    ...createDefaultFormPageState<${names.pascal}Values, ${names.pascal}SubmitResult>({
+      title: options.title ?? "${names.pascal}",
+      ...(options.subtitle !== undefined ? { subtitle: options.subtitle } : {}),
+      values: {
+        name: "",
+        notes: "",
+        ...options.values,
+      },
+    }),
+    errors: options.errors ?? {},
+    submitResult: options.submitResult,
+  };
 }
 `;
 }
 
 function profileModelSource(names: FeatureNames): string {
-  return `import { createDefaultProfilePageState, type ProfilePageState } from "@minix/core";
+  return `import { createDefaultProfilePageState, type ProfileAction, type ProfilePageState } from "@minix/core";
 
-export type ${names.pascal}State = ProfilePageState;
+export type ${names.pascal}State = ProfilePageState & {
+  actions: ProfileAction[];
+};
 
 export interface CreateDefault${names.pascal}StateOptions {
   title?: string;
   subtitle?: string;
+  actions?: ProfileAction[];
 }
 
 export function createDefault${names.pascal}State(
   options: CreateDefault${names.pascal}StateOptions = {},
 ): ${names.pascal}State {
-  return createDefaultProfilePageState({
-    title: options.title ?? "${names.pascal}",
-    ...(options.subtitle !== undefined ? { subtitle: options.subtitle } : {}),
-  });
+  return {
+    ...createDefaultProfilePageState({
+      title: options.title ?? "${names.pascal}",
+      ...(options.subtitle !== undefined ? { subtitle: options.subtitle } : {}),
+    }),
+    ...(options.actions ? { actions: options.actions } : {}),
+  };
 }
 `;
 }
@@ -1435,6 +1500,9 @@ export interface ${names.pascal}State {
   subtitle: string;
   primaryActionLabel: string;
   secondaryActionLabel?: string;
+  capabilityHint: string;
+  resultLabel: string;
+  usageExamples: string[];
   lastResult?: ${names.pascal}Result;
   errorText?: string;
 }
@@ -1444,6 +1512,9 @@ export interface CreateDefault${names.pascal}StateOptions {
   subtitle?: string;
   primaryActionLabel?: string;
   secondaryActionLabel?: string;
+  capabilityHint?: string;
+  resultLabel?: string;
+  usageExamples?: string[];
 }
 
 export function createDefault${names.pascal}State(
@@ -1453,9 +1524,14 @@ export function createDefault${names.pascal}State(
     ready: false,
     loading: false,
     title: options.title ?? "${names.pascal}",
-    subtitle: options.subtitle ?? "${names.kebab} capability workspace",
-    primaryActionLabel: options.primaryActionLabel ?? "Run primary action",
+    subtitle: options.subtitle ?? "${names.kebab} upload/share capability workspace",
+    primaryActionLabel: options.primaryActionLabel ?? "Start capability action",
     ...(options.secondaryActionLabel !== undefined ? { secondaryActionLabel: options.secondaryActionLabel } : {}),
+    capabilityHint:
+      options.capabilityHint ??
+      "Use this workspace starter for upload-style or share-style flows before wiring real platform integrations.",
+    resultLabel: options.resultLabel ?? "Latest capability result",
+    usageExamples: options.usageExamples ?? ["upload", "share"],
   };
 }
 `;

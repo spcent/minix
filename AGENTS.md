@@ -61,6 +61,7 @@ pnpm gen:shells
 ```
 
 `scaffold:page` should be preferred after `scaffold:feature` because it can now reuse the feature's scaffold template, default page-data factory, and common controller route placeholders when present.
+Use the `workspace` scaffold template as the default starter for upload/share capability features instead of introducing more template names too early.
 
 ## Validation
 

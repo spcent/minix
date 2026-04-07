@@ -100,6 +100,7 @@ When adding behavior, prefer this order:
 1. update or add a contract only if required
 2. create a new feature package with `pnpm scaffold:feature <feature-name> [generic|auth|profile|list|detail|form|workspace]` if one does not exist
 3. scaffold placeholder host wiring with `pnpm scaffold:page <feature-name> <page-key>` when adding a new host page; when the feature was created from a scaffold template, page wiring will inherit that template's default page-data, route shape, and common controller route placeholders
+   `workspace` is the intended starter for upload/share-style capability features until a materially different starter is justified
 4. implement or extend feature behavior and feature-owned defaults
 5. add or update host source manifest overrides in `page-definitions.ts`
 6. add or update a platform adapter or bridge

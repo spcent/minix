@@ -227,3 +227,177 @@ test("scaffoldHostPage uses detail route shape for detail templates", async () =
     await rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test("scaffoldHostPage uses auth and workspace template metadata for page data and common routes", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "minix-host-page-scaffold-template-auth-workspace-"));
+
+  try {
+    await writeDefaultRepoSpec(tempRoot);
+    await writeTempFile(
+      tempRoot,
+      "tsconfig.base.json",
+      `${JSON.stringify(
+        {
+          compilerOptions: {
+            paths: {
+              "@minix/contracts": ["packages/contracts/src"],
+              "@minix/core": ["packages/core/src"],
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    await writeTempFile(
+      tempRoot,
+      "packages/contracts/src/routes/app.ts",
+      `export const APP_ROUTE_IDS = {\n  login: "auth.login",\n  settings: "settings.index",\n  overview: "overview.index",\n  items: "items.list",\n} as const;\n`,
+    );
+    await writeTempFile(
+      tempRoot,
+      "apps/host-h5/src/manifest/page-definitions.ts",
+      `import { APP_ROUTE_IDS } from "@minix/contracts";\nimport { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags } from "@minix/core";\n\nexport const hostH5FeatureFlags = defineHostFeatureFlags({\n  ...loadFeatureFlags(),\n  enableAutoLogin: false,\n});\n\nexport const hostH5PageDefinitions = defineHostPageDefinitions({\n});\n`,
+    );
+    await writeTempFile(
+      tempRoot,
+      "apps/host-wechat/src/manifest/page-definitions.ts",
+      `import { APP_ROUTE_IDS } from "@minix/contracts";\nimport { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags } from "@minix/core";\n\nexport const hostWechatFeatureFlags = defineHostFeatureFlags({\n  ...loadFeatureFlags(),\n  enableAutoLogin: false,\n});\n\nexport const hostWechatPageDefinitions = defineHostPageDefinitions({\n});\n`,
+    );
+
+    await scaffoldFeature({
+      featureName: "account-login",
+      template: "auth",
+      repoRoot: tempRoot,
+    });
+    await scaffoldFeature({
+      featureName: "media-workspace",
+      template: "workspace",
+      repoRoot: tempRoot,
+    });
+
+    await scaffoldHostPage({
+      featureName: "account-login",
+      pageKey: "signin",
+      repoRoot: tempRoot,
+      skipSync: true,
+    });
+    await scaffoldHostPage({
+      featureName: "media-workspace",
+      pageKey: "mediaTools",
+      repoRoot: tempRoot,
+      skipSync: true,
+    });
+
+    const h5Source = await readFile(path.join(tempRoot, "apps/host-h5/src/manifest/page-definitions.ts"), "utf8");
+    const wechatSource = await readFile(path.join(tempRoot, "apps/host-wechat/src/manifest/page-definitions.ts"), "utf8");
+
+    assert.match(h5Source, /createDefaultAccountLoginState/);
+    assert.match(h5Source, /subtitle: "Signin sign-in workspace"/);
+    assert.match(h5Source, /authMode: "wechat"/);
+    assert.match(h5Source, /successRouteId: APP_ROUTE_IDS\.overview/);
+    assert.match(h5Source, /redirectRouteId: APP_ROUTE_IDS\.overview/);
+    assert.match(h5Source, /createDefaultMediaWorkspaceState/);
+    assert.match(h5Source, /subtitle: "Media Tools upload\/share workspace"/);
+    assert.match(h5Source, /primaryActionLabel: "Start media tools action"/);
+    assert.match(h5Source, /usageExamples: \["upload", "share"\]/);
+    assert.match(h5Source, /loginRouteId: APP_ROUTE_IDS\.login/);
+    assert.match(h5Source, /settingsRouteId: APP_ROUTE_IDS\.settings/);
+    assert.match(h5Source, /successRouteId: APP_ROUTE_IDS\.overview/);
+    assert.match(wechatSource, /signin: \{/);
+    assert.match(wechatSource, /mediaTools: \{/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("scaffoldHostPage aligns profile detail and form templates with semantic route placeholders", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "minix-host-page-scaffold-template-route-matrix-"));
+
+  try {
+    await writeDefaultRepoSpec(tempRoot);
+    await writeTempFile(
+      tempRoot,
+      "tsconfig.base.json",
+      `${JSON.stringify(
+        {
+          compilerOptions: {
+            paths: {
+              "@minix/contracts": ["packages/contracts/src"],
+              "@minix/core": ["packages/core/src"],
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    await writeTempFile(
+      tempRoot,
+      "packages/contracts/src/routes/app.ts",
+      `export const APP_ROUTE_IDS = {\n  login: "auth.login",\n  settings: "settings.index",\n  profileEdit: "profile.edit",\n  share: "share.index",\n  success: "success.index",\n  cancel: "cancel.index",\n} as const;\n`,
+    );
+    await writeTempFile(
+      tempRoot,
+      "apps/host-h5/src/manifest/page-definitions.ts",
+      `import { APP_ROUTE_IDS } from "@minix/contracts";\nimport { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags } from "@minix/core";\n\nexport const hostH5FeatureFlags = defineHostFeatureFlags({\n  ...loadFeatureFlags(),\n  enableAutoLogin: false,\n});\n\nexport const hostH5PageDefinitions = defineHostPageDefinitions({\n});\n`,
+    );
+    await writeTempFile(
+      tempRoot,
+      "apps/host-wechat/src/manifest/page-definitions.ts",
+      `import { APP_ROUTE_IDS } from "@minix/contracts";\nimport { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags } from "@minix/core";\n\nexport const hostWechatFeatureFlags = defineHostFeatureFlags({\n  ...loadFeatureFlags(),\n  enableAutoLogin: false,\n});\n\nexport const hostWechatPageDefinitions = defineHostPageDefinitions({\n});\n`,
+    );
+
+    await scaffoldFeature({
+      featureName: "user-profile",
+      template: "profile",
+      repoRoot: tempRoot,
+    });
+    await scaffoldFeature({
+      featureName: "invoice-detail",
+      template: "detail",
+      repoRoot: tempRoot,
+    });
+    await scaffoldFeature({
+      featureName: "support-form",
+      template: "form",
+      repoRoot: tempRoot,
+    });
+
+    await scaffoldHostPage({
+      featureName: "user-profile",
+      pageKey: "profile",
+      repoRoot: tempRoot,
+      skipSync: true,
+    });
+    await scaffoldHostPage({
+      featureName: "invoice-detail",
+      pageKey: "invoiceDetail",
+      repoRoot: tempRoot,
+      skipSync: true,
+    });
+    await scaffoldHostPage({
+      featureName: "support-form",
+      pageKey: "support",
+      repoRoot: tempRoot,
+      skipSync: true,
+    });
+
+    const h5Source = await readFile(path.join(tempRoot, "apps/host-h5/src/manifest/page-definitions.ts"), "utf8");
+    const wechatSource = await readFile(path.join(tempRoot, "apps/host-wechat/src/manifest/page-definitions.ts"), "utf8");
+
+    assert.match(h5Source, /createDefaultUserProfileState/);
+    assert.match(h5Source, /editRouteId: APP_ROUTE_IDS\.profileEdit/);
+    assert.match(h5Source, /routePath: "\/invoiceDetail\/:id"/);
+    assert.match(h5Source, /shareRouteId: APP_ROUTE_IDS\.share/);
+    assert.match(h5Source, /createDefaultSupportFormState/);
+    assert.match(h5Source, /subtitle: "Support form workspace"/);
+    assert.match(h5Source, /successRouteId: APP_ROUTE_IDS\.success/);
+    assert.match(h5Source, /cancelRouteId: APP_ROUTE_IDS\.cancel/);
+    assert.match(wechatSource, /profile: \{/);
+    assert.match(wechatSource, /invoiceDetail: \{/);
+    assert.match(wechatSource, /support: \{/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});

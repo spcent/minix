@@ -306,6 +306,8 @@ function createDefaultPageDataExpression(
   }
 
   switch (metadata.template) {
+    case "auth":
+      return `${metadata.pageDataFactoryName}({\n      title: "${page.title}",\n      subtitle: "${page.title} sign-in workspace",\n      authMode: "wechat",\n    })`;
     case "list":
       return `${metadata.pageDataFactoryName}({\n      title: "${page.title}",\n      subtitle: "${page.title} workspace",\n      pageSize: 20,\n      emptyText: "No ${page.key} items are available yet.",\n    })`;
     case "detail":
@@ -314,6 +316,8 @@ function createDefaultPageDataExpression(
       return `${metadata.pageDataFactoryName}({\n      title: "${page.title}",\n      subtitle: "${page.title} form workspace",\n    })`;
     case "profile":
       return `${metadata.pageDataFactoryName}({\n      title: "${page.title}",\n      subtitle: "${page.title} profile workspace",\n    })`;
+    case "workspace":
+      return `${metadata.pageDataFactoryName}({\n      title: "${page.title}",\n      subtitle: "${page.title} upload/share workspace",\n      primaryActionLabel: "Start ${page.title.toLowerCase()} action",\n      usageExamples: ["upload", "share"],\n    })`;
     default:
       return `${metadata.pageDataFactoryName}({\n      title: "${page.title}",\n      subtitle: "${page.title} workspace",\n    })`;
   }
@@ -346,8 +350,35 @@ function createControllerSnippet(
   );
   addRouteOption("loginRouteId", routeKeys.has("login") ? "login" : undefined, "login");
   addRouteOption("settingsRouteId", routeKeys.has("settings") ? "settings" : undefined, "settings");
+  addRouteOption(
+    "redirectRouteId",
+    routeKeys.has("overview") ? "overview" : routeKeys.has("items") ? "items" : undefined,
+    "overview",
+  );
+  addRouteOption(
+    "editRouteId",
+    routeKeys.has(`${page.key}Edit`) ? `${page.key}Edit` : routeKeys.has("edit") ? "edit" : undefined,
+    `${page.key}Edit`,
+  );
+  addRouteOption(
+    "shareRouteId",
+    routeKeys.has(`${page.key}Share`) ? `${page.key}Share` : routeKeys.has("share") ? "share" : undefined,
+    `${page.key}Share`,
+  );
   addRouteOption("overviewRouteId", routeKeys.has("overview") ? "overview" : undefined, "overview");
-  addRouteOption("successRouteId", routeKeys.has("success") ? "success" : undefined, "success");
+  addRouteOption(
+    "successRouteId",
+    routeKeys.has("success")
+      ? "success"
+      : routeKeys.has("overview")
+        ? "overview"
+        : routeKeys.has("items")
+          ? "items"
+          : routeKeys.has("home")
+            ? "home"
+            : undefined,
+    "success",
+  );
   addRouteOption("cancelRouteId", routeKeys.has("cancel") ? "cancel" : undefined, "cancel");
 
   if (metadata.controllerOptionKeys.has("initialState")) {
