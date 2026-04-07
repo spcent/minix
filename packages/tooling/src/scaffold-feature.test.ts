@@ -115,6 +115,7 @@ test("scaffoldFeature supports list templates with page protocol defaults", asyn
     const manifestFile = await readFile(path.join(result.featureDir, "src", "feature.manifest.ts"), "utf8");
     assert.match(manifestFile, /template: "list"/);
     assert.match(manifestFile, /onPullDownRefresh: "refresh"/);
+    assert.match(manifestFile, /onReachBottom: "loadMore"/);
     assert.match(manifestFile, /detailRouteId\?: AppRouteId/);
     assert.match(manifestFile, /loginRouteId: options\.loginRouteId/);
     assert.match(manifestFile, /settingsRouteId: options\.settingsRouteId/);
@@ -253,6 +254,7 @@ test("scaffoldFeature keeps profile and detail templates on the normalized route
     assert.match(profileControllerFile, /editRouteId\?: AppRouteId/);
     assert.match(profileManifestFile, /editRouteId\?: AppRouteId/);
     assert.match(profileManifestFile, /editRouteId: options\.editRouteId/);
+    assert.match(profileManifestFile, /onPullDownRefresh: "refresh"/);
 
     const detailResult = await scaffoldFeature({
       featureName: "order-detail",
@@ -320,9 +322,11 @@ test("scaffoldFeature exposes the template controller vocabulary expected by hos
       repoRoot: tempRoot,
     });
     const formControllerFile = await readFile(path.join(formResult.featureDir, "src", "controller", "index.ts"), "utf8");
+    const formManifestFile = await readFile(path.join(formResult.featureDir, "src", "feature.manifest.ts"), "utf8");
     assert.match(formControllerFile, /loadInitial\(\)/);
     assert.match(formControllerFile, /updateField\(values: Partial<ContactFormValues>\)/);
     assert.match(formControllerFile, /validateForm\(\)/);
+    assert.match(formManifestFile, /onShow: "loadInitial"/);
 
     const profileResult = await scaffoldFeature({
       featureName: "member-profile",

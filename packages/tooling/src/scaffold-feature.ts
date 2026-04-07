@@ -745,6 +745,7 @@ export const ${names.camel}FeatureManifest = defineFeatureManifest<
       entryActions: {
         onShow: "loadInitial",
         onPullDownRefresh: "refresh",
+        onReachBottom: "loadMore",
       },
     },
     h5: {
@@ -874,12 +875,12 @@ export const ${names.camel}FeatureManifest = defineFeatureManifest<
   hosts: {
     wechat: {
       entryActions: {
-        onShow: "markReady",
+        onShow: "loadInitial",
       },
     },
     h5: {
       entryActions: {
-        onShow: "markReady",
+        onShow: "loadInitial",
       },
     },
   },
@@ -941,6 +942,7 @@ export const ${names.camel}FeatureManifest = defineFeatureManifest<
     wechat: {
       entryActions: {
         onShow: "loadInitial",
+        onPullDownRefresh: "refresh",
       },
     },
     h5: {
