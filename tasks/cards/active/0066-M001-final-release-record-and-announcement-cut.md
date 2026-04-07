@@ -1,0 +1,95 @@
+# M001 Card 0066 Final Release Record And Announcement Cut
+
+## Summary
+
+Turn the existing release-note template and changelog guidance into the actual `v1.0.0` release record once the final SHA, dates, and remote URLs are known.
+
+## Goal
+
+Replace placeholder release language with the real final release record so the changelog, verification log, and public release note all agree on what shipped and when.
+
+## Milestone
+
+- milestone file: `tasks/milestones/M001-v1.0-release-readiness.md`
+- slice name: `final release communication cut`
+
+## Scope
+
+- In scope:
+  - populate the `v1.0.0` release section in `CHANGELOG.md`
+  - derive the final release note from `docs/RELEASE_NOTES_TEMPLATE.md`
+  - record final release SHA, date, preview URLs, production URLs, and accepted deferred issues
+  - align release communication with the final verification log
+- Out of scope:
+  - creating a GitHub release through automation
+  - backfilling historical releases
+  - changing runtime behavior
+
+## Ownership
+
+- owned files:
+  - `CHANGELOG.md`
+  - `docs/RELEASE_NOTES_TEMPLATE.md`
+  - `docs/VERIFICATION_LOG.md`
+  - optional `README.md`
+  - optional `tasks/milestones/**`
+- allowed generated outputs:
+  - optional release-note artifact under `docs/**` if the repo decides to keep a tracked final note
+- forbidden files:
+  - `packages/**`
+  - `apps/**`
+
+## Dependencies
+
+- depends on:
+  - `0051-M001-versioning-tagging-and-release-notes.md`
+  - `0064-M001-release-verification-log-and-evidence-record.md`
+  - `0065-M001-final-version-bump-execution.md`
+- blocked by:
+  - final release commit SHA, date, and final remote URL values
+- integration notes:
+  - keep `CHANGELOG.md` as the human-readable source of truth even if a separate final announcement artifact is added
+
+## Affected Paths
+
+- `CHANGELOG.md`
+- `docs/RELEASE_NOTES_TEMPLATE.md`
+- `docs/VERIFICATION_LOG.md`
+- optional `README.md`
+- optional `tasks/milestones/**`
+
+## Related Specs
+
+- `specs/repo.yaml`
+- `specs/dependency-rules.yaml`
+- `tasks/milestones/M001-v1.0-release-readiness.md`
+
+## Interface Notes
+
+- contract changes allowed:
+  - none
+- store shape changes allowed:
+  - none
+- controller action changes allowed:
+  - none
+- route param changes allowed:
+  - none
+
+## Verification
+
+- slice gate:
+  - the final release record no longer contains placeholder language where final release facts are expected
+- generation needed:
+  - none
+- final verifier handoff:
+  - record the exact release note source and any tracked final announcement file path
+
+## Acceptance
+
+- [ ] change is local and reversible
+- [ ] write set matches ownership
+- [ ] boundaries still match specs
+- [ ] host wiring remains manifest- and registry-driven
+- [ ] generated files were regenerated, not manually authored as source
+- [ ] docs updated if behavior or workflow changed
+- [ ] `pnpm verify` run, or skipped with reason if docs-only
