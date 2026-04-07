@@ -136,6 +136,7 @@ pnpm verify:release
 
 The operator checklist for RC promotion, manual WeChat validation, rollback, and hotfix flow is in [docs/RELEASE_RUNBOOK.md](docs/RELEASE_RUNBOOK.md).
 Use [CHANGELOG.md](/CHANGELOG.md) plus [docs/RELEASE_NOTES_TEMPLATE.md](/docs/RELEASE_NOTES_TEMPLATE.md) when recording RC notes or the final `v1.0.0` announcement.
+Record executed release evidence in [docs/VERIFICATION_LOG.md](docs/VERIFICATION_LOG.md) so preview proof, remote URLs, and manual WeChat validation do not live only in terminal history.
 Reference GitHub Actions YAML files are archived under [docs/workflows](docs/workflows/README.md) and are not active under `.github/workflows/`.
 
 Run the browser-level H5 release smoke only:

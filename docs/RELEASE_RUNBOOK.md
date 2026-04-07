@@ -123,7 +123,7 @@ pnpm verify:preview:remote
 9. Perform the manual WeChat gate in DevTools.
 
 10. If every step passes, mark the build as `RC`.
-11. Record the RC as `v1.0.0-rc.N` using the release note template and changelog source of truth before moving on.
+11. Record the RC as `v1.0.0-rc.N` in [`docs/VERIFICATION_LOG.md`](/docs/VERIFICATION_LOG.md), then use the release note template and changelog source of truth before moving on.
 
 ## Manual WeChat Gate
 
@@ -209,7 +209,7 @@ Expected production H5 URLs:
 - `https://minix-novel-h5.pages.dev`
 
 5. Repeat the manual WeChat gate against the production API target.
-6. Record:
+6. Update [`docs/VERIFICATION_LOG.md`](/docs/VERIFICATION_LOG.md) with:
    - git commit SHA
    - preview Worker URL
    - production Worker URL
