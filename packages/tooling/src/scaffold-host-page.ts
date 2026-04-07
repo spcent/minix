@@ -371,7 +371,8 @@ async function detectFeaturePageScaffoldMetadata(
     ? findInterfaceDeclaration(featureManifestModule, `${feature.pascal}FeatureControllerOptions`)
     : null;
 
-  const templateMatch = featureManifestSource?.match(/template:\s*"(?<template>generic|list|detail|form|profile)"/);
+  const templateMatch =
+    featureManifestSource?.match(/template:\s*"(?<template>generic|auth|profile|list|detail|form|workspace)"/);
   const pageDataExportMatch =
     featureManifestSource?.match(/export\s*\{\s*(?<factory>create(?:Default|Initial)[A-Za-z0-9]+(?:State|PageModel))\s*\}/) ??
     modelSource?.match(/export function (?<factory>create(?:Default|Initial)[A-Za-z0-9]+(?:State|PageModel))/);

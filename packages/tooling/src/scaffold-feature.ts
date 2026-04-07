@@ -7,7 +7,7 @@ export interface ScaffoldFeatureOptions {
   repoRoot?: string;
 }
 
-export type FeatureTemplate = "generic" | "list" | "detail" | "form" | "profile";
+export type FeatureTemplate = "generic" | "auth" | "profile" | "list" | "detail" | "form" | "workspace";
 
 interface FeatureNames {
   kebab: string;
@@ -16,7 +16,15 @@ interface FeatureNames {
   packageName: string;
 }
 
-const FEATURE_TEMPLATES: readonly FeatureTemplate[] = ["generic", "list", "detail", "form", "profile"];
+const FEATURE_TEMPLATES: readonly FeatureTemplate[] = [
+  "generic",
+  "auth",
+  "profile",
+  "list",
+  "detail",
+  "form",
+  "workspace",
+];
 
 function toPascalCase(value: string): string {
   return value
@@ -85,6 +93,86 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
 `;
 }
 
+function authControllerSource(names: FeatureNames): string {
+  return `import type { AppRouteId } from "@minix/contracts";
+import { createStore, type AppKernel } from "@minix/core";
+import { createDefault${names.pascal}State, type ${names.pascal}Mode, type ${names.pascal}State } from "../model";
+
+export interface Create${names.pascal}ControllerOptions {
+  kernel: AppKernel;
+  successRouteId?: AppRouteId;
+  redirectRouteId?: AppRouteId;
+  initialState?: Partial<${names.pascal}State>;
+}
+
+export function create${names.pascal}Controller(options: Create${names.pascal}ControllerOptions) {
+  const { kernel, successRouteId, redirectRouteId, initialState } = options;
+  const store = createStore<${names.pascal}State>({
+    ...createDefault${names.pascal}State(),
+    ...initialState,
+  });
+
+  async function routeToOptional(routeId?: AppRouteId) {
+    if (!routeId) {
+      return undefined;
+    }
+
+    return kernel.router.toRoute(routeId);
+  }
+
+  function setMode(mode: ${names.pascal}Mode) {
+    store.setState({
+      authMode: mode,
+    });
+  }
+
+  return {
+    store,
+
+    loadInitial() {
+      store.setState({
+        ready: true,
+        loading: false,
+        errorCode: undefined,
+        errorText: undefined,
+      });
+    },
+
+    submitLogin(mode: ${names.pascal}Mode = "wechat") {
+      setMode(mode);
+      store.setState({
+        ready: true,
+        loading: false,
+        authenticated: true,
+        errorCode: undefined,
+        errorText: undefined,
+      });
+
+      return routeToOptional(successRouteId);
+    },
+
+    refreshSession() {
+      store.setState({
+        loading: false,
+        errorCode: undefined,
+        errorText: undefined,
+      });
+    },
+
+    logout() {
+      store.setState({
+        authenticated: false,
+      });
+    },
+
+    redirectAfterLogin() {
+      return routeToOptional(redirectRouteId ?? successRouteId);
+    },
+  };
+}
+`;
+}
+
 function listControllerSource(names: FeatureNames): string {
   return `import type { AppRouteId } from "@minix/contracts";
 import { createStore, type AppKernel } from "@minix/core";
@@ -132,6 +220,16 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
       this.loadInitial();
     },
 
+    loadMore() {
+      store.setState({
+        loading: false,
+        query: {
+          ...store.getState().query,
+          page: store.getState().query.page + 1,
+        },
+      });
+    },
+
     selectItem(itemId: string) {
       store.setState({
         selectedItemId: itemId,
@@ -164,11 +262,12 @@ export interface Create${names.pascal}ControllerOptions {
   kernel: AppKernel;
   loginRouteId?: AppRouteId;
   settingsRouteId?: AppRouteId;
+  shareRouteId?: AppRouteId;
   initialState?: Partial<${names.pascal}State>;
 }
 
 export function create${names.pascal}Controller(options: Create${names.pascal}ControllerOptions) {
-  const { kernel, loginRouteId, settingsRouteId, initialState } = options;
+  const { kernel, loginRouteId, settingsRouteId, shareRouteId, initialState } = options;
   const store = createStore<${names.pascal}State>({
     ...createDefault${names.pascal}State(),
     ...initialState,
@@ -194,12 +293,24 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
       });
     },
 
+    refresh() {
+      this.loadInitial();
+    },
+
     goToLogin() {
       return routeToOptional(loginRouteId);
     },
 
     goToSettings() {
       return routeToOptional(settingsRouteId);
+    },
+
+    shareCurrent() {
+      return routeToOptional(shareRouteId);
+    },
+
+    getShareRouteId() {
+      return shareRouteId;
     },
   };
 }
@@ -236,17 +347,32 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
   return {
     store,
 
-    markReady() {
+    loadInitial() {
       store.setState({ ready: true });
     },
 
-    updateValues(values: Partial<${names.pascal}Values>) {
+    markReady() {
+      this.loadInitial();
+    },
+
+    updateField(values: Partial<${names.pascal}Values>) {
       store.setState({
         dirty: true,
         values: {
           ...store.getState().values,
           ...values,
         },
+      });
+    },
+
+    updateValues(values: Partial<${names.pascal}Values>) {
+      this.updateField(values);
+    },
+
+    validateForm() {
+      store.setState({
+        errorCode: undefined,
+        errorText: undefined,
       });
     },
 
@@ -278,11 +404,12 @@ export interface Create${names.pascal}ControllerOptions {
   kernel: AppKernel;
   loginRouteId?: AppRouteId;
   settingsRouteId?: AppRouteId;
+  editRouteId?: AppRouteId;
   initialState?: Partial<${names.pascal}State>;
 }
 
 export function create${names.pascal}Controller(options: Create${names.pascal}ControllerOptions) {
-  const { kernel, loginRouteId, settingsRouteId, initialState } = options;
+  const { kernel, loginRouteId, settingsRouteId, editRouteId, initialState } = options;
   const store = createStore<${names.pascal}State>({
     ...createDefault${names.pascal}State(),
     ...initialState,
@@ -308,10 +435,103 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
       });
     },
 
+    refresh() {
+      this.loadInitial();
+    },
+
     selectAction(actionKey: string) {
       store.setState({
         selectedActionKey: actionKey,
       });
+    },
+
+    goToLogin() {
+      return routeToOptional(loginRouteId);
+    },
+
+    goToSettings() {
+      return routeToOptional(settingsRouteId);
+    },
+
+    goToEdit() {
+      return routeToOptional(editRouteId);
+    },
+
+    getEditRouteId() {
+      return editRouteId;
+    },
+  };
+}
+`;
+}
+
+function workspaceControllerSource(names: FeatureNames): string {
+  return `import type { AppRouteId } from "@minix/contracts";
+import { createStore, type AppKernel } from "@minix/core";
+import { createDefault${names.pascal}State, type ${names.pascal}Result, type ${names.pascal}State } from "../model";
+
+export interface Create${names.pascal}ControllerOptions {
+  kernel: AppKernel;
+  loginRouteId?: AppRouteId;
+  settingsRouteId?: AppRouteId;
+  successRouteId?: AppRouteId;
+  initialState?: Partial<${names.pascal}State>;
+}
+
+export function create${names.pascal}Controller(options: Create${names.pascal}ControllerOptions) {
+  const { kernel, loginRouteId, settingsRouteId, successRouteId, initialState } = options;
+  const store = createStore<${names.pascal}State>({
+    ...createDefault${names.pascal}State(),
+    ...initialState,
+  });
+
+  async function routeToOptional(routeId?: AppRouteId) {
+    if (!routeId) {
+      return undefined;
+    }
+
+    return kernel.router.toRoute(routeId);
+  }
+
+  function setResult(result: ${names.pascal}Result | undefined) {
+    store.setState({
+      lastResult: result,
+      loading: false,
+      errorText: undefined,
+    });
+  }
+
+  return {
+    store,
+
+    loadInitial() {
+      store.setState({
+        ready: true,
+        loading: false,
+        errorText: undefined,
+      });
+    },
+
+    startPrimaryAction() {
+      setResult({
+        status: "succeeded",
+        message: "${names.pascal} primary action completed.",
+      });
+
+      return routeToOptional(successRouteId);
+    },
+
+    retryPrimaryAction() {
+      store.setState({
+        loading: false,
+        errorText: undefined,
+      });
+
+      return this.startPrimaryAction();
+    },
+
+    clearLastResult() {
+      setResult(undefined);
     },
 
     goToLogin() {
@@ -328,6 +548,8 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
 
 function controllerSource(names: FeatureNames, template: FeatureTemplate): string {
   switch (template) {
+    case "auth":
+      return authControllerSource(names);
     case "list":
       return listControllerSource(names);
     case "detail":
@@ -336,6 +558,8 @@ function controllerSource(names: FeatureNames, template: FeatureTemplate): strin
       return formControllerSource(names);
     case "profile":
       return profileControllerSource(names);
+    case "workspace":
+      return workspaceControllerSource(names);
     default:
       return genericControllerSource(names);
   }
@@ -393,6 +617,72 @@ export const ${names.camel}FeatureManifest = defineFeatureManifest<
       entryActions: {
         onShow: "markReady",
         onTapReady: "markReady",
+      },
+    },
+  },
+});
+
+export { createDefault${names.pascal}State };
+`;
+}
+
+function authFeatureManifestSource(names: FeatureNames): string {
+  return `import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
+import { defineFeatureManifest, type AppKernel, type FeatureConfig } from "@minix/core";
+
+import { create${names.pascal}Controller } from "./controller";
+import { createDefault${names.pascal}State, type ${names.pascal}State } from "./model";
+
+export interface ${names.pascal}FeatureControllerOptions {
+  successRouteId?: AppRouteId;
+  redirectRouteId?: AppRouteId;
+  initialState?: Partial<${names.pascal}State>;
+}
+
+export const ${names.camel}CapabilityRequirements: CapabilityRequirement[] = [];
+export const ${names.camel}GuardPolicy: GuardPolicy | undefined = undefined;
+export const ${names.camel}FeatureConfig: FeatureConfig = {
+  surface: "${names.kebab}",
+  template: "auth",
+};
+
+export const ${names.camel}FeatureManifest = defineFeatureManifest<
+  ${names.pascal}FeatureControllerOptions,
+  ${names.pascal}State,
+  ReturnType<typeof create${names.pascal}Controller>
+>()({
+  featureKey: "${names.kebab}",
+  pageKey: "${names.camel}",
+  packageName: "${names.packageName}",
+  exportName: "${names.camel}FeatureManifest",
+  createController(
+    _host,
+    kernel: AppKernel,
+    options: ${names.pascal}FeatureControllerOptions,
+    pageData: ${names.pascal}State,
+  ) {
+    return create${names.pascal}Controller({
+      kernel,
+      successRouteId: options.successRouteId,
+      redirectRouteId: options.redirectRouteId,
+      initialState: {
+        ...createDefault${names.pascal}State(),
+        ...pageData,
+        ...options.initialState,
+      },
+    });
+  },
+  hosts: {
+    wechat: {
+      entryActions: {
+        onShow: "loadInitial",
+        onTapSubmit: "submitLogin",
+      },
+    },
+    h5: {
+      entryActions: {
+        onShow: "loadInitial",
+        onTapSubmit: "submitLogin",
       },
     },
   },
@@ -479,6 +769,7 @@ import { createDefault${names.pascal}State, type ${names.pascal}State } from "./
 export interface ${names.pascal}FeatureControllerOptions {
   loginRouteId?: AppRouteId;
   settingsRouteId?: AppRouteId;
+  shareRouteId?: AppRouteId;
   initialState?: Partial<${names.pascal}State>;
 }
 
@@ -508,6 +799,7 @@ export const ${names.camel}FeatureManifest = defineFeatureManifest<
       kernel,
       loginRouteId: options.loginRouteId,
       settingsRouteId: options.settingsRouteId,
+      shareRouteId: options.shareRouteId,
       initialState: {
         ...createDefault${names.pascal}State(),
         ...pageData,
@@ -607,6 +899,7 @@ import { createDefault${names.pascal}State, type ${names.pascal}State } from "./
 export interface ${names.pascal}FeatureControllerOptions {
   loginRouteId?: AppRouteId;
   settingsRouteId?: AppRouteId;
+  editRouteId?: AppRouteId;
   initialState?: Partial<${names.pascal}State>;
 }
 
@@ -636,6 +929,73 @@ export const ${names.camel}FeatureManifest = defineFeatureManifest<
       kernel,
       loginRouteId: options.loginRouteId,
       settingsRouteId: options.settingsRouteId,
+      editRouteId: options.editRouteId,
+      initialState: {
+        ...createDefault${names.pascal}State(),
+        ...pageData,
+        ...options.initialState,
+      },
+    });
+  },
+  hosts: {
+    wechat: {
+      entryActions: {
+        onShow: "loadInitial",
+      },
+    },
+    h5: {
+      entryActions: {
+        onShow: "loadInitial",
+      },
+    },
+  },
+});
+
+export { createDefault${names.pascal}State };
+`;
+}
+
+function workspaceFeatureManifestSource(names: FeatureNames): string {
+  return `import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
+import { defineFeatureManifest, type AppKernel, type FeatureConfig } from "@minix/core";
+
+import { create${names.pascal}Controller } from "./controller";
+import { createDefault${names.pascal}State, type ${names.pascal}State } from "./model";
+
+export interface ${names.pascal}FeatureControllerOptions {
+  loginRouteId?: AppRouteId;
+  settingsRouteId?: AppRouteId;
+  successRouteId?: AppRouteId;
+  initialState?: Partial<${names.pascal}State>;
+}
+
+export const ${names.camel}CapabilityRequirements: CapabilityRequirement[] = [];
+export const ${names.camel}GuardPolicy: GuardPolicy | undefined = undefined;
+export const ${names.camel}FeatureConfig: FeatureConfig = {
+  surface: "${names.kebab}",
+  template: "workspace",
+};
+
+export const ${names.camel}FeatureManifest = defineFeatureManifest<
+  ${names.pascal}FeatureControllerOptions,
+  ${names.pascal}State,
+  ReturnType<typeof create${names.pascal}Controller>
+>()({
+  featureKey: "${names.kebab}",
+  pageKey: "${names.camel}",
+  packageName: "${names.packageName}",
+  exportName: "${names.camel}FeatureManifest",
+  createController(
+    _host,
+    kernel: AppKernel,
+    options: ${names.pascal}FeatureControllerOptions,
+    pageData: ${names.pascal}State,
+  ) {
+    return create${names.pascal}Controller({
+      kernel,
+      loginRouteId: options.loginRouteId,
+      settingsRouteId: options.settingsRouteId,
+      successRouteId: options.successRouteId,
       initialState: {
         ...createDefault${names.pascal}State(),
         ...pageData,
@@ -663,6 +1023,8 @@ export { createDefault${names.pascal}State };
 
 function featureManifestSource(names: FeatureNames, template: FeatureTemplate): string {
   switch (template) {
+    case "auth":
+      return authFeatureManifestSource(names);
     case "list":
       return listFeatureManifestSource(names);
     case "detail":
@@ -671,6 +1033,8 @@ function featureManifestSource(names: FeatureNames, template: FeatureTemplate): 
       return formFeatureManifestSource(names);
     case "profile":
       return profileFeatureManifestSource(names);
+    case "workspace":
+      return workspaceFeatureManifestSource(names);
     default:
       return genericFeatureManifestSource(names);
   }
@@ -692,6 +1056,29 @@ test("${names.kebab} controller marks state ready", () => {
   assert.equal(controller.store.getState().ready, false);
   controller.markReady();
   assert.equal(controller.store.getState().ready, true);
+});
+`;
+}
+
+function authControllerTestSource(names: FeatureNames): string {
+  return `import test from "node:test";
+import assert from "node:assert/strict";
+
+import type { AppKernel } from "@minix/core";
+
+import { create${names.pascal}Controller } from "./index";
+
+test("${names.kebab} auth controller marks the session authenticated after submit", () => {
+  const controller = create${names.pascal}Controller({
+    kernel: {} as AppKernel,
+  });
+
+  controller.loadInitial();
+  controller.submitLogin("wechat");
+
+  assert.equal(controller.store.getState().ready, true);
+  assert.equal(controller.store.getState().authenticated, true);
+  assert.equal(controller.store.getState().authMode, "wechat");
 });
 `;
 }
@@ -783,8 +1170,32 @@ test("${names.kebab} profile controller loads and tracks the selected action", (
 `;
 }
 
+function workspaceControllerTestSource(names: FeatureNames): string {
+  return `import test from "node:test";
+import assert from "node:assert/strict";
+
+import type { AppKernel } from "@minix/core";
+
+import { create${names.pascal}Controller } from "./index";
+
+test("${names.kebab} workspace controller stores the last result after the primary action", () => {
+  const controller = create${names.pascal}Controller({
+    kernel: {} as AppKernel,
+  });
+
+  controller.loadInitial();
+  controller.startPrimaryAction();
+
+  assert.equal(controller.store.getState().ready, true);
+  assert.equal(controller.store.getState().lastResult?.status, "succeeded");
+});
+`;
+}
+
 function controllerTestSource(names: FeatureNames, template: FeatureTemplate): string {
   switch (template) {
+    case "auth":
+      return authControllerTestSource(names);
     case "list":
       return listControllerTestSource(names);
     case "detail":
@@ -793,6 +1204,8 @@ function controllerTestSource(names: FeatureNames, template: FeatureTemplate): s
       return formControllerTestSource(names);
     case "profile":
       return profileControllerTestSource(names);
+    case "workspace":
+      return workspaceControllerTestSource(names);
     default:
       return genericControllerTestSource(names);
   }
@@ -800,7 +1213,7 @@ function controllerTestSource(names: FeatureNames, template: FeatureTemplate): s
 
 function featureManifestTestSource(names: FeatureNames, template: FeatureTemplate): string {
   const expectation =
-    template === "list" || template === "detail" || template === "profile"
+    template === "auth" || template === "list" || template === "detail" || template === "profile" || template === "workspace"
       ? 'controller.loadInitial();\n\n  assert.equal(controller.store.getState().ready, true);'
       : 'assert.equal(controller.store.getState().ready, false);';
   return `import assert from "node:assert/strict";
@@ -856,6 +1269,38 @@ export function createDefault${names.pascal}State(
     title: options.title ?? "${names.pascal}",
     subtitle: options.subtitle ?? "${names.kebab} workspace state",
   });
+}
+`;
+}
+
+function authModelSource(names: FeatureNames): string {
+  return `export type ${names.pascal}Mode = "wechat" | "sms" | "password" | "guest";
+
+export interface ${names.pascal}State {
+  ready: boolean;
+  loading: boolean;
+  authenticated: boolean;
+  authMode: ${names.pascal}Mode;
+  redirectTarget?: string;
+  errorCode?: string;
+  errorText?: string;
+}
+
+export interface CreateDefault${names.pascal}StateOptions {
+  authMode?: ${names.pascal}Mode;
+  redirectTarget?: string;
+}
+
+export function createDefault${names.pascal}State(
+  options: CreateDefault${names.pascal}StateOptions = {},
+): ${names.pascal}State {
+  return {
+    ready: false,
+    loading: false,
+    authenticated: false,
+    authMode: options.authMode ?? "wechat",
+    ...(options.redirectTarget !== undefined ? { redirectTarget: options.redirectTarget } : {}),
+  };
 }
 `;
 }
@@ -975,8 +1420,49 @@ export function createDefault${names.pascal}State(
 `;
 }
 
+function workspaceModelSource(names: FeatureNames): string {
+  return `export interface ${names.pascal}Result {
+  status: "idle" | "succeeded" | "failed";
+  message: string;
+}
+
+export interface ${names.pascal}State {
+  ready: boolean;
+  loading: boolean;
+  title: string;
+  subtitle: string;
+  primaryActionLabel: string;
+  secondaryActionLabel?: string;
+  lastResult?: ${names.pascal}Result;
+  errorText?: string;
+}
+
+export interface CreateDefault${names.pascal}StateOptions {
+  title?: string;
+  subtitle?: string;
+  primaryActionLabel?: string;
+  secondaryActionLabel?: string;
+}
+
+export function createDefault${names.pascal}State(
+  options: CreateDefault${names.pascal}StateOptions = {},
+): ${names.pascal}State {
+  return {
+    ready: false,
+    loading: false,
+    title: options.title ?? "${names.pascal}",
+    subtitle: options.subtitle ?? "${names.kebab} capability workspace",
+    primaryActionLabel: options.primaryActionLabel ?? "Run primary action",
+    ...(options.secondaryActionLabel !== undefined ? { secondaryActionLabel: options.secondaryActionLabel } : {}),
+  };
+}
+`;
+}
+
 function modelSource(names: FeatureNames, template: FeatureTemplate): string {
   switch (template) {
+    case "auth":
+      return authModelSource(names);
     case "list":
       return listModelSource(names);
     case "detail":
@@ -985,6 +1471,8 @@ function modelSource(names: FeatureNames, template: FeatureTemplate): string {
       return formModelSource(names);
     case "profile":
       return profileModelSource(names);
+    case "workspace":
+      return workspaceModelSource(names);
     default:
       return genericModelSource(names);
   }
@@ -1084,7 +1572,7 @@ export async function scaffoldFeature(options: ScaffoldFeatureOptions) {
 }
 
 function usage(): string {
-  return "Usage: pnpm scaffold:feature <feature-name> [generic|list|detail|form|profile]";
+  return "Usage: pnpm scaffold:feature <feature-name> [generic|auth|profile|list|detail|form|workspace]";
 }
 
 async function main() {
