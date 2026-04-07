@@ -1,4 +1,4 @@
-import { ok, createStore, type AppKernel, type Result } from "@minix/core";
+import { createAuthRedirectParams, ok, createStore, type AppKernel, type Result } from "@minix/core";
 import {
   type ItemsListItem,
   type AppRouteId,
@@ -101,9 +101,15 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
   let progressHydration: Promise<Result<void>> | null = null;
 
   async function routeToLogin() {
+    const current = kernel.router.current();
     return kernel.router.replaceRoute(
       loginRouteId,
-      authRedirectSource ? { from: authRedirectSource, reason: "auth-required" } : undefined,
+      createAuthRedirectParams({
+        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
+        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
+        ...(authRedirectSource ? { source: authRedirectSource } : {}),
+        reason: "auth-required",
+      }),
     );
   }
 

@@ -70,6 +70,7 @@ function createMinuteEnglishSettingsPageModel(): SettingsPageModel {
 export const hostWechatFeatureFlags = defineHostFeatureFlags({
   ...loadFeatureFlags(),
   enableAutoLogin: false,
+  enableRouteGuard: true,
 });
 
 export const hostWechatPageDefinitions = defineHostPageDefinitions({

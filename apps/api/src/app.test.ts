@@ -19,6 +19,9 @@ async function login(app: ReturnType<typeof createApiApp>, platform: "h5" | "wec
     accessToken: string;
     refreshToken: string;
     userId: string;
+    authStatus: string;
+    identity: { userId: string };
+    session: { accessToken: string };
   };
 }
 
@@ -109,8 +112,14 @@ test("auth and novel responses resolve sample media under the api origin", async
   const loginPayload = (await loginResponse.json()) as {
     accessToken: string;
     profile: { avatarUrl?: string };
+    authStatus: string;
+    identity: { userId: string };
+    session: { accessToken: string };
   };
   assert.equal(loginPayload.profile.avatarUrl, "http://localhost/sample-assets/profiles/minix-user.svg");
+  assert.equal(loginPayload.authStatus, "guest");
+  assert.equal(loginPayload.identity.userId, "minix-demo-user");
+  assert.equal(loginPayload.session.accessToken, loginPayload.accessToken);
 
   const novelsResponse = await app.request("http://localhost/novels?page=1&pageSize=1", {
     headers: { authorization: `Bearer ${loginPayload.accessToken}` },
@@ -120,6 +129,38 @@ test("auth and novel responses resolve sample media under the api origin", async
     items: Array<{ coverUrl?: string }>;
   };
   assert.equal(novelsPayload.items[0]?.coverUrl, "http://localhost/sample-assets/covers/novel-lantern.svg");
+});
+
+test("current user and settings endpoints expose normalized shared outputs", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "wechat");
+
+  const meResponse = await app.request("http://localhost/me", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(meResponse.status, 200);
+  const mePayload = (await meResponse.json()) as {
+    userProfile: { nickname?: string };
+    accountSummary: { userId: string; assets: { membership?: { headline?: string } } };
+    userStatus: { availability: string };
+  };
+  assert.equal(mePayload.userProfile.nickname, "MiniX User");
+  assert.equal(mePayload.accountSummary.userId, "minix-demo-user");
+  assert.equal(mePayload.userStatus.availability, "enabled");
+
+  const settingsResponse = await app.request("http://localhost/settings", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(settingsResponse.status, 200);
+  const settingsPayload = (await settingsResponse.json()) as {
+    preferences: { language: string; developerOptions: { logsEnabled: boolean } };
+    featureToggles: { accountCenterEnabled: boolean };
+    privacyOptions: { profileVisibilityLabel: string };
+  };
+  assert.equal(settingsPayload.preferences.language, "zh-CN");
+  assert.equal(settingsPayload.preferences.developerOptions.logsEnabled, true);
+  assert.equal(settingsPayload.featureToggles.accountCenterEnabled, true);
+  assert.equal(settingsPayload.privacyOptions.profileVisibilityLabel, "Private to signed-in session");
 });
 
 test("sample asset routes serve generated svg media", async () => {

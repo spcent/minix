@@ -11,6 +11,7 @@ test("resolveHostH5PageKey resolves known routes and falls back to login", () =>
   assert.equal(resolveHostH5PageKey("/overview"), "overview");
   assert.equal(resolveHostH5PageKey("/plan"), "items");
   assert.equal(resolveHostH5PageKey("/preferences"), "settings");
+  assert.equal(resolveHostH5PageKey("/account"), "account");
   assert.equal(resolveHostH5PageKey("/unknown"), "login");
 });
 
@@ -44,6 +45,9 @@ test("subscribeHostH5Pages subscribes every store-backed page", () => {
       settings: {
         store: createStore({ ready: false }),
       },
+      account: {
+        store: createStore({ ready: false }),
+      },
     },
   } as unknown as HostH5Runtime;
 
@@ -55,9 +59,10 @@ test("subscribeHostH5Pages subscribes every store-backed page", () => {
   runtime.pages.overview.store.replaceState(runtime.pages.overview.store.getState());
   runtime.pages.items.store.replaceState(runtime.pages.items.store.getState());
   runtime.pages.settings.store.replaceState(runtime.pages.settings.store.getState());
+  runtime.pages.account.store.replaceState(runtime.pages.account.store.getState());
 
-  assert.equal(cleanups.length, 4);
-  assert.equal(calls, 4);
+  assert.equal(cleanups.length, 5);
+  assert.equal(calls, 5);
 
   cleanups.forEach((cleanup) => cleanup());
 });

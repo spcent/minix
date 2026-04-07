@@ -3,6 +3,7 @@ import type {
   BookshelfResponse,
   ChapterContent,
   ChapterListResponse,
+  CurrentUserResponse,
   ChapterSummary,
   ItemsListResponse,
   MembershipOverview,
@@ -11,6 +12,7 @@ import type {
   NovelListResponse,
   PurchaseMembershipRequest,
   RelatedNovelSummary,
+  SettingsResponse,
 } from "@minix/contracts";
 
 import {
@@ -24,7 +26,7 @@ import {
   NOVELS,
 } from "./content";
 import { resolveSampleMediaUrl } from "./sample-assets";
-import type { UserState } from "./types";
+import type { SessionRecord, UserState } from "./types";
 
 export { CHAPTER_CONTENT, CHAPTER_LISTS, DEFAULT_MEMBERSHIP_OVERVIEW, NOVELS } from "./content";
 
@@ -52,6 +54,103 @@ export function createMembershipOverview(
     subheadline:
       "Premium reading is now unlocked. You can return to the blocked title and keep going without losing context.",
     benefits: DEFAULT_MEMBERSHIP_OVERVIEW.benefits,
+  };
+}
+
+export function createCurrentUserResponse(
+  session: SessionRecord,
+  userState: UserState,
+  requestUrl?: string,
+): CurrentUserResponse {
+  const membership = createMembershipOverview(userState.membershipPlanId);
+  const avatarUrl = session.profile.avatarUrl && requestUrl ? resolveSampleMediaUrl(session.profile.avatarUrl, requestUrl) : session.profile.avatarUrl;
+
+  return {
+    userProfile: {
+      nickname: session.profile.nickname,
+      ...(avatarUrl ? { avatarUrl } : {}),
+      gender: "unknown",
+      region: session.platform === "wechat" ? "Shanghai, CN" : "Web session",
+      bio: "Sample user profile for shared account-domain integration.",
+      tags: session.authStatus === "guest" ? ["guest", "trial"] : ["member-ready", "cross-host"],
+    },
+    accountSummary: {
+      userId: session.userId,
+      phoneBound: Boolean(session.identity.phoneBound),
+      ...(session.identity.phoneBound ? { phoneNumberMasked: "138****0001" } : {}),
+      wechatBound: Boolean(session.identity.wechatBound),
+      realNameStatus: session.identity.realNameVerified ? "verified" : "unverified",
+      assets: {
+        points: session.authStatus === "guest" ? 0 : 1280,
+        level: session.authStatus === "guest" ? 1 : 4,
+        membership,
+        entitlementLabels: membership.active ? ["premium-reading", "priority-support"] : ["basic-access"],
+        balanceCents: 0,
+      },
+      relations: {
+        followingCount: 12,
+        followerCount: 28,
+        friendCount: 6,
+        blockedCount: 1,
+        remarkName: session.authStatus === "guest" ? "Guest session" : "MiniX User",
+      },
+    },
+    userStatus: {
+      availability: session.authStatus === "guest" ? "guest" : "enabled",
+      enabled: session.authStatus !== "guest",
+      frozen: false,
+      cancellationInProgress: false,
+      blacklisted: false,
+      guest: session.authStatus === "guest",
+    },
+  };
+}
+
+export function createSettingsResponse(session: SessionRecord, deployEnv: string | undefined): SettingsResponse {
+  return {
+    preferences: {
+      language: "zh-CN",
+      theme: session.platform === "wechat" ? "light" : "system",
+      fontScale: "md",
+      notificationsEnabled: true,
+      device: {
+        cacheLabel: "Clear local cache only",
+        networkStrategy: "balanced",
+        autoplay: true,
+        weakNetworkMode: false,
+      },
+      account: {
+        profileEntryLabel: "Edit profile",
+        phoneEntryLabel: session.identity.phoneBound ? "Change phone" : "Bind phone",
+        unbindEntryLabel: session.identity.wechatBound ? "Unbind WeChat" : "Bind WeChat",
+        cancellationEntryLabel: "Cancellation entry",
+      },
+      content: {
+        sortOrder: "recommended",
+        filterMode: "all",
+        readingMode: "scroll",
+        historyEnabled: true,
+      },
+      developerOptions: {
+        logsEnabled: Boolean(deployEnv !== "production"),
+        experimentsEnabled: true,
+      },
+    },
+    featureToggles: {
+      pushEnabled: true,
+      smsEnabled: false,
+      emailEnabled: false,
+      accountCenterEnabled: true,
+      readingSyncEnabled: true,
+      experimentsEnabled: true,
+    },
+    privacyOptions: {
+      profileVisibilityLabel: "Private to signed-in session",
+      personalizedRecommendations: true,
+      searchHistoryEnabled: true,
+      analyticsEnabled: true,
+      screenshotFeedbackEnabled: true,
+    },
   };
 }
 

@@ -1,5 +1,5 @@
-import { createStore, ok, type AppKernel, type Result, type UserSession } from "@minix/core";
-import { type AppRouteId } from "@minix/contracts";
+import { createAuthRedirectParams, createStore, ok, type AppKernel, type Result, type UserSession } from "@minix/core";
+import { type AppRouteId, type CurrentUserResponse } from "@minix/contracts";
 
 import {
   createDefaultAccountState,
@@ -9,17 +9,6 @@ import {
   type AccountState,
   type AccountSummaryStat,
 } from "../model";
-
-export interface AccountProfileResponse {
-  nickname?: string;
-  avatarUrl?: string;
-  subtitle?: string;
-  sessionLabel?: string;
-  authStatusLabel?: string;
-  stats?: AccountSummaryStat[];
-  sections?: AccountSection[];
-  actions?: AccountAction[];
-}
 
 export interface CreateAccountControllerOptions {
   kernel: AppKernel;
@@ -94,6 +83,10 @@ function upsertStat(stats: AccountSummaryStat[], nextStat: AccountSummaryStat): 
 }
 
 function describeAuthStatus(session: UserSession): string {
+  if (session.authStatus === "guest" || session.identity.anonymous) {
+    return "Browsing as guest";
+  }
+
   return session.platform === "wechat" ? "Signed in through WeChat" : "Signed in through H5";
 }
 
@@ -173,17 +166,176 @@ function buildStateFromSession(baseState: AccountState, session: UserSession): A
   };
 }
 
-function mergeRemoteProfile(baseState: AccountState, profile: AccountProfileResponse): AccountState {
+function createStatusLabel(response: CurrentUserResponse): string {
+  if (response.userStatus.blacklisted) {
+    return "Blacklisted";
+  }
+
+  if (response.userStatus.cancellationInProgress) {
+    return "Cancellation in progress";
+  }
+
+  if (response.userStatus.frozen) {
+    return "Frozen";
+  }
+
+  if (response.userStatus.guest) {
+    return "Guest";
+  }
+
+  return "Enabled";
+}
+
+function createRemoteStats(response: CurrentUserResponse): AccountSummaryStat[] {
+  return [
+    {
+      key: "membership",
+      label: "Membership",
+      value: response.accountSummary.assets.membership?.headline ?? "No active membership",
+      tone: response.accountSummary.assets.membership?.active ? "positive" : "neutral",
+    },
+    {
+      key: "account-status",
+      label: "Account status",
+      value: createStatusLabel(response),
+      tone: response.userStatus.enabled ? "positive" : "caution",
+    },
+    {
+      key: "points",
+      label: "Points",
+      value: String(response.accountSummary.assets.points),
+    },
+  ];
+}
+
+function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
+  return [
+    {
+      key: "identity",
+      title: "Identity",
+      items: [
+        {
+          key: "user-id",
+          label: "User ID",
+          value: response.accountSummary.userId,
+          hint: "Use this id when you need support or cross-device recovery.",
+        },
+        {
+          key: "nickname",
+          label: "Nickname",
+          value: response.userProfile.nickname ?? "Guest",
+        },
+        {
+          key: "region",
+          label: "Region",
+          value: response.userProfile.region ?? "Not set",
+        },
+        {
+          key: "bio",
+          label: "Bio",
+          value: response.userProfile.bio ?? "Not set",
+        },
+      ],
+    },
+    {
+      key: "account",
+      title: "Account",
+      items: [
+        {
+          key: "phone-bound",
+          label: "Phone",
+          value: response.accountSummary.phoneBound
+            ? response.accountSummary.phoneNumberMasked ?? "Bound"
+            : "Not bound",
+        },
+        {
+          key: "wechat-bound",
+          label: "WeChat",
+          value: response.accountSummary.wechatBound ? "Bound" : "Not bound",
+        },
+        {
+          key: "real-name",
+          label: "Real-name status",
+          value: response.accountSummary.realNameStatus,
+        },
+      ],
+    },
+    {
+      key: "assets",
+      title: "Assets",
+      items: [
+        {
+          key: "level",
+          label: "Level",
+          value: String(response.accountSummary.assets.level),
+        },
+        {
+          key: "entitlements",
+          label: "Entitlements",
+          value: response.accountSummary.assets.entitlementLabels.join(", ") || "None",
+        },
+        {
+          key: "balance",
+          label: "Balance placeholder",
+          value: `${(response.accountSummary.assets.balanceCents / 100).toFixed(2)} CNY`,
+        },
+      ],
+    },
+    {
+      key: "relations",
+      title: "Relations",
+      items: [
+        {
+          key: "following",
+          label: "Following",
+          value: String(response.accountSummary.relations.followingCount),
+        },
+        {
+          key: "followers",
+          label: "Followers",
+          value: String(response.accountSummary.relations.followerCount),
+        },
+        {
+          key: "friends",
+          label: "Friends",
+          value: String(response.accountSummary.relations.friendCount),
+        },
+        {
+          key: "blocked",
+          label: "Blocked",
+          value: String(response.accountSummary.relations.blockedCount),
+        },
+        {
+          key: "remark-name",
+          label: "Remark name",
+          value: response.accountSummary.relations.remarkName ?? "None",
+        },
+      ],
+    },
+  ];
+}
+
+function mergeRemoteProfile(baseState: AccountState, profile: CurrentUserResponse): AccountState {
+  const remoteSections = createRemoteSections(profile);
+  const remoteStats = createRemoteStats(profile);
+  const sessionLabel = baseState.sessionLabel ?? "Managed by the current signed-in session.";
+  const authStatusLabel = `${baseState.authStatusLabel ?? "Signed in"} · ${createStatusLabel(profile)}`;
+
   return {
     ...baseState,
-    ...(profile.nickname ? { nickname: profile.nickname } : {}),
-    ...(profile.avatarUrl ? { avatarUrl: profile.avatarUrl } : {}),
-    ...(profile.subtitle ? { subtitle: profile.subtitle } : {}),
-    ...(profile.sessionLabel ? { sessionLabel: profile.sessionLabel } : {}),
-    ...(profile.authStatusLabel ? { authStatusLabel: profile.authStatusLabel } : {}),
-    ...(profile.stats ? { stats: profile.stats.map((stat) => ({ ...stat })) } : {}),
-    ...(profile.sections ? { sections: profile.sections.map((section) => ({ ...section, items: section.items.map((item) => ({ ...item })) })) } : {}),
-    ...(profile.actions ? { actions: profile.actions.map((action) => ({ ...action })) } : {}),
+    ...(profile.userProfile.nickname ? { nickname: profile.userProfile.nickname } : {}),
+    ...(profile.userProfile.avatarUrl ? { avatarUrl: profile.userProfile.avatarUrl } : {}),
+    subtitle:
+      profile.userProfile.tags && profile.userProfile.tags.length > 0
+        ? `Tags: ${profile.userProfile.tags.join(", ")}`
+        : baseState.subtitle,
+    sessionLabel,
+    authStatusLabel,
+    userProfile: profile.userProfile,
+    accountSummary: profile.accountSummary,
+    userStatus: profile.userStatus,
+    stats: remoteStats,
+    sections: remoteSections,
   };
 }
 
@@ -215,10 +367,16 @@ export function createAccountController(options: CreateAccountControllerOptions)
       return ok(undefined);
     }
 
-    return kernel.router.replaceRoute(loginRouteId, {
-      from: authRedirectSource,
-      reason: "auth-required",
-    });
+    const current = kernel.router.current();
+    return kernel.router.replaceRoute(
+      loginRouteId,
+      createAuthRedirectParams({
+        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
+        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
+        ...(authRedirectSource ? { source: authRedirectSource } : {}),
+        reason: "auth-required",
+      }),
+    );
   }
 
   return {
@@ -263,7 +421,7 @@ export function createAccountController(options: CreateAccountControllerOptions)
 
       let nextState = buildStateFromSession(store.getState(), session);
 
-      const remoteProfile = await kernel.request.get<AccountProfileResponse>(requestPath);
+      const remoteProfile = await kernel.request.get<CurrentUserResponse>(requestPath);
       if (!remoteProfile.ok) {
         if (remoteProfile.error.code === "UNAUTHORIZED") {
           store.setState({

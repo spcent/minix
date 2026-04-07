@@ -1,4 +1,5 @@
 import {
+  createAuthRedirectParams,
   ok,
   createStore,
   deriveLatestMilestoneHistory,
@@ -58,7 +59,15 @@ export function createSubscriptionController(options: CreateSubscriptionControll
       return ok(undefined);
     }
 
-    return kernel.router.replaceRoute(loginRouteId);
+    const current = kernel.router.current();
+    return kernel.router.replaceRoute(
+      loginRouteId,
+      createAuthRedirectParams({
+        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
+        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
+        reason: "auth-required",
+      }),
+    );
   }
 
   function deriveReturnTarget(source?: string) {

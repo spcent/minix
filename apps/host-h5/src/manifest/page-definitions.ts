@@ -1,5 +1,6 @@
 import { APP_ROUTE_IDS } from "@minix/contracts";
 import { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags, type SettingsPageModel } from "@minix/core";
+import { accountFeatureManifest, createDefaultAccountState } from "@minix/feature-account";
 import { authFeatureManifest, createInitialAuthPageState } from "@minix/feature-auth";
 import { createDefaultItemsPageModel, itemsFeatureManifest } from "@minix/feature-items";
 import { settingsFeatureManifest } from "@minix/feature-settings";
@@ -63,6 +64,7 @@ function createMinuteEnglishSettingsPageModel(): SettingsPageModel {
 export const hostH5FeatureFlags = defineHostFeatureFlags({
   ...loadFeatureFlags(),
   enableAutoLogin: false,
+  enableRouteGuard: true,
 });
 
 export const hostH5PageDefinitions = defineHostPageDefinitions({
@@ -157,6 +159,32 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     requiredCapabilities: [{ capability: "clipboard" }],
     featureConfig: {
       sectionDensity: "comfortable",
+    },
+    renderMode: "custom",
+  },
+  account: {
+    feature: accountFeatureManifest,
+    routeId: APP_ROUTE_IDS.account,
+    routePath: "/account",
+    pageData: createDefaultAccountState({
+      title: "Account Center",
+      subtitle: "Profile, bindings, account placeholders, and support-facing session context.",
+    }),
+    controller: {
+      loginRouteId: APP_ROUTE_IDS.login,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+      overviewRouteId: APP_ROUTE_IDS.overview,
+      authRedirectSource: "account",
+    },
+    guardPolicy: {
+      name: "authenticated-account",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    requiredCapabilities: [{ capability: "clipboard", required: false }],
+    featureConfig: {
+      surface: "account",
     },
     renderMode: "custom",
   },

@@ -1,6 +1,7 @@
 import {
   ok,
   createStore,
+  createAuthRedirectParams,
   READER_DISPLAY_STORAGE_KEY,
   READING_CENTER_STORAGE_KEY,
   type AppKernel,
@@ -9,11 +10,13 @@ import {
   type ReaderMode,
   type ReaderTheme,
   type ReadingCenterPreferences,
+  type SettingsItem,
   type SettingsPageModel,
+  type SettingsSection,
   type ToastOptions,
   type UserSession,
 } from "@minix/core";
-import { type AppRouteId } from "@minix/contracts";
+import { type AppRouteId, type SettingsResponse } from "@minix/contracts";
 
 export interface CreateSettingsControllerOptions {
   kernel: AppKernel;
@@ -25,6 +28,7 @@ export interface CreateSettingsControllerOptions {
   model: SettingsPageModel;
   displaySettingsStorageKey?: string;
   readingCenterStorageKey?: string;
+  requestPath?: string;
   confirmLogout?: ModalOptions;
   successToast?: ToastOptions;
   showErrorToast?: boolean;
@@ -154,10 +158,165 @@ function formatReminderMode(value: ReadingCenterPreferences["reminders"]): strin
 function cloneModel(model: SettingsPageModel): SettingsPageModel {
   return {
     ...model,
+    ...(model.subtitle ? { subtitle: model.subtitle } : {}),
+    ...(model.preferences ? { preferences: structuredClone(model.preferences) } : {}),
+    ...(model.featureToggles ? { featureToggles: structuredClone(model.featureToggles) } : {}),
+    ...(model.privacyOptions ? { privacyOptions: structuredClone(model.privacyOptions) } : {}),
     sections: model.sections.map((section) => ({
       ...section,
       items: section.items.map((item) => ({ ...item })),
     })),
+  };
+}
+
+function createTextItem(key: string, label: string, value: string | boolean): SettingsItem {
+  return {
+    key,
+    label,
+    type: typeof value === "boolean" ? "switch" : "text",
+    value,
+  };
+}
+
+function createSettingsSections(response: SettingsResponse): SettingsSection[] {
+  return [
+    {
+      key: "common-preferences",
+      title: "Common preferences",
+      items: [
+        createTextItem("language", "Language", response.preferences.language),
+        createTextItem("theme-mode", "Theme", response.preferences.theme),
+        createTextItem("font-size", "Font size", response.preferences.fontScale),
+        createTextItem("notifications", "Notifications", response.preferences.notificationsEnabled),
+      ],
+    },
+    {
+      key: "device-settings",
+      title: "Device",
+      items: [
+        createTextItem("cache-label", "Cache", response.preferences.device.cacheLabel),
+        createTextItem("network-strategy", "Network strategy", response.preferences.device.networkStrategy),
+        createTextItem("autoplay", "Autoplay", response.preferences.device.autoplay),
+        createTextItem("weak-network-mode", "Weak-network mode", response.preferences.device.weakNetworkMode),
+      ],
+    },
+    {
+      key: "account-controls",
+      title: "Account controls",
+      items: [
+        createTextItem("profile-entry", "Profile", response.preferences.account.profileEntryLabel),
+        createTextItem("phone-entry", "Phone", response.preferences.account.phoneEntryLabel),
+        createTextItem("unbind-entry", "Binding", response.preferences.account.unbindEntryLabel),
+        createTextItem("cancellation-entry", "Cancellation", response.preferences.account.cancellationEntryLabel),
+      ],
+    },
+    {
+      key: "content-preferences",
+      title: "Content preferences",
+      items: [
+        createTextItem("sort-order", "Sort order", response.preferences.content.sortOrder),
+        createTextItem("filter-mode", "Filter mode", response.preferences.content.filterMode),
+        createTextItem("reading-mode", "Reading mode", response.preferences.content.readingMode),
+        createTextItem("history-enabled", "History", response.preferences.content.historyEnabled),
+      ],
+    },
+    {
+      key: "privacy-options",
+      title: "Privacy",
+      items: [
+        createTextItem("profile-visibility", "Profile visibility", response.privacyOptions.profileVisibilityLabel),
+        createTextItem("personalized-recommendations", "Personalized recommendations", response.privacyOptions.personalizedRecommendations),
+        createTextItem("search-history", "Search history", response.privacyOptions.searchHistoryEnabled),
+        createTextItem("analytics", "Analytics", response.privacyOptions.analyticsEnabled),
+        createTextItem("screenshot-feedback", "Screenshot feedback", response.privacyOptions.screenshotFeedbackEnabled),
+      ],
+    },
+    {
+      key: "debug-settings",
+      title: "Debug",
+      items: [
+        createTextItem("logs-enabled", "Logs", response.preferences.developerOptions.logsEnabled),
+        createTextItem("experiments-enabled", "Experiments", response.preferences.developerOptions.experimentsEnabled),
+      ],
+    },
+    {
+      key: "feature-toggles",
+      title: "Feature toggles",
+      items: [
+        createTextItem("push-enabled", "Push", response.featureToggles.pushEnabled),
+        createTextItem("sms-enabled", "SMS", response.featureToggles.smsEnabled),
+        createTextItem("email-enabled", "Email", response.featureToggles.emailEnabled),
+        createTextItem("account-center-enabled", "Account center", response.featureToggles.accountCenterEnabled),
+        createTextItem("reading-sync-enabled", "Reading sync", response.featureToggles.readingSyncEnabled),
+      ],
+    },
+  ];
+}
+
+function mergeSectionItems(baseItems: SettingsItem[], nextItems: SettingsItem[]): SettingsItem[] {
+  const merged = [...baseItems.map((item) => ({ ...item }))];
+
+  for (const nextItem of nextItems) {
+    const existingIndex = merged.findIndex((item) => item.key === nextItem.key);
+    if (existingIndex === -1) {
+      merged.push({ ...nextItem });
+      continue;
+    }
+
+    merged[existingIndex] = { ...merged[existingIndex], ...nextItem };
+  }
+
+  return merged;
+}
+
+function applyRemoteSettings(model: SettingsPageModel, response: SettingsResponse, env: AppKernel["env"]): SettingsPageModel {
+  const nextModel = cloneModel(model);
+  const remoteSections = createSettingsSections(response);
+  const sections = [...nextModel.sections];
+
+  for (const remoteSection of remoteSections) {
+    const existingIndex = sections.findIndex((section) => section.key === remoteSection.key);
+    if (existingIndex === -1) {
+      sections.push(remoteSection);
+      continue;
+    }
+
+    sections[existingIndex] = {
+      ...sections[existingIndex],
+      ...remoteSection,
+      items: mergeSectionItems(sections[existingIndex]?.items ?? [], remoteSection.items),
+    };
+  }
+
+  const debugSectionIndex = sections.findIndex((section) => section.key === "debug-settings");
+  const runtimeDebugItems = [
+    createTextItem("environment-label", "Environment", env.debug ? "debug" : "production"),
+    createTextItem("version", "Version", env.version),
+  ];
+  if (debugSectionIndex === -1) {
+    sections.push({
+      key: "debug-settings",
+      title: "Debug",
+      items: runtimeDebugItems,
+    });
+  } else {
+    const debugSection = sections[debugSectionIndex];
+    if (debugSection) {
+      sections[debugSectionIndex] = {
+        key: debugSection.key,
+        ...(debugSection.title ? { title: debugSection.title } : {}),
+        items: mergeSectionItems(debugSection.items, runtimeDebugItems),
+      };
+    }
+  }
+
+  return {
+    ...nextModel,
+    subtitle: "Normalized settings domain with local reading preferences layered on top.",
+    sections,
+    preferences: response.preferences,
+    featureToggles: response.featureToggles,
+    privacyOptions: response.privacyOptions,
   };
 }
 
@@ -245,6 +404,7 @@ export function createSettingsController(options: CreateSettingsControllerOption
     model,
     displaySettingsStorageKey = READER_DISPLAY_STORAGE_KEY,
     readingCenterStorageKey = READING_CENTER_STORAGE_KEY,
+    requestPath = "/settings",
     confirmLogout,
     successToast,
     showErrorToast = false,
@@ -265,6 +425,16 @@ export function createSettingsController(options: CreateSettingsControllerOption
   const store = createStore(
     applyReadingCenterPreferences(applyDisplayPreferences(model, displayPreferences), readingCenterPreferences),
   );
+
+  async function hydrateRemoteSettings() {
+    const result = await kernel.request.get<SettingsResponse>(requestPath);
+    if (!result.ok) {
+      return result;
+    }
+
+    store.replaceState(applyRemoteSettings(store.getState(), result.value, kernel.env));
+    return ok(undefined);
+  }
 
   async function hydrateDisplayPreferences() {
     const result = await kernel.storage.get<ReaderDisplayPreferences>(displaySettingsStorageKey);
@@ -339,6 +509,24 @@ export function createSettingsController(options: CreateSettingsControllerOption
         if (canRefreshSession(result.value) && kernel.auth.refreshSession) {
           const refreshed = await kernel.auth.refreshSession(result.value);
           if (refreshed.ok) {
+            const remoteSettings = await hydrateRemoteSettings();
+            if (!remoteSettings.ok) {
+              if (remoteSettings.error.code === "UNAUTHORIZED") {
+                const current = kernel.router.current();
+                return kernel.router.replaceRoute(
+                  loginRouteId,
+                  createAuthRedirectParams({
+                    ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
+                    ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
+                    ...(authRedirectSource ? { source: authRedirectSource } : {}),
+                    reason: "auth-required",
+                  }),
+                );
+              }
+
+              return remoteSettings;
+            }
+
             await hydrateDisplayPreferences();
             await hydrateReadingCenterPreferences();
             return ok(undefined);
@@ -353,10 +541,34 @@ export function createSettingsController(options: CreateSettingsControllerOption
           await kernel.session.clear();
         }
 
+        const current = kernel.router.current();
         return kernel.router.replaceRoute(
           loginRouteId,
-          authRedirectSource ? { from: authRedirectSource, reason: "auth-required" } : undefined,
+          createAuthRedirectParams({
+            ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
+            ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
+            ...(authRedirectSource ? { source: authRedirectSource } : {}),
+            reason: "auth-required",
+          }),
         );
+      }
+
+      const remoteSettings = await hydrateRemoteSettings();
+      if (!remoteSettings.ok) {
+        if (remoteSettings.error.code === "UNAUTHORIZED") {
+          const current = kernel.router.current();
+          return kernel.router.replaceRoute(
+            loginRouteId,
+            createAuthRedirectParams({
+              ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
+              ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
+              ...(authRedirectSource ? { source: authRedirectSource } : {}),
+              reason: "auth-required",
+            }),
+          );
+        }
+
+        return remoteSettings;
       }
 
       await hydrateDisplayPreferences();

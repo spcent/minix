@@ -208,8 +208,9 @@ test("feed controller routes unauthorized responses back to login", async () => 
   assert.deepEqual(routeCalls.at(-1), {
     routeId: APP_ROUTE_IDS.login,
     params: {
-      from: "feed",
-      reason: "auth-required",
+      redirectPath: "/feed",
+      redirectSource: "feed",
+      redirectReason: "auth-required",
     },
   });
 });

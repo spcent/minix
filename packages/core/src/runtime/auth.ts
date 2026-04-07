@@ -1,4 +1,13 @@
-import type { LoginRequest, LoginResponse, RefreshTokenRequest, RefreshTokenResponse } from "@minix/contracts";
+import type {
+  AuthIdentity,
+  AuthSessionPayload,
+  AuthStatus,
+  LoginMethod,
+  LoginRequest,
+  LoginResponse,
+  RefreshTokenRequest,
+  RefreshTokenResponse,
+} from "@minix/contracts";
 
 import { createError, fail, ok, type Result } from "../error/index";
 import type { AuthAdapter, LoginCredential } from "../ports/auth";
@@ -13,6 +22,7 @@ export interface ExchangeTokenInput {
 
 export interface AuthService {
   ensureLogin(): Promise<Result<UserSession>>;
+  recoverSession?(currentSession?: UserSession | null): Promise<Result<UserSession | null>>;
   login(): Promise<Result<UserSession>>;
   logout(): Promise<Result<void>>;
   exchangeToken(input: ExchangeTokenInput): Promise<Result<UserSession>>;
@@ -42,28 +52,49 @@ function toUserSession(
   response: LoginResponse | RefreshTokenResponse,
   previousSession?: UserSession | null,
 ): UserSession {
-  const nextToken: UserSession["token"] = {
+  const sessionPayload: AuthSessionPayload = response.session ?? {
     accessToken: response.accessToken,
+    ...(response.refreshToken !== undefined ? { refreshToken: response.refreshToken } : {}),
+    ...(response.expiresAt !== undefined ? { expiresAt: response.expiresAt } : {}),
     issuedAt: Date.now(),
     tokenType: "Bearer",
-    ...(response.expiresAt !== undefined ? { expiresAt: response.expiresAt } : {}),
+  };
+  const nextToken: UserSession["token"] = {
+    accessToken: sessionPayload.accessToken,
+    issuedAt: sessionPayload.issuedAt ?? Date.now(),
+    tokenType: sessionPayload.tokenType ?? "Bearer",
+    ...(sessionPayload.expiresAt !== undefined ? { expiresAt: sessionPayload.expiresAt } : {}),
   };
 
-  const nextRefreshToken = response.refreshToken ?? previousSession?.token?.refreshToken;
+  const nextRefreshToken = sessionPayload.refreshToken ?? response.refreshToken ?? previousSession?.token?.refreshToken;
   if (nextRefreshToken) {
     nextToken.refreshToken = nextRefreshToken;
   }
 
   const nextProfile = response.profile ?? previousSession?.profile;
+  const identity: AuthIdentity = response.identity ?? {
+    userId: response.userId || previousSession?.identity.userId || "",
+    ...(previousSession?.identity.anonymous !== undefined ? { anonymous: previousSession.identity.anonymous } : {}),
+  };
+  const loginMethod = response.loginMethod ?? (previousSession?.identity.loginMethod as LoginMethod | undefined);
+  const authStatus: AuthStatus =
+    response.authStatus ?? (identity.anonymous ? "guest" : "authenticated");
 
   return {
     identity: {
-      userId: response.userId || previousSession?.identity.userId || "",
-      ...(previousSession?.identity.anonymous !== undefined ? { anonymous: previousSession.identity.anonymous } : {}),
+      userId: identity.userId || response.userId || previousSession?.identity.userId || "",
+      ...(identity.anonymous !== undefined ? { anonymous: identity.anonymous } : {}),
+      ...(identity.phoneBound !== undefined ? { phoneBound: identity.phoneBound } : {}),
+      ...(identity.wechatBound !== undefined ? { wechatBound: identity.wechatBound } : {}),
+      ...(identity.realNameVerified !== undefined ? { realNameVerified: identity.realNameVerified } : {}),
+      ...(identity.mergedUserId ? { mergedUserId: identity.mergedUserId } : {}),
+      ...(loginMethod ? { loginMethod } : {}),
     },
     loggedIn: true,
+    authStatus,
     platform: env.platform,
     ...(nextProfile ? { profile: nextProfile } : {}),
+    ...(response.redirectTarget ? { redirectTarget: response.redirectTarget } : {}),
     token: nextToken,
   };
 }
@@ -135,38 +166,64 @@ export function createAuthService(options: {
     return persistSession(options, response.value, session);
   }
 
-  const service: AuthService = {
-    async ensureLogin(): Promise<Result<UserSession>> {
+  async function recoverSession(currentSession?: UserSession | null): Promise<Result<UserSession | null>> {
+    let session = currentSession ?? null;
+    if (currentSession === undefined) {
       const existing = await options.session.get();
       if (!existing.ok) {
         return existing;
       }
 
-      if (isActiveSession(existing.value)) {
-        return ok(existing.value);
+      session = existing.value;
+    }
+
+    if (isActiveSession(session)) {
+      return ok(session);
+    }
+
+    if (isRefreshableSession(session)) {
+      const refreshed = await refreshSession(session);
+      if (refreshed.ok) {
+        return ok(refreshed.value);
       }
 
-      if (isRefreshableSession(existing.value)) {
-        const refreshed = await refreshSession(existing.value);
-        if (refreshed.ok) {
-          return refreshed;
-        }
-
-        if (shouldClearAfterRefreshFailure(refreshed.error.code)) {
-          const cleared = await options.session.clear();
-          if (!cleared.ok) {
-            return cleared;
-          }
-        }
-      } else if (existing.value !== null) {
+      if (shouldClearAfterRefreshFailure(refreshed.error.code)) {
         const cleared = await options.session.clear();
         if (!cleared.ok) {
           return cleared;
         }
+
+        return ok(null);
+      }
+
+      return refreshed;
+    }
+
+    if (session !== null) {
+      const cleared = await options.session.clear();
+      if (!cleared.ok) {
+        return cleared;
+      }
+    }
+
+    return ok(null);
+  }
+
+  const service: AuthService = {
+    async ensureLogin(): Promise<Result<UserSession>> {
+      const recovered = await recoverSession();
+      if (!recovered.ok) {
+        return recovered;
+      }
+
+      if (recovered.value) {
+        return ok(recovered.value);
       }
 
       return service.login();
     },
+
+    recoverSession,
 
     async login(): Promise<Result<UserSession>> {
       const loginResult = await options.adapter.login();

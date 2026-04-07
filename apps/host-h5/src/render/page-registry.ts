@@ -1,3 +1,4 @@
+import type { AccountState } from "@minix/feature-account";
 import type { ItemsFilterValue, ItemsPageItem } from "@minix/feature-items";
 import type { SettingsPageModel, Store } from "@minix/core";
 
@@ -1142,17 +1143,20 @@ function resolvePageLabel(pageKey: HostH5PageKey): string {
       return "Today's Plan";
     case "settings":
       return "Preferences";
+    case "account":
+      return "Account";
     default:
       return buildGenericTitle(pageKey);
   }
 }
 
 function renderGlobalNavigation(pageKey: HostH5PageKey, authenticated: boolean): string {
-  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "settings.index"; label: string }> = [
+  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "settings.index" | "account.index"; label: string }> = [
     { key: "login", routeId: "auth.login", label: "Home" },
     { key: "overview", routeId: "overview.index", label: "Overview" },
     { key: "items", routeId: "items.list", label: "Today's Plan" },
     { key: "settings", routeId: "settings.index", label: "Preferences" },
+    { key: "account", routeId: "account.index", label: "Account" },
   ];
 
   return entries
@@ -1165,11 +1169,12 @@ function renderGlobalNavigation(pageKey: HostH5PageKey, authenticated: boolean):
 }
 
 function renderFooterLinks(pageKey: HostH5PageKey, authenticated: boolean): string {
-  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "settings.index"; label: string }> = [
+  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "settings.index" | "account.index"; label: string }> = [
     { key: "login", routeId: "auth.login", label: "Home" },
     { key: "overview", routeId: "overview.index", label: "Overview" },
     { key: "items", routeId: "items.list", label: "Today's Plan" },
     { key: "settings", routeId: "settings.index", label: "Preferences" },
+    { key: "account", routeId: "account.index", label: "Account" },
   ];
 
   return [
@@ -1195,6 +1200,7 @@ function resolveShellTone(pageKey: HostH5PageKey): ShellTone {
     case "items":
       return "execution";
     case "settings":
+    case "account":
       return "profile";
     default:
       return "neutral";
@@ -2513,6 +2519,106 @@ function renderSettingsPage({ root, runtime, sync }: HostH5PageRenderContext) {
   });
 }
 
+function renderAccountPage({ root, runtime, sync }: HostH5PageRenderContext) {
+  const state = runtime.pages.account.store.getState() as AccountState;
+
+  renderApp(
+    root,
+    "Account Center",
+    runtime,
+    "account",
+    `
+      <section class="me-screen">
+        <section class="me-surface me-hero me-profile-hero">
+          <div class="me-hero-copy">
+            <p class="me-eyebrow">Account</p>
+            <h1 class="me-title">${escapeHtml(state.title)}</h1>
+            <p class="me-subtitle">${escapeHtml(state.subtitle)}</p>
+            <div class="me-chip-row">
+              <span class="me-chip">${escapeHtml(state.authStatusLabel ?? "Session")}</span>
+              <span class="me-chip me-chip-accent">${escapeHtml(state.sessionLabel ?? "Device session context")}</span>
+            </div>
+          </div>
+          <aside class="me-panel me-profile-panel">
+            <p class="me-panel-kicker">Identity</p>
+            <h2 class="me-panel-title">${escapeHtml(state.nickname ?? "Guest")}</h2>
+            <ul class="me-panel-list">
+              ${state.sections
+                .slice(0, 2)
+                .flatMap((section) => section.items.slice(0, 2))
+                .map((item) => `<li>${escapeHtml(`${item.label}: ${String(item.value ?? "")}`)}</li>`)
+                .join("")}
+            </ul>
+          </aside>
+        </section>
+
+        <section class="me-grid me-grid-columns me-profile-workspace">
+          <section class="me-surface me-card me-profile-card">
+            <p class="me-section-kicker">Summary</p>
+            <h2 class="me-card-title">Account snapshot</h2>
+            <div class="me-inline-metrics">
+              ${state.stats
+                .map(
+                  (stat) => `
+                    <div class="me-inline-metric">
+                      <p class="me-inline-metric-value">${escapeHtml(stat.value)}</p>
+                      <p class="me-inline-metric-label">${escapeHtml(stat.label)}</p>
+                    </div>
+                  `,
+                )
+                .join("")}
+            </div>
+            ${state.copyFeedback ? `<p class="me-message">${escapeHtml(state.copyFeedback)}</p>` : ""}
+            ${state.errorText ? `<p class="me-message me-message-error">${escapeHtml(state.errorText)}</p>` : ""}
+            <div class="me-action-group">
+              <button id="account-copy" class="me-button me-button-secondary">Copy User ID</button>
+              <button id="account-settings" class="me-button me-button-secondary">Open Preferences</button>
+              <button id="account-overview" class="me-button me-button-ghost">Open Overview</button>
+            </div>
+          </section>
+
+          <section class="me-surface me-card me-profile-card">
+            <p class="me-section-kicker">Details</p>
+            <h2 class="me-card-title">Shared user domain output</h2>
+            ${state.sections
+              .map(
+                (section) => `
+                  <section class="me-settings-section">
+                    <h3 class="me-settings-title">${escapeHtml(section.title)}</h3>
+                    <div>
+                      ${section.items
+                        .map(
+                          (item) => `
+                            <div class="me-settings-item">
+                              <p class="me-settings-label">${escapeHtml(item.label)}</p>
+                              <p class="me-settings-value">${escapeHtml(String(item.value ?? ""))}</p>
+                            </div>
+                          `,
+                        )
+                        .join("")}
+                    </div>
+                  </section>
+                `,
+              )
+              .join("")}
+          </section>
+        </section>
+      </section>
+    `,
+  );
+
+  bindRouteButtons(root, runtime, sync);
+  bindButton(root, "account-copy", () => {
+    void runtime.pages.account.copyUserId().then(sync);
+  });
+  bindButton(root, "account-settings", () => {
+    void runtime.pages.account.goToSettings().then(sync);
+  });
+  bindButton(root, "account-overview", () => {
+    void runtime.pages.account.goToOverview().then(sync);
+  });
+}
+
 export const hostH5PageRenderers: Partial<Record<HostH5PageKey, HostH5PageRenderer>> = {
   login: {
     render(context) {
@@ -2532,6 +2638,11 @@ export const hostH5PageRenderers: Partial<Record<HostH5PageKey, HostH5PageRender
   settings: {
     render(context) {
       renderSettingsPage(context);
+    },
+  },
+  account: {
+    render(context) {
+      renderAccountPage(context);
     },
   },
 };

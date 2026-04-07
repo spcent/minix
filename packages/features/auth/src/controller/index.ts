@@ -1,4 +1,11 @@
-import { createStore, ok, type AppKernel, type UserSession } from "@minix/core";
+import {
+  createStore,
+  deriveAuthRedirectLabel,
+  ok,
+  readAuthRedirectTarget,
+  type AppKernel,
+  type UserSession,
+} from "@minix/core";
 import { type AppRouteId } from "@minix/contracts";
 
 import { createInitialAuthPageState, type AuthRedirectTarget } from "../model";
@@ -33,28 +40,8 @@ function shouldClearAfterRefreshFailure(code: string): boolean {
   return code === "TOKEN_EXPIRED" || code === "UNAUTHORIZED" || code === "FORBIDDEN";
 }
 
-function toProtectedPageLabel(source?: string): string | null {
-  switch (source) {
-    case "overview":
-      return "Overview";
-    case "plan":
-      return "Today's Plan";
-    case "preferences":
-      return "Preferences";
-    default:
-      return null;
-  }
-}
-
-function toProtectedPageTarget(source?: string): AuthRedirectTarget {
-  switch (source) {
-    case "overview":
-    case "plan":
-    case "preferences":
-      return source;
-    default:
-      return null;
-  }
+function formatProtectedPageNotice(label?: string | null): string | null {
+  return label ? `Return to Home and sign in to open ${label}.` : null;
 }
 
 export function createAuthController(options: CreateAuthControllerOptions) {
@@ -94,23 +81,32 @@ export function createAuthController(options: CreateAuthControllerOptions) {
       };
     }
 
-    const source = typeof current.value?.params?.from === "string" ? current.value.params.from : undefined;
-    const target = toProtectedPageTarget(source);
-    const label = toProtectedPageLabel(source);
+    const redirect = readAuthRedirectTarget(current.value);
+    const label = deriveAuthRedirectLabel(redirect);
+    const target = redirect?.source ?? redirect?.routeId ?? redirect?.path ?? null;
+
+    store.setState({
+      redirectLabel: label,
+      redirectPath: redirect?.path ?? null,
+      redirectParams: redirect?.params ?? null,
+    });
 
     return {
       target,
-      noticeMessage: label ? `Return to Home and sign in to open ${label}.` : null,
+      noticeMessage: formatProtectedPageNotice(label),
     };
   }
 
   async function handleError(message: string) {
-    store.setState({
-      loading: false,
-      errorMessage: message,
-      authenticated: false,
-      redirectTarget: null,
-    });
+      store.setState({
+        loading: false,
+        errorMessage: message,
+        authenticated: false,
+        redirectTarget: null,
+        redirectLabel: null,
+        redirectPath: null,
+        redirectParams: null,
+      });
 
     await reportError?.(message);
   }
@@ -125,7 +121,44 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         errorMessage: null,
         noticeMessage: redirectState.noticeMessage,
         redirectTarget: redirectState.target,
+        redirectLabel: store.getState().redirectLabel,
+        redirectPath: store.getState().redirectPath,
+        redirectParams: store.getState().redirectParams,
       });
+
+      if (kernel.auth.recoverSession) {
+        const recovered = await kernel.auth.recoverSession();
+        if (!recovered.ok) {
+          await handleError(recovered.error.message);
+          return recovered;
+        }
+
+        if (recovered.value) {
+          store.setState({
+            loading: false,
+            errorMessage: null,
+            authenticated: true,
+            noticeMessage: null,
+            redirectTarget: redirectState.target,
+            redirectLabel: store.getState().redirectLabel,
+            redirectPath: store.getState().redirectPath,
+            redirectParams: store.getState().redirectParams,
+          });
+          return routeToSuccess();
+        }
+
+        store.setState({
+          loading: false,
+          errorMessage: null,
+          authenticated: false,
+          noticeMessage: redirectState.noticeMessage,
+          redirectTarget: redirectState.target,
+          redirectLabel: store.getState().redirectLabel,
+          redirectPath: store.getState().redirectPath,
+          redirectParams: store.getState().redirectParams,
+        });
+        return ok(false);
+      }
 
       const session = await kernel.session.get();
       if (!session.ok) {
@@ -140,6 +173,9 @@ export function createAuthController(options: CreateAuthControllerOptions) {
           authenticated: true,
           noticeMessage: null,
           redirectTarget: redirectState.target,
+          redirectLabel: store.getState().redirectLabel,
+          redirectPath: store.getState().redirectPath,
+          redirectParams: store.getState().redirectParams,
         });
         return routeToSuccess();
       }
@@ -153,6 +189,9 @@ export function createAuthController(options: CreateAuthControllerOptions) {
             authenticated: true,
             noticeMessage: null,
             redirectTarget: redirectState.target,
+            redirectLabel: store.getState().redirectLabel,
+            redirectPath: store.getState().redirectPath,
+            redirectParams: store.getState().redirectParams,
           });
           return routeToSuccess();
         }
@@ -173,6 +212,9 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         authenticated: false,
         noticeMessage: redirectState.noticeMessage,
         redirectTarget: redirectState.target,
+        redirectLabel: store.getState().redirectLabel,
+        redirectPath: store.getState().redirectPath,
+        redirectParams: store.getState().redirectParams,
       });
       return ok(false);
     },
@@ -183,6 +225,9 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         errorMessage: null,
         noticeMessage: null,
         redirectTarget: store.getState().redirectTarget,
+        redirectLabel: store.getState().redirectLabel,
+        redirectPath: store.getState().redirectPath,
+        redirectParams: store.getState().redirectParams,
       });
 
       const result = await kernel.auth.login();
@@ -197,6 +242,9 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         authenticated: true,
         noticeMessage: null,
         redirectTarget: store.getState().redirectTarget,
+        redirectLabel: store.getState().redirectLabel,
+        redirectPath: store.getState().redirectPath,
+        redirectParams: store.getState().redirectParams,
       });
       return routeToSuccess();
     },
@@ -207,6 +255,9 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         errorMessage: null,
         noticeMessage: null,
         redirectTarget: store.getState().redirectTarget,
+        redirectLabel: store.getState().redirectLabel,
+        redirectPath: store.getState().redirectPath,
+        redirectParams: store.getState().redirectParams,
       });
 
       const result = await kernel.auth.ensureLogin();
@@ -221,6 +272,9 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         authenticated: true,
         noticeMessage: null,
         redirectTarget: store.getState().redirectTarget,
+        redirectLabel: store.getState().redirectLabel,
+        redirectPath: store.getState().redirectPath,
+        redirectParams: store.getState().redirectParams,
       });
       return routeToSuccess();
     },
@@ -231,18 +285,27 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         return { ok: true, value: undefined } as const;
       }
 
+      const redirectPath = store.getState().redirectPath;
+      const redirectParams = store.getState().redirectParams ?? undefined;
       const routeId =
         redirectTarget === "overview"
           ? overviewRouteId
           : redirectTarget === "plan"
             ? planRouteId
-            : settingsRouteId;
+            : redirectTarget === "preferences"
+              ? settingsRouteId
+              : undefined;
 
-      const result = await routeToOptional(routeId);
+      const result = redirectPath
+        ? await kernel.router.to(redirectPath, redirectParams ?? undefined)
+        : await routeToOptional(routeId);
       if (result.ok) {
         store.setState({
           redirectTarget: null,
           noticeMessage: null,
+          redirectLabel: null,
+          redirectPath: null,
+          redirectParams: null,
         });
       }
 

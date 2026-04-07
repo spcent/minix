@@ -1,8 +1,11 @@
 import type {
+  AuthRedirectTarget,
+  AuthStatus,
   CapabilityKind,
   ConfigValue,
   FeatureConfig as ContractFeatureConfig,
   FeatureConfigMap as ContractFeatureConfigMap,
+  LoginMethod,
   TelemetryAttributeMap,
   TelemetryLevel,
 } from "@minix/contracts";
@@ -20,6 +23,11 @@ export interface SessionToken {
 export interface UserIdentity {
   userId: string;
   anonymous?: boolean;
+  phoneBound?: boolean;
+  wechatBound?: boolean;
+  realNameVerified?: boolean;
+  mergedUserId?: string;
+  loginMethod?: LoginMethod;
 }
 
 export interface UserProfile {
@@ -32,7 +40,9 @@ export interface UserSession {
   token?: SessionToken;
   profile?: UserProfile;
   loggedIn: boolean;
+  authStatus?: AuthStatus;
   platform: PlatformKind;
+  redirectTarget?: AuthRedirectTarget;
 }
 
 export interface RuntimeEnv {
@@ -56,6 +66,7 @@ export interface UserContext {
   userId: string;
   platform: PlatformKind;
   loggedIn: boolean;
+  authStatus?: AuthStatus;
   tenantId?: string;
   roles?: string[];
   permissions?: string[];

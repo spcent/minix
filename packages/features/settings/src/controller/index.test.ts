@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { APP_ROUTE_IDS } from "@minix/contracts";
+import { APP_ROUTE_IDS, type SettingsResponse } from "@minix/contracts";
 import { ok, type AppKernel, type Result, type UserSession } from "@minix/core";
 
 import { createSettingsPageModel } from "../model";
@@ -34,6 +34,51 @@ function createKernelStub() {
   let refreshResult: Result<UserSession> = ok(createSession({ accessToken: "token_2", refreshToken: "refresh_1" }));
   let refreshCalls = 0;
   let clearCalls = 0;
+  let settingsResponse: SettingsResponse = {
+    preferences: {
+      language: "zh-CN",
+      theme: "system",
+      fontScale: "md",
+      notificationsEnabled: true,
+      device: {
+        cacheLabel: "Clear local cache only",
+        networkStrategy: "balanced",
+        autoplay: true,
+        weakNetworkMode: false,
+      },
+      account: {
+        profileEntryLabel: "Edit profile",
+        phoneEntryLabel: "Bind phone",
+        unbindEntryLabel: "Bind WeChat",
+        cancellationEntryLabel: "Cancellation entry",
+      },
+      content: {
+        sortOrder: "recommended",
+        filterMode: "all",
+        readingMode: "scroll",
+        historyEnabled: true,
+      },
+      developerOptions: {
+        logsEnabled: true,
+        experimentsEnabled: true,
+      },
+    },
+    featureToggles: {
+      pushEnabled: true,
+      smsEnabled: false,
+      emailEnabled: false,
+      accountCenterEnabled: true,
+      readingSyncEnabled: true,
+      experimentsEnabled: true,
+    },
+    privacyOptions: {
+      profileVisibilityLabel: "Private to signed-in session",
+      personalizedRecommendations: true,
+      searchHistoryEnabled: true,
+      analyticsEnabled: true,
+      screenshotFeedbackEnabled: true,
+    },
+  };
 
   const kernel = {
     env: {
@@ -75,7 +120,23 @@ function createKernelStub() {
         return ok(undefined);
       },
     } as AppKernel["session"],
-    request: {} as AppKernel["request"],
+    request: {
+      async get<T>() {
+        return ok(settingsResponse as T);
+      },
+      async post<T>() {
+        return ok({} as T);
+      },
+      async put<T>() {
+        return ok({} as T);
+      },
+      async patch<T>() {
+        return ok({} as T);
+      },
+      async delete<T>() {
+        return ok({} as T);
+      },
+    } as AppKernel["request"],
     auth: {
       async ensureLogin() {
         throw new Error("not implemented");
@@ -145,6 +206,9 @@ function createKernelStub() {
     },
     setRefreshResult(nextResult: Result<UserSession>) {
       refreshResult = nextResult;
+    },
+    setSettingsResponse(nextResponse: SettingsResponse) {
+      settingsResponse = nextResponse;
     },
     get loggedOut() {
       return loggedOut;
@@ -330,7 +394,7 @@ test("settings controller redirects unauthenticated users back to home", async (
   const result = await controller.ensureAuthenticated();
 
   assert.deepEqual(result, { ok: true, value: undefined });
-  assert.deepEqual(runtime.routerCalls, ['auth.login:{"from":"preferences","reason":"auth-required"}']);
+  assert.deepEqual(runtime.routerCalls, ['auth.login:{"redirectSource":"preferences","redirectReason":"auth-required"}']);
 });
 
 test("settings controller refreshes an expired session before hydrating preferences", async () => {
@@ -392,6 +456,8 @@ test("settings controller refreshes an expired session before hydrating preferen
   const displaySection = controller.store.getState().sections[0];
   assert.equal(displaySection?.items[0]?.value, "Night contrast for late sessions");
   assert.equal(displaySection?.items[1]?.value, "Page mode for focused chapter reading");
+  assert.equal(controller.store.getState().preferences?.language, "zh-CN");
+  assert.ok(controller.store.getState().sections.some((section) => section.key === "common-preferences"));
 });
 
 test("settings controller clears an expired session and redirects when refresh is no longer valid", async () => {
@@ -433,7 +499,7 @@ test("settings controller clears an expired session and redirects when refresh i
   assert.deepEqual(result, { ok: true, value: undefined });
   assert.equal(runtime.refreshCalls, 1);
   assert.equal(runtime.clearCalls, 1);
-  assert.deepEqual(runtime.routerCalls, ['auth.login:{"from":"preferences","reason":"auth-required"}']);
+  assert.deepEqual(runtime.routerCalls, ['auth.login:{"redirectSource":"preferences","redirectReason":"auth-required"}']);
 });
 
 test("settings controller hydrates and updates reader display preferences", async () => {

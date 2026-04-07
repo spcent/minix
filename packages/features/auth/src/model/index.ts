@@ -1,4 +1,5 @@
-export type AuthRedirectTarget = "overview" | "plan" | "preferences" | null;
+export type AuthRedirectTarget = string | null;
+export type AuthRedirectParams = Record<string, string | number | boolean> | null;
 
 export interface AuthPageState {
   loading: boolean;
@@ -6,6 +7,9 @@ export interface AuthPageState {
   authenticated: boolean;
   noticeMessage: string | null;
   redirectTarget: AuthRedirectTarget;
+  redirectLabel: string | null;
+  redirectPath: string | null;
+  redirectParams: AuthRedirectParams;
 }
 
 export function createInitialAuthPageState(): AuthPageState {
@@ -15,5 +19,8 @@ export function createInitialAuthPageState(): AuthPageState {
     authenticated: false,
     noticeMessage: null,
     redirectTarget: null,
+    redirectLabel: null,
+    redirectPath: null,
+    redirectParams: null,
   };
 }

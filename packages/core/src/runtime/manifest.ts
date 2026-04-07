@@ -1,6 +1,14 @@
-import { CAPABILITY_KINDS, type AppRouteId, type AppRouteMap, type CapabilityRequirement, type GuardPolicy } from "@minix/contracts";
+import {
+  APP_ROUTE_IDS,
+  CAPABILITY_KINDS,
+  type AppRouteId,
+  type AppRouteMap,
+  type CapabilityRequirement,
+  type GuardPolicy,
+} from "@minix/contracts";
 
 import type { AppKernel } from "./app";
+import { createAuthRedirectParams } from "./auth-redirect";
 import type { FeatureConfig, FeatureFlags } from "../types/index";
 
 export type HostKind = "wechat" | "h5";
@@ -174,7 +182,31 @@ type ManifestPageRegistryEntry<TController, TBehavior extends HostFeatureBehavio
   } & EntryActionsForBehavior<TBehavior>;
 };
 
+function isRouteParamValue(value: unknown): value is string | number | boolean {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+
+function toRouteParams(value: unknown): Record<string, string | number | boolean> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const entries = Object.entries(value).filter(([, entry]) => isRouteParamValue(entry));
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return Object.fromEntries(entries);
+}
+
+function shouldEnforceAuthGuard(kernel: AppKernel, guardPolicy?: GuardPolicy): boolean {
+  return Boolean(kernel.features.enableRouteGuard && guardPolicy?.requirements?.authenticated);
+}
+
 function createEntry<TController, TBehavior extends HostFeatureBehavior>(
+  kernel: AppKernel,
+  pageKey: string,
+  definition: HostPageDefinition<any, any, TController, any>,
   controller: TController,
   actionMap: TBehavior["entryActions"],
 ): {
@@ -186,6 +218,38 @@ function createEntry<TController, TBehavior extends HostFeatureBehavior>(
 
   for (const [entryAction, controllerAction] of Object.entries(actionMap)) {
     entry[entryAction] = async (...args: unknown[]) => {
+      if (shouldEnforceAuthGuard(kernel, definition.guardPolicy)) {
+        const recovered = kernel.auth.recoverSession ? await kernel.auth.recoverSession() : null;
+        if (recovered?.ok && recovered.value === null) {
+          if (definition.guardPolicy?.onFail?.effect === "deny") {
+            return undefined;
+          }
+
+          const current = kernel.router.current();
+          const currentParams = current.ok ? current.value?.params : undefined;
+          const queryParams = currentParams ?? toRouteParams(args[0]);
+          const redirectParams = createAuthRedirectParams({
+            routeId: definition.routeId,
+            path: definition.routePath,
+            ...(queryParams ? { params: queryParams } : {}),
+            source: pageKey,
+            ...(definition.navigationBarTitleText ? { label: definition.navigationBarTitleText } : {}),
+            reason:
+              definition.guardPolicy?.onFail?.reason === "session-expired" ||
+              definition.guardPolicy?.onFail?.reason === "force-relogin"
+                ? definition.guardPolicy.onFail.reason
+                : "auth-required",
+            forceReauth: definition.guardPolicy?.onFail?.reason === "force-relogin",
+          });
+
+          if (definition.guardPolicy?.onFail?.redirectTo) {
+            return kernel.router.replace(definition.guardPolicy.onFail.redirectTo, redirectParams);
+          }
+
+          return kernel.router.replaceRoute(APP_ROUTE_IDS.login, redirectParams);
+        }
+      }
+
       const target = (controller as Record<string, unknown>)[controllerAction];
       if (typeof target !== "function") {
         throw new Error(`controller action "${controllerAction}" is not implemented`);
@@ -273,7 +337,7 @@ export function createManifestPageRegistry<TDefinitions extends HostPageDefiniti
         {
           controller,
           createEntry() {
-            return createEntry(controller, definition.feature.hosts[host].entryActions);
+            return createEntry(kernel, pageKey, definition, controller, definition.feature.hosts[host].entryActions);
           },
         },
       ];

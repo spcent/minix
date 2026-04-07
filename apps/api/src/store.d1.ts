@@ -1,8 +1,8 @@
 import { createDefaultUserState } from "./data";
 import { buildSampleProfileAssetPath } from "./sample-assets";
 import { deserializeUserState, serializeUserState } from "./state";
-import type { ApiStore, D1DatabaseLike, LoginProfile, SessionRecord } from "./types";
-import type { LoginPlatformKind } from "@minix/contracts";
+import type { ApiStore, CreateSessionInput, D1DatabaseLike, LoginProfile, SessionRecord } from "./types";
+import type { AuthIdentity, AuthStatus, LoginPlatformKind, LoginMethod } from "@minix/contracts";
 
 const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -37,11 +37,27 @@ function createToken(prefix: string, platform: LoginPlatformKind): string {
   return `${prefix}_${platform}_${crypto.randomUUID()}`;
 }
 
+function createIdentity(userId: string, platform: LoginPlatformKind, identity?: Partial<AuthIdentity>, authStatus?: AuthStatus): AuthIdentity {
+  const anonymous =
+    identity?.anonymous !== undefined
+      ? identity.anonymous
+      : (authStatus ?? (platform === "h5" ? "guest" : "authenticated")) === "guest";
+  return {
+    userId,
+    ...(anonymous ? { anonymous: true } : {}),
+    ...(identity?.phoneBound !== undefined ? { phoneBound: identity.phoneBound } : {}),
+    ...(identity?.wechatBound !== undefined ? { wechatBound: identity.wechatBound } : {}),
+    ...(identity?.realNameVerified !== undefined ? { realNameVerified: identity.realNameVerified } : {}),
+    ...(identity?.mergedUserId ? { mergedUserId: identity.mergedUserId } : {}),
+  };
+}
+
 function toSessionRecord(row: SessionRow): SessionRecord {
   const profile: LoginProfile = {
     nickname: row.profile_nickname ?? DEFAULT_PROFILE.nickname,
     ...(row.profile_avatar_url ? { avatarUrl: row.profile_avatar_url } : {}),
   };
+  const authStatus: AuthStatus = row.platform === "h5" ? "guest" : "authenticated";
 
   return {
     userId: row.user_id,
@@ -50,6 +66,9 @@ function toSessionRecord(row: SessionRow): SessionRecord {
     refreshToken: row.refresh_token,
     expiresAt: row.expires_at,
     profile,
+    identity: createIdentity(row.user_id, row.platform, undefined, authStatus),
+    authStatus,
+    ...(row.platform === "h5" ? { loginMethod: "guest" as LoginMethod } : { loginMethod: "wechat_code" as LoginMethod }),
   };
 }
 
@@ -68,12 +87,19 @@ export function createD1ApiStore(db: D1DatabaseLike): ApiStore {
   async function createSessionRecord(
     userId: string,
     platform: LoginPlatformKind,
-    profile = DEFAULT_PROFILE,
+    config: {
+      profile?: LoginProfile;
+      identity?: Partial<AuthIdentity>;
+      authStatus?: AuthStatus;
+      loginMethod?: LoginMethod;
+    } = {},
   ): Promise<SessionRecord> {
     const accessToken = createToken("access", platform);
     const refreshToken = createToken("refresh", platform);
     const expiresAt = now() + ACCESS_TOKEN_TTL_MS;
     const refreshExpiresAt = now() + REFRESH_TOKEN_TTL_MS;
+    const profile = config.profile ?? DEFAULT_PROFILE;
+    const authStatus = config.authStatus ?? (platform === "h5" ? "guest" : "authenticated");
 
     await db
       .prepare(
@@ -113,12 +139,20 @@ export function createD1ApiStore(db: D1DatabaseLike): ApiStore {
       refreshToken,
       expiresAt,
       profile,
+      identity: createIdentity(userId, platform, config.identity, authStatus),
+      authStatus,
+      ...(config.loginMethod ? { loginMethod: config.loginMethod } : {}),
     };
   }
 
   return {
-    async createSession(platform) {
-      return createSessionRecord(DEFAULT_USER_ID, platform);
+    async createSession(input: CreateSessionInput) {
+      return createSessionRecord(input.userId ?? DEFAULT_USER_ID, input.platform, {
+        ...(input.profile ? { profile: input.profile } : {}),
+        ...(input.identity ? { identity: input.identity } : {}),
+        ...(input.authStatus ? { authStatus: input.authStatus } : {}),
+        ...(input.loginMethod ? { loginMethod: input.loginMethod } : {}),
+      });
     },
 
     async refreshSession(platform, refreshToken) {
@@ -142,8 +176,12 @@ export function createD1ApiStore(db: D1DatabaseLike): ApiStore {
 
       await db.prepare("DELETE FROM sessions WHERE refresh_token = ?").bind(refreshToken).run();
       return createSessionRecord(row.user_id, platform, {
-        nickname: row.profile_nickname ?? DEFAULT_PROFILE.nickname,
-        ...(row.profile_avatar_url ? { avatarUrl: row.profile_avatar_url } : {}),
+        profile: {
+          nickname: row.profile_nickname ?? DEFAULT_PROFILE.nickname,
+          ...(row.profile_avatar_url ? { avatarUrl: row.profile_avatar_url } : {}),
+        },
+        authStatus: row.platform === "h5" ? "guest" : "authenticated",
+        loginMethod: row.platform === "h5" ? "guest" : "wechat_code",
       });
     },
 

@@ -1,7 +1,7 @@
 import { createDefaultUserState } from "./data";
 import { buildSampleProfileAssetPath } from "./sample-assets";
-import type { ApiStore, LoginProfile, SessionRecord, UserState } from "./types";
-import type { LoginPlatformKind } from "@minix/contracts";
+import type { ApiStore, CreateSessionInput, LoginProfile, SessionRecord, UserState } from "./types";
+import type { AuthIdentity, AuthStatus, LoginPlatformKind, LoginMethod } from "@minix/contracts";
 
 const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -29,6 +29,26 @@ function createToken(prefix: string, platform: LoginPlatformKind): string {
   return `${prefix}_${platform}_${crypto.randomUUID()}`;
 }
 
+function deriveIdentity(input: {
+  userId: string;
+  platform: LoginPlatformKind;
+  identity?: Partial<AuthIdentity>;
+  authStatus?: AuthStatus;
+}): AuthIdentity {
+  const anonymous =
+    input.identity?.anonymous !== undefined
+      ? input.identity.anonymous
+      : (input.authStatus ?? (input.platform === "h5" ? "guest" : "authenticated")) === "guest";
+  return {
+    userId: input.userId,
+    ...(anonymous ? { anonymous: true } : {}),
+    ...(input.identity?.phoneBound !== undefined ? { phoneBound: input.identity.phoneBound } : {}),
+    ...(input.identity?.wechatBound !== undefined ? { wechatBound: input.identity.wechatBound } : {}),
+    ...(input.identity?.realNameVerified !== undefined ? { realNameVerified: input.identity.realNameVerified } : {}),
+    ...(input.identity?.mergedUserId ? { mergedUserId: input.identity.mergedUserId } : {}),
+  };
+}
+
 export function createMemoryApiStore(options: MemoryApiStoreOptions = {}): ApiStore {
   const now = options.now ?? systemNow;
   const accessTokenTtlMs = options.accessTokenTtlMs ?? ACCESS_TOKEN_TTL_MS;
@@ -37,9 +57,33 @@ export function createMemoryApiStore(options: MemoryApiStoreOptions = {}): ApiSt
   const refreshIndex = new Map<string, StoredSessionRecord>();
   const userStateByUserId = new Map<string, UserState>();
 
-  function createSessionRecord(userId: string, platform: LoginPlatformKind, profile = DEFAULT_PROFILE): SessionRecord {
+  function createSessionRecord(
+    userId: string,
+    platform: LoginPlatformKind,
+    config: {
+      profile?: LoginProfile;
+      identity?: Partial<AuthIdentity>;
+      authStatus?: AuthStatus;
+      loginMethod?: LoginMethod;
+    } = {},
+  ): SessionRecord {
     const accessToken = createToken("access", platform);
     const refreshToken = createToken("refresh", platform);
+    const authStatus = config.authStatus ?? (platform === "h5" ? "guest" : "authenticated");
+    const identity = deriveIdentity(
+      config.identity
+        ? {
+            userId,
+            platform,
+            identity: config.identity,
+            authStatus,
+          }
+        : {
+            userId,
+            platform,
+            authStatus,
+          },
+    );
     const session: StoredSessionRecord = {
       userId,
       platform,
@@ -47,7 +91,10 @@ export function createMemoryApiStore(options: MemoryApiStoreOptions = {}): ApiSt
       refreshToken,
       expiresAt: now() + accessTokenTtlMs,
       refreshExpiresAt: now() + refreshTokenTtlMs,
-      profile,
+      profile: config.profile ?? DEFAULT_PROFILE,
+      identity,
+      authStatus,
+      ...(config.loginMethod ? { loginMethod: config.loginMethod } : {}),
     };
 
     sessionsByAccessToken.set(accessToken, session);
@@ -56,8 +103,13 @@ export function createMemoryApiStore(options: MemoryApiStoreOptions = {}): ApiSt
   }
 
   return {
-    async createSession(platform) {
-      return createSessionRecord(DEFAULT_USER_ID, platform);
+    async createSession(input: CreateSessionInput) {
+      return createSessionRecord(input.userId ?? DEFAULT_USER_ID, input.platform, {
+        ...(input.profile ? { profile: input.profile } : {}),
+        ...(input.identity ? { identity: input.identity } : {}),
+        ...(input.authStatus ? { authStatus: input.authStatus } : {}),
+        ...(input.loginMethod ? { loginMethod: input.loginMethod } : {}),
+      });
     },
 
     async refreshSession(platform, refreshToken) {
@@ -74,7 +126,12 @@ export function createMemoryApiStore(options: MemoryApiStoreOptions = {}): ApiSt
 
       refreshIndex.delete(refreshToken);
       sessionsByAccessToken.delete(existing.accessToken);
-      return createSessionRecord(existing.userId, platform, existing.profile);
+      return createSessionRecord(existing.userId, platform, {
+        profile: existing.profile,
+        identity: existing.identity,
+        authStatus: existing.authStatus,
+        ...(existing.loginMethod ? { loginMethod: existing.loginMethod } : {}),
+      });
     },
 
     async revokeSession(input) {

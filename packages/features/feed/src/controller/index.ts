@@ -1,4 +1,4 @@
-import { createStore, ok, type AppKernel, type Result } from "@minix/core";
+import { createAuthRedirectParams, createStore, ok, type AppKernel, type Result } from "@minix/core";
 import { type AppRouteId } from "@minix/contracts";
 
 import { createDefaultFeedState, type FeedItem, type FeedState, type FeedTag } from "../model";
@@ -94,10 +94,16 @@ export function createFeedController(options: CreateFeedControllerOptions) {
       return ok(undefined);
     }
 
-    return kernel.router.replaceRoute(loginRouteId, {
-      from: authRedirectSource,
-      reason: "auth-required",
-    });
+    const current = kernel.router.current();
+    return kernel.router.replaceRoute(
+      loginRouteId,
+      createAuthRedirectParams({
+        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
+        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
+        ...(authRedirectSource ? { source: authRedirectSource } : {}),
+        reason: "auth-required",
+      }),
+    );
   }
 
   async function hydrateRecentKeywords(force = false): Promise<Result<void>> {

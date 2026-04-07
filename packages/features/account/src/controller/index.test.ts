@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { ok, type AppKernel } from "@minix/core";
-import { APP_ROUTE_IDS } from "@minix/contracts";
+import { APP_ROUTE_IDS, type CurrentUserResponse } from "@minix/contracts";
 
 import { createAccountController } from "./index";
 import { createDefaultAccountState } from "../model";
@@ -11,6 +11,54 @@ function createKernelStub() {
   const routeCalls: Array<{ routeId: string; params?: Record<string, string | number | boolean> }> = [];
   const clipboardWrites: string[] = [];
   let requestMode: "success" | "unauthorized" = "success";
+  let userResponse: CurrentUserResponse = {
+    userProfile: {
+      nickname: "Casey",
+      avatarUrl: "https://img.test/avatar.png",
+      gender: "unknown",
+      region: "Shanghai, CN",
+      bio: "Member profile and recovery controls.",
+      tags: ["member-ready", "cross-host"],
+    },
+    accountSummary: {
+      userId: "user-12345",
+      phoneBound: true,
+      phoneNumberMasked: "138****0001",
+      wechatBound: false,
+      realNameStatus: "unverified",
+      assets: {
+        points: 1280,
+        level: 4,
+        membership: {
+          active: false,
+          tier: "guest",
+          entitlementScope: "none",
+          statusLabel: "Guest mode",
+          renewalLabel: "Upgrade anytime",
+          headline: "Guest",
+          subheadline: "Guest",
+          benefits: [],
+        },
+        entitlementLabels: ["basic-access"],
+        balanceCents: 0,
+      },
+      relations: {
+        followingCount: 12,
+        followerCount: 28,
+        friendCount: 6,
+        blockedCount: 1,
+        remarkName: "MiniX User",
+      },
+    },
+    userStatus: {
+      availability: "enabled",
+      enabled: true,
+      frozen: false,
+      cancellationInProgress: false,
+      blacklisted: false,
+      guest: false,
+    },
+  };
 
   const kernel: AppKernel = {
     env: {
@@ -66,29 +114,7 @@ function createKernelStub() {
           } as const;
         }
 
-        return ok({
-          subtitle: "Member profile and recovery controls.",
-          stats: [
-            {
-              key: "projects",
-              label: "Projects",
-              value: "12 active workspaces",
-            },
-          ],
-          sections: [
-            {
-              key: "support",
-              title: "Support",
-              items: [
-                {
-                  key: "response-window",
-                  label: "Response window",
-                  value: "Reply within one business day",
-                },
-              ],
-            },
-          ],
-        } as T);
+        return ok(userResponse as T);
       },
       async post<T>() {
         return ok({} as T);
@@ -151,6 +177,9 @@ function createKernelStub() {
     setRequestMode(mode: "success" | "unauthorized") {
       requestMode = mode;
     },
+    setUserResponse(nextResponse: CurrentUserResponse) {
+      userResponse = nextResponse;
+    },
   };
 }
 
@@ -168,9 +197,10 @@ test("account controller loads session-backed account details and remote profile
   assert.equal(controller.store.getState().ready, true);
   assert.equal(controller.store.getState().authenticated, true);
   assert.equal(controller.store.getState().nickname, "Casey");
-  assert.equal(controller.store.getState().subtitle, "Member profile and recovery controls.");
-  assert.equal(controller.store.getState().stats[0]?.label, "Projects");
-  assert.equal(controller.store.getState().sections[0]?.key, "support");
+  assert.equal(controller.store.getState().subtitle, "Tags: member-ready, cross-host");
+  assert.equal(controller.store.getState().stats[0]?.label, "Membership");
+  assert.equal(controller.store.getState().sections[0]?.key, "identity");
+  assert.equal(controller.store.getState().sections[1]?.key, "account");
 });
 
 test("account controller redirects to login when the account request comes back unauthorized", async () => {
@@ -189,8 +219,9 @@ test("account controller redirects to login when the account request comes back 
   assert.deepEqual(routeCalls.at(-1), {
     routeId: "auth.login",
     params: {
-      from: "account",
-      reason: "auth-required",
+      redirectPath: "/account",
+      redirectSource: "account",
+      redirectReason: "auth-required",
     },
   });
 });

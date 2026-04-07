@@ -24,8 +24,46 @@ function createKernelStub() {
     request: {
       async get<T>() {
         return ok({
-          subtitle: "Account workspace",
-          stats: [{ key: "projects", label: "Projects", value: "3" }],
+          userProfile: {
+            nickname: "Casey",
+            tags: ["member-ready", "cross-host"],
+          },
+          accountSummary: {
+            userId: "user-1",
+            phoneBound: false,
+            wechatBound: false,
+            realNameStatus: "unverified",
+            assets: {
+              points: 0,
+              level: 1,
+              membership: {
+                active: false,
+                tier: "guest",
+                entitlementScope: "none",
+                statusLabel: "Guest mode",
+                renewalLabel: "Upgrade anytime",
+                headline: "Guest",
+                subheadline: "Guest",
+                benefits: [],
+              },
+              entitlementLabels: ["basic-access"],
+              balanceCents: 0,
+            },
+            relations: {
+              followingCount: 0,
+              followerCount: 0,
+              friendCount: 0,
+              blockedCount: 0,
+            },
+          },
+          userStatus: {
+            availability: "enabled",
+            enabled: true,
+            frozen: false,
+            cancellationInProgress: false,
+            blacklisted: false,
+            guest: false,
+          },
         } as T);
       },
     },
@@ -74,7 +112,7 @@ test("account feature manifest creates a reusable account controller from host p
   await controller.loadInitial();
   await controller.goToSettings();
 
-  assert.equal(controller.store.getState().subtitle, "Account workspace");
-  assert.equal(controller.store.getState().stats[0]?.label, "Projects");
+  assert.equal(controller.store.getState().subtitle, "Tags: member-ready, cross-host");
+  assert.equal(controller.store.getState().stats[0]?.label, "Membership");
   assert.deepEqual(routeCalls, [APP_ROUTE_IDS.settings]);
 });

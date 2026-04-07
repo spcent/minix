@@ -31,7 +31,7 @@ export function createWechatAuthAdapter(runtime?: WechatAuthRuntime): AuthAdapte
             resolve(
               ok({
                 platform: "wechat",
-                credential: { code: response.code },
+                credential: { method: "wechat_code", code: response.code },
               }),
             );
           },

@@ -6,6 +6,8 @@ export * from "./api/membership";
 export * from "./api/novel-detail";
 export * from "./api/novels";
 export * from "./api/reading-progress";
+export * from "./api/settings";
+export * from "./api/user";
 export * from "./kernel/capability";
 export * from "./kernel/common-page";
 export * from "./kernel/config";

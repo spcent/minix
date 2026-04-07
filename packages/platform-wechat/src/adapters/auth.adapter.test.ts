@@ -15,7 +15,7 @@ test("wechat auth adapter reads code from wx.login", async () => {
     ok: true,
     value: {
       platform: "wechat",
-      credential: { code: "wx-code" },
+      credential: { method: "wechat_code", code: "wx-code" },
     },
   });
 });

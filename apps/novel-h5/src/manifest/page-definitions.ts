@@ -129,6 +129,7 @@ const NOVEL_H5_SETTINGS_PAGE_DATA: SettingsPageModel = {
 export const novelH5FeatureFlags = defineHostFeatureFlags({
   ...loadFeatureFlags(),
   enableAutoLogin: false,
+  enableRouteGuard: true,
 });
 
 export const novelH5PageDefinitions = defineHostPageDefinitions({
@@ -197,6 +198,12 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
       membershipRouteId: APP_ROUTE_IDS.membership,
     },
+    guardPolicy: {
+      name: "authenticated-novel-detail",
+      requirements: {
+        authenticated: true,
+      },
+    },
     renderMode: "custom",
   },
   toc: {
@@ -212,6 +219,12 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
       readerRouteId: APP_ROUTE_IDS.reader,
       membershipRouteId: APP_ROUTE_IDS.membership,
+    },
+    guardPolicy: {
+      name: "authenticated-toc",
+      requirements: {
+        authenticated: true,
+      },
     },
     renderMode: "custom",
   },
@@ -231,6 +244,12 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
       membershipRouteId: APP_ROUTE_IDS.membership,
     },
+    guardPolicy: {
+      name: "authenticated-reader",
+      requirements: {
+        authenticated: true,
+      },
+    },
     renderMode: "custom",
   },
   bookshelf: {
@@ -248,6 +267,12 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       tocRouteId: APP_ROUTE_IDS.toc,
       settingsRouteId: APP_ROUTE_IDS.settings,
     },
+    guardPolicy: {
+      name: "authenticated-bookshelf",
+      requirements: {
+        authenticated: true,
+      },
+    },
     renderMode: "custom",
   },
   settings: {
@@ -262,6 +287,12 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       readerRouteId: APP_ROUTE_IDS.reader,
       authRedirectSource: "preferences",
       showErrorToast: false,
+    },
+    guardPolicy: {
+      name: "authenticated-settings",
+      requirements: {
+        authenticated: true,
+      },
     },
     renderMode: "custom",
   },
@@ -279,6 +310,12 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       readerRouteId: APP_ROUTE_IDS.reader,
       tocRouteId: APP_ROUTE_IDS.toc,
       bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
+    },
+    guardPolicy: {
+      name: "authenticated-membership",
+      requirements: {
+        authenticated: true,
+      },
     },
     renderMode: "custom",
   },

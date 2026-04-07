@@ -196,7 +196,7 @@ test("items controller redirects to login on unauthorized response", async () =>
 
   await controller.loadInitial();
 
-  assert.deepEqual(routerCalls, ['replaceRoute:auth.login:{"from":"plan","reason":"auth-required"}']);
+  assert.deepEqual(routerCalls, ['replaceRoute:auth.login:{"redirectSource":"plan","redirectReason":"auth-required"}']);
 });
 
 test("items controller persists completion state and filter in storage-backed store", async () => {

@@ -1,3 +1,5 @@
+import type { SettingsFeatureToggles, SettingsPreferences, SettingsPrivacyOptions } from "@minix/contracts";
+
 export interface SettingsItem {
   key: string;
   label: string;
@@ -14,5 +16,9 @@ export interface SettingsSection {
 
 export interface SettingsPageModel {
   title: string;
+  subtitle?: string;
   sections: SettingsSection[];
+  preferences?: SettingsPreferences;
+  featureToggles?: SettingsFeatureToggles;
+  privacyOptions?: SettingsPrivacyOptions;
 }

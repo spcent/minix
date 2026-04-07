@@ -15,6 +15,7 @@ export interface SettingsFeatureControllerOptions {
   overviewRouteId?: AppRouteId;
   readerRouteId?: AppRouteId;
   authRedirectSource?: "preferences";
+  requestPath?: string;
   confirmLogout?: ModalOptions;
   successToast?: ToastOptions;
   showErrorToast?: boolean;
@@ -42,6 +43,7 @@ export const settingsFeatureManifest = defineFeatureManifest<
       ...(options.overviewRouteId ? { overviewRouteId: options.overviewRouteId } : {}),
       ...(options.readerRouteId ? { readerRouteId: options.readerRouteId } : {}),
       ...(options.authRedirectSource ? { authRedirectSource: options.authRedirectSource } : {}),
+      ...(options.requestPath ? { requestPath: options.requestPath } : {}),
       model: pageData,
       ...(options.confirmLogout ? { confirmLogout: options.confirmLogout } : {}),
       ...(options.successToast ? { successToast: options.successToast } : {}),

@@ -1,3 +1,5 @@
+import type { AccountSummary, UserProfile, UserStatus } from "@minix/contracts";
+
 export interface AccountSummaryStat {
   key: string;
   label: string;
@@ -35,6 +37,9 @@ export interface AccountState {
   userId: string | undefined;
   nickname: string | undefined;
   avatarUrl: string | undefined;
+  userProfile?: UserProfile;
+  accountSummary?: AccountSummary;
+  userStatus?: UserStatus;
   sessionLabel: string | undefined;
   authStatusLabel: string | undefined;
   selectedActionKey: string | undefined;

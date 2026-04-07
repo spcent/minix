@@ -1,4 +1,11 @@
-import type { LoginPlatformKind, PurchaseMembershipRequest, ReadingProgress } from "@minix/contracts";
+import type {
+  AuthIdentity,
+  AuthStatus,
+  LoginMethod,
+  LoginPlatformKind,
+  PurchaseMembershipRequest,
+  ReadingProgress,
+} from "@minix/contracts";
 
 export interface ApiBindings {
   MINIX_STORE?: ApiStore;
@@ -29,10 +36,22 @@ export interface SessionRecord {
   refreshToken: string;
   expiresAt: number;
   profile: LoginProfile;
+  identity: AuthIdentity;
+  authStatus: AuthStatus;
+  loginMethod?: LoginMethod;
+}
+
+export interface CreateSessionInput {
+  platform: LoginPlatformKind;
+  userId?: string;
+  profile?: LoginProfile;
+  identity?: Partial<AuthIdentity>;
+  authStatus?: AuthStatus;
+  loginMethod?: LoginMethod;
 }
 
 export interface ApiStore {
-  createSession(platform: LoginPlatformKind): Promise<SessionRecord>;
+  createSession(input: CreateSessionInput): Promise<SessionRecord>;
   refreshSession(platform: LoginPlatformKind, refreshToken: string): Promise<SessionRecord | null>;
   revokeSession(input: { accessToken?: string; refreshToken?: string }): Promise<void>;
   getSessionByAccessToken(accessToken: string): Promise<SessionRecord | null>;

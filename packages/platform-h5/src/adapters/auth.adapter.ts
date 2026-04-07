@@ -12,6 +12,7 @@ export function createH5AuthAdapter(options: H5AuthAdapterOptions = {}): AuthAda
       const resolvedCredential =
         credential ??
         options.credential ?? {
+          method: "guest",
           anonymousId: "host-h5-anonymous",
         };
 

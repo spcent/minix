@@ -136,6 +136,7 @@ async function reportNovelWechatAuthError(kernel: AppKernel, message: string) {
 export const novelWechatFeatureFlags = defineHostFeatureFlags({
   ...loadFeatureFlags(),
   enableAutoLogin: false,
+  enableRouteGuard: true,
 });
 
 export const novelWechatPageDefinitions = defineHostPageDefinitions({
@@ -195,6 +196,12 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
       membershipRouteId: APP_ROUTE_IDS.membership,
     },
+    guardPolicy: {
+      name: "authenticated-novel-detail",
+      requirements: {
+        authenticated: true,
+      },
+    },
     miniprogramPage: "pages/novelDetail/index",
     registrationModule: "../../../src/registrations/wechat/pages/novelDetail",
     navigationBarTitleText: "Novel Detail",
@@ -214,6 +221,12 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
       readerRouteId: APP_ROUTE_IDS.reader,
       membershipRouteId: APP_ROUTE_IDS.membership,
+    },
+    guardPolicy: {
+      name: "authenticated-toc",
+      requirements: {
+        authenticated: true,
+      },
     },
     miniprogramPage: "pages/toc/index",
     registrationModule: "../../../src/registrations/wechat/pages/toc",
@@ -237,6 +250,12 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
       membershipRouteId: APP_ROUTE_IDS.membership,
     },
+    guardPolicy: {
+      name: "authenticated-reader",
+      requirements: {
+        authenticated: true,
+      },
+    },
     miniprogramPage: "pages/reader/index",
     registrationModule: "../../../src/registrations/wechat/pages/reader",
     navigationBarTitleText: "Reader",
@@ -257,6 +276,12 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       readerRouteId: APP_ROUTE_IDS.reader,
       tocRouteId: APP_ROUTE_IDS.toc,
       settingsRouteId: APP_ROUTE_IDS.settings,
+    },
+    guardPolicy: {
+      name: "authenticated-bookshelf",
+      requirements: {
+        authenticated: true,
+      },
     },
     miniprogramPage: "pages/bookshelf/index",
     registrationModule: "../../../src/registrations/wechat/pages/bookshelf",
@@ -287,6 +312,12 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       },
       showErrorToast: true,
     },
+    guardPolicy: {
+      name: "authenticated-settings",
+      requirements: {
+        authenticated: true,
+      },
+    },
     miniprogramPage: "pages/settings/index",
     registrationModule: "../../../src/registrations/wechat/pages/settings",
     navigationBarTitleText: "Settings",
@@ -307,6 +338,12 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       readerRouteId: APP_ROUTE_IDS.reader,
       tocRouteId: APP_ROUTE_IDS.toc,
       bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
+    },
+    guardPolicy: {
+      name: "authenticated-membership",
+      requirements: {
+        authenticated: true,
+      },
     },
     miniprogramPage: "pages/membership/index",
     registrationModule: "../../../src/registrations/wechat/pages/membership",

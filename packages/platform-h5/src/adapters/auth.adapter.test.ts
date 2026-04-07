@@ -12,6 +12,7 @@ test("h5 auth adapter returns a default anonymous credential", async () => {
     value: {
       platform: "h5",
       credential: {
+        method: "guest",
         anonymousId: "host-h5-anonymous",
       },
     },

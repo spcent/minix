@@ -3,8 +3,12 @@ import { z } from "zod";
 
 import type {
   AddToBookshelfRequest,
+  AuthIdentity,
+  AuthRedirectTarget,
+  AuthStatus,
   BookshelfMutationResponse,
   LoadReadingProgressResponse,
+  LoginMethod,
   LoginResponse,
   PurchaseMembershipRequest,
   PurchaseMembershipResponse,
@@ -17,8 +21,10 @@ import {
   CHAPTER_LISTS,
   DEFAULT_MEMBERSHIP_OVERVIEW,
   NOVELS,
+  createCurrentUserResponse,
   createBookshelf,
   createMembershipOverview,
+  createSettingsResponse,
   deriveReturnTarget,
   listItems,
   listNovels,
@@ -42,10 +48,38 @@ declare module "hono" {
 const loginRequestSchema = z.object({
   platform: z.enum(["wechat", "h5"]),
   credential: z.object({
+    method: z.enum(["wechat_code", "phone_code", "password", "guest", "oauth"]).optional(),
     code: z.string().min(1).optional(),
     authCode: z.string().min(1).optional(),
     anonymousId: z.string().min(1).optional(),
+    phoneNumber: z.string().min(1).optional(),
+    verificationCode: z.string().min(1).optional(),
+    account: z.string().min(1).optional(),
+    password: z.string().min(1).optional(),
+    provider: z.string().min(1).optional(),
+    providerToken: z.string().min(1).optional(),
+    deviceId: z.string().min(1).optional(),
   }),
+  riskContext: z
+    .object({
+      deviceId: z.string().min(1).optional(),
+      userAgent: z.string().min(1).optional(),
+      ipRegion: z.string().min(1).optional(),
+      frequencyKey: z.string().min(1).optional(),
+      scene: z.string().min(1).optional(),
+    })
+    .optional(),
+  redirectTarget: z
+    .object({
+      routeId: z.string().min(1).optional(),
+      path: z.string().min(1).optional(),
+      params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+      source: z.string().min(1).optional(),
+      label: z.string().min(1).optional(),
+      reason: z.enum(["auth-required", "session-expired", "force-relogin"]).optional(),
+      forceReauth: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 const refreshTokenRequestSchema = z.object({
@@ -121,6 +155,61 @@ function withTraceHeaders(headers: Record<string, string>, traceId: string) {
     ...headers,
     "X-Trace-Id": traceId,
   };
+}
+
+function resolveLoginMethod(payload: z.infer<typeof loginRequestSchema>): LoginMethod {
+  if (payload.credential.method) {
+    return payload.credential.method;
+  }
+
+  return payload.platform === "wechat" ? "wechat_code" : "guest";
+}
+
+function resolveAuthStatus(method: LoginMethod): AuthStatus {
+  return method === "guest" ? "guest" : "authenticated";
+}
+
+function resolveIdentity(payload: z.infer<typeof loginRequestSchema>, userId: string, method: LoginMethod): AuthIdentity {
+  const guest = resolveAuthStatus(method) === "guest";
+  return {
+    userId,
+    ...(guest ? { anonymous: true } : {}),
+    ...(payload.platform === "wechat" || method === "wechat_code" ? { wechatBound: true } : {}),
+    ...(method === "phone_code" || method === "password" ? { phoneBound: true } : {}),
+  };
+}
+
+function resolveRedirectTarget(
+  target?: z.infer<typeof loginRequestSchema>["redirectTarget"],
+): AuthRedirectTarget | undefined {
+  if (!target) {
+    return undefined;
+  }
+
+  const nextTarget: AuthRedirectTarget = {};
+  if (target.routeId) {
+    nextTarget.routeId = target.routeId;
+  }
+  if (target.path) {
+    nextTarget.path = target.path;
+  }
+  if (target.params) {
+    nextTarget.params = target.params;
+  }
+  if (target.source) {
+    nextTarget.source = target.source;
+  }
+  if (target.label) {
+    nextTarget.label = target.label;
+  }
+  if (target.reason) {
+    nextTarget.reason = target.reason;
+  }
+  if (target.forceReauth) {
+    nextTarget.forceReauth = true;
+  }
+
+  return Object.keys(nextTarget).length > 0 ? nextTarget : undefined;
 }
 
 function jsonError(code: string, message: string, status: number, traceId: string) {
@@ -377,7 +466,9 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       return c.json({ code: "RATE_LIMITED", message: "Too many login attempts. Retry later." }, 429);
     }
 
-    if (payload.platform === "wechat" && !payload.credential.code && !payload.credential.authCode) {
+    const loginMethod = resolveLoginMethod(payload);
+
+    if (loginMethod === "wechat_code" && !payload.credential.code && !payload.credential.authCode) {
       logAuthEvent("login_failed", {
         clientId,
         platform: payload.platform,
@@ -388,14 +479,47 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       return jsonError("LOGIN_FAILED", "wechat login requires a platform code", 400, traceId);
     }
 
+    if (loginMethod === "guest" && !payload.credential.anonymousId) {
+      return jsonError("LOGIN_FAILED", "guest login requires an anonymous id", 400, traceId);
+    }
+
+    if (loginMethod === "phone_code" && (!payload.credential.phoneNumber || !payload.credential.verificationCode)) {
+      return jsonError("LOGIN_FAILED", "phone verification login requires both phone number and verification code", 400, traceId);
+    }
+
+    if (loginMethod === "password" && (!(payload.credential.phoneNumber || payload.credential.account) || !payload.credential.password)) {
+      return jsonError("LOGIN_FAILED", "password login requires an account identifier and password", 400, traceId);
+    }
+
+    if (loginMethod === "oauth" && (!payload.credential.provider || !payload.credential.providerToken)) {
+      return jsonError("LOGIN_FAILED", "third-party login requires both provider and provider token", 400, traceId);
+    }
+
     const store = getStore(c.env, options.store);
-    const session = await store.createSession(payload.platform);
+    const session = await store.createSession({
+      platform: payload.platform,
+      authStatus: resolveAuthStatus(loginMethod),
+      identity: resolveIdentity(payload, "minix-demo-user", loginMethod),
+      loginMethod,
+    });
+    const redirectTarget = resolveRedirectTarget(payload.redirectTarget);
     const response: LoginResponse = {
       userId: session.userId,
       accessToken: session.accessToken,
       refreshToken: session.refreshToken,
       expiresAt: session.expiresAt,
       profile: resolveProfileMedia(session.profile, c.req.url),
+      session: {
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        expiresAt: session.expiresAt,
+        issuedAt: Date.now(),
+        tokenType: "Bearer",
+      },
+      identity: session.identity,
+      authStatus: session.authStatus,
+      ...(session.loginMethod ? { loginMethod: session.loginMethod } : {}),
+      ...(redirectTarget ? { redirectTarget } : {}),
     };
 
     return c.json(response);
@@ -448,6 +572,16 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       refreshToken: session.refreshToken,
       expiresAt: session.expiresAt,
       profile: resolveProfileMedia(session.profile, c.req.url),
+      session: {
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        expiresAt: session.expiresAt,
+        issuedAt: Date.now(),
+        tokenType: "Bearer",
+      },
+      identity: session.identity,
+      authStatus: session.authStatus,
+      ...(session.loginMethod ? { loginMethod: session.loginMethod } : {}),
     };
 
     return c.json(response);
@@ -475,6 +609,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   app.use("/membership", requireSession);
   app.use("/membership/*", requireSession);
   app.use("/reading-progress", requireSession);
+  app.use("/settings", requireSession);
 
   app.get("/me", async (c) => {
     const store = getStore(c.env, options.store);
@@ -489,11 +624,12 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
 
     const userState = await store.getUserState(session.userId);
-    return c.json({
-      userId: session.userId,
-      profile: resolveProfileMedia(session.profile, c.req.url),
-      membership: createMembershipOverview(userState.membershipPlanId),
-    });
+    return c.json(createCurrentUserResponse(session, userState, c.req.url));
+  });
+
+  app.get("/settings", async (c) => {
+    const session = c.get("session");
+    return c.json(createSettingsResponse(session, c.env?.MINIX_DEPLOY_ENV));
   });
 
   app.get("/items", (c) => {
