@@ -1,4 +1,4 @@
-import type { NovelCard, NovelSortValue, NovelStatus } from "@minix/contracts";
+import type { NovelCard, NovelSortValue, NovelStatus, SearchFilterGroup, SearchQuery, SearchResults } from "@minix/contracts";
 import type { LatestMilestoneHistoryEntry } from "@minix/core";
 
 export interface CatalogCategory {
@@ -15,6 +15,9 @@ export interface CatalogState {
   ready: boolean;
   title: string;
   items: NovelCard[];
+  searchQuery: SearchQuery | undefined;
+  searchFilters: SearchFilterGroup[];
+  searchResults: SearchResults<NovelCard> | undefined;
   query: {
     page: number;
     pageSize: number;
@@ -72,6 +75,9 @@ export function createInitialCatalogState(options: CreateCatalogStateOptions = {
     ready: false,
     title: options.title ?? "Discover Novels",
     items: [],
+    searchQuery: undefined,
+    searchFilters: [],
+    searchResults: undefined,
     query: {
       page: 1,
       pageSize: options.pageSize ?? 6,

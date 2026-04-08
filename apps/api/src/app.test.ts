@@ -127,11 +127,15 @@ test("auth and novel responses resolve sample media under the api origin", async
   assert.equal(novelsResponse.status, 200);
   const novelsPayload = (await novelsResponse.json()) as {
     items: Array<{ coverUrl?: string }>;
+    searchQuery: { domain: string };
+    searchResults: { total: number };
   };
   assert.equal(novelsPayload.items[0]?.coverUrl, "http://localhost/sample-assets/covers/novel-lantern.svg");
+  assert.equal(novelsPayload.searchQuery.domain, "novel");
+  assert.equal(novelsPayload.searchResults.total >= 1, true);
 });
 
-test("current user and settings endpoints expose normalized shared outputs", async () => {
+test("current user, settings, and discovery endpoints expose normalized shared outputs", async () => {
   const app = createApiApp({ store: createMemoryApiStore() });
   const session = await login(app, "wechat");
 
@@ -161,6 +165,22 @@ test("current user and settings endpoints expose normalized shared outputs", asy
   assert.equal(settingsPayload.preferences.developerOptions.logsEnabled, true);
   assert.equal(settingsPayload.featureToggles.accountCenterEnabled, true);
   assert.equal(settingsPayload.privacyOptions.profileVisibilityLabel, "Private to signed-in session");
+
+  const feedResponse = await app.request("http://localhost/feed?keyword=travel&tag=speaking", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(feedResponse.status, 200);
+  const feedPayload = (await feedResponse.json()) as {
+    searchQuery: { keyword: string; mode: string; domain: string };
+    searchFilters: Array<{ key: string; selectedKeys: string[] }>;
+    searchResults: { suggestionTerms: string[]; hotKeywords: string[] };
+  };
+  assert.equal(feedPayload.searchQuery.keyword, "travel");
+  assert.equal(feedPayload.searchQuery.mode, "global");
+  assert.equal(feedPayload.searchQuery.domain, "feed");
+  assert.deepEqual(feedPayload.searchFilters.find((group) => group.key === "tag")?.selectedKeys, ["speaking"]);
+  assert.equal(feedPayload.searchResults.hotKeywords.includes("travel"), true);
+  assert.equal(feedPayload.searchResults.suggestionTerms.length > 0, true);
 });
 
 test("sample asset routes serve generated svg media", async () => {

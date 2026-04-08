@@ -4,6 +4,7 @@ export const APP_ROUTE_IDS = {
   overview: "overview.index",
   items: "items.list",
   account: "account.index",
+  feed: "feed.index",
   catalog: "catalog.index",
   novelDetail: "novel.detail",
   toc: "toc.index",

@@ -7,6 +7,51 @@ import type { NovelListResponse } from "@minix/contracts";
 
 import { createCatalogController } from "./index";
 
+function createCatalogResponse(
+  items: NovelListResponse["items"],
+  query?: Record<string, unknown>,
+): NovelListResponse {
+  return {
+    items,
+    hasMore: false,
+    page: Number(query?.page ?? 1),
+    pageSize: Number(query?.pageSize ?? 6),
+    searchQuery: {
+      keyword: typeof query?.keyword === "string" ? query.keyword : "",
+      mode: "domain",
+      domain: "novel",
+      page: Number(query?.page ?? 1),
+      pageSize: Number(query?.pageSize ?? 6),
+    },
+    searchFilters: [
+      {
+        key: "category",
+        label: "Category",
+        selectedKeys: typeof query?.categoryKey === "string" ? [query.categoryKey] : [],
+        options: [{ key: "all", label: "All", count: items.length }],
+      },
+      {
+        key: "status",
+        label: "Status",
+        selectedKeys: typeof query?.status === "string" ? [query.status] : [],
+        options: [{ key: "all", label: "Any status", count: items.length }],
+      },
+    ],
+    searchResults: {
+      items,
+      total: items.length,
+      hasMore: false,
+      emptyText: "No novels found yet.",
+      ...(items[0]?.recommendedReason ? { featuredReason: items[0].recommendedReason } : {}),
+      suggestionTerms: ["lantern", "brocade"],
+      hotKeywords: ["lantern", "brocade"],
+      recentKeywords: [],
+      sortOptions: [{ key: "recommended", label: "Recommended" }],
+      activeSortKey: typeof query?.sort === "string" ? query.sort : "recommended",
+    },
+  };
+}
+
 function createKernelStub() {
   const requestCalls: Array<Record<string, unknown>> = [];
   const routeCalls: Array<{ routeId: string; params?: Record<string, string | number | boolean> }> = [];
@@ -49,12 +94,7 @@ function createKernelStub() {
     request: {
       async get<T>(_url: string, query?: Record<string, unknown>) {
         requestCalls.push(query ?? {});
-        return ok({
-          items: [],
-          hasMore: false,
-          page: Number(query?.page ?? 1),
-          pageSize: Number(query?.pageSize ?? 6),
-        } as T);
+        return ok(createCatalogResponse([], query) as T);
       },
       async post<T>() { return ok({} as T); },
       async put<T>() { return ok({} as T); },
@@ -282,32 +322,27 @@ test("catalog controller can reopen the latest milestone route", async () => {
 test("catalog controller can continue a novel from the saved chapter when available", async () => {
   const { kernel, routeCalls } = createKernelStub();
   kernel.request.get = async <T>(_url: string, query?: Record<string, unknown>) =>
-    ok({
-      items: [
-        {
-          id: "novel_lantern",
-          slug: "ashes-of-the-lantern",
-          title: "Ashes Of The Lantern",
-          authorName: "Lin Yue",
-          summary: "A canal-city mystery built for serialized reading.",
-          categoryKey: "mystery",
-          categoryLabel: "Mystery",
-          tags: [],
-          status: "serializing",
-          updatedAt: "2026-03-22T08:00:00.000Z",
-          wordCount: 182000,
-          isFree: true,
-          isTrial: true,
-          requiresMembership: false,
-          isPurchased: true,
-          continueChapterId: "lantern_ch_05",
-          continueChapterTitle: "Chapter 5 · Ink On Wet Stone",
-        },
-      ],
-      hasMore: false,
-      page: Number(query?.page ?? 1),
-      pageSize: Number(query?.pageSize ?? 6),
-    } as T);
+    ok(createCatalogResponse([
+      {
+        id: "novel_lantern",
+        slug: "ashes-of-the-lantern",
+        title: "Ashes Of The Lantern",
+        authorName: "Lin Yue",
+        summary: "A canal-city mystery built for serialized reading.",
+        categoryKey: "mystery",
+        categoryLabel: "Mystery",
+        tags: [],
+        status: "serializing",
+        updatedAt: "2026-03-22T08:00:00.000Z",
+        wordCount: 182000,
+        isFree: true,
+        isTrial: true,
+        requiresMembership: false,
+        isPurchased: true,
+        continueChapterId: "lantern_ch_05",
+        continueChapterTitle: "Chapter 5 · Ink On Wet Stone",
+      },
+    ], query) as T);
 
   const controller = createCatalogController({
     kernel,
@@ -332,48 +367,43 @@ test("catalog controller can continue a novel from the saved chapter when availa
 test("catalog controller derives recommendation reasons for surfaced titles", async () => {
   const { kernel } = createKernelStub();
   kernel.request.get = async <T>(_url: string, query?: Record<string, unknown>) =>
-    ok({
-      items: [
-        {
-          id: "novel_lantern",
-          slug: "ashes-of-the-lantern",
-          title: "Ashes Of The Lantern",
-          authorName: "Lin Yue",
-          summary: "A canal-city mystery built for serialized reading.",
-          categoryKey: "mystery",
-          categoryLabel: "Mystery",
-          tags: [],
-          status: "serializing",
-          updatedAt: "2026-03-22T08:00:00.000Z",
-          wordCount: 182000,
-          isFree: true,
-          isTrial: true,
-          requiresMembership: false,
-          isPurchased: true,
-          continueChapterId: "lantern_ch_05",
-          continueChapterTitle: "Chapter 5 · Ink On Wet Stone",
-        },
-        {
-          id: "novel_brocade",
-          slug: "brocade-pavilion",
-          title: "Brocade Pavilion",
-          authorName: "Qiao An",
-          summary: "Merchant-house intrigue with a premium archive lane.",
-          categoryKey: "historical",
-          categoryLabel: "Historical",
-          tags: [],
-          status: "completed",
-          updatedAt: "2026-03-20T08:00:00.000Z",
-          wordCount: 201000,
-          isFree: false,
-          isTrial: true,
-          requiresMembership: true,
-        },
-      ],
-      hasMore: false,
-      page: Number(query?.page ?? 1),
-      pageSize: Number(query?.pageSize ?? 6),
-    } as T);
+    ok(createCatalogResponse([
+      {
+        id: "novel_lantern",
+        slug: "ashes-of-the-lantern",
+        title: "Ashes Of The Lantern",
+        authorName: "Lin Yue",
+        summary: "A canal-city mystery built for serialized reading.",
+        categoryKey: "mystery",
+        categoryLabel: "Mystery",
+        tags: [],
+        status: "serializing",
+        updatedAt: "2026-03-22T08:00:00.000Z",
+        wordCount: 182000,
+        isFree: true,
+        isTrial: true,
+        requiresMembership: false,
+        isPurchased: true,
+        continueChapterId: "lantern_ch_05",
+        continueChapterTitle: "Chapter 5 · Ink On Wet Stone",
+      },
+      {
+        id: "novel_brocade",
+        slug: "brocade-pavilion",
+        title: "Brocade Pavilion",
+        authorName: "Qiao An",
+        summary: "Merchant-house intrigue with a premium archive lane.",
+        categoryKey: "historical",
+        categoryLabel: "Historical",
+        tags: [],
+        status: "completed",
+        updatedAt: "2026-03-20T08:00:00.000Z",
+        wordCount: 201000,
+        isFree: false,
+        isTrial: true,
+        requiresMembership: true,
+      },
+    ], query) as T);
 
   const controller = createCatalogController({
     kernel,

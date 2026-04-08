@@ -661,10 +661,12 @@ function listNovels(
   const pageSize = toNumber(query?.pageSize, 6);
   const categoryKey = toStringValue(query?.categoryKey);
   const status = toStringValue(query?.status);
-  const keyword = toStringValue(query?.keyword)?.toLowerCase();
+  const keyword = toStringValue(query?.keyword) ?? "";
+  const normalizedKeyword = keyword.toLowerCase();
   const sort = toStringValue(query?.sort) ?? "recommended";
 
-  let cards = NOVELS.map((detail) => toNovelCard(detail, membershipActive, bookshelfNovelIds));
+  const allCards = NOVELS.map((detail) => toNovelCard(detail, membershipActive, bookshelfNovelIds));
+  let cards = [...allCards];
 
   if (categoryKey && categoryKey !== "all") {
     cards = cards.filter((item) => item.categoryKey === categoryKey);
@@ -674,9 +676,9 @@ function listNovels(
     cards = cards.filter((item) => item.status === status);
   }
 
-  if (keyword) {
+  if (normalizedKeyword) {
     cards = cards.filter((item) =>
-      [item.title, item.authorName, item.summary].some((value) => value.toLowerCase().includes(keyword)),
+      [item.title, item.authorName, item.summary].some((value) => value.toLowerCase().includes(normalizedKeyword)),
     );
   }
 
@@ -690,12 +692,50 @@ function listNovels(
 
   const start = (page - 1) * pageSize;
   const items = cards.slice(start, start + pageSize);
+  const hasMore = start + pageSize < cards.length;
 
   return {
     items,
     page,
     pageSize,
-    hasMore: start + pageSize < cards.length,
+    hasMore,
+    searchQuery: {
+      keyword,
+      mode: "domain",
+      domain: "novel",
+      page,
+      pageSize,
+    },
+    searchFilters: [
+      {
+        key: "category",
+        label: "Category",
+        selectedKeys: categoryKey && categoryKey !== "all" ? [categoryKey] : [],
+        options: [{ key: "all", label: "All", count: allCards.length }],
+      },
+      {
+        key: "status",
+        label: "Status",
+        selectedKeys: status && status !== "all" ? [status] : [],
+        options: [{ key: "all", label: "Any status", count: allCards.length }],
+      },
+    ],
+    searchResults: {
+      items,
+      total: cards.length,
+      hasMore,
+      emptyText: keyword ? `No novels matched "${keyword}".` : "No novels found yet.",
+      suggestionTerms: ["lantern", "brocade", "orchid"],
+      hotKeywords: ["lantern", "brocade", "sword", "orchid"],
+      recentKeywords: [],
+      sortOptions: [
+        { key: "recommended", label: "Recommended" },
+        { key: "updatedAt", label: "Latest" },
+        { key: "popular", label: "Popular" },
+        { key: "wordCount", label: "Length" },
+      ],
+      activeSortKey: sort,
+    },
   };
 }
 

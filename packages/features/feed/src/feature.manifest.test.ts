@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { ok, type AppKernel } from "@minix/core";
-import { APP_ROUTE_IDS } from "@minix/contracts";
+import { APP_ROUTE_IDS, type FeedListResponse } from "@minix/contracts";
 
 import { feedFeatureManifest } from "./feature.manifest";
 import { createDefaultFeedState } from "./model";
@@ -21,7 +21,7 @@ function createKernelStub() {
     },
     request: {
       async get<T>() {
-        return ok({
+        const response: FeedListResponse = {
           items: [
             {
               id: "story-1",
@@ -31,7 +31,32 @@ function createKernelStub() {
           hasMore: false,
           page: 1,
           pageSize: 12,
-        } as T);
+          searchQuery: {
+            keyword: "",
+            mode: "global",
+            domain: "feed",
+            page: 1,
+            pageSize: 12,
+          },
+          searchFilters: [],
+          searchResults: {
+            items: [
+              {
+                id: "story-1",
+                title: "Story 1",
+              },
+            ],
+            total: 1,
+            hasMore: false,
+            emptyText: "No feed items are available yet.",
+            suggestionTerms: ["travel"],
+            hotKeywords: ["travel"],
+            recentKeywords: [],
+            sortOptions: [{ key: "recommended", label: "Recommended" }],
+            activeSortKey: "recommended",
+          },
+        };
+        return ok(response as T);
       },
     },
     router: {
@@ -74,4 +99,5 @@ test("feed feature manifest creates a reusable feed controller from host page da
 
   assert.equal(controller.store.getState().items.length, 1);
   assert.equal(controller.store.getState().title, "Feed");
+  assert.equal(controller.store.getState().searchQuery?.mode, "global");
 });

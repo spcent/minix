@@ -11,7 +11,7 @@ import {
   type LatestReadingMilestoneSnapshot,
   type Result,
 } from "@minix/core";
-import { type AppRouteId, type NovelListResponse, type NovelSortValue, type NovelStatus } from "@minix/contracts";
+import { type AppRouteId, type NovelCard, type NovelListResponse, type NovelSortValue, type NovelStatus, type SearchResults } from "@minix/contracts";
 
 import { createInitialCatalogState, type CatalogState } from "../model";
 
@@ -38,6 +38,9 @@ function cloneInitialState(initialState: CatalogState): CatalogState {
   return {
     ...initialState,
     items: [...initialState.items],
+    ...(initialState.searchQuery ? { searchQuery: structuredClone(initialState.searchQuery) } : {}),
+    searchFilters: initialState.searchFilters.map((group) => structuredClone(group)),
+    ...(initialState.searchResults ? { searchResults: structuredClone(initialState.searchResults) } : {}),
     query: { ...initialState.query },
     categories: [...initialState.categories],
     statusOptions: [...initialState.statusOptions],
@@ -84,6 +87,23 @@ function annotateItems(items: NovelListResponse["items"]): NovelListResponse["it
     ...item,
     recommendedReason: item.recommendedReason ?? createRecommendedReason(item, index),
   }));
+}
+
+function createSearchResults(
+  response: NovelListResponse,
+  recentSearches: string[],
+  fallbackEmptyText: string,
+): SearchResults<NovelCard> {
+  const nextSearchResults = structuredClone(response.searchResults);
+  return {
+    ...nextSearchResults,
+    recentKeywords: recentSearches,
+    emptyText: nextSearchResults.emptyText || fallbackEmptyText,
+  };
+}
+
+function findSelectedFilterKey(response: NovelListResponse, groupKey: string): string | undefined {
+  return response.searchFilters.find((group) => group.key === groupKey)?.selectedKeys[0];
 }
 
 function deriveCatalogReasons(items: NovelListResponse["items"], selectedNovelId: string | undefined): Pick<
@@ -210,9 +230,21 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
         return result;
       }
 
-      store.setState({
-        recentSearches: result.value ?? store.getState().recentSearches,
-      });
+      const recentSearches = result.value ?? store.getState().recentSearches;
+      const currentSearchResults = store.getState().searchResults;
+      if (currentSearchResults) {
+        store.setState({
+          recentSearches,
+          searchResults: {
+            ...currentSearchResults,
+            recentKeywords: recentSearches,
+          },
+        });
+      } else {
+        store.setState({
+          recentSearches,
+        });
+      }
       return ok(undefined);
     };
 
@@ -318,7 +350,8 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
       return handleLoadFailure(result);
     }
 
-    const annotatedItems = annotateItems(result.value.items);
+    const nextSearchResults = createSearchResults(result.value, current.recentSearches, current.emptyText);
+    const annotatedItems = annotateItems(nextSearchResults.items);
     const nextItems = append ? annotateItems([...current.items, ...annotatedItems]) : annotatedItems;
     const selectedNovelId = deriveSelectedNovelId({
       ...current,
@@ -329,13 +362,25 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
       loading: false,
       refreshing: false,
       items: nextItems,
-      hasMore: result.value.hasMore,
+      hasMore: nextSearchResults.hasMore,
+      searchQuery: structuredClone(result.value.searchQuery),
+      searchFilters: result.value.searchFilters.map((group) => structuredClone(group)),
+      searchResults: {
+        ...nextSearchResults,
+        items: nextItems,
+      },
       query: {
         ...current.query,
-        page: result.value.page,
-        pageSize: result.value.pageSize,
+        keyword: result.value.searchQuery.keyword,
+        page: result.value.searchQuery.page,
+        pageSize: result.value.searchQuery.pageSize,
       },
       errorText: undefined,
+      recentSearches: nextSearchResults.recentKeywords,
+      hotKeywords: nextSearchResults.hotKeywords,
+      sort: result.value.searchResults.activeSortKey as NovelSortValue,
+      activeCategoryKey: findSelectedFilterKey(result.value, "category") ?? "all",
+      activeStatus: (findSelectedFilterKey(result.value, "status") as NovelStatus | "all" | undefined) ?? "all",
       selectedNovelId,
       ...deriveCatalogReasons(nextItems, selectedNovelId),
     });

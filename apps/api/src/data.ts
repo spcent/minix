@@ -5,6 +5,9 @@ import type {
   ChapterListResponse,
   CurrentUserResponse,
   ChapterSummary,
+  FeedItem,
+  FeedListResponse,
+  FeedTag,
   ItemsListResponse,
   MembershipOverview,
   NovelCard,
@@ -12,6 +15,10 @@ import type {
   NovelListResponse,
   PurchaseMembershipRequest,
   RelatedNovelSummary,
+  SearchDomain,
+  SearchFilterGroup,
+  SearchResults,
+  SearchSortOption,
   SettingsResponse,
 } from "@minix/contracts";
 
@@ -316,6 +323,319 @@ export function listItems(page = 1, pageSize = 2): ItemsListResponse {
   };
 }
 
+function resolveFeedTag(itemId: string): FeedTag {
+  if (itemId === "lesson_1") {
+    return { key: "warmup", label: "Warm-up" };
+  }
+
+  if (itemId === "lesson_2") {
+    return { key: "input", label: "Input" };
+  }
+
+  if (itemId === "lesson_3") {
+    return { key: "practice", label: "Practice" };
+  }
+
+  if (itemId === "lesson_4") {
+    return { key: "speaking", label: "Speaking" };
+  }
+
+  return { key: "review", label: "Review" };
+}
+
+function createFeedItems(): FeedItem[] {
+  return HOST_ITEMS.map((item, index) => {
+    const tag = resolveFeedTag(item.id);
+    return {
+      id: item.id,
+      title: item.title,
+      ...(item.subtitle ? { subtitle: item.subtitle } : {}),
+      ...(item.categoryLabel ? { eyebrow: item.categoryLabel } : {}),
+      ...(item.recommendedReason ? { recommendedReason: item.recommendedReason } : {}),
+      updatedAt: `2026-04-0${Math.min(index + 1, 8)}T08:00:00.000Z`,
+      tag: tag.key,
+    };
+  });
+}
+
+function createSuggestionTerms(keyword: string | undefined, fallbackTerms: string[]): string[] {
+  const normalized = keyword?.trim().toLowerCase();
+  if (!normalized) {
+    return fallbackTerms.slice(0, 3);
+  }
+
+  const matched = fallbackTerms.filter((term) => term.toLowerCase().includes(normalized));
+  if (matched.length > 0) {
+    return matched.slice(0, 3);
+  }
+
+  return fallbackTerms.slice(0, 3);
+}
+
+function createFeedSearchFilters(items: FeedItem[], activeTag?: string): SearchFilterGroup[] {
+  const tagCounts = new Map<string, number>();
+  const allTags = items.map((item) => resolveFeedTag(item.id));
+
+  for (const tag of allTags) {
+    tagCounts.set(tag.key, (tagCounts.get(tag.key) ?? 0) + 1);
+  }
+
+  return [
+    {
+      key: "tag",
+      label: "Content type",
+      selectedKeys: activeTag && activeTag !== "all" ? [activeTag] : [],
+      options: [
+        { key: "all", label: "All", count: items.length },
+        ...Array.from(new Map(allTags.map((tag) => [tag.key, tag])).values()).map((tag) => ({
+          key: tag.key,
+          label: tag.label,
+          count: tagCounts.get(tag.key) ?? 0,
+        })),
+      ],
+    },
+  ];
+}
+
+function createNovelSearchFilters(
+  allCards: NovelCard[],
+  input: {
+    categoryKey?: string | undefined;
+    status?: string | undefined;
+  },
+): SearchFilterGroup[] {
+  const categoryCounts = new Map<string, { label: string; count: number }>();
+  const statusCounts = new Map<string, number>();
+
+  for (const card of allCards) {
+    const existingCategory = categoryCounts.get(card.categoryKey);
+    categoryCounts.set(card.categoryKey, {
+      label: card.categoryLabel,
+      count: (existingCategory?.count ?? 0) + 1,
+    });
+    statusCounts.set(card.status, (statusCounts.get(card.status) ?? 0) + 1);
+  }
+
+  return [
+    {
+      key: "category",
+      label: "Category",
+      selectedKeys: input.categoryKey && input.categoryKey !== "all" ? [input.categoryKey] : [],
+      options: [
+        { key: "all", label: "All", count: allCards.length },
+        ...Array.from(categoryCounts.entries()).map(([key, value]) => ({
+          key,
+          label: value.label,
+          count: value.count,
+        })),
+      ],
+    },
+    {
+      key: "status",
+      label: "Status",
+      selectedKeys: input.status && input.status !== "all" ? [input.status] : [],
+      options: [
+        { key: "all", label: "Any status", count: allCards.length },
+        { key: "serializing", label: "Serializing", count: statusCounts.get("serializing") ?? 0 },
+        { key: "completed", label: "Completed", count: statusCounts.get("completed") ?? 0 },
+        { key: "paused", label: "Paused", count: statusCounts.get("paused") ?? 0 },
+      ],
+    },
+  ];
+}
+
+function createNovelSortOptions(): SearchSortOption[] {
+  return [
+    { key: "recommended", label: "Recommended" },
+    { key: "updatedAt", label: "Latest" },
+    { key: "popular", label: "Popular" },
+    { key: "wordCount", label: "Length" },
+  ];
+}
+
+function createFeedSortOptions(): SearchSortOption[] {
+  return [
+    { key: "recommended", label: "Recommended" },
+    { key: "updatedAt", label: "Latest" },
+  ];
+}
+
+function createFeedSearchResults(
+  items: FeedItem[],
+  total: number,
+  hasMore: boolean,
+  emptyText: string,
+  hotKeywords: string[],
+  activeSortKey: string,
+  keyword: string,
+): SearchResults<FeedItem> {
+  const featuredReason = items[0]?.recommendedReason;
+
+  return {
+    items,
+    total,
+    hasMore,
+    emptyText,
+    ...(featuredReason ? { featuredReason } : {}),
+    suggestionTerms: createSuggestionTerms(keyword, hotKeywords),
+    hotKeywords,
+    recentKeywords: [],
+    sortOptions: createFeedSortOptions(),
+    activeSortKey,
+  };
+}
+
+function createNovelSearchResults(
+  items: NovelCard[],
+  total: number,
+  hasMore: boolean,
+  emptyText: string,
+  hotKeywords: string[],
+  activeSortKey: string,
+  keyword: string,
+): SearchResults<NovelCard> {
+  const featuredReason = items[0]?.recommendedReason;
+
+  return {
+    items,
+    total,
+    hasMore,
+    emptyText,
+    ...(featuredReason ? { featuredReason } : {}),
+    suggestionTerms: createSuggestionTerms(keyword, hotKeywords),
+    hotKeywords,
+    recentKeywords: [],
+    sortOptions: createNovelSortOptions(),
+    activeSortKey,
+  };
+}
+
+function resolveSearchDomain(inputDomain: string | undefined, fallback: SearchDomain): SearchDomain {
+  if (inputDomain === "all" || inputDomain === "content" || inputDomain === "user" || inputDomain === "novel" || inputDomain === "feed") {
+    return inputDomain;
+  }
+
+  return fallback;
+}
+
+function createEmptyFeedResults(
+  page: number,
+  pageSize: number,
+  keyword: string,
+  mode: FeedListResponse["searchQuery"]["mode"],
+  domain: SearchDomain,
+): FeedListResponse {
+  const hotKeywords = ["travel", "speaking", "listening", "review"];
+  const tags = [{ key: "all", label: "All" }];
+
+  return {
+    items: [],
+    page,
+    pageSize,
+    hasMore: false,
+    tags,
+    searchQuery: {
+      keyword,
+      mode,
+      domain,
+      page,
+      pageSize,
+    },
+    searchFilters: [
+      {
+        key: "tag",
+        label: "Content type",
+        selectedKeys: [],
+        options: tags,
+      },
+    ],
+    searchResults: {
+      items: [],
+      total: 0,
+      hasMore: false,
+      emptyText:
+        mode === "user" || domain === "user"
+          ? "User search is modeled in the shared contract, but the sample API does not ship user results yet."
+          : "No feed results matched this search yet.",
+      suggestionTerms: createSuggestionTerms(keyword, hotKeywords),
+      hotKeywords,
+      recentKeywords: [],
+      sortOptions: createFeedSortOptions(),
+      activeSortKey: "recommended",
+    },
+  };
+}
+
+export function listFeed(input: {
+  page?: number | undefined;
+  pageSize?: number | undefined;
+  keyword?: string | undefined;
+  tag?: string | undefined;
+  mode?: string | undefined;
+  domain?: string | undefined;
+}): FeedListResponse {
+  const page = input.page ?? 1;
+  const pageSize = input.pageSize ?? 6;
+  const keyword = input.keyword?.trim() ?? "";
+  const normalizedKeyword = keyword.toLowerCase();
+  const mode = input.mode === "content" || input.mode === "user" || input.mode === "domain" ? input.mode : "global";
+  const domain = resolveSearchDomain(input.domain, "feed");
+
+  if (mode === "user" || domain === "user") {
+    return createEmptyFeedResults(page, pageSize, keyword, mode, domain);
+  }
+
+  const hotKeywords = ["travel", "speaking", "listening", "review"];
+  const allItems = createFeedItems();
+  const allTags = [{ key: "all", label: "All" }, ...Array.from(new Map(allItems.map((item) => {
+    const tag = resolveFeedTag(item.id);
+    return [tag.key, tag];
+  })).values())];
+
+  let filteredItems = allItems;
+  if (input.tag && input.tag !== "all") {
+    filteredItems = filteredItems.filter((item) => item.tag === input.tag);
+  }
+
+  if (normalizedKeyword) {
+    filteredItems = filteredItems.filter((item) =>
+      [item.title, item.subtitle, item.eyebrow, item.recommendedReason].some((value) =>
+        value?.toLowerCase().includes(normalizedKeyword),
+      ),
+    );
+  }
+
+  const start = (page - 1) * pageSize;
+  const items = filteredItems.slice(start, start + pageSize);
+  const hasMore = start + pageSize < filteredItems.length;
+
+  return {
+    items,
+    page,
+    pageSize,
+    hasMore,
+    tags: allTags,
+    ...(items[0]?.recommendedReason ? { featuredReason: items[0].recommendedReason } : {}),
+    searchQuery: {
+      keyword,
+      mode,
+      domain,
+      page,
+      pageSize,
+    },
+    searchFilters: createFeedSearchFilters(allItems, input.tag),
+    searchResults: createFeedSearchResults(
+      items,
+      filteredItems.length,
+      hasMore,
+      keyword ? `No feed results matched "${keyword}".` : "No feed items are available yet.",
+      hotKeywords,
+      "recommended",
+      keyword,
+    ),
+  };
+}
+
 export function listNovels(
   input: {
     page?: number | undefined;
@@ -331,10 +651,12 @@ export function listNovels(
 ): NovelListResponse {
   const page = input.page ?? 1;
   const pageSize = input.pageSize ?? 6;
-  const keyword = input.keyword?.toLowerCase();
+  const keyword = input.keyword?.trim() ?? "";
+  const normalizedKeyword = keyword.toLowerCase();
   const sort = input.sort ?? "recommended";
 
-  let cards = NOVELS.map((detail) => toNovelCard(detail, membershipActive, userState, requestUrl));
+  const allCards = NOVELS.map((detail) => toNovelCard(detail, membershipActive, userState, requestUrl));
+  let cards = [...allCards];
 
   if (input.categoryKey && input.categoryKey !== "all") {
     cards = cards.filter((item) => item.categoryKey === input.categoryKey);
@@ -344,9 +666,9 @@ export function listNovels(
     cards = cards.filter((item) => item.status === input.status);
   }
 
-  if (keyword) {
+  if (normalizedKeyword) {
     cards = cards.filter((item) =>
-      [item.title, item.authorName, item.summary].some((value) => value.toLowerCase().includes(keyword)),
+      [item.title, item.authorName, item.summary].some((value) => value.toLowerCase().includes(normalizedKeyword)),
     );
   }
 
@@ -359,11 +681,31 @@ export function listNovels(
   }
 
   const start = (page - 1) * pageSize;
+  const items = cards.slice(start, start + pageSize);
+  const hasMore = start + pageSize < cards.length;
+  const hotKeywords = ["lantern", "brocade", "sword", "orchid"];
   return {
-    items: cards.slice(start, start + pageSize),
+    items,
     page,
     pageSize,
-    hasMore: start + pageSize < cards.length,
+    hasMore,
+    searchQuery: {
+      keyword,
+      mode: "domain",
+      domain: "novel",
+      page,
+      pageSize,
+    },
+    searchFilters: createNovelSearchFilters(allCards, input),
+    searchResults: createNovelSearchResults(
+      items,
+      cards.length,
+      hasMore,
+      keyword ? `No novels matched "${keyword}".` : "No novels found yet.",
+      hotKeywords,
+      sort,
+      keyword,
+    ),
   };
 }
 

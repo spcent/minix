@@ -1,4 +1,4 @@
-import type { ListPageQuery } from "@minix/contracts";
+import type { ListPageQuery, SearchFilterGroup, SearchQuery, SearchResults } from "@minix/contracts";
 
 export interface ListPageState<TItem> {
   title: string;
@@ -14,6 +14,9 @@ export interface ListPageState<TItem> {
   hasMore: boolean;
   nextCursor: string | undefined;
   total: number | undefined;
+  searchQuery: SearchQuery | undefined;
+  searchFilters: SearchFilterGroup[];
+  searchResults: SearchResults<TItem> | undefined;
   query: ListPageQuery & {
     page: number;
     pageSize: number;
@@ -31,6 +34,9 @@ export interface CreateListPageStateOptions<TItem> {
   nextCursor?: string;
   total?: number;
   selectedItemId?: string;
+  searchQuery?: SearchQuery;
+  searchFilters?: SearchFilterGroup[];
+  searchResults?: SearchResults<TItem>;
 }
 
 export interface CreateDefaultListPageStateOptions<TItem> {
@@ -67,6 +73,9 @@ export function createListPageState<TItem>(options: CreateListPageStateOptions<T
     hasMore: options.hasMore ?? false,
     nextCursor: options.nextCursor,
     total: options.total,
+    searchQuery: options.searchQuery ? structuredClone(options.searchQuery) : undefined,
+    searchFilters: options.searchFilters?.map((group) => structuredClone(group)) ?? [],
+    searchResults: options.searchResults ? structuredClone(options.searchResults) : undefined,
     query: {
       page: query.page ?? 1,
       pageSize: query.pageSize ?? options.pageSize,

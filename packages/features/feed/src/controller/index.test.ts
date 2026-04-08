@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { ok, type AppKernel } from "@minix/core";
-import { APP_ROUTE_IDS } from "@minix/contracts";
+import { APP_ROUTE_IDS, type FeedListResponse } from "@minix/contracts";
 
 import { createFeedController } from "./index";
 import { createDefaultFeedState } from "../model";
@@ -59,7 +59,7 @@ function createKernelStub() {
         }
 
         const page = Number(query?.page ?? 1);
-        return ok({
+        const searchResponse: FeedListResponse = {
           items:
             page === 1
               ? [
@@ -84,7 +84,54 @@ function createKernelStub() {
             { key: "all", label: "All" },
             { key: "news", label: "News" },
           ],
-        } as T);
+          searchQuery: {
+            keyword: typeof query?.keyword === "string" ? query.keyword : "",
+            mode: "global",
+            domain: "feed",
+            page,
+            pageSize: Number(query?.pageSize ?? 12),
+          },
+          searchFilters: [
+            {
+              key: "tag",
+              label: "Content type",
+              selectedKeys: typeof query?.tag === "string" ? [query.tag] : [],
+              options: [
+                { key: "all", label: "All", count: 2 },
+                { key: "news", label: "News", count: 2 },
+              ],
+            },
+          ],
+          searchResults: {
+            items:
+              page === 1
+                ? [
+                    {
+                      id: "story-1",
+                      title: "Story 1",
+                      tag: "news",
+                      recommendedReason: "Lead story for the current lane.",
+                    },
+                  ]
+                : [
+                    {
+                      id: "story-2",
+                      title: "Story 2",
+                      tag: "news",
+                    },
+                  ],
+            total: 2,
+            hasMore: page === 1,
+            emptyText: "No feed items are available yet.",
+            ...(page === 1 ? { featuredReason: "Lead story for the current lane." } : {}),
+            suggestionTerms: ["travel", "review"],
+            hotKeywords: ["travel", "review"],
+            recentKeywords: [],
+            sortOptions: [{ key: "recommended", label: "Recommended" }],
+            activeSortKey: "recommended",
+          },
+        };
+        return ok(searchResponse as T);
       },
       async post<T>() {
         return ok({} as T);
@@ -153,6 +200,8 @@ test("feed controller loads feed items and derives the featured reason", async (
   assert.equal(controller.store.getState().selectedItemId, "story-1");
   assert.equal(controller.store.getState().featuredReason, "Lead story for the current lane.");
   assert.equal(controller.store.getState().tags[1]?.key, "news");
+  assert.equal(controller.store.getState().searchQuery?.domain, "feed");
+  assert.equal(controller.store.getState().searchResults?.total, 2);
 });
 
 test("feed controller submits keyword searches and persists recent keywords", async () => {

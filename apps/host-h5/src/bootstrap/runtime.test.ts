@@ -143,6 +143,67 @@ function createKernelStub(): AppKernel {
           } as T);
         }
 
+        if (path === "/feed") {
+          return ok({
+            items: [
+              {
+                id: "lesson_4",
+                title: "Speak Out Loud",
+                subtitle: "Repeat 5 travel lines and practice natural rhythm out loud",
+                eyebrow: "Speaking",
+                tag: "speaking",
+                recommendedReason: "Now turn the lesson into spoken output while the sentence patterns are still fresh.",
+              },
+            ],
+            hasMore: false,
+            page: 1,
+            pageSize: 6,
+            tags: [
+              { key: "all", label: "All" },
+              { key: "speaking", label: "Speaking" },
+            ],
+            searchQuery: {
+              keyword: "",
+              mode: "global",
+              domain: "feed",
+              page: 1,
+              pageSize: 6,
+            },
+            searchFilters: [
+              {
+                key: "tag",
+                label: "Content type",
+                selectedKeys: [],
+                options: [
+                  { key: "all", label: "All", count: 1 },
+                  { key: "speaking", label: "Speaking", count: 1 },
+                ],
+              },
+            ],
+            searchResults: {
+              items: [
+                {
+                  id: "lesson_4",
+                  title: "Speak Out Loud",
+                  subtitle: "Repeat 5 travel lines and practice natural rhythm out loud",
+                  eyebrow: "Speaking",
+                  tag: "speaking",
+                  recommendedReason: "Now turn the lesson into spoken output while the sentence patterns are still fresh.",
+                },
+              ],
+              total: 1,
+              hasMore: false,
+              emptyText: "No discovery results are available yet.",
+              featuredReason: "Now turn the lesson into spoken output while the sentence patterns are still fresh.",
+              suggestionTerms: ["travel"],
+              hotKeywords: ["travel"],
+              recentKeywords: [],
+              sortOptions: [{ key: "recommended", label: "Recommended" }],
+              activeSortKey: "recommended",
+            },
+          } as T);
+        }
+
         return ok({
           items: [],
           hasMore: false,
@@ -232,8 +293,8 @@ test("host h5 runtime creates page controllers on a shared kernel", () => {
   const runtime = createHostH5Runtime(kernel);
 
   assert.equal(runtime.kernel, kernel);
-  assert.deepEqual(Object.keys(runtime.registry), ["login", "overview", "items", "settings", "account"]);
-  assert.deepEqual(Object.keys(runtime.pages), ["login", "overview", "items", "settings", "account"]);
+  assert.deepEqual(Object.keys(runtime.registry), ["login", "overview", "items", "feed", "settings", "account"]);
+  assert.deepEqual(Object.keys(runtime.pages), ["login", "overview", "items", "feed", "settings", "account"]);
 });
 
 test("host h5 page entries delegate to runtime controllers", async () => {
@@ -241,18 +302,21 @@ test("host h5 page entries delegate to runtime controllers", async () => {
   const loginEntry = createHostH5PageEntry(runtime, "login");
   const overviewEntry = createHostH5PageEntry(runtime, "overview");
   const itemsEntry = createHostH5PageEntry(runtime, "items");
+  const feedEntry = createHostH5PageEntry(runtime, "feed");
   const settingsEntry = createHostH5PageEntry(runtime, "settings");
   const accountEntry = createHostH5PageEntry(runtime, "account");
 
   const loginResult = await loginEntry.onTapLogin();
   const overviewResult = await overviewEntry.onShow();
   const itemsResult = await itemsEntry.onShow();
+  const feedResult = await feedEntry.onShow();
   const settingsResult = await settingsEntry.onTapLogout();
   const accountResult = await accountEntry.onShow();
 
   assert.deepEqual(loginResult, { ok: true, value: undefined });
   assert.equal((overviewResult as { ok?: boolean } | undefined)?.ok, true);
   assert.equal((itemsResult as { ok?: boolean } | undefined)?.ok, true);
+  assert.equal((feedResult as { ok?: boolean } | undefined)?.ok, true);
   assert.deepEqual(settingsResult, { ok: true, value: undefined });
   assert.equal((accountResult as { ok?: boolean } | undefined)?.ok, true);
 });

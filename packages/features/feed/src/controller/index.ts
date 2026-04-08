@@ -1,16 +1,7 @@
 import { createAuthRedirectParams, createStore, ok, type AppKernel, type Result } from "@minix/core";
-import { type AppRouteId } from "@minix/contracts";
+import { type AppRouteId, type FeedItem, type FeedListResponse, type SearchResults } from "@minix/contracts";
 
-import { createDefaultFeedState, type FeedItem, type FeedState, type FeedTag } from "../model";
-
-export interface FeedListResponse {
-  items: FeedItem[];
-  hasMore: boolean;
-  page?: number;
-  pageSize?: number;
-  tags?: FeedTag[];
-  featuredReason?: string;
-}
+import { createDefaultFeedState, type FeedState } from "../model";
 
 export interface CreateFeedControllerOptions {
   kernel: AppKernel;
@@ -33,6 +24,9 @@ function cloneState(state: FeedState): FeedState {
     ...state,
     items: state.items.map((item) => ({ ...item })),
     tags: state.tags.map((tag) => ({ ...tag })),
+    searchQuery: state.searchQuery ? structuredClone(state.searchQuery) : undefined,
+    searchFilters: state.searchFilters.map((group) => structuredClone(group)),
+    searchResults: state.searchResults ? structuredClone(state.searchResults) : undefined,
     query: { ...state.query },
     recentKeywords: [...state.recentKeywords],
   };
@@ -61,6 +55,19 @@ function createRecentKeywords(current: string[], keyword: string): string[] {
   }
 
   return [normalized, ...current.filter((entry) => entry !== normalized)].slice(0, 5);
+}
+
+function createSearchResults(
+  response: FeedListResponse,
+  recentKeywords: string[],
+  fallbackEmptyText: string,
+): SearchResults<FeedItem> {
+  const nextSearchResults = structuredClone(response.searchResults);
+  return {
+    ...nextSearchResults,
+    recentKeywords,
+    emptyText: nextSearchResults.emptyText || fallbackEmptyText,
+  };
 }
 
 export function createFeedController(options: CreateFeedControllerOptions) {
@@ -117,9 +124,21 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         return result;
       }
 
-      store.setState({
-        recentKeywords: result.value ?? store.getState().recentKeywords,
-      });
+      const recentKeywords = result.value ?? store.getState().recentKeywords;
+      const currentSearchResults = store.getState().searchResults;
+      if (currentSearchResults) {
+        store.setState({
+          recentKeywords,
+          searchResults: {
+            ...currentSearchResults,
+            recentKeywords,
+          },
+        });
+      } else {
+        store.setState({
+          recentKeywords,
+        });
+      }
       return ok(undefined);
     };
 
@@ -228,20 +247,26 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         return handleFeedFailure(result);
       }
 
-      const nextItems = result.value.items.map((item) => ({ ...item }));
+      const nextSearchResults = createSearchResults(result.value, store.getState().recentKeywords, store.getState().emptyText);
+      const nextItems = nextSearchResults.items.map((item) => ({ ...item }));
       store.setState({
         loading: false,
         refreshing: false,
         ready: true,
         items: nextItems,
-        hasMore: result.value.hasMore,
+        hasMore: nextSearchResults.hasMore,
+        searchQuery: structuredClone(result.value.searchQuery),
+        searchFilters: result.value.searchFilters.map((group) => structuredClone(group)),
+        searchResults: nextSearchResults,
         selectedItemId: deriveSelectedItemId(nextItems, store.getState().selectedItemId),
         tags: result.value.tags?.map((tag) => ({ ...tag })) ?? store.getState().tags,
-        featuredReason: result.value.featuredReason ?? deriveFeaturedReason(nextItems, store.getState().featuredReason),
+        featuredReason: nextSearchResults.featuredReason ?? result.value.featuredReason ?? deriveFeaturedReason(nextItems, store.getState().featuredReason),
+        recentKeywords: nextSearchResults.recentKeywords,
         query: {
           ...store.getState().query,
-          page: result.value.page ?? store.getState().query.page,
-          pageSize: result.value.pageSize ?? store.getState().query.pageSize,
+          keyword: result.value.searchQuery.keyword,
+          page: result.value.searchQuery.page,
+          pageSize: result.value.searchQuery.pageSize,
         },
       });
       return result;
@@ -300,20 +325,28 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         return handleFeedFailure(result);
       }
 
-      const nextItems = [...current.items, ...result.value.items.map((item) => ({ ...item }))];
+      const nextSearchResults = createSearchResults(result.value, current.recentKeywords, current.emptyText);
+      const nextItems = [...current.items, ...nextSearchResults.items.map((item) => ({ ...item }))];
       store.setState({
         loading: false,
         ready: true,
         items: nextItems,
-        hasMore: result.value.hasMore,
+        hasMore: nextSearchResults.hasMore,
+        searchQuery: structuredClone(result.value.searchQuery),
+        searchFilters: result.value.searchFilters.map((group) => structuredClone(group)),
+        searchResults: {
+          ...nextSearchResults,
+          items: nextItems,
+        },
         selectedItemId: deriveSelectedItemId(nextItems, current.selectedItemId),
         tags: result.value.tags?.map((tag) => ({ ...tag })) ?? current.tags,
-        featuredReason: result.value.featuredReason ?? deriveFeaturedReason(nextItems, current.featuredReason),
+        featuredReason: nextSearchResults.featuredReason ?? result.value.featuredReason ?? deriveFeaturedReason(nextItems, current.featuredReason),
+        recentKeywords: nextSearchResults.recentKeywords,
         query: {
           ...current.query,
-          page: result.value.page ?? current.query.page + 1,
-          pageSize: result.value.pageSize ?? current.query.pageSize,
-          keyword: current.query.keyword,
+          keyword: result.value.searchQuery.keyword,
+          page: result.value.searchQuery.page,
+          pageSize: result.value.searchQuery.pageSize,
         },
       });
       return result;

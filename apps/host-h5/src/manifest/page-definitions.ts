@@ -2,6 +2,7 @@ import { APP_ROUTE_IDS } from "@minix/contracts";
 import { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags, type SettingsPageModel } from "@minix/core";
 import { accountFeatureManifest, createDefaultAccountState } from "@minix/feature-account";
 import { authFeatureManifest, createInitialAuthPageState } from "@minix/feature-auth";
+import { createDefaultFeedState, feedFeatureManifest } from "@minix/feature-feed";
 import { createDefaultItemsPageModel, itemsFeatureManifest } from "@minix/feature-items";
 import { settingsFeatureManifest } from "@minix/feature-settings";
 
@@ -136,6 +137,35 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     featureConfig: {
       experience: "daily-plan",
       showCompletionSummary: true,
+    },
+    renderMode: "custom",
+  },
+  feed: {
+    feature: feedFeatureManifest,
+    routeId: APP_ROUTE_IDS.feed,
+    routePath: "/discover",
+    pageData: createDefaultFeedState({
+      title: "Discovery Feed",
+      subtitle: "Reusable search and discovery surface with keyword recall, hot searches, and filterable content lanes.",
+      pageSize: 6,
+      emptyText: "No discovery results are available yet.",
+    }),
+    controller: {
+      loginRouteId: APP_ROUTE_IDS.login,
+      feedRouteId: APP_ROUTE_IDS.feed,
+      detailRouteId: APP_ROUTE_IDS.overview,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+      authRedirectSource: "feed",
+    },
+    guardPolicy: {
+      name: "authenticated-feed",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    requiredCapabilities: [{ capability: "device" }],
+    featureConfig: {
+      surface: "feed",
     },
     renderMode: "custom",
   },

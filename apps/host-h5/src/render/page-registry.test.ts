@@ -10,6 +10,7 @@ test("resolveHostH5PageKey resolves known routes and falls back to login", () =>
   assert.equal(resolveHostH5PageKey("/"), "login");
   assert.equal(resolveHostH5PageKey("/overview"), "overview");
   assert.equal(resolveHostH5PageKey("/plan"), "items");
+  assert.equal(resolveHostH5PageKey("/discover"), "feed");
   assert.equal(resolveHostH5PageKey("/preferences"), "settings");
   assert.equal(resolveHostH5PageKey("/account"), "account");
   assert.equal(resolveHostH5PageKey("/unknown"), "login");
@@ -42,6 +43,9 @@ test("subscribeHostH5Pages subscribes every store-backed page", () => {
       items: {
         store: createStore({ ready: false }),
       },
+      feed: {
+        store: createStore({ ready: false }),
+      },
       settings: {
         store: createStore({ ready: false }),
       },
@@ -58,11 +62,12 @@ test("subscribeHostH5Pages subscribes every store-backed page", () => {
   runtime.pages.login.store.replaceState(runtime.pages.login.store.getState());
   runtime.pages.overview.store.replaceState(runtime.pages.overview.store.getState());
   runtime.pages.items.store.replaceState(runtime.pages.items.store.getState());
+  runtime.pages.feed.store.replaceState(runtime.pages.feed.store.getState());
   runtime.pages.settings.store.replaceState(runtime.pages.settings.store.getState());
   runtime.pages.account.store.replaceState(runtime.pages.account.store.getState());
 
-  assert.equal(cleanups.length, 5);
-  assert.equal(calls, 5);
+  assert.equal(cleanups.length, 6);
+  assert.equal(calls, 6);
 
   cleanups.forEach((cleanup) => cleanup());
 });

@@ -1,3 +1,5 @@
+import type { SearchFilterGroup, SearchQuery, SearchResults } from "./search";
+
 export type NovelStatus = "serializing" | "completed" | "paused";
 
 export type NovelSortValue = "recommended" | "updatedAt" | "popular" | "wordCount";
@@ -48,4 +50,7 @@ export interface NovelListResponse {
   page: number;
   pageSize: number;
   hasMore: boolean;
+  searchQuery: SearchQuery;
+  searchFilters: SearchFilterGroup[];
+  searchResults: SearchResults<NovelCard>;
 }

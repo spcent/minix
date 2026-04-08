@@ -26,6 +26,7 @@ import {
   createMembershipOverview,
   createSettingsResponse,
   deriveReturnTarget,
+  listFeed,
   listItems,
   listNovels,
   resolveChapterContent,
@@ -90,6 +91,15 @@ const refreshTokenRequestSchema = z.object({
 const itemsQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   pageSize: z.coerce.number().int().positive().optional(),
+});
+
+const feedQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().optional(),
+  keyword: z.string().min(1).optional(),
+  tag: z.string().min(1).optional(),
+  mode: z.enum(["global", "content", "user", "domain"]).optional(),
+  domain: z.enum(["all", "content", "user", "novel", "feed"]).optional(),
 });
 
 const novelsQuerySchema = z.object({
@@ -601,6 +611,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   });
 
   app.use("/items", requireSession);
+  app.use("/feed", requireSession);
   app.use("/novels", requireSession);
   app.use("/novels/*", requireSession);
   app.use("/chapters", requireSession);
@@ -640,6 +651,15 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
 
     return c.json(listItems(query.page, query.pageSize));
+  });
+
+  app.get("/feed", (c) => {
+    const query = parseQuery(new URL(c.req.url), feedQuerySchema, c.get("traceId"));
+    if (query instanceof Response) {
+      return query;
+    }
+
+    return c.json(listFeed(query));
   });
 
   app.get("/novels", async (c) => {

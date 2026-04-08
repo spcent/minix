@@ -53,9 +53,15 @@ importers:
       '@minix/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@minix/feature-account':
+        specifier: workspace:*
+        version: link:../../packages/features/account
       '@minix/feature-auth':
         specifier: workspace:*
         version: link:../../packages/features/auth
+      '@minix/feature-feed':
+        specifier: workspace:*
+        version: link:../../packages/features/feed
       '@minix/feature-items':
         specifier: workspace:*
         version: link:../../packages/features/items
@@ -167,6 +173,15 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/features/account:
+    dependencies:
+      '@minix/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@minix/core':
+        specifier: workspace:*
+        version: link:../../core
+
   packages/features/auth:
     dependencies:
       '@minix/contracts':
@@ -186,6 +201,15 @@ importers:
         version: link:../../core
 
   packages/features/catalog:
+    dependencies:
+      '@minix/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@minix/core':
+        specifier: workspace:*
+        version: link:../../core
+
+  packages/features/feed:
     dependencies:
       '@minix/contracts':
         specifier: workspace:*
@@ -250,12 +274,18 @@ importers:
 
   packages/platform-h5:
     dependencies:
+      '@minix/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@minix/core':
         specifier: workspace:*
         version: link:../core
 
   packages/platform-wechat:
     dependencies:
+      '@minix/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@minix/core':
         specifier: workspace:*
         version: link:../core

@@ -1,18 +1,4 @@
-export interface FeedItem {
-  id: string;
-  title: string;
-  subtitle?: string;
-  eyebrow?: string;
-  imageUrl?: string;
-  recommendedReason?: string;
-  updatedAt?: string;
-  tag?: string;
-}
-
-export interface FeedTag {
-  key: string;
-  label: string;
-}
+import type { FeedItem, FeedTag, SearchFilterGroup, SearchQuery, SearchResults } from "@minix/contracts";
 
 export interface FeedQuery {
   page: number;
@@ -30,6 +16,9 @@ export interface FeedState {
   featuredReason: string | undefined;
   items: FeedItem[];
   tags: FeedTag[];
+  searchQuery: SearchQuery | undefined;
+  searchFilters: SearchFilterGroup[];
+  searchResults: SearchResults<FeedItem> | undefined;
   activeTag: string | undefined;
   selectedItemId: string | undefined;
   query: FeedQuery;
@@ -68,6 +57,9 @@ export function createFeedState(options: CreateFeedStateOptions): FeedState {
     featuredReason: undefined,
     items: [],
     tags: cloneTags(options.tags ?? []),
+    searchQuery: undefined,
+    searchFilters: [],
+    searchResults: undefined,
     activeTag: undefined,
     selectedItemId: undefined,
     query: {
