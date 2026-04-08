@@ -6,6 +6,7 @@ export * from "./api/items";
 export * from "./api/membership";
 export * from "./api/novel-detail";
 export * from "./api/novels";
+export * from "./api/payment";
 export * from "./api/reading-progress";
 export * from "./api/search";
 export * from "./api/settings";

@@ -7,6 +7,7 @@ test("wechat capability adapter reports clipboard share and device support", () 
   const adapter = createWechatCapabilityAdapter({
     getLocation() {},
     getSystemInfo() {},
+    requestPayment() {},
     setClipboardData() {},
     showShareMenu() {},
   });
@@ -15,15 +16,19 @@ test("wechat capability adapter reports clipboard share and device support", () 
   assert.deepEqual(adapter.status("device"), { ok: true, value: true });
   assert.deepEqual(adapter.status("location"), { ok: true, value: true });
   assert.deepEqual(adapter.status("share"), { ok: true, value: true });
-  assert.deepEqual(adapter.status("payment"), { ok: true, value: false });
+  assert.deepEqual(adapter.status("payment"), { ok: true, value: true });
 });
 
-test("wechat capability adapter delegates clipboard writes and device info lookup", async () => {
+test("wechat capability adapter delegates clipboard writes, device info lookup, and payment execution", async () => {
   const calls: string[] = [];
   const adapter = createWechatCapabilityAdapter({
     getSystemInfo(options) {
       calls.push("device");
       options.success?.({ model: "wechat-test-device" });
+    },
+    requestPayment(options) {
+      calls.push(`payment:${String(options.orderId)}`);
+      options.success?.({ accepted: true });
     },
     setClipboardData(options) {
       calls.push(`clipboard:${options.data}`);
@@ -40,8 +45,13 @@ test("wechat capability adapter delegates clipboard writes and device info looku
     capability: "device",
     action: "getInfo",
   });
+  const paymentResult = await adapter.execute<{ accepted: boolean }>({
+    capability: "payment",
+    action: "startPayment",
+    payload: { orderId: "ord_1" },
+  });
 
-  assert.deepEqual(calls, ["clipboard:hello", "device"]);
+  assert.deepEqual(calls, ["clipboard:hello", "device", "payment:ord_1"]);
   assert.deepEqual(clipboardResult, {
     ok: true,
     value: {
@@ -57,6 +67,17 @@ test("wechat capability adapter delegates clipboard writes and device info looku
       value: {
         model: "wechat-test-device",
       },
+    },
+  });
+  assert.deepEqual(paymentResult, {
+    ok: true,
+    value: {
+      capability: "payment",
+      action: "startPayment",
+      value: {
+        accepted: true,
+      },
+      detail: "payment execution reserved through wechat capability adapter",
     },
   });
 });

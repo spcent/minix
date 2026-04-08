@@ -1,4 +1,4 @@
-import type { MembershipBenefit, MembershipOverview } from "@minix/contracts";
+import type { MembershipBenefit, MembershipEntitlement, MembershipOverview, Order, PaymentIntent, PaymentResult } from "@minix/contracts";
 import type { LatestMilestoneHistoryEntry } from "@minix/core";
 
 export interface SubscriptionState {
@@ -7,7 +7,12 @@ export interface SubscriptionState {
   loading: boolean;
   purchasing: boolean;
   errorText: string | undefined;
+  paymentExecutionDetail: string | undefined;
   overview: MembershipOverview | undefined;
+  order: Order | undefined;
+  paymentIntent: PaymentIntent | undefined;
+  paymentResult: PaymentResult | undefined;
+  entitlement: MembershipEntitlement | undefined;
   source: string | undefined;
   novelId: string | undefined;
   chapterId: string | undefined;
@@ -47,7 +52,12 @@ export function createInitialSubscriptionState(options: CreateSubscriptionStateO
     loading: false,
     purchasing: false,
     errorText: undefined,
+    paymentExecutionDetail: undefined,
     overview: undefined,
+    order: undefined,
+    paymentIntent: undefined,
+    paymentResult: undefined,
+    entitlement: undefined,
     source: options.source,
     novelId: options.novelId,
     chapterId: options.chapterId,

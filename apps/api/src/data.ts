@@ -10,10 +10,17 @@ import type {
   FeedTag,
   ItemsListResponse,
   MembershipOverview,
+  MembershipEntitlement,
   NovelCard,
   NovelDetail,
   NovelListResponse,
+  Order,
+  OrderDetailResponse,
+  PaymentChannel,
+  PaymentIntent,
+  PaymentResult,
   PurchaseMembershipRequest,
+  PurchaseMembershipResponse,
   RelatedNovelSummary,
   SearchDomain,
   SearchFilterGroup,
@@ -41,6 +48,8 @@ export function createDefaultUserState(): UserState {
   return {
     bookshelfNovelIds: new Set(DEFAULT_BOOKSHELF_NOVEL_IDS),
     progressByNovelId: structuredClone(DEFAULT_PROGRESS_BY_NOVEL_ID),
+    ordersById: {},
+    orderIdByIdempotencyKey: {},
   };
 }
 
@@ -61,6 +70,141 @@ export function createMembershipOverview(
     subheadline:
       "Premium reading is now unlocked. You can return to the blocked title and keep going without losing context.",
     benefits: DEFAULT_MEMBERSHIP_OVERVIEW.benefits,
+  };
+}
+
+function createMembershipAmountCents(planId: PurchaseMembershipRequest["planId"]): number {
+  if (planId === "monthly") {
+    return 1900;
+  }
+
+  if (planId === "annual") {
+    return 15900;
+  }
+
+  return 4900;
+}
+
+function createMembershipProductLabel(planId: PurchaseMembershipRequest["planId"]): string {
+  if (planId === "monthly") {
+    return "Monthly Membership";
+  }
+
+  if (planId === "annual") {
+    return "Annual Membership";
+  }
+
+  return "Quarterly Membership";
+}
+
+function createPaymentChannel(channel: PaymentChannel | undefined, platform: SessionRecord["platform"]): PaymentChannel {
+  if (channel) {
+    return channel;
+  }
+
+  return platform === "wechat" ? "wechat_pay" : "h5_pay";
+}
+
+function createMembershipEntitlement(
+  planId: PurchaseMembershipRequest["planId"],
+  orderId: string,
+): MembershipEntitlement {
+  const overview = createMembershipOverview(planId);
+  return {
+    entitlementId: `ent_membership_${orderId}`,
+    productType: "membership",
+    active: true,
+    statusLabel: overview.statusLabel,
+    sourceOrderId: orderId,
+    overview,
+  };
+}
+
+export function createMembershipOrderDetail(
+  session: SessionRecord,
+  payload: PurchaseMembershipRequest,
+  duplicateProtected = false,
+  now = new Date().toISOString(),
+): OrderDetailResponse & { entitlement: MembershipEntitlement } {
+  const orderId = `ord_${crypto.randomUUID()}`;
+  const amountCents = createMembershipAmountCents(payload.planId);
+  const title = createMembershipProductLabel(payload.planId);
+  const channel = createPaymentChannel(payload.channel, session.platform);
+  const order: Order = {
+    orderId,
+    title,
+    status: "paid",
+    productType: "membership",
+    channel,
+    currency: "CNY",
+    totalAmountCents: amountCents,
+    ...(payload.idempotencyKey ? { idempotencyKey: payload.idempotencyKey } : {}),
+    duplicateProtected,
+    ...(payload.source ? { source: payload.source } : {}),
+    ...(payload.novelId ? { novelId: payload.novelId } : {}),
+    ...(payload.chapterId ? { chapterId: payload.chapterId } : {}),
+    createdAt: now,
+    updatedAt: now,
+    lineItems: [
+      {
+        productId: `membership_${payload.planId}`,
+        productType: "membership",
+        title,
+        quantity: 1,
+        unitAmountCents: amountCents,
+        totalAmountCents: amountCents,
+      },
+    ],
+  };
+  const paymentIntent: PaymentIntent = {
+    intentId: `pi_${orderId}`,
+    orderId,
+    channel,
+    status: "succeeded",
+    clientAction: session.platform === "wechat" ? "wechat_sdk" : "h5_redirect",
+    clientPayload: {
+      orderId,
+      channel,
+      mode: "sample",
+    },
+    expiresAt: now,
+  };
+  const paymentResult: PaymentResult = {
+    orderId,
+    status: "success",
+    paid: true,
+    duplicateProtected,
+    callbackVerified: false,
+    message: duplicateProtected
+      ? "Duplicate payment protection kept the active entitlement and returned the existing paid outcome."
+      : "Payment completed in the sample payment domain.",
+    polledAt: now,
+  };
+  const entitlement = createMembershipEntitlement(payload.planId, orderId);
+
+  return {
+    order,
+    paymentIntent,
+    paymentResult,
+    entitlement,
+  };
+}
+
+export function createMembershipPurchaseResponse(
+  detail: OrderDetailResponse & { entitlement: MembershipEntitlement },
+  payload: PurchaseMembershipRequest,
+): PurchaseMembershipResponse {
+  return {
+    purchased: true,
+    overview: detail.entitlement.overview,
+    order: detail.order,
+    paymentIntent: detail.paymentIntent,
+    paymentResult: detail.paymentResult,
+    entitlement: detail.entitlement,
+    returnTarget: deriveReturnTarget(payload.source),
+    ...(payload.source ? { source: payload.source } : {}),
+    ...(payload.novelId ? { novelId: payload.novelId } : {}),
+    ...(payload.chapterId ? { chapterId: payload.chapterId } : {}),
   };
 }
 

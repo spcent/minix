@@ -201,6 +201,50 @@ test("sample asset routes serve generated svg media", async () => {
   assert.equal(missingResponse.status, 404);
 });
 
+test("membership purchase reuses the same paid order for a repeated idempotency key", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "wechat");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+
+  const firstResponse = await app.request("http://localhost/membership/purchase", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      planId: "monthly",
+      idempotencyKey: "idem_membership_1",
+      source: "reader",
+      novelId: "novel_lantern",
+      chapterId: "lantern_ch_02",
+    }),
+  });
+  assert.equal(firstResponse.status, 200);
+  const first = (await firstResponse.json()) as { order: { orderId: string }; paymentResult: { duplicateProtected: boolean } };
+  assert.equal(first.paymentResult.duplicateProtected, false);
+
+  const secondResponse = await app.request("http://localhost/membership/purchase", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      planId: "monthly",
+      idempotencyKey: "idem_membership_1",
+      source: "reader",
+      novelId: "novel_lantern",
+      chapterId: "lantern_ch_02",
+    }),
+  });
+  assert.equal(secondResponse.status, 200);
+  const second = (await secondResponse.json()) as {
+    order: { orderId: string };
+    paymentResult: { duplicateProtected: boolean; message: string };
+  };
+  assert.equal(second.order.orderId, first.order.orderId);
+  assert.equal(second.paymentResult.duplicateProtected, true);
+  assert.match(second.paymentResult.message, /Idempotency key matched/);
+});
+
 test("refresh rotation invalidates the previous refresh token", async () => {
   const app = createApiApp({ store: createMemoryApiStore() });
   const session = await login(app, "h5");
@@ -485,8 +529,36 @@ test("novel sample flow supports detail, reading progress, bookshelf, and member
     }),
   });
   assert.equal(membershipPurchaseResponse.status, 200);
-  const purchase = (await membershipPurchaseResponse.json()) as { overview: { active: boolean } };
+  const purchase = (await membershipPurchaseResponse.json()) as {
+    overview: { active: boolean };
+    order: { orderId: string; status: string };
+    paymentIntent: { orderId: string; status: string };
+    paymentResult: { orderId: string; status: string; paid: boolean };
+    entitlement: { sourceOrderId: string; active: boolean };
+  };
   assert.equal(purchase.overview.active, true);
+  assert.equal(purchase.order.status, "paid");
+  assert.equal(purchase.paymentIntent.orderId, purchase.order.orderId);
+  assert.equal(purchase.paymentResult.status, "success");
+  assert.equal(purchase.paymentResult.paid, true);
+  assert.equal(purchase.entitlement.sourceOrderId, purchase.order.orderId);
+
+  const orderDetailResponse = await app.request(`http://localhost/orders/detail?orderId=${purchase.order.orderId}`, {
+    headers,
+  });
+  assert.equal(orderDetailResponse.status, 200);
+  const orderDetail = (await orderDetailResponse.json()) as { order: { orderId: string }; paymentResult: { status: string } };
+  assert.equal(orderDetail.order.orderId, purchase.order.orderId);
+  assert.equal(orderDetail.paymentResult.status, "success");
+
+  const paymentResultResponse = await app.request(`http://localhost/payments/result?orderId=${purchase.order.orderId}`, {
+    headers,
+  });
+  assert.equal(paymentResultResponse.status, 200);
+  const paymentResult = (await paymentResultResponse.json()) as { orderId: string; status: string; paid: boolean };
+  assert.equal(paymentResult.orderId, purchase.order.orderId);
+  assert.equal(paymentResult.status, "success");
+  assert.equal(paymentResult.paid, true);
 
   const bookshelfResponse = await app.request("http://localhost/bookshelf", { headers });
   assert.equal(bookshelfResponse.status, 200);

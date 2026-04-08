@@ -18,6 +18,10 @@ interface WechatCapabilityRuntime {
     success?: () => void;
     fail?: (error: unknown) => void;
   }) => void;
+  requestPayment?: (options: Record<string, unknown> & {
+    success?: (result?: Record<string, unknown>) => void;
+    fail?: (error: unknown) => void;
+  }) => void;
 }
 
 function requirePayloadText(input: CapabilityActionInput): string | null {
@@ -43,6 +47,8 @@ export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime)
           return ok(Boolean(host.getLocation));
         case "share":
           return ok(Boolean(host.showShareMenu));
+        case "payment":
+          return ok(Boolean(host.requestPayment));
         default:
           return ok(false);
       }
@@ -125,6 +131,34 @@ export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime)
               },
               fail(error) {
                 resolve(fail(createError("CAPABILITY_UNAVAILABLE", "wechat share menu failed", {
+                  cause: error,
+                  recoverable: true,
+                })));
+              },
+            });
+          });
+
+        case "payment":
+          if (!host.requestPayment) {
+            return Promise.resolve(
+              fail(createError("CAPABILITY_UNAVAILABLE", "payment capability is unavailable", { recoverable: true })),
+            );
+          }
+
+          return new Promise((resolve) => {
+            const payload = typeof input.payload === "object" && input.payload !== null ? (input.payload as Record<string, unknown>) : {};
+            host.requestPayment?.({
+              ...payload,
+              success(result) {
+                resolve(ok({
+                  capability: input.capability,
+                  action: input.action,
+                  ...(result ? { value: result as TResult } : {}),
+                  detail: "payment execution reserved through wechat capability adapter",
+                }));
+              },
+              fail(error) {
+                resolve(fail(createError("CAPABILITY_UNAVAILABLE", "wechat payment execution failed", {
                   cause: error,
                   recoverable: true,
                 })));

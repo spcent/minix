@@ -907,10 +907,57 @@ export function createNovelH5MockApiAdapter(): RequestAdapter {
       if (pathname === "/membership/purchase" && options.method === "POST") {
         const payload = (options.body ?? {}) as PurchaseMembershipRequest;
         activeMembershipPlanId = payload.planId;
+        const overview = createMembershipOverview(activeMembershipPlanId);
+        const orderId = "ord_novel_h5_membership";
 
         const response: PurchaseMembershipResponse = {
           purchased: true,
-          overview: createMembershipOverview(activeMembershipPlanId),
+          overview,
+          order: {
+            orderId,
+            title: "Membership Purchase",
+            status: "paid",
+            productType: "membership",
+            channel: payload.channel ?? "h5_pay",
+            currency: "CNY",
+            totalAmountCents: payload.planId === "monthly" ? 1900 : payload.planId === "annual" ? 15900 : 4900,
+            duplicateProtected: false,
+            createdAt: "2026-04-08T10:00:00.000Z",
+            updatedAt: "2026-04-08T10:00:00.000Z",
+            lineItems: [
+              {
+                productId: `membership_${payload.planId}`,
+                productType: "membership",
+                title: "Membership Purchase",
+                quantity: 1,
+                unitAmountCents: payload.planId === "monthly" ? 1900 : payload.planId === "annual" ? 15900 : 4900,
+                totalAmountCents: payload.planId === "monthly" ? 1900 : payload.planId === "annual" ? 15900 : 4900,
+              },
+            ],
+          },
+          paymentIntent: {
+            intentId: "pi_novel_h5_membership",
+            orderId,
+            channel: payload.channel ?? "h5_pay",
+            status: "succeeded",
+            clientAction: "h5_redirect",
+          },
+          paymentResult: {
+            orderId,
+            status: "success",
+            paid: true,
+            duplicateProtected: false,
+            callbackVerified: false,
+            message: "Mock payment completed.",
+          },
+          entitlement: {
+            entitlementId: "ent_novel_h5_membership",
+            productType: "membership",
+            active: true,
+            statusLabel: overview.statusLabel,
+            sourceOrderId: orderId,
+            overview,
+          },
           returnTarget: deriveReturnTarget(payload.source),
           ...(payload.source ? { source: payload.source } : {}),
           ...(payload.novelId ? { novelId: payload.novelId } : {}),

@@ -3,6 +3,7 @@ import type {
   AuthStatus,
   LoginMethod,
   LoginPlatformKind,
+  OrderDetailResponse,
   PurchaseMembershipRequest,
   ReadingProgress,
 } from "@minix/contracts";
@@ -27,6 +28,9 @@ export interface UserState {
   membershipPlanId?: PurchaseMembershipRequest["planId"];
   bookshelfNovelIds: Set<string>;
   progressByNovelId: Record<string, ReadingProgress>;
+  latestPaidOrderId?: string;
+  ordersById: Record<string, OrderDetailResponse>;
+  orderIdByIdempotencyKey: Record<string, string>;
 }
 
 export interface SessionRecord {

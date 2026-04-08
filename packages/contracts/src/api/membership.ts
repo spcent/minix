@@ -1,3 +1,5 @@
+import type { Entitlement, Order, PaymentChannel, PaymentIntent, PaymentResult } from "./payment";
+
 export interface MembershipBenefit {
   key: string;
   label: string;
@@ -17,14 +19,25 @@ export interface MembershipOverview {
 
 export interface PurchaseMembershipRequest {
   planId: "monthly" | "quarterly" | "annual";
+  channel?: PaymentChannel;
+  idempotencyKey?: string;
   source?: string;
   novelId?: string;
   chapterId?: string;
 }
 
+export interface MembershipEntitlement extends Entitlement {
+  productType: "membership";
+  overview: MembershipOverview;
+}
+
 export interface PurchaseMembershipResponse {
   purchased: true;
   overview: MembershipOverview;
+  order: Order;
+  paymentIntent: PaymentIntent;
+  paymentResult: PaymentResult;
+  entitlement: MembershipEntitlement;
   source?: string;
   novelId?: string;
   chapterId?: string;

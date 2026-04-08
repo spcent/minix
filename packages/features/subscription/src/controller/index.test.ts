@@ -267,6 +267,69 @@ test("subscription controller can purchase membership and continue back to the b
   kernel.request.post = async <T>() =>
     ok({
       purchased: true,
+      order: {
+        orderId: "ord_reader_1",
+        title: "Monthly Membership",
+        status: "paid",
+        productType: "membership",
+        channel: "h5_pay",
+        currency: "CNY",
+        totalAmountCents: 1900,
+        duplicateProtected: false,
+        source: "reader",
+        novelId: "novel_lantern",
+        chapterId: "lantern_ch_04",
+        createdAt: "2026-04-08T10:00:00.000Z",
+        updatedAt: "2026-04-08T10:00:00.000Z",
+        lineItems: [
+          {
+            productId: "membership_monthly",
+            productType: "membership",
+            title: "Monthly Membership",
+            quantity: 1,
+            unitAmountCents: 1900,
+            totalAmountCents: 1900,
+          },
+        ],
+      },
+      paymentIntent: {
+        intentId: "pi_reader_1",
+        orderId: "ord_reader_1",
+        channel: "h5_pay",
+        status: "succeeded",
+        clientAction: "h5_redirect",
+      },
+      paymentResult: {
+        orderId: "ord_reader_1",
+        status: "success",
+        paid: true,
+        duplicateProtected: false,
+        callbackVerified: false,
+        message: "Payment completed in the sample payment domain.",
+      },
+      entitlement: {
+        entitlementId: "ent_membership_ord_reader_1",
+        productType: "membership",
+        active: true,
+        statusLabel: "Membership active with premium reading unlocked",
+        sourceOrderId: "ord_reader_1",
+        overview: {
+          active: true,
+          tier: "member",
+          entitlementScope: "membership",
+          statusLabel: "Membership active with premium reading unlocked",
+          renewalLabel: "Renews monthly",
+          headline: "Membership Active",
+          subheadline: "Premium reading unlocked.",
+          benefits: [
+            {
+              key: "premium",
+              label: "Premium Access",
+              description: "Open locked chapters.",
+            },
+          ],
+        },
+      },
       source: "reader",
       novelId: "novel_lantern",
       chapterId: "lantern_ch_04",
@@ -303,6 +366,9 @@ test("subscription controller can purchase membership and continue back to the b
   assert.equal(purchaseResult.ok, true);
   assert.equal(continueResult.ok, true);
   assert.equal(controller.store.getState().overview?.active, true);
+  assert.equal(controller.store.getState().order?.orderId, "ord_reader_1");
+  assert.equal(controller.store.getState().paymentResult?.status, "success");
+  assert.equal(controller.store.getState().entitlement?.sourceOrderId, "ord_reader_1");
   assert.equal(controller.store.getState().lastPurchasedPlanId, "monthly");
   assert.equal(
     controller.store.getState().purchaseSuccessMessage,
@@ -324,6 +390,69 @@ test("subscription controller can continue back to toc when the unlock flow star
   kernel.request.post = async <T>() =>
     ok({
       purchased: true,
+      order: {
+        orderId: "ord_toc_1",
+        title: "Quarterly Membership",
+        status: "paid",
+        productType: "membership",
+        channel: "h5_pay",
+        currency: "CNY",
+        totalAmountCents: 4900,
+        duplicateProtected: false,
+        source: "toc",
+        novelId: "novel_lantern",
+        chapterId: "lantern_ch_05",
+        createdAt: "2026-04-08T10:00:00.000Z",
+        updatedAt: "2026-04-08T10:00:00.000Z",
+        lineItems: [
+          {
+            productId: "membership_quarterly",
+            productType: "membership",
+            title: "Quarterly Membership",
+            quantity: 1,
+            unitAmountCents: 4900,
+            totalAmountCents: 4900,
+          },
+        ],
+      },
+      paymentIntent: {
+        intentId: "pi_toc_1",
+        orderId: "ord_toc_1",
+        channel: "h5_pay",
+        status: "succeeded",
+        clientAction: "h5_redirect",
+      },
+      paymentResult: {
+        orderId: "ord_toc_1",
+        status: "success",
+        paid: true,
+        duplicateProtected: false,
+        callbackVerified: false,
+        message: "Payment completed in the sample payment domain.",
+      },
+      entitlement: {
+        entitlementId: "ent_membership_ord_toc_1",
+        productType: "membership",
+        active: true,
+        statusLabel: "Membership active with premium reading unlocked",
+        sourceOrderId: "ord_toc_1",
+        overview: {
+          active: true,
+          tier: "member",
+          entitlementScope: "membership",
+          statusLabel: "Membership active with premium reading unlocked",
+          renewalLabel: "Renews quarterly",
+          headline: "Membership Active",
+          subheadline: "Premium reading unlocked.",
+          benefits: [
+            {
+              key: "premium",
+              label: "Premium Access",
+              description: "Open locked chapters.",
+            },
+          ],
+        },
+      },
       source: "toc",
       novelId: "novel_lantern",
       chapterId: "lantern_ch_05",

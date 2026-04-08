@@ -8,8 +8,11 @@ import type {
   AuthStatus,
   BookshelfMutationResponse,
   LoadReadingProgressResponse,
+  OrderDetailResponse,
   LoginMethod,
   LoginResponse,
+  MembershipEntitlement,
+  PaymentResult,
   PurchaseMembershipRequest,
   PurchaseMembershipResponse,
   RefreshTokenResponse,
@@ -24,6 +27,8 @@ import {
   createCurrentUserResponse,
   createBookshelf,
   createMembershipOverview,
+  createMembershipOrderDetail,
+  createMembershipPurchaseResponse,
   createSettingsResponse,
   deriveReturnTarget,
   listFeed,
@@ -125,9 +130,15 @@ const bookshelfMutationSchema = z.object({
 
 const purchaseMembershipSchema = z.object({
   planId: z.enum(["monthly", "quarterly", "annual"]),
+  channel: z.enum(["wechat_pay", "h5_pay", "membership_purchase", "virtual_entitlement"]).optional(),
+  idempotencyKey: z.string().min(1).optional(),
   source: z.string().min(1).optional(),
   novelId: z.string().min(1).optional(),
   chapterId: z.string().min(1).optional(),
+});
+
+const orderIdQuerySchema = z.object({
+  orderId: z.string().min(1),
 });
 
 const saveReadingProgressSchema = z.object({
@@ -619,6 +630,10 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   app.use("/bookshelf", requireSession);
   app.use("/membership", requireSession);
   app.use("/membership/*", requireSession);
+  app.use("/orders", requireSession);
+  app.use("/orders/*", requireSession);
+  app.use("/payments", requireSession);
+  app.use("/payments/*", requireSession);
   app.use("/reading-progress", requireSession);
   app.use("/settings", requireSession);
 
@@ -806,21 +821,89 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     if (payload instanceof Response) {
       return payload;
     }
+    const purchasePayload: PurchaseMembershipRequest = {
+      planId: payload.planId,
+      ...(payload.channel ? { channel: payload.channel } : {}),
+      ...(payload.idempotencyKey ? { idempotencyKey: payload.idempotencyKey } : {}),
+      ...(payload.source ? { source: payload.source } : {}),
+      ...(payload.novelId ? { novelId: payload.novelId } : {}),
+      ...(payload.chapterId ? { chapterId: payload.chapterId } : {}),
+    };
 
     const session = c.get("session");
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
-    userState.membershipPlanId = payload.planId;
+
+    const existingOrderId = purchasePayload.idempotencyKey ? userState.orderIdByIdempotencyKey[purchasePayload.idempotencyKey] : undefined;
+    const existingOrder = existingOrderId ? userState.ordersById[existingOrderId] : undefined;
+    if (existingOrder?.entitlement && "overview" in existingOrder.entitlement) {
+      return c.json(
+        createMembershipPurchaseResponse(
+          {
+            order: existingOrder.order,
+            paymentIntent: existingOrder.paymentIntent,
+            paymentResult: {
+              ...existingOrder.paymentResult,
+              duplicateProtected: true,
+              message: "Idempotency key matched an existing paid order. Returning the stored result without another charge.",
+            },
+            entitlement: existingOrder.entitlement as MembershipEntitlement,
+          },
+          purchasePayload,
+        ) satisfies PurchaseMembershipResponse,
+      );
+    }
+
+    userState.membershipPlanId = purchasePayload.planId;
+    const duplicateProtected = Boolean(userState.latestPaidOrderId);
+    const orderDetail = createMembershipOrderDetail(session, purchasePayload, duplicateProtected);
+    userState.ordersById[orderDetail.order.orderId] = orderDetail;
+    userState.latestPaidOrderId = orderDetail.order.orderId;
+    if (purchasePayload.idempotencyKey) {
+      userState.orderIdByIdempotencyKey[purchasePayload.idempotencyKey] = orderDetail.order.orderId;
+    }
     await store.saveUserState(session.userId, userState);
 
+    return c.json(createMembershipPurchaseResponse(orderDetail, purchasePayload) satisfies PurchaseMembershipResponse);
+  });
+
+  app.get("/orders/detail", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), orderIdQuerySchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const orderDetail = userState.ordersById[query.orderId];
+    if (!orderDetail) {
+      return jsonError("NOT_FOUND", "Order not found.", 404, traceId);
+    }
+
+    return c.json(orderDetail satisfies OrderDetailResponse);
+  });
+
+  app.get("/payments/result", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), orderIdQuerySchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const orderDetail = userState.ordersById[query.orderId];
+    if (!orderDetail) {
+      return jsonError("NOT_FOUND", "Payment result not found.", 404, traceId);
+    }
+
     return c.json({
-      purchased: true,
-      overview: createMembershipOverview(userState.membershipPlanId),
-      returnTarget: deriveReturnTarget(payload.source),
-      ...(payload.source ? { source: payload.source } : {}),
-      ...(payload.novelId ? { novelId: payload.novelId } : {}),
-      ...(payload.chapterId ? { chapterId: payload.chapterId } : {}),
-    } satisfies PurchaseMembershipResponse);
+      ...orderDetail.paymentResult,
+      polledAt: new Date().toISOString(),
+    } satisfies PaymentResult);
   });
 
   app.get("/reading-progress", async (c) => {

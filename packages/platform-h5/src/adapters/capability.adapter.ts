@@ -14,8 +14,13 @@ interface H5NavigatorLike {
   userAgent?: string;
 }
 
+interface H5PaymentRuntime {
+  startPayment?: (payload: Record<string, unknown>) => Promise<Record<string, unknown> | void>;
+}
+
 export interface H5CapabilityAdapterOptions {
   navigator?: H5NavigatorLike;
+  payment?: H5PaymentRuntime;
 }
 
 function requirePayloadText(input: CapabilityActionInput): string | null {
@@ -29,6 +34,7 @@ function requirePayloadText(input: CapabilityActionInput): string | null {
 
 export function createH5CapabilityAdapter(options: H5CapabilityAdapterOptions = {}): CapabilityAdapter {
   const navigator = options.navigator ?? globalThis.navigator;
+  const payment = options.payment;
 
   return {
     status(capability) {
@@ -41,6 +47,8 @@ export function createH5CapabilityAdapter(options: H5CapabilityAdapterOptions = 
           return ok(Boolean(navigator?.geolocation));
         case "share":
           return ok(Boolean(navigator?.share));
+        case "payment":
+          return ok(Boolean(payment?.startPayment));
         default:
           return ok(false);
       }
@@ -100,6 +108,28 @@ export function createH5CapabilityAdapter(options: H5CapabilityAdapterOptions = 
               platform: navigator?.platform ?? "",
             } as TResult,
           });
+
+        case "payment":
+          try {
+            if (!payment?.startPayment) {
+              return fail(createError("CAPABILITY_UNAVAILABLE", "payment capability is unavailable", { recoverable: true }));
+            }
+
+            const value = await payment.startPayment(
+              typeof input.payload === "object" && input.payload !== null ? (input.payload as Record<string, unknown>) : {},
+            );
+            return ok({
+              capability: input.capability,
+              action: input.action,
+              ...(value ? { value: value as TResult } : {}),
+              detail: "payment execution reserved through h5 capability adapter",
+            });
+          } catch (error) {
+            return fail(createError("CAPABILITY_UNAVAILABLE", "h5 payment execution failed", {
+              cause: error,
+              recoverable: true,
+            }));
+          }
 
         default:
           return fail(createError("PLATFORM_UNSUPPORTED", `h5 capability "${input.capability}" is not implemented`, {

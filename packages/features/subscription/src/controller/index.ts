@@ -179,6 +179,32 @@ export function createSubscriptionController(options: CreateSubscriptionControll
     return "Return path will land back in the library with premium continuity already active.";
   }
 
+  async function reservePlatformPayment(response: PurchaseMembershipResponse) {
+    if (!kernel.capability) {
+      return;
+    }
+
+    const capabilityStatus = kernel.capability.status("payment");
+    if (!capabilityStatus.ok || !capabilityStatus.value) {
+      return;
+    }
+
+    const execution = await kernel.capability.execute({
+      capability: "payment",
+      action: "startPayment",
+      payload: {
+        orderId: response.order.orderId,
+        intentId: response.paymentIntent.intentId,
+        channel: response.paymentIntent.channel,
+        ...(response.paymentIntent.clientPayload ? response.paymentIntent.clientPayload : {}),
+      },
+    });
+
+    store.setState({
+      paymentExecutionDetail: execution.ok ? execution.value.detail : execution.error.message,
+    });
+  }
+
   return {
     store,
 
@@ -250,6 +276,11 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         purchasing: false,
         title: result.value.headline,
         overview: result.value,
+        order: undefined,
+        paymentIntent: undefined,
+        paymentResult: undefined,
+        entitlement: undefined,
+        paymentExecutionDetail: undefined,
         entitlementSummary: deriveEntitlementSummary(result.value),
         recommendedPlanId: deriveRecommendedPlanId(source, result.value),
         unlockOutcomeLabel: deriveUnlockOutcomeLabel(source),
@@ -273,6 +304,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
       store.setState({
         purchasing: true,
         errorText: undefined,
+        paymentExecutionDetail: undefined,
         purchaseSuccessMessage: undefined,
         lastPurchasedPlanId: payload.planId,
         unlockOutcomeLabel: deriveUnlockOutcomeLabel(current.source, payload.planId),
@@ -297,6 +329,10 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         purchasing: false,
         title: result.value.overview.headline,
         overview: result.value.overview,
+        order: result.value.order,
+        paymentIntent: result.value.paymentIntent,
+        paymentResult: result.value.paymentResult,
+        entitlement: result.value.entitlement,
         benefits: result.value.overview.benefits,
         source: nextSource,
         novelId: result.value.novelId ?? current.novelId,
@@ -325,6 +361,8 @@ export function createSubscriptionController(options: CreateSubscriptionControll
                 : "Access is now unlocked for the premium flow you came from.",
         errorText: undefined,
       });
+
+      await reservePlatformPayment(result.value);
 
       return result;
     },
