@@ -198,6 +198,10 @@ test("feed controller loads feed items and derives the featured reason", async (
   assert.equal(controller.store.getState().ready, true);
   assert.equal(controller.store.getState().items.length, 1);
   assert.equal(controller.store.getState().selectedItemId, "story-1");
+  assert.equal(controller.store.getState().pagination.page, 1);
+  assert.equal(controller.store.getState().filters[0]?.key, "tag");
+  assert.equal(controller.store.getState().selection.selectedItemIds[0], "story-1");
+  assert.equal(controller.store.getState().status.loadState, "ready");
   assert.equal(controller.store.getState().featuredReason, "Lead story for the current lane.");
   assert.equal(controller.store.getState().tags[1]?.key, "news");
   assert.equal(controller.store.getState().searchQuery?.domain, "feed");
@@ -239,6 +243,8 @@ test("feed controller can load the next page and append results", async () => {
   assert.equal(controller.store.getState().items.length, 2);
   assert.equal(controller.store.getState().items[1]?.id, "story-2");
   assert.equal(controller.store.getState().query.page, 2);
+  assert.equal(controller.store.getState().pagination.page, 2);
+  assert.equal(controller.store.getState().status.loadState, "ready");
 });
 
 test("feed controller routes unauthorized responses back to login", async () => {
@@ -254,6 +260,7 @@ test("feed controller routes unauthorized responses back to login", async () => 
 
   assert.equal(result.ok, false);
   assert.equal(controller.store.getState().errorText, "Feed session expired");
+  assert.equal(controller.store.getState().status.loadState, "error");
   assert.deepEqual(routeCalls.at(-1), {
     routeId: APP_ROUTE_IDS.login,
     params: {

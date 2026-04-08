@@ -1,3 +1,4 @@
+import type { AuthIdentityWorkflow } from "./auth";
 import type { MembershipOverview } from "./membership";
 
 export const USER_GENDERS = ["unknown", "female", "male", "nonbinary"] as const;
@@ -59,8 +60,17 @@ export interface UserStatus {
   guest: boolean;
 }
 
+export interface IdentityWorkflowSummary {
+  canUpgradeGuest: boolean;
+  canBindPhone: boolean;
+  mergePending: boolean;
+  pendingWorkflow?: AuthIdentityWorkflow;
+  lastWorkflow?: AuthIdentityWorkflow;
+}
+
 export interface CurrentUserResponse {
   userProfile: UserProfile;
   accountSummary: AccountSummary;
   userStatus: UserStatus;
+  identityWorkflows: IdentityWorkflowSummary;
 }

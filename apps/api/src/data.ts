@@ -4,8 +4,21 @@ import type {
   BookshelfResponse,
   ChapterContent,
   ChapterListResponse,
-  CurrentUserResponse,
   ChapterSummary,
+  ContentAccess,
+  ContentCard,
+  ContentDetail,
+  ContentDisplay,
+  ContentLifecycle,
+  CurrentUserResponse,
+  FeedbackBootstrapResponse,
+  FeedbackCategory,
+  FeedbackFaqEntry,
+  FeedbackPriority,
+  FeedbackStatus,
+  FeedbackTicket,
+  FeedbackTicketDetailResponse,
+  FeedbackType,
   FeedItem,
   FeedListResponse,
   FeedTag,
@@ -38,6 +51,8 @@ import type {
   SearchResults,
   SearchSortOption,
   SettingsResponse,
+  SubmitFeedbackRequest,
+  SubmitFeedbackResponse,
   UnreadBadge,
 } from "@minix/contracts";
 
@@ -56,11 +71,25 @@ import type { SessionRecord, UserState } from "./types";
 
 export { CHAPTER_CONTENT, CHAPTER_LISTS, DEFAULT_MEMBERSHIP_OVERVIEW, NOVELS } from "./content";
 
+function resolveMaskedPhoneNumber(phoneNumber: string | undefined): string | undefined {
+  if (!phoneNumber) {
+    return undefined;
+  }
+
+  const normalized = phoneNumber.replace(/[^\d]/g, "");
+  if (normalized.length < 7) {
+    return undefined;
+  }
+
+  return `${normalized.slice(0, 3)}****${normalized.slice(-4)}`;
+}
+
 export function createDefaultUserState(): UserState {
   return {
     bookshelfNovelIds: new Set(DEFAULT_BOOKSHELF_NOVEL_IDS),
     progressByNovelId: structuredClone(DEFAULT_PROGRESS_BY_NOVEL_ID),
     notificationReadAtById: {},
+    feedbackDetailsById: {},
     ordersById: {},
     orderIdByIdempotencyKey: {},
   };
@@ -241,7 +270,9 @@ export function createCurrentUserResponse(
     accountSummary: {
       userId: session.userId,
       phoneBound: Boolean(session.identity.phoneBound),
-      ...(session.identity.phoneBound ? { phoneNumberMasked: "138****0001" } : {}),
+      ...(session.identity.phoneBound
+        ? { phoneNumberMasked: resolveMaskedPhoneNumber(userState.boundPhoneNumber) ?? "138****0001" }
+        : {}),
       wechatBound: Boolean(session.identity.wechatBound),
       realNameStatus: session.identity.realNameVerified ? "verified" : "unverified",
       assets: {
@@ -266,6 +297,16 @@ export function createCurrentUserResponse(
       cancellationInProgress: false,
       blacklisted: false,
       guest: session.authStatus === "guest",
+    },
+    identityWorkflows: {
+      canUpgradeGuest: session.authStatus === "guest" || Boolean(session.identity.anonymous),
+      canBindPhone:
+        session.authStatus === "authenticated" &&
+        Boolean(session.identity.wechatBound || session.platform === "wechat") &&
+        !session.identity.phoneBound,
+      mergePending: Boolean(userState.pendingIdentityWorkflow),
+      ...(userState.pendingIdentityWorkflow ? { pendingWorkflow: userState.pendingIdentityWorkflow } : {}),
+      ...(userState.lastIdentityWorkflow ? { lastWorkflow: userState.lastIdentityWorkflow } : {}),
     },
   };
 }
@@ -352,6 +393,113 @@ function createBookshelfCountResolver(bookshelfNovelIds: Set<string>) {
   };
 }
 
+function createNovelContentLifecycle(detail: NovelDetail): ContentLifecycle {
+  const updatedAt = detail.latestChapter?.updatedAt ?? "2026-03-22T08:00:00.000Z";
+  return {
+    state: "published",
+    availableActions: ["update", "archive", "delete"],
+    publishedAt: updatedAt,
+    updatedAt,
+  };
+}
+
+function createNovelContentDisplay(
+  detail: NovelDetail,
+  slot: ContentDisplay["recommendationSlot"],
+  slotLabel: string,
+): ContentDisplay {
+  return {
+    category: {
+      key: detail.categoryKey,
+      label: detail.categoryLabel,
+    },
+    tags: detail.tags.map((tag) => ({ key: tag.key, label: tag.label })),
+    topics: detail.tags.slice(0, 2).map((tag) => ({ key: tag.key, label: tag.label })),
+    ...(slot ? { recommendationSlot: slot } : {}),
+    recommendationSlotLabel: slotLabel,
+    pinned: detail.status === "serializing",
+    featured: detail.requiresMembership || detail.status === "serializing",
+  };
+}
+
+function createNovelContentAccess(detail: NovelDetail): ContentAccess {
+  const purchased = Boolean(detail.isPurchased);
+  return {
+    visibility: detail.requiresMembership ? "member_only" : "public",
+    accessible: !detail.requiresMembership || purchased || detail.isFree,
+    previewAvailable: Boolean(detail.isFree || detail.isTrial),
+    requiresLogin: false,
+    requiresMembership: detail.requiresMembership,
+    requiresPurchase: false,
+    purchased,
+    summaryLabel:
+      detail.accessRuleSummaryLabel ??
+      (detail.requiresMembership
+        ? "This title stays in the premium lane until membership unlocks the complete reading route after the visible preview boundary."
+        : "Open-access reading continues without a paywall in the current sample surface."),
+    ...(detail.requiresMembership ? { gateLabel: "Membership required for full reading" } : {}),
+    ...(detail.requiresMembership ? { entitlementLabel: "Membership unlock" } : {}),
+  };
+}
+
+function createNovelContentDetail(detail: NovelDetail): ContentDetail {
+  return {
+    contentId: detail.id,
+    model: "novel_story",
+    title: detail.title,
+    ...(detail.subtitle ? { subtitle: detail.subtitle } : {}),
+    summary: detail.summary,
+    ...(detail.coverUrl ? { coverUrl: detail.coverUrl } : {}),
+    authorLabel: detail.author.name,
+    display: createNovelContentDisplay(
+      detail,
+      detail.requiresMembership ? "premium" : detail.status === "serializing" ? "frontlist" : "ranking",
+      detail.requiresMembership
+        ? "Premium Spotlight"
+        : detail.status === "serializing"
+          ? "Frontlist Serial"
+          : "Completed Archive",
+    ),
+    lifecycle: createNovelContentLifecycle(detail),
+    ...(detail.relatedLaneLabel ? { recommendationReason: detail.relatedLaneLabel } : {}),
+  };
+}
+
+function createNovelContentCard(
+  detail: NovelDetail,
+  continueChapterId: string | undefined,
+  continueChapterTitle: string | undefined,
+): ContentCard {
+  const slot = continueChapterId
+    ? "continue_reading"
+    : detail.requiresMembership
+      ? "premium"
+      : detail.status === "serializing"
+        ? "frontlist"
+        : "ranking";
+  const slotLabel = continueChapterId
+    ? continueChapterTitle
+      ? `Continue · ${continueChapterTitle}`
+      : "Continue Reading"
+    : detail.requiresMembership
+      ? "Premium Spotlight"
+      : detail.status === "serializing"
+        ? "Frontlist Serial"
+        : "Completed Archive";
+
+  return {
+    contentId: detail.id,
+    model: "novel_story",
+    title: detail.title,
+    ...(detail.subtitle ? { subtitle: detail.subtitle } : {}),
+    summary: detail.summary,
+    ...(detail.coverUrl ? { coverUrl: detail.coverUrl } : {}),
+    authorLabel: detail.author.name,
+    display: createNovelContentDisplay(detail, slot, slotLabel),
+    lifecycle: createNovelContentLifecycle(detail),
+  };
+}
+
 function createRelatedNovelSummaries(detail: NovelDetail, membershipActive: boolean): RelatedNovelSummary[] {
   return NOVELS.filter((candidate) => candidate.id !== detail.id)
     .sort((left, right) => {
@@ -390,13 +538,19 @@ export function resolveNovelDetail(
   const resolvedCoverUrl =
     detail.coverUrl && requestUrl ? resolveSampleMediaUrl(detail.coverUrl, requestUrl) : detail.coverUrl;
 
-  return {
+  const resolvedDetail = {
     ...detail,
     ...(resolvedCoverUrl ? { coverUrl: resolvedCoverUrl } : {}),
     isPurchased: isPurchasedByMembership(detail, membershipActive),
     ...(bookshelfCount !== undefined ? { bookshelfCount } : {}),
     ...(bookshelfNovelIds ? { inBookshelf: bookshelfNovelIds.has(detail.id) } : {}),
     relatedNovels: createRelatedNovelSummaries(detail, membershipActive),
+  };
+
+  return {
+    ...resolvedDetail,
+    contentDetail: createNovelContentDetail(resolvedDetail),
+    contentAccess: createNovelContentAccess(resolvedDetail),
   };
 }
 
@@ -467,6 +621,8 @@ export function toNovelCard(
     ...(resolvedDetail.bookshelfCount !== undefined ? { bookshelfCount: resolvedDetail.bookshelfCount } : {}),
     ...(resolvedDetail.coverUrl ? { coverUrl: resolvedDetail.coverUrl } : {}),
     ...(resolvedDetail.isPurchased !== undefined ? { isPurchased: resolvedDetail.isPurchased } : {}),
+    contentCard: createNovelContentCard(resolvedDetail, continueChapterId, continueChapterTitle),
+    contentAccess: createNovelContentAccess(resolvedDetail),
   };
 }
 
@@ -1398,4 +1554,257 @@ export function getMessageThread(userState: UserState, threadId: string): Messag
     messageThread,
     unreadBadge: createUnreadBadge(userState),
   };
+}
+
+const FEEDBACK_FAQ_ENTRIES: Record<string, FeedbackFaqEntry> = {
+  account: {
+    entryId: "faq_account_recovery",
+    title: "Account Recovery FAQ",
+    summary: "Use the shared account recovery lane before opening a duplicate support ticket.",
+    linkLabel: "Open FAQ",
+    linkUrl: "https://example.test/faq/account-recovery",
+  },
+  payment: {
+    entryId: "faq_payment_status",
+    title: "Payment Status FAQ",
+    summary: "Check order and payment status before escalating duplicate billing questions.",
+    linkLabel: "Open FAQ",
+    linkUrl: "https://example.test/faq/payment-status",
+  },
+  content: {
+    entryId: "faq_content_review",
+    title: "Content Review FAQ",
+    summary: "Review content moderation expectations and publication timing.",
+    linkLabel: "Open FAQ",
+    linkUrl: "https://example.test/faq/content-review",
+  },
+};
+
+const FEEDBACK_CATEGORIES: FeedbackCategory[] = [
+  {
+    key: "product_issue",
+    label: "Product Issue",
+    type: "issue_report",
+    description: "Use for broken flows, rendering issues, or session recovery problems.",
+    defaultPriority: "high",
+    labels: ["product", "bug"],
+    supportsAttachments: true,
+    faqEntry: FEEDBACK_FAQ_ENTRIES.account!,
+    customerServiceEntryLabel: "Open Support Desk",
+  },
+  {
+    key: "improvement",
+    label: "Suggestion",
+    type: "suggestion",
+    description: "Use for ideas, workflow improvements, and missing capabilities.",
+    defaultPriority: "medium",
+    labels: ["product", "idea"],
+    supportsAttachments: true,
+    customerServiceEntryLabel: "Open Suggestion Review Queue",
+  },
+  {
+    key: "billing",
+    label: "Payment Issue",
+    type: "complaint",
+    description: "Use for billing confusion, refunds, or duplicate payment concerns.",
+    defaultPriority: "urgent",
+    labels: ["payment", "billing"],
+    supportsAttachments: true,
+    faqEntry: FEEDBACK_FAQ_ENTRIES.payment!,
+    customerServiceEntryLabel: "Open Billing Support",
+  },
+  {
+    key: "abuse",
+    label: "Report Abuse",
+    type: "abuse_report",
+    description: "Use for harmful content, impersonation, or abuse reporting.",
+    defaultPriority: "urgent",
+    labels: ["abuse", "moderation"],
+    supportsAttachments: true,
+    faqEntry: FEEDBACK_FAQ_ENTRIES.content!,
+    customerServiceEntryLabel: "Open Trust and Safety Desk",
+  },
+  {
+    key: "satisfaction",
+    label: "Satisfaction Survey",
+    type: "satisfaction",
+    description: "Use for structured service satisfaction feedback.",
+    defaultPriority: "low",
+    labels: ["survey", "quality"],
+    supportsAttachments: false,
+    customerServiceEntryLabel: "Open Service Quality Desk",
+  },
+];
+
+function cloneFeedbackCategory(category: FeedbackCategory): FeedbackCategory {
+  return {
+    ...category,
+    labels: [...category.labels],
+    ...(category.faqEntry ? { faqEntry: { ...category.faqEntry } } : {}),
+  };
+}
+
+function cloneFeedbackStatus(status: FeedbackStatus): FeedbackStatus {
+  return {
+    ...status,
+    handlingProgress: [...status.handlingProgress],
+    processingHistory: status.processingHistory.map((record) => ({ ...record })),
+    ...(status.faqEntry ? { faqEntry: { ...status.faqEntry } } : {}),
+  };
+}
+
+function resolveFeedbackCategory(categoryKey: string, type: FeedbackType): FeedbackCategory {
+  const fallbackCategory = FEEDBACK_CATEGORIES[0];
+  return (
+    FEEDBACK_CATEGORIES.find((category) => category.key === categoryKey) ??
+    FEEDBACK_CATEGORIES.find((category) => category.type === type) ??
+    fallbackCategory!
+  );
+}
+
+function createFeedbackStatus(
+  state: FeedbackStatus["state"],
+  category: FeedbackCategory,
+  revisitRequired: boolean,
+  createdAt: string,
+): FeedbackStatus {
+  const history: FeedbackStatus["processingHistory"] = [
+    {
+      recordedAt: createdAt,
+      actorLabel: "System Intake",
+      actionLabel: "Ticket created",
+      note: "Feedback entered the shared support loop foundation.",
+      state: "submitted" as const,
+    },
+  ];
+
+  if (state !== "submitted") {
+    history.push({
+      recordedAt: createdAt,
+      actorLabel: "Support Queue",
+      actionLabel: "Ticket triaged",
+      note: "Sample feedback status advanced for retrieval coverage.",
+      state,
+    });
+  }
+
+  return {
+    state,
+    label:
+      state === "submitted"
+        ? "Submitted"
+        : state === "triaged"
+          ? "Triaged"
+          : state === "in_progress"
+            ? "In Progress"
+            : state === "waiting_user"
+              ? "Waiting for User"
+              : state === "resolved"
+                ? "Resolved"
+                : "Closed",
+    progressLabel:
+      state === "submitted"
+        ? "Queued for initial review"
+        : state === "triaged"
+          ? "Assigned to the right support lane"
+          : state === "in_progress"
+            ? "Being processed by support"
+            : state === "waiting_user"
+              ? "Waiting for more user context"
+              : state === "resolved"
+                ? "Handled and ready for confirmation"
+                : "Service loop complete",
+    revisitRequired,
+    ...(category.faqEntry ? { faqEntry: { ...category.faqEntry } } : {}),
+    ...(category.customerServiceEntryLabel
+      ? { customerServiceEntryLabel: category.customerServiceEntryLabel }
+      : {}),
+    handlingProgress: ["Submitted", "Triaged", "Processed", "Resolved"],
+    processingHistory: history,
+  };
+}
+
+function createFeedbackTicketResponse(
+  ticket: FeedbackTicket,
+  category: FeedbackCategory,
+  status: FeedbackStatus,
+): FeedbackTicketDetailResponse {
+  return {
+    feedbackTicket: structuredClone(ticket),
+    feedbackCategory: cloneFeedbackCategory(category),
+    feedbackStatus: cloneFeedbackStatus(status),
+  };
+}
+
+function createDefaultFeedbackContext(
+  session: SessionRecord,
+  request: SubmitFeedbackRequest["context"],
+): FeedbackTicket["context"] {
+  return {
+    sourcePage: request.sourcePage,
+    ...(request.sourceRouteId ? { sourceRouteId: request.sourceRouteId } : {}),
+    ...(request.sourceLabel ? { sourceLabel: request.sourceLabel } : {}),
+    userId: request.userId ?? session.userId,
+    platform: request.platform,
+    appVersion: request.appVersion,
+    ...(request.deviceSummary ? { deviceSummary: request.deviceSummary } : {}),
+    screenshotAssets: request.screenshotAssets.map((asset) => structuredClone(asset)),
+    attachmentAssets: request.attachmentAssets.map((asset) => structuredClone(asset)),
+  };
+}
+
+export function createFeedbackBootstrapResponse(userState: UserState): FeedbackBootstrapResponse {
+  const latestDetail = userState.latestFeedbackTicketId
+    ? userState.feedbackDetailsById[userState.latestFeedbackTicketId]
+    : undefined;
+
+  return {
+    feedbackCategories: FEEDBACK_CATEGORIES.map(cloneFeedbackCategory),
+    ...(latestDetail
+      ? {
+          latestTicket: structuredClone(latestDetail.feedbackTicket),
+          latestStatus: cloneFeedbackStatus(latestDetail.feedbackStatus),
+          latestCategory: cloneFeedbackCategory(latestDetail.feedbackCategory),
+        }
+      : {}),
+  };
+}
+
+export function submitFeedbackTicket(
+  session: SessionRecord,
+  userState: UserState,
+  request: SubmitFeedbackRequest,
+  now = new Date().toISOString(),
+): SubmitFeedbackResponse {
+  const category = resolveFeedbackCategory(request.categoryKey, request.type);
+  const ticketId = `fb_${crypto.randomUUID()}`;
+  const priority: FeedbackPriority = request.priority ?? category.defaultPriority;
+  const revisitRequested = Boolean(request.revisitRequested);
+  const ticket: FeedbackTicket = {
+    ticketId,
+    type: request.type,
+    categoryKey: category.key,
+    title: request.title,
+    description: request.description,
+    priority,
+    labels: [...new Set([...(request.labels ?? []), ...category.labels])],
+    revisitRequested,
+    ...(request.satisfactionScore !== undefined ? { satisfactionScore: request.satisfactionScore } : {}),
+    createdAt: now,
+    updatedAt: now,
+    context: createDefaultFeedbackContext(session, request.context),
+  };
+  const statusState: FeedbackStatus["state"] =
+    category.type === "abuse_report" || category.defaultPriority === "urgent" ? "triaged" : "submitted";
+  const status = createFeedbackStatus(statusState, category, revisitRequested, now);
+  const response = createFeedbackTicketResponse(ticket, category, status);
+
+  userState.feedbackDetailsById[ticketId] = response;
+  userState.latestFeedbackTicketId = ticketId;
+  return response;
+}
+
+export function getFeedbackTicket(userState: UserState, ticketId: string): FeedbackTicketDetailResponse | null {
+  const detail = userState.feedbackDetailsById[ticketId];
+  return detail ? createFeedbackTicketResponse(detail.feedbackTicket, detail.feedbackCategory, detail.feedbackStatus) : null;
 }

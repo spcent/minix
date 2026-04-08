@@ -1,4 +1,5 @@
-import type { FeedItem, FeedTag, SearchFilterGroup, SearchQuery, SearchResults } from "@minix/contracts";
+import type { FeedItem, FeedTag } from "@minix/contracts";
+import { createDefaultListPageState, type ListPageState } from "@minix/core";
 
 export interface FeedQuery {
   page: number;
@@ -6,26 +7,14 @@ export interface FeedQuery {
   keyword: string;
 }
 
-export interface FeedState {
-  title: string;
+export type FeedState = ListPageState<FeedItem> & {
   subtitle: string;
-  ready: boolean;
-  loading: boolean;
-  refreshing: boolean;
-  errorText: string | undefined;
   featuredReason: string | undefined;
-  items: FeedItem[];
   tags: FeedTag[];
-  searchQuery: SearchQuery | undefined;
-  searchFilters: SearchFilterGroup[];
-  searchResults: SearchResults<FeedItem> | undefined;
   activeTag: string | undefined;
-  selectedItemId: string | undefined;
   query: FeedQuery;
-  hasMore: boolean;
   recentKeywords: string[];
-  emptyText: string;
-}
+};
 
 export interface CreateFeedStateOptions {
   title: string;
@@ -48,28 +37,22 @@ function cloneTags(tags: FeedTag[]): FeedTag[] {
 
 export function createFeedState(options: CreateFeedStateOptions): FeedState {
   return {
-    title: options.title,
+    ...createDefaultListPageState<FeedItem>({
+      title: options.title,
+      subtitle: options.subtitle,
+      pageSize: options.pageSize,
+      emptyText: options.emptyText,
+    }),
     subtitle: options.subtitle,
-    ready: false,
-    loading: false,
-    refreshing: false,
-    errorText: undefined,
     featuredReason: undefined,
-    items: [],
     tags: cloneTags(options.tags ?? []),
-    searchQuery: undefined,
-    searchFilters: [],
-    searchResults: undefined,
     activeTag: undefined,
-    selectedItemId: undefined,
     query: {
       page: 1,
       pageSize: options.pageSize,
       keyword: "",
     },
-    hasMore: false,
     recentKeywords: [],
-    emptyText: options.emptyText,
   };
 }
 

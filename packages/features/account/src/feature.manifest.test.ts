@@ -64,6 +64,11 @@ function createKernelStub() {
             blacklisted: false,
             guest: false,
           },
+          identityWorkflows: {
+            canUpgradeGuest: false,
+            canBindPhone: false,
+            mergePending: false,
+          },
         } as T);
       },
     },

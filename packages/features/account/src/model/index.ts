@@ -1,4 +1,4 @@
-import type { AccountSummary, UserProfile, UserStatus } from "@minix/contracts";
+import type { AccountSummary, IdentityWorkflowSummary, UserProfile, UserStatus } from "@minix/contracts";
 
 export interface AccountSummaryStat {
   key: string;
@@ -40,8 +40,10 @@ export interface AccountState {
   userProfile?: UserProfile;
   accountSummary?: AccountSummary;
   userStatus?: UserStatus;
+  identityWorkflows?: IdentityWorkflowSummary;
   sessionLabel: string | undefined;
   authStatusLabel: string | undefined;
+  transitionFeedback: string | undefined;
   selectedActionKey: string | undefined;
   stats: AccountSummaryStat[];
   sections: AccountSection[];
@@ -90,6 +92,7 @@ export function createAccountState(options: CreateAccountStateOptions): AccountS
     avatarUrl: undefined,
     sessionLabel: undefined,
     authStatusLabel: undefined,
+    transitionFeedback: undefined,
     selectedActionKey: undefined,
     stats: cloneStats(options.stats ?? []),
     sections: cloneSections(options.sections ?? []),

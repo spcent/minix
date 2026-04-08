@@ -14,6 +14,11 @@ import type {
   ChapterContent,
   ChapterSummary,
   ChapterListResponse,
+  ContentAccess,
+  ContentCard,
+  ContentDetail,
+  ContentDisplay,
+  ContentLifecycle,
   LoadReadingProgressResponse,
   MembershipOverview,
   NovelDetail,
@@ -27,6 +32,7 @@ import type {
 } from "@minix/contracts";
 
 type QueryValue = string | number | boolean | undefined;
+type RawNovelDetail = Omit<NovelDetail, "contentDetail" | "contentAccess">;
 
 function createMockCoverUrl(title: string, accent: string, backgroundStart: string, backgroundEnd: string): string {
   const svg = [
@@ -80,7 +86,115 @@ const MEMBER_RENEWAL_LABELS: Record<PurchaseMembershipRequest["planId"], string>
 const DEFAULT_BOOKSHELF_NOVEL_IDS = ["novel_lantern", "novel_brocade"] as const;
 let progressByNovelIdRef: Record<string, ReadingProgress> | undefined;
 
-const NOVELS: NovelDetail[] = [
+function createNovelContentLifecycle(detail: RawNovelDetail | NovelDetail): ContentLifecycle {
+  const updatedAt = detail.latestChapter?.updatedAt ?? "2026-03-22T08:00:00.000Z";
+  return {
+    state: "published",
+    availableActions: ["update", "archive", "delete"],
+    publishedAt: updatedAt,
+    updatedAt,
+  };
+}
+
+function createNovelContentDisplay(
+  detail: RawNovelDetail | NovelDetail,
+  slot: ContentDisplay["recommendationSlot"],
+  slotLabel: string,
+): ContentDisplay {
+  return {
+    category: { key: detail.categoryKey, label: detail.categoryLabel },
+    tags: detail.tags.map((tag) => ({ key: tag.key, label: tag.label })),
+    topics: detail.tags.slice(0, 2).map((tag) => ({ key: tag.key, label: tag.label })),
+    ...(slot ? { recommendationSlot: slot } : {}),
+    recommendationSlotLabel: slotLabel,
+    pinned: detail.status === "serializing",
+    featured: detail.requiresMembership || detail.status === "serializing",
+  };
+}
+
+function createNovelContentAccess(detail: RawNovelDetail | NovelDetail): ContentAccess {
+  const purchased = Boolean(detail.isPurchased);
+  return {
+    visibility: detail.requiresMembership ? "member_only" : "public",
+    accessible: !detail.requiresMembership || purchased || detail.isFree,
+    previewAvailable: Boolean(detail.isFree || detail.isTrial),
+    requiresLogin: false,
+    requiresMembership: detail.requiresMembership,
+    requiresPurchase: false,
+    purchased,
+    summaryLabel:
+      detail.accessRuleSummaryLabel ??
+      (detail.requiresMembership
+        ? "This title stays in the premium lane until membership unlocks the complete reading route after the visible preview boundary."
+        : "Open-access reading continues without a paywall in the current sample surface."),
+    ...(detail.requiresMembership ? { gateLabel: "Membership required for full reading" } : {}),
+    ...(detail.requiresMembership ? { entitlementLabel: "Membership unlock" } : {}),
+  };
+}
+
+function createNovelContentDetail(detail: RawNovelDetail | NovelDetail): ContentDetail {
+  return {
+    contentId: detail.id,
+    model: "novel_story",
+    title: detail.title,
+    ...(detail.subtitle ? { subtitle: detail.subtitle } : {}),
+    summary: detail.summary,
+    ...(detail.coverUrl ? { coverUrl: detail.coverUrl } : {}),
+    authorLabel: detail.author.name,
+    display: createNovelContentDisplay(
+      detail,
+      detail.requiresMembership ? "premium" : detail.status === "serializing" ? "frontlist" : "ranking",
+      detail.requiresMembership ? "Premium Spotlight" : detail.status === "serializing" ? "Frontlist Serial" : "Completed Archive",
+    ),
+    lifecycle: createNovelContentLifecycle(detail),
+    ...(detail.relatedLaneLabel ? { recommendationReason: detail.relatedLaneLabel } : {}),
+  };
+}
+
+function createNovelContentCard(
+  detail: NovelDetail,
+  continueChapterId?: string,
+  continueChapterTitle?: string,
+): ContentCard {
+  const slot = continueChapterId
+    ? "continue_reading"
+    : detail.requiresMembership
+      ? "premium"
+      : detail.status === "serializing"
+        ? "frontlist"
+        : "ranking";
+  const slotLabel = continueChapterId
+    ? continueChapterTitle
+      ? `Continue · ${continueChapterTitle}`
+      : "Continue Reading"
+    : detail.requiresMembership
+      ? "Premium Spotlight"
+      : detail.status === "serializing"
+        ? "Frontlist Serial"
+        : "Completed Archive";
+
+  return {
+    contentId: detail.id,
+    model: "novel_story",
+    title: detail.title,
+    ...(detail.subtitle ? { subtitle: detail.subtitle } : {}),
+    summary: detail.summary,
+    ...(detail.coverUrl ? { coverUrl: detail.coverUrl } : {}),
+    authorLabel: detail.author.name,
+    display: createNovelContentDisplay(detail, slot, slotLabel),
+    lifecycle: createNovelContentLifecycle(detail),
+  };
+}
+
+function enrichNovelDetail(detail: RawNovelDetail): NovelDetail {
+  return {
+    ...detail,
+    contentDetail: createNovelContentDetail(detail),
+    contentAccess: createNovelContentAccess(detail),
+  };
+}
+
+const RAW_NOVELS: RawNovelDetail[] = [
   {
     id: "novel_lantern",
     slug: "ashes-of-the-lantern",
@@ -317,6 +431,8 @@ const NOVELS: NovelDetail[] = [
   },
 ];
 
+const NOVELS: NovelDetail[] = RAW_NOVELS.map(enrichNovelDetail);
+
 const CHAPTER_LISTS: Record<string, ChapterListResponse> = {
   novel_lantern: {
     novelId: "novel_lantern",
@@ -537,19 +653,30 @@ function toMembershipAwareNovelDetail(
   const resolveBookshelfCount = bookshelfNovelIds ? createBookshelfCountResolver(bookshelfNovelIds) : undefined;
   const bookshelfCount = resolveBookshelfCount?.(detail);
 
-  return {
+  const resolvedDetail = {
     ...detail,
     isPurchased: isPurchasedByMembership(detail, membershipActive),
     ...(bookshelfCount !== undefined ? { bookshelfCount } : {}),
     ...(bookshelfNovelIds ? { inBookshelf: bookshelfNovelIds.has(detail.id) } : {}),
     relatedNovels: createRelatedNovelSummaries(detail, membershipActive),
   };
+
+  return {
+    ...resolvedDetail,
+    contentDetail: createNovelContentDetail(resolvedDetail),
+    contentAccess: createNovelContentAccess(resolvedDetail),
+  };
 }
 
 function resolveNovelAccess(detail: NovelDetail, membershipActive: boolean): NovelDetail {
-  return {
+  const resolvedDetail = {
     ...detail,
     isPurchased: isPurchasedByMembership(detail, membershipActive),
+  };
+  return {
+    ...resolvedDetail,
+    contentDetail: createNovelContentDetail(resolvedDetail),
+    contentAccess: createNovelContentAccess(resolvedDetail),
   };
 }
 
@@ -649,6 +776,8 @@ function toNovelCard(detail: NovelDetail, membershipActive = false, bookshelfNov
     ...(resolvedDetail.bookshelfCount !== undefined ? { bookshelfCount: resolvedDetail.bookshelfCount } : {}),
     ...(resolvedDetail.coverUrl ? { coverUrl: resolvedDetail.coverUrl } : {}),
     ...(resolvedDetail.isPurchased !== undefined ? { isPurchased: resolvedDetail.isPurchased } : {}),
+    contentCard: createNovelContentCard(resolvedDetail, continueChapterId, continueChapterTitle),
+    contentAccess: createNovelContentAccess(resolvedDetail),
   };
 }
 

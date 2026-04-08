@@ -7,6 +7,60 @@ import type { NovelListResponse } from "@minix/contracts";
 
 import { createCatalogController } from "./index";
 
+function createNovelCardFixture(
+  value: Omit<NovelListResponse["items"][number], "contentCard" | "contentAccess">,
+): NovelListResponse["items"][number] {
+  return {
+    ...value,
+    contentCard: {
+      contentId: value.id,
+      model: "novel_story",
+      title: value.title,
+      summary: value.summary,
+      ...(value.coverUrl ? { coverUrl: value.coverUrl } : {}),
+      authorLabel: value.authorName,
+      display: {
+        category: { key: value.categoryKey, label: value.categoryLabel },
+        tags: value.tags.map((tag) => ({ key: tag.key, label: tag.label })),
+        topics: value.tags.slice(0, 2).map((tag) => ({ key: tag.key, label: tag.label })),
+        recommendationSlot: value.continueChapterId
+          ? "continue_reading"
+          : value.requiresMembership
+            ? "premium"
+            : value.status === "serializing"
+              ? "frontlist"
+              : "ranking",
+        recommendationSlotLabel: value.continueChapterId
+          ? "Continue Reading"
+          : value.requiresMembership
+            ? "Premium Spotlight"
+            : value.status === "serializing"
+              ? "Frontlist Serial"
+              : "Completed Archive",
+        pinned: value.status === "serializing",
+        featured: value.requiresMembership || value.status === "serializing",
+      },
+      lifecycle: {
+        state: "published",
+        availableActions: ["update", "archive", "delete"],
+        updatedAt: value.updatedAt,
+      },
+    },
+    contentAccess: {
+      visibility: value.requiresMembership ? "member_only" : "public",
+      accessible: !value.requiresMembership || Boolean(value.isPurchased) || value.isFree,
+      previewAvailable: Boolean(value.isFree || value.isTrial),
+      requiresLogin: false,
+      requiresMembership: value.requiresMembership,
+      requiresPurchase: false,
+      purchased: Boolean(value.isPurchased),
+      summaryLabel: value.requiresMembership
+        ? "This title stays in the premium lane until membership unlocks the complete reading route after the visible preview boundary."
+        : "Open-access reading continues without a paywall in the current sample surface.",
+    },
+  };
+}
+
 function createCatalogResponse(
   items: NovelListResponse["items"],
   query?: Record<string, unknown>,
@@ -323,7 +377,7 @@ test("catalog controller can continue a novel from the saved chapter when availa
   const { kernel, routeCalls } = createKernelStub();
   kernel.request.get = async <T>(_url: string, query?: Record<string, unknown>) =>
     ok(createCatalogResponse([
-      {
+      createNovelCardFixture({
         id: "novel_lantern",
         slug: "ashes-of-the-lantern",
         title: "Ashes Of The Lantern",
@@ -341,7 +395,7 @@ test("catalog controller can continue a novel from the saved chapter when availa
         isPurchased: true,
         continueChapterId: "lantern_ch_05",
         continueChapterTitle: "Chapter 5 · Ink On Wet Stone",
-      },
+      }),
     ], query) as T);
 
   const controller = createCatalogController({
@@ -368,7 +422,7 @@ test("catalog controller derives recommendation reasons for surfaced titles", as
   const { kernel } = createKernelStub();
   kernel.request.get = async <T>(_url: string, query?: Record<string, unknown>) =>
     ok(createCatalogResponse([
-      {
+      createNovelCardFixture({
         id: "novel_lantern",
         slug: "ashes-of-the-lantern",
         title: "Ashes Of The Lantern",
@@ -386,8 +440,8 @@ test("catalog controller derives recommendation reasons for surfaced titles", as
         isPurchased: true,
         continueChapterId: "lantern_ch_05",
         continueChapterTitle: "Chapter 5 · Ink On Wet Stone",
-      },
-      {
+      }),
+      createNovelCardFixture({
         id: "novel_brocade",
         slug: "brocade-pavilion",
         title: "Brocade Pavilion",
@@ -402,7 +456,7 @@ test("catalog controller derives recommendation reasons for surfaced titles", as
         isFree: false,
         isTrial: true,
         requiresMembership: true,
-      },
+      }),
     ], query) as T);
 
   const controller = createCatalogController({

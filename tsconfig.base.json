@@ -42,6 +42,9 @@
       "@minix/feature-catalog": [
         "./packages/features/catalog/src"
       ],
+      "@minix/feature-feedback": [
+        "./packages/features/feedback/src"
+      ],
       "@minix/feature-items": [
         "./packages/features/items/src"
       ],

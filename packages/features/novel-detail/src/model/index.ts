@@ -1,12 +1,9 @@
 import type { NovelDetail } from "@minix/contracts";
+import { createDefaultDetailPageState, type DetailPageState } from "@minix/core";
 
-export interface NovelDetailState {
-  ready: boolean;
-  title: string;
+export type NovelDetailState = DetailPageState<NovelDetail> & {
   novelId: string | undefined;
   detail: NovelDetail | undefined;
-  loading: boolean;
-  errorText: string | undefined;
   summaryExpanded: boolean;
   membershipLocked: boolean;
   membershipMessage: string | undefined;
@@ -31,7 +28,7 @@ export interface NovelDetailState {
   membershipActionLabel: string | undefined;
   bookshelfBusy: boolean;
   bookshelfNotice: string | undefined;
-}
+};
 
 export interface CreateNovelDetailStateOptions {
   title?: string;
@@ -40,12 +37,11 @@ export interface CreateNovelDetailStateOptions {
 
 export function createInitialNovelDetailState(options: CreateNovelDetailStateOptions = {}): NovelDetailState {
   return {
-    ready: false,
-    title: options.title ?? "Novel Detail",
+    ...createDefaultDetailPageState<NovelDetail>({
+      title: options.title ?? "Novel Detail",
+    }),
     novelId: options.novelId,
     detail: undefined,
-    loading: false,
-    errorText: undefined,
     summaryExpanded: false,
     membershipLocked: false,
     membershipMessage: undefined,

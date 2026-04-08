@@ -30,8 +30,9 @@ export function renderNovelCard(
   const badges = [
     item.categoryLabel,
     item.status,
+    item.contentCard?.display?.recommendationSlotLabel,
     item.requiresMembership ? "Membership" : item.isTrial ? "Trial" : "Open",
-  ];
+  ].filter((badge): badge is string => Boolean(badge));
 
   return `
     <article class="${classes}">

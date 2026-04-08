@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ok, type AppKernel } from "@minix/core";
+import { ok, type AppKernel, type Result, type UserSession } from "@minix/core";
 import { APP_ROUTE_IDS, type CurrentUserResponse } from "@minix/contracts";
 
 import { createAccountController } from "./index";
@@ -11,6 +11,21 @@ function createKernelStub() {
   const routeCalls: Array<{ routeId: string; params?: Record<string, string | number | boolean> }> = [];
   const clipboardWrites: string[] = [];
   let requestMode: "success" | "unauthorized" = "success";
+  const postCalls: Array<{ path: string; body: unknown }> = [];
+  let sessionValue: UserSession | null = {
+    loggedIn: true,
+    platform: "h5",
+    identity: { userId: "user-12345" },
+    profile: {
+      nickname: "Casey",
+      avatarUrl: "https://img.test/avatar.png",
+    },
+    token: {
+      accessToken: "token-1",
+      refreshToken: "refresh-1",
+      expiresAt: Date.now() + 60_000,
+    },
+  };
   let userResponse: CurrentUserResponse = {
     userProfile: {
       nickname: "Casey",
@@ -58,7 +73,39 @@ function createKernelStub() {
       blacklisted: false,
       guest: false,
     },
+    identityWorkflows: {
+      canUpgradeGuest: false,
+      canBindPhone: false,
+      mergePending: false,
+    },
   };
+  let postResult: Result<unknown> = ok({
+    userId: "user-12345",
+    accessToken: "token-2",
+    refreshToken: "refresh-2",
+    expiresAt: Date.now() + 60_000,
+    session: {
+      accessToken: "token-2",
+      refreshToken: "refresh-2",
+      expiresAt: Date.now() + 60_000,
+      issuedAt: Date.now(),
+      tokenType: "Bearer",
+    },
+    identity: {
+      userId: "user-12345",
+      phoneBound: true,
+      wechatBound: true,
+      loginMethod: "wechat_code",
+    },
+    authStatus: "authenticated",
+    identityWorkflow: {
+      kind: "phone_binding",
+      status: "completed",
+      sourceUserId: "user-12345",
+      targetUserId: "user-12345",
+      message: "The current account is now bound to the verified phone number.",
+    },
+  });
 
   const kernel: AppKernel = {
     env: {
@@ -76,22 +123,10 @@ function createKernelStub() {
     storage: {} as AppKernel["storage"],
     session: {
       async get() {
-        return ok({
-          loggedIn: true,
-          platform: "h5",
-          identity: { userId: "user-12345" },
-          profile: {
-            nickname: "Casey",
-            avatarUrl: "https://img.test/avatar.png",
-          },
-          token: {
-            accessToken: "token-1",
-            refreshToken: "refresh-1",
-            expiresAt: Date.now() + 60_000,
-          },
-        });
+        return ok(sessionValue);
       },
-      async set() {
+      async set(nextSession) {
+        sessionValue = nextSession;
         return ok(undefined);
       },
       async clear() {
@@ -116,8 +151,31 @@ function createKernelStub() {
 
         return ok(userResponse as T);
       },
-      async post<T>() {
-        return ok({} as T);
+      async post<T>(path: string, body?: unknown) {
+        postCalls.push({ path, body });
+        if (postResult.ok) {
+          const payload = postResult.value as {
+            identity?: { phoneBound?: boolean; wechatBound?: boolean };
+            identityWorkflow?: CurrentUserResponse["identityWorkflows"]["lastWorkflow"];
+          };
+          userResponse = {
+            ...userResponse,
+            accountSummary: {
+              ...userResponse.accountSummary,
+              phoneBound: payload.identity?.phoneBound ?? userResponse.accountSummary.phoneBound,
+              wechatBound: payload.identity?.wechatBound ?? userResponse.accountSummary.wechatBound,
+            },
+            identityWorkflows: {
+              ...userResponse.identityWorkflows,
+              mergePending: payload.identityWorkflow?.status === "merge_required",
+              ...(payload.identityWorkflow?.status === "merge_required"
+                ? { pendingWorkflow: payload.identityWorkflow }
+                : {}),
+              ...(payload.identityWorkflow ? { lastWorkflow: payload.identityWorkflow } : {}),
+            },
+          };
+        }
+        return postResult as Result<T>;
       },
       async put<T>() {
         return ok({} as T);
@@ -174,11 +232,18 @@ function createKernelStub() {
     kernel,
     routeCalls,
     clipboardWrites,
+    postCalls,
     setRequestMode(mode: "success" | "unauthorized") {
       requestMode = mode;
     },
     setUserResponse(nextResponse: CurrentUserResponse) {
       userResponse = nextResponse;
+    },
+    setSession(nextSession: UserSession | null) {
+      sessionValue = nextSession;
+    },
+    setPostResult(nextResult: Result<unknown>) {
+      postResult = nextResult;
     },
   };
 }
@@ -257,4 +322,80 @@ test("account controller can route into settings and overview when configured", 
     { routeId: APP_ROUTE_IDS.settings },
     { routeId: APP_ROUTE_IDS.overview },
   ]);
+});
+
+test("account controller surfaces identity workflow actions from the normalized profile response", async () => {
+  const { kernel, setUserResponse } = createKernelStub();
+  setUserResponse({
+    userProfile: {
+      nickname: "Guest Casey",
+      tags: ["guest", "trial"],
+    },
+    accountSummary: {
+      userId: "guest_1",
+      phoneBound: false,
+      wechatBound: true,
+      realNameStatus: "unverified",
+      assets: {
+        points: 0,
+        level: 1,
+        membership: {
+          active: false,
+          tier: "guest",
+          entitlementScope: "none",
+          statusLabel: "Guest mode",
+          renewalLabel: "Upgrade anytime",
+          headline: "Guest",
+          subheadline: "Guest",
+          benefits: [],
+        },
+        entitlementLabels: ["basic-access"],
+        balanceCents: 0,
+      },
+      relations: {
+        followingCount: 0,
+        followerCount: 0,
+        friendCount: 0,
+        blockedCount: 0,
+      },
+    },
+    userStatus: {
+      availability: "guest",
+      enabled: false,
+      frozen: false,
+      cancellationInProgress: false,
+      blacklisted: false,
+      guest: true,
+    },
+    identityWorkflows: {
+      canUpgradeGuest: true,
+      canBindPhone: false,
+      mergePending: false,
+    },
+  });
+  const controller = createAccountController({
+    kernel,
+    loginRouteId: APP_ROUTE_IDS.login,
+  });
+
+  await controller.loadInitial();
+
+  assert.equal(controller.store.getState().actions.some((action) => action.key === "upgrade-guest"), true);
+});
+
+test("account controller can submit phone binding and refresh account state", async () => {
+  const { kernel, postCalls } = createKernelStub();
+  const controller = createAccountController({
+    kernel,
+    loginRouteId: APP_ROUTE_IDS.login,
+  });
+
+  await controller.loadInitial();
+  await controller.submitPhoneBinding({
+    phoneNumber: "13800000022",
+    verificationCode: "123456",
+  });
+
+  assert.equal(postCalls[0]?.path, "/auth/identity/bind-phone");
+  assert.equal(controller.store.getState().transitionFeedback, "The current account is now bound to the verified phone number.");
 });

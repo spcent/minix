@@ -8,7 +8,7 @@ import type {
 } from "@minix/contracts";
 import { createDefaultListPageState, type ListPageState } from "@minix/core";
 
-export type MessagesState = ListPageState<NotificationItem> & {
+export type MessagesState = Omit<ListPageState<NotificationItem>, "filters"> & {
   filters: NotificationFilterGroup[];
   groups: NotificationGroupSummary[];
   unreadBadge: UnreadBadge;

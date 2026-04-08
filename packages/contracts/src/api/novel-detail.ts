@@ -1,3 +1,4 @@
+import type { ContentAccess, ContentDetail } from "./content";
 import type { NovelStatus, NovelTag } from "./novels";
 
 export interface NovelAuthorSummary {
@@ -57,4 +58,6 @@ export interface NovelDetail {
   isPurchased?: boolean;
   inBookshelf?: boolean;
   relatedNovels?: RelatedNovelSummary[];
+  contentDetail: ContentDetail;
+  contentAccess: ContentAccess;
 }

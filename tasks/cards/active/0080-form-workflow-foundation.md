@@ -88,7 +88,7 @@ Provide stable shared outputs for `formValues`, `validationErrors`, and `submitS
 
 ## Acceptance
 
-- [ ] form contracts cover field type, validation, and submission workflow semantics explicitly
-- [ ] at least one business feature consumes the shared form workflow
-- [ ] outputs include explicit `formValues`, `validationErrors`, and `submitState` semantics
-- [ ] `pnpm verify` run
+- [x] form contracts cover field type, validation, and submission workflow semantics explicitly
+- [x] at least one business feature consumes the shared form workflow
+- [x] outputs include explicit `formValues`, `validationErrors`, and `submitState` semantics
+- [x] `pnpm verify` run

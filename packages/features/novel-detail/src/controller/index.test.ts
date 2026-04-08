@@ -23,11 +23,53 @@ interface KernelStubOptions {
   };
 }
 
+function withContentFields(detail: Omit<NovelDetail, "contentDetail" | "contentAccess">): NovelDetail {
+  return {
+    ...detail,
+    contentDetail: {
+      contentId: detail.id,
+      model: "novel_story",
+      title: detail.title,
+      ...(detail.subtitle ? { subtitle: detail.subtitle } : {}),
+      summary: detail.summary,
+      authorLabel: detail.author.name,
+      display: {
+        category: { key: detail.categoryKey, label: detail.categoryLabel },
+        tags: detail.tags.map((tag) => ({ key: tag.key, label: tag.label })),
+        topics: detail.tags.slice(0, 2).map((tag) => ({ key: tag.key, label: tag.label })),
+        recommendationSlot: detail.requiresMembership ? "premium" : "frontlist",
+        recommendationSlotLabel: detail.requiresMembership ? "Premium Spotlight" : "Frontlist Serial",
+        pinned: detail.status === "serializing",
+        featured: detail.requiresMembership || detail.status === "serializing",
+      },
+      lifecycle: {
+        state: "published",
+        availableActions: ["update", "archive", "delete"],
+        updatedAt: "2026-03-24T09:00:00.000Z",
+      },
+    },
+    contentAccess: {
+      visibility: detail.requiresMembership ? "member_only" : "public",
+      accessible: !detail.requiresMembership || Boolean(detail.isPurchased) || detail.isFree,
+      previewAvailable: Boolean(detail.isFree || detail.isTrial),
+      requiresLogin: false,
+      requiresMembership: detail.requiresMembership,
+      requiresPurchase: false,
+      purchased: Boolean(detail.isPurchased),
+      summaryLabel:
+        detail.accessRuleSummaryLabel ??
+        (detail.requiresMembership
+          ? "This title stays in the premium lane until membership unlocks the complete reading route after the visible preview boundary."
+          : "Open-access reading continues without a paywall in the current sample surface."),
+    },
+  };
+}
+
 function createKernelStub(options: KernelStubOptions = {}) {
   const routeCalls: Array<{ routeId: string; params?: Record<string, string | number | boolean> }> = [];
   const currentNovelId = options.currentNovelId ?? "novel_lantern";
   const detail: NovelDetail =
-    options.detail ?? {
+    options.detail ?? withContentFields({
       id: "novel_lantern",
       slug: "ashes-of-the-lantern",
       title: "Ashes Of The Lantern",
@@ -50,7 +92,7 @@ function createKernelStub(options: KernelStubOptions = {}) {
       requiresMembership: false,
       isPurchased: true,
       inBookshelf: false,
-    };
+    });
   const progress: LoadReadingProgressResponse = options.progress ?? {
     progress: {
       novelId: "novel_lantern",
@@ -191,6 +233,10 @@ test("novel-detail controller prefers saved progress for continue reading", asyn
 
   assert.equal(result.ok, true);
   assert.equal(controller.store.getState().detail?.continueChapterId, "lantern_ch_05");
+  assert.equal(controller.store.getState().detailData?.id, "novel_lantern");
+  assert.equal(controller.store.getState().detailStatus.loadState, "ready");
+  assert.equal(controller.store.getState().detailStatus.entryContext, "deep_link");
+  assert.equal(controller.store.getState().detailActions[0]?.key, "continue-reading");
   assert.match(controller.store.getState().reputationSummary ?? "", /editorial framing|reputation/i);
   assert.match(controller.store.getState().cadenceSummary ?? "", /latest visible movement|release rhythm/i);
   assert.match(controller.store.getState().trialSummary ?? "", /open to read|Open-access reading|continuation available/i);
@@ -208,7 +254,7 @@ test("novel-detail controller prefers saved progress for continue reading", asyn
 
 test("novel-detail controller routes locked titles to membership", async () => {
   const { kernel, routeCalls } = createKernelStub({
-    detail: {
+    detail: withContentFields({
       id: "novel_brocade",
       slug: "brocade-pavilion",
       title: "Brocade Pavilion",
@@ -231,7 +277,7 @@ test("novel-detail controller routes locked titles to membership", async () => {
       requiresMembership: true,
       isPurchased: false,
       inBookshelf: false,
-    },
+    }),
     progress: {
       progress: {
         novelId: "novel_brocade",
@@ -255,6 +301,7 @@ test("novel-detail controller routes locked titles to membership", async () => {
   await controller.continueReading();
 
   assert.equal(controller.store.getState().membershipLocked, true);
+  assert.equal(controller.store.getState().detailActions[0]?.key, "open-membership");
   assert.deepEqual(routeCalls.at(-1), {
     routeId: APP_ROUTE_IDS.membership,
     params: {
@@ -294,6 +341,30 @@ test("novel-detail controller hydrates the latest milestone from shared storage"
   assert.equal(controller.store.getState().latestMilestoneMeta, "Saved from TOC");
   assert.equal(controller.store.getState().latestMilestoneSourceLabel, "Saved from TOC");
   assert.equal(controller.store.getState().latestMilestoneReturnLabel, "Return to directory");
+});
+
+test("novel-detail controller keeps detail actions in sync with bookshelf mutations", async () => {
+  const { kernel } = createKernelStub();
+  const controller = createNovelDetailController({
+    kernel,
+    novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
+    catalogRouteId: APP_ROUTE_IDS.catalog,
+    tocRouteId: APP_ROUTE_IDS.toc,
+    readerRouteId: APP_ROUTE_IDS.reader,
+  });
+
+  await controller.load();
+  await controller.addToBookshelf();
+
+  assert.equal(controller.store.getState().detail?.inBookshelf, true);
+  assert.equal(controller.store.getState().detailData?.inBookshelf, true);
+  assert.equal(controller.store.getState().detailActions[1]?.key, "remove-bookshelf");
+
+  await controller.removeFromBookshelf();
+
+  assert.equal(controller.store.getState().detail?.inBookshelf, false);
+  assert.equal(controller.store.getState().detailData?.inBookshelf, false);
+  assert.equal(controller.store.getState().detailActions[1]?.key, "add-bookshelf");
 });
 
 test("novel-detail controller can reopen the latest milestone route", async () => {

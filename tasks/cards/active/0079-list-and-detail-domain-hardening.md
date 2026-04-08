@@ -87,8 +87,7 @@ Make list/detail protocols strong enough to back real business features consiste
 
 ## Acceptance
 
-- [ ] list outputs explicitly cover pagination, filters, selection, and state semantics
-- [ ] detail outputs explicitly cover status, actions, and entry-context semantics
-- [ ] stronger protocols reduce duplication without breaking feature-package boundaries
-- [ ] `pnpm verify` run
-
+- [x] list outputs explicitly cover pagination, filters, selection, and state semantics
+- [x] detail outputs explicitly cover status, actions, and entry-context semantics
+- [x] stronger protocols reduce duplication without breaking feature-package boundaries
+- [x] `pnpm verify` run

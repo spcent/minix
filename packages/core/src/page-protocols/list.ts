@@ -1,4 +1,13 @@
-import type { ListPageQuery, SearchFilterGroup, SearchQuery, SearchResults } from "@minix/contracts";
+import type {
+  ListPagination,
+  ListPageLoadState,
+  ListPageQuery,
+  ListSelectionState,
+  ListStatus,
+  SearchFilterGroup,
+  SearchQuery,
+  SearchResults,
+} from "@minix/contracts";
 
 export interface ListPageState<TItem> {
   title: string;
@@ -11,6 +20,10 @@ export interface ListPageState<TItem> {
   emptyText: string;
   items: TItem[];
   selectedItemId: string | undefined;
+  pagination: ListPagination;
+  filters: SearchFilterGroup[];
+  selection: ListSelectionState;
+  status: ListStatus;
   hasMore: boolean;
   nextCursor: string | undefined;
   total: number | undefined;
@@ -34,9 +47,14 @@ export interface CreateListPageStateOptions<TItem> {
   nextCursor?: string;
   total?: number;
   selectedItemId?: string;
+  selectedItemIds?: string[];
+  batchSelectable?: boolean;
+  stickyHeaderEnabled?: boolean;
   searchQuery?: SearchQuery;
   searchFilters?: SearchFilterGroup[];
   searchResults?: SearchResults<TItem>;
+  loadState?: ListPageLoadState;
+  partialData?: boolean;
 }
 
 export interface CreateDefaultListPageStateOptions<TItem> {
@@ -45,6 +63,7 @@ export interface CreateDefaultListPageStateOptions<TItem> {
   pageSize?: number;
   emptyText?: string;
   items?: TItem[];
+  loadState?: ListPageLoadState;
 }
 
 function cloneItems<TItem>(items: TItem[]): TItem[] {
@@ -70,6 +89,26 @@ export function createListPageState<TItem>(options: CreateListPageStateOptions<T
     emptyText: options.emptyText,
     items: cloneItems(options.items ?? []),
     selectedItemId: firstItemId,
+    pagination: {
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? options.pageSize,
+      hasMore: options.hasMore ?? false,
+      ...(options.nextCursor !== undefined ? { nextCursor: options.nextCursor } : {}),
+      ...(options.total !== undefined ? { total: options.total } : {}),
+    },
+    filters: options.searchFilters?.map((group) => structuredClone(group)) ?? [],
+    selection: {
+      ...(firstItemId !== undefined ? { selectedItemId: firstItemId } : {}),
+      selectedItemIds: [...(options.selectedItemIds ?? (firstItemId ? [firstItemId] : []))],
+      batchSelectable: options.batchSelectable ?? false,
+    },
+    status: {
+      loadState: options.loadState ?? "idle",
+      firstLoaded: false,
+      retryable: true,
+      partialData: options.partialData ?? false,
+      stickyHeaderEnabled: options.stickyHeaderEnabled ?? false,
+    },
     hasMore: options.hasMore ?? false,
     nextCursor: options.nextCursor,
     total: options.total,
@@ -96,5 +135,6 @@ export function createDefaultListPageState<TItem>(
     pageSize: options.pageSize ?? 20,
     emptyText: options.emptyText ?? "No items are available yet.",
     ...(options.items ? { items: options.items } : {}),
+    ...(options.loadState !== undefined ? { loadState: options.loadState } : {}),
   });
 }

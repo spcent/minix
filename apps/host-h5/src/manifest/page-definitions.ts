@@ -2,6 +2,7 @@ import { APP_ROUTE_IDS } from "@minix/contracts";
 import { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags, type SettingsPageModel } from "@minix/core";
 import { accountFeatureManifest, createDefaultAccountState } from "@minix/feature-account";
 import { authFeatureManifest, createInitialAuthPageState } from "@minix/feature-auth";
+import { createDefaultFeedbackState, feedbackFeatureManifest } from "@minix/feature-feedback";
 import { createDefaultFeedState, feedFeatureManifest } from "@minix/feature-feed";
 import { createDefaultItemsPageModel, itemsFeatureManifest } from "@minix/feature-items";
 import { createDefaultMediaToolsState, mediaToolsFeatureManifest } from "@minix/feature-media-tools";
@@ -168,6 +169,33 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     requiredCapabilities: [{ capability: "device" }],
     featureConfig: {
       surface: "feed",
+    },
+    renderMode: "custom",
+  },
+  feedback: {
+    feature: feedbackFeatureManifest,
+    routeId: APP_ROUTE_IDS.feedback,
+    routePath: "/feedback",
+    pageData: createDefaultFeedbackState({
+      title: "Feedback",
+      subtitle: "Issue reports, suggestions, complaints, abuse reports, and satisfaction tickets share one reusable ticket model here.",
+    }),
+    controller: {
+      feedbackRouteId: APP_ROUTE_IDS.feedback,
+      loginRouteId: APP_ROUTE_IDS.login,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+      cancelRouteId: APP_ROUTE_IDS.account,
+      authRedirectSource: "feedback",
+    },
+    guardPolicy: {
+      name: "authenticated-feedback",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    featureConfig: {
+      surface: "feedback",
+      template: "form",
     },
     renderMode: "custom",
   },

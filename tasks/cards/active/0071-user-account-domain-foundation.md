@@ -104,8 +104,8 @@ Create one reusable user domain contract and feature package that covers profile
 
 ## Acceptance
 
-- [ ] user/account domain has explicit shared outputs instead of host-local `/me` parsing
-- [ ] `@minix/feature-account` is adopted by at least one official host manifest
-- [ ] reserved fields for phone binding, WeChat binding, real-name state, and asset placeholders are modeled explicitly
-- [ ] reserved relation fields for follow/fans/friends/blacklist/remark name are modeled explicitly
-- [ ] `pnpm verify` run
+- [x] user/account domain has explicit shared outputs instead of host-local `/me` parsing
+- [x] `@minix/feature-account` is adopted by at least one official host manifest
+- [x] reserved fields for phone binding, WeChat binding, real-name state, and asset placeholders are modeled explicitly
+- [x] reserved relation fields for follow/fans/friends/blacklist/remark name are modeled explicitly
+- [x] `pnpm verify` run

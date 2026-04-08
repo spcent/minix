@@ -1,3 +1,4 @@
+import type { ContentAccess, ContentCard } from "./content";
 import type { SearchFilterGroup, SearchQuery, SearchResults } from "./search";
 
 export type NovelStatus = "serializing" | "completed" | "paused";
@@ -34,6 +35,8 @@ export interface NovelCard {
   isTrial: boolean;
   requiresMembership: boolean;
   isPurchased?: boolean;
+  contentCard: ContentCard;
+  contentAccess: ContentAccess;
 }
 
 export interface NovelListQuery {

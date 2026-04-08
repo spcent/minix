@@ -93,8 +93,8 @@ Turn partial novel-only discovery behavior into explicit contracts and feature p
 
 ## Acceptance
 
-- [ ] search contracts are no longer embedded only in catalog controller internals
-- [ ] feed/search route param handling is normalized and reusable
-- [ ] `@minix/feature-feed` is either adopted by a host or explicitly re-scoped with a documented reason
-- [ ] at least one host manifest adopts the resulting shared surface
-- [ ] `pnpm verify` run
+- [x] search contracts are no longer embedded only in catalog controller internals
+- [x] feed/search route param handling is normalized and reusable
+- [x] `@minix/feature-feed` is either adopted by a host or explicitly re-scoped with a documented reason
+- [x] at least one host manifest adopts the resulting shared surface
+- [x] `pnpm verify` run

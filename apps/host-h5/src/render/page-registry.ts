@@ -1,4 +1,5 @@
 import type { AccountState } from "@minix/feature-account";
+import type { FeedbackState } from "@minix/feature-feedback";
 import type { FeedState } from "@minix/feature-feed";
 import type { ItemsFilterValue, ItemsPageItem } from "@minix/feature-items";
 import type { MediaToolsState } from "@minix/feature-media-tools";
@@ -722,6 +723,18 @@ const APP_STYLES = `
     font: inherit;
   }
 
+  .me-input-block {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .me-input-area {
+    min-height: 140px;
+    padding: 14px;
+    resize: vertical;
+  }
+
   .me-summary-card {
     display: grid;
     gap: 18px;
@@ -1164,6 +1177,8 @@ function resolvePageLabel(pageKey: HostH5PageKey): string {
       return "Today's Plan";
     case "feed":
       return "Discover";
+    case "feedback":
+      return "Feedback";
     case "mediaTools":
       return "Media Tools";
     case "messages":
@@ -1178,11 +1193,12 @@ function resolvePageLabel(pageKey: HostH5PageKey): string {
 }
 
 function renderGlobalNavigation(pageKey: HostH5PageKey, authenticated: boolean): string {
-  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "media-tools.workspace" | "messages.index" | "settings.index" | "account.index"; label: string }> = [
+  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "feedback.form" | "media-tools.workspace" | "messages.index" | "settings.index" | "account.index"; label: string }> = [
     { key: "login", routeId: "auth.login", label: "Home" },
     { key: "overview", routeId: "overview.index", label: "Overview" },
     { key: "items", routeId: "items.list", label: "Today's Plan" },
     { key: "feed", routeId: "feed.index", label: "Discover" },
+    { key: "feedback", routeId: "feedback.form", label: "Feedback" },
     { key: "mediaTools", routeId: "media-tools.workspace", label: "Media Tools" },
     { key: "messages", routeId: "messages.index", label: "Inbox" },
     { key: "settings", routeId: "settings.index", label: "Preferences" },
@@ -1199,11 +1215,12 @@ function renderGlobalNavigation(pageKey: HostH5PageKey, authenticated: boolean):
 }
 
 function renderFooterLinks(pageKey: HostH5PageKey, authenticated: boolean): string {
-  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "media-tools.workspace" | "messages.index" | "settings.index" | "account.index"; label: string }> = [
+  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "feedback.form" | "media-tools.workspace" | "messages.index" | "settings.index" | "account.index"; label: string }> = [
     { key: "login", routeId: "auth.login", label: "Home" },
     { key: "overview", routeId: "overview.index", label: "Overview" },
     { key: "items", routeId: "items.list", label: "Today's Plan" },
     { key: "feed", routeId: "feed.index", label: "Discover" },
+    { key: "feedback", routeId: "feedback.form", label: "Feedback" },
     { key: "mediaTools", routeId: "media-tools.workspace", label: "Media Tools" },
     { key: "messages", routeId: "messages.index", label: "Inbox" },
     { key: "settings", routeId: "settings.index", label: "Preferences" },
@@ -1230,6 +1247,7 @@ function resolveShellTone(pageKey: HostH5PageKey): ShellTone {
       return "landing";
     case "overview":
     case "feed":
+    case "feedback":
     case "mediaTools":
     case "messages":
       return "dashboard";
@@ -2805,6 +2823,278 @@ function renderMediaToolsPage({ root, runtime, sync }: HostH5PageRenderContext) 
   });
 }
 
+function renderFeedbackPage({ root, runtime, sync }: HostH5PageRenderContext) {
+  const state = runtime.pages.feedback.store.getState() as FeedbackState;
+  const selectedCategory = state.categories.find((category) => category.key === state.values.categoryKey);
+  const titleError = state.fieldErrors.find((error) => error.field === "title")?.message;
+  const descriptionError = state.fieldErrors.find((error) => error.field === "description")?.message;
+  const categoryError = state.fieldErrors.find((error) => error.field === "categoryKey")?.message;
+  const satisfactionError = state.fieldErrors.find((error) => error.field === "satisfactionScore")?.message;
+  const latestStatusLabel = state.latestStatus?.label ?? "No ticket submitted yet";
+
+  const syncDraftValues = () => {
+    const title = root.querySelector<HTMLInputElement>("#feedback-title")?.value ?? state.values.title;
+    const description =
+      root.querySelector<HTMLTextAreaElement>("#feedback-description")?.value ?? state.values.description;
+    runtime.pages.feedback.updateValues({
+      title,
+      description,
+    });
+  };
+
+  renderApp(
+    root,
+    "Feedback",
+    runtime,
+    "feedback",
+    `
+      <section class="me-screen">
+        <section class="me-surface me-hero">
+          <div class="me-hero-copy">
+            <p class="me-eyebrow">Service Loop</p>
+            <h1 class="me-title">${escapeHtml(state.title)}</h1>
+            <p class="me-subtitle">${escapeHtml(state.subtitle ?? "Report issues, send suggestions, or track a previous feedback ticket.")}</p>
+            <div class="me-chip-row">
+              <span class="me-chip">${escapeHtml(selectedCategory?.label ?? "Choose a category")}</span>
+              <span class="me-chip me-chip-accent">${escapeHtml(latestStatusLabel)}</span>
+              <span class="me-chip">${escapeHtml(state.values.revisitRequested ? "Follow-up requested" : "No follow-up requested")}</span>
+            </div>
+          </div>
+          <aside class="me-panel">
+            <p class="me-panel-kicker">Current Context</p>
+            <h2 class="me-panel-title">Captured app and device context travels with each ticket</h2>
+            <ul class="me-panel-list">
+              <li>${escapeHtml(`Source page: ${state.values.sourcePage || "/feedback"}`)}</li>
+              <li>${escapeHtml(`Platform: ${state.values.platform} · version ${state.values.appVersion}`)}</li>
+              <li>${escapeHtml(`Device: ${state.values.deviceSummary ?? "No device summary available"}`)}</li>
+              <li>${escapeHtml(`Customer service: ${state.serviceHint ?? "Ticket flow only"}`)}</li>
+            </ul>
+          </aside>
+        </section>
+
+        <section class="me-grid me-grid-columns">
+          <section class="me-surface me-card">
+            <p class="me-section-kicker">Ticket Form</p>
+            <h2 class="me-card-title">Submit feedback</h2>
+            <p class="me-card-subtitle">This page models issue reports, suggestions, complaints, abuse reports, and satisfaction follow-up in one shared contract.</p>
+
+            <section class="me-settings-section">
+              <div class="me-settings-item">
+                <p class="me-settings-label">Category</p>
+                <div class="me-chip-row">
+                  ${state.categories
+                    .map(
+                      (category) => `
+                        <button class="me-filter-button ${state.values.categoryKey === category.key ? "me-filter-button-active" : ""}" data-feedback-category="${escapeHtml(category.key)}">
+                          ${escapeHtml(category.label)}
+                        </button>
+                      `,
+                    )
+                    .join("")}
+                </div>
+                ${categoryError ? `<p class="me-message me-message-error">${escapeHtml(categoryError)}</p>` : ""}
+              </div>
+
+              <div class="me-settings-item">
+                <p class="me-settings-label">Type</p>
+                <div class="me-chip-row">
+                  ${["issue_report", "suggestion", "complaint", "abuse_report", "satisfaction"]
+                    .map(
+                      (type) => `
+                        <button class="me-filter-button ${state.values.type === type ? "me-filter-button-active" : ""}" data-feedback-type="${type}">
+                          ${escapeHtml(type.replaceAll("_", " "))}
+                        </button>
+                      `,
+                    )
+                    .join("")}
+                </div>
+              </div>
+
+              <div class="me-settings-item">
+                <label class="me-settings-label" for="feedback-title">Title</label>
+                <input id="feedback-title" class="me-input me-input-block" value="${escapeHtml(state.values.title)}" placeholder="Short summary of the problem or suggestion" />
+                ${titleError ? `<p class="me-message me-message-error">${escapeHtml(titleError)}</p>` : ""}
+              </div>
+
+              <div class="me-settings-item">
+                <label class="me-settings-label" for="feedback-description">Description</label>
+                <textarea id="feedback-description" class="me-input me-input-block me-input-area" placeholder="Describe the issue, steps, expected behavior, or suggestion.">${escapeHtml(state.values.description)}</textarea>
+                ${descriptionError ? `<p class="me-message me-message-error">${escapeHtml(descriptionError)}</p>` : ""}
+              </div>
+
+              <div class="me-settings-item">
+                <p class="me-settings-label">Satisfaction score</p>
+                <div class="me-chip-row">
+                  ${[1, 2, 3, 4, 5]
+                    .map(
+                      (score) => `
+                        <button class="me-filter-button ${state.values.satisfactionScore === score ? "me-filter-button-active" : ""}" data-feedback-score="${String(score)}">
+                          ${escapeHtml(`${score}/5`)}
+                        </button>
+                      `,
+                    )
+                    .join("")}
+                </div>
+                ${satisfactionError ? `<p class="me-message me-message-error">${escapeHtml(satisfactionError)}</p>` : ""}
+              </div>
+            </section>
+
+            <div class="me-action-group">
+              <button id="feedback-submit" class="me-button me-button-primary" ${state.submitting ? "disabled" : ""}>${state.submitting ? "Submitting..." : "Submit ticket"}</button>
+              <button id="feedback-toggle-revisit" class="me-button me-button-secondary">${escapeHtml(state.values.revisitRequested ? "Disable follow-up" : "Request follow-up")}</button>
+              <button id="feedback-refresh" class="me-button me-button-ghost">Refresh latest status</button>
+            </div>
+            ${state.errorText ? `<p class="me-message me-message-error">${escapeHtml(state.errorText)}</p>` : ""}
+            ${
+              state.lastSubmission?.submittedAt !== undefined
+                ? `<p class="me-message">${escapeHtml(`Latest ticket saved at ${new Date(state.lastSubmission.submittedAt).toLocaleString("en-US")}.`)}</p>`
+                : ""
+            }
+          </section>
+
+          <section class="me-surface me-card">
+            <p class="me-section-kicker">Attachments</p>
+            <h2 class="me-card-title">Context capture</h2>
+            <section class="me-settings-section">
+              <div class="me-settings-item">
+                <p class="me-settings-label">Screenshots</p>
+                <p class="me-settings-value">${escapeHtml(state.values.screenshotAssets.map((asset) => asset.fileName).join(", ") || "No screenshots attached yet.")}</p>
+              </div>
+              <div class="me-settings-item">
+                <p class="me-settings-label">Attachments</p>
+                <p class="me-settings-value">${escapeHtml(state.values.attachmentAssets.map((asset) => asset.fileName).join(", ") || "No attachments attached yet.")}</p>
+              </div>
+              <div class="me-settings-item">
+                <p class="me-settings-label">Category guidance</p>
+                <p class="me-settings-value">${escapeHtml(selectedCategory?.description ?? "Choose a category to reveal tailored guidance.")}</p>
+              </div>
+              <div class="me-settings-item">
+                <p class="me-settings-label">FAQ handoff</p>
+                <p class="me-settings-value">${escapeHtml(selectedCategory?.faqEntry?.title ?? "No FAQ handoff configured.")}</p>
+              </div>
+            </section>
+            <div class="me-action-group">
+              <button id="feedback-add-screenshot" class="me-button me-button-secondary">Add sample screenshot</button>
+              <button id="feedback-add-attachment" class="me-button me-button-secondary">Add sample attachment</button>
+              <button id="feedback-settings" class="me-button me-button-ghost">Open Preferences</button>
+              <button id="feedback-cancel" class="me-button me-button-ghost">Back to Account</button>
+            </div>
+          </section>
+        </section>
+
+        <section class="me-surface me-card">
+          <p class="me-section-kicker">Latest Ticket</p>
+          <h2 class="me-card-title">Status and processing trail</h2>
+          ${
+            state.latestTicket && state.latestStatus && state.latestCategory
+              ? `
+                <section class="me-settings-section">
+                  <div class="me-settings-item">
+                    <p class="me-settings-label">${escapeHtml(state.latestTicket.title)}</p>
+                    <p class="me-settings-value">${escapeHtml(`${state.latestCategory.label} · ${state.latestStatus.label}`)}</p>
+                  </div>
+                  <div class="me-settings-item">
+                    <p class="me-settings-label">Description</p>
+                    <p class="me-settings-value">${escapeHtml(state.latestTicket.description)}</p>
+                  </div>
+                  <div class="me-settings-item">
+                    <p class="me-settings-label">Progress</p>
+                    <p class="me-settings-value">${escapeHtml(state.latestStatus.progressLabel)}</p>
+                    <div class="me-chip-row">
+                      ${state.latestStatus.handlingProgress.map((step) => `<span class="me-chip">${escapeHtml(step)}</span>`).join("")}
+                    </div>
+                  </div>
+                  <div class="me-settings-item">
+                    <p class="me-settings-label">Processing history</p>
+                    <div class="me-settings-group">
+                      ${state.latestStatus.processingHistory
+                        .map(
+                          (record) => `
+                            <div class="me-empty-state">
+                              <strong>${escapeHtml(record.actionLabel)}</strong>
+                              <p class="me-copy-muted">${escapeHtml(`${record.actorLabel} · ${record.recordedAt}`)}</p>
+                              ${record.note ? `<p class="me-copy-muted">${escapeHtml(record.note)}</p>` : ""}
+                            </div>
+                          `,
+                        )
+                        .join("")}
+                    </div>
+                  </div>
+                </section>
+              `
+              : `<p class="me-empty">No feedback ticket has been submitted in this sample session yet.</p>`
+          }
+        </section>
+      </section>
+    `,
+  );
+
+  bindRouteButtons(root, runtime, sync);
+  bindButton(root, "feedback-submit", () => {
+    syncDraftValues();
+    void runtime.pages.feedback.submit().then(sync);
+  });
+  bindButton(root, "feedback-toggle-revisit", () => {
+    syncDraftValues();
+    runtime.pages.feedback.toggleRevisitRequested();
+    sync();
+  });
+  bindButton(root, "feedback-refresh", () => {
+    void runtime.pages.feedback.refreshLatestStatus().then(sync);
+  });
+  bindButton(root, "feedback-add-screenshot", () => {
+    syncDraftValues();
+    runtime.pages.feedback.addSampleScreenshot();
+    sync();
+  });
+  bindButton(root, "feedback-add-attachment", () => {
+    syncDraftValues();
+    runtime.pages.feedback.addSampleAttachment();
+    sync();
+  });
+  bindButton(root, "feedback-settings", () => {
+    void runtime.pages.feedback.goToSettings().then(sync);
+  });
+  bindButton(root, "feedback-cancel", () => {
+    void runtime.pages.feedback.cancel().then(sync);
+  });
+  root.querySelectorAll<HTMLElement>("[data-feedback-category]").forEach((button) => {
+    button.addEventListener("click", () => {
+      syncDraftValues();
+      const categoryKey = button.dataset.feedbackCategory;
+      if (!categoryKey) {
+        return;
+      }
+
+      runtime.pages.feedback.setCategory(categoryKey);
+      sync();
+    });
+  });
+  root.querySelectorAll<HTMLElement>("[data-feedback-type]").forEach((button) => {
+    button.addEventListener("click", () => {
+      syncDraftValues();
+      const type = button.dataset.feedbackType;
+      if (!type) {
+        return;
+      }
+
+      runtime.pages.feedback.setType(type as FeedbackState["values"]["type"]);
+      sync();
+    });
+  });
+  root.querySelectorAll<HTMLElement>("[data-feedback-score]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const score = Number(button.dataset.feedbackScore);
+      if (!Number.isFinite(score)) {
+        return;
+      }
+
+      runtime.pages.feedback.setSatisfactionScore(score);
+      sync();
+    });
+  });
+}
+
 function renderMessagesPage({ root, runtime, sync }: HostH5PageRenderContext) {
   const state = runtime.pages.messages.store.getState() as MessagesState;
   const selectedThread =
@@ -3133,6 +3423,11 @@ export const hostH5PageRenderers: Partial<Record<HostH5PageKey, HostH5PageRender
   feed: {
     render(context) {
       renderFeedPage(context);
+    },
+  },
+  feedback: {
+    render(context) {
+      renderFeedbackPage(context);
     },
   },
   mediaTools: {

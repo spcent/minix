@@ -95,8 +95,8 @@ Keep settings from remaining a static host page-data dump by turning it into a r
 
 ## Acceptance
 
-- [ ] settings can express common preferences, privacy options, account actions, and content/reading preferences explicitly
-- [ ] settings can express device, notification, privacy, account, content-preference, and debug controls explicitly
-- [ ] old reader preference controls still work after normalization
-- [ ] host settings pages consume the normalized model without direct platform calls
-- [ ] `pnpm verify` run
+- [x] settings can express common preferences, privacy options, account actions, and content/reading preferences explicitly
+- [x] settings can express device, notification, privacy, account, content-preference, and debug controls explicitly
+- [x] old reader preference controls still work after normalization
+- [x] host settings pages consume the normalized model without direct platform calls
+- [x] `pnpm verify` run

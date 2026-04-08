@@ -82,9 +82,50 @@ Response:
 }
 ```
 
+### `POST /auth/identity/upgrade`
+
+Promotes a guest session into a formal account through phone verification or password credentials.
+
+Request:
+
+```json
+{
+  "credential": {
+    "method": "phone_code",
+    "phoneNumber": "13800000022",
+    "verificationCode": "123456"
+  },
+  "redirectTarget": {
+    "path": "/items",
+    "source": "account"
+  }
+}
+```
+
+Response semantics:
+
+- returns a normal authenticated session with `identityWorkflow.status = "completed"` when the guest upgrade succeeds
+- returns the current guest session with `identityWorkflow.status = "merge_required"` when the verified identity already belongs to another account
+- returns the current session with `identityWorkflow.status = "blocked"` for explicit workflow failures such as invalid verification code
+
+### `POST /auth/identity/bind-phone`
+
+Binds a verified phone number to the current WeChat-backed session.
+
+### `POST /auth/identity/merge`
+
+Confirms a pending merge and returns the merged target session.
+
 ### `GET /me`
 
 Returns the authenticated user summary used by the host app.
+
+The normalized response includes:
+
+- `userProfile`
+- `accountSummary`
+- `userStatus`
+- `identityWorkflows`
 
 ### `GET /items`
 
@@ -118,6 +159,7 @@ Suggested response shape:
 - `429` means auth abuse controls blocked the request for the current client window
 - `POST /auth/refresh` should return `401` when the refresh token is expired, revoked, or invalid
 - `POST /auth/login` and `POST /auth/refresh` may return `429` with code `RATE_LIMITED`
+- identity workflow endpoints should use `identityWorkflow.status` for merge-required or blocked business outcomes instead of forcing every branch through transport errors
 - throttled auth responses should include `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset`
 - refresh tokens should be rotated on successful refresh; the previous refresh token becomes invalid immediately
 - access token expiry must not implicitly revoke a still-valid refresh token
@@ -145,6 +187,13 @@ Suggested error response:
 
 The standalone novel hosts build on the same auth semantics but use a richer content contract. These endpoints are currently mock-backed in the repo and should be treated as the official sample surface for future real backend work.
 
+The novel endpoints now expose two layers at once:
+
+- a generic content layer through `contentCard`, `contentDetail`, and `contentAccess`
+- a novel-specific extension layer through chapter, reading-progress, and serialized-reading fields
+
+Future content products should reuse the generic layer instead of treating the novel sample as the only content model.
+
 ## Runtime Notes
 
 - the current sample API uses opaque random access tokens and refresh tokens stored server-side, not self-describing JWTs
@@ -160,6 +209,11 @@ The standalone novel hosts build on the same auth semantics but use a richer con
 ### `GET /novels`
 
 Returns catalog or home feed cards.
+
+Each item should also expose:
+
+- `contentCard` for shared content model, display, lifecycle, and recommendation-slot semantics
+- `contentAccess` for shared public/login/member/purchased visibility semantics
 
 Suggested response shape:
 
@@ -201,6 +255,11 @@ Suggested response shape:
 ### `GET /novels/detail`
 
 Returns a single title dossier for detail and membership intercept surfaces.
+
+The detail response should also expose:
+
+- `contentDetail` for shared content model, display, and lifecycle semantics
+- `contentAccess` for shared access and entitlement semantics
 
 Relevant fields:
 

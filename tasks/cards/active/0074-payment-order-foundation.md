@@ -98,8 +98,8 @@ Introduce shared contracts and feature-owned flows for `order`, `paymentIntent`,
 
 ## Acceptance
 
-- [ ] payment has first-class order and intent contracts
-- [ ] subscription flow no longer represents the entire payment domain by itself
-- [ ] platform payment capability is reserved behind adapters, not called from shared features
-- [ ] contracts and sample routes cover order state, result state, idempotency, and reconciliation semantics explicitly
-- [ ] `pnpm verify` run
+- [x] payment has first-class order and intent contracts
+- [x] subscription flow no longer represents the entire payment domain by itself
+- [x] platform payment capability is reserved behind adapters, not called from shared features
+- [x] contracts and sample routes cover order state, result state, idempotency, and reconciliation semantics explicitly
+- [x] `pnpm verify` run

@@ -1,4 +1,9 @@
-import type { FormFieldError, FormSubmissionResult } from "@minix/contracts";
+import type {
+  FormSubmissionResult,
+  FormSubmitState,
+  FormValidationError,
+  FormWorkflowState,
+} from "@minix/contracts";
 
 export interface FormPageState<TValues extends Record<string, unknown>, TResult = unknown> {
   title: string;
@@ -9,9 +14,14 @@ export interface FormPageState<TValues extends Record<string, unknown>, TResult 
   dirty: boolean;
   errorCode: string | undefined;
   errorText: string | undefined;
+  formValues: TValues;
+  initialFormValues: TValues;
+  validationErrors: FormValidationError[];
+  submitState: FormSubmitState<TResult>;
+  workflow: FormWorkflowState;
   values: TValues;
   initialValues: TValues;
-  fieldErrors: FormFieldError[];
+  fieldErrors: FormValidationError[];
   lastSubmission: FormSubmissionResult<TResult> | undefined;
 }
 
@@ -19,21 +29,27 @@ export interface CreateFormPageStateOptions<TValues extends Record<string, unkno
   title: string;
   subtitle?: string;
   values: TValues;
+  workflow?: Partial<FormWorkflowState>;
+  submitState?: Partial<FormSubmitState<TResult>>;
 }
 
 export interface CreateDefaultFormPageStateOptions<TValues extends Record<string, unknown>, TResult = unknown> {
   title?: string;
   subtitle?: string;
   values: TValues;
+  workflow?: Partial<FormWorkflowState>;
+  submitState?: Partial<FormSubmitState<TResult>>;
 }
 
 function cloneValues<TValues extends Record<string, unknown>>(values: TValues): TValues {
-  return { ...values };
+  return structuredClone(values);
 }
 
 export function createFormPageState<TValues extends Record<string, unknown>, TResult = unknown>(
   options: CreateFormPageStateOptions<TValues, TResult>,
 ): FormPageState<TValues, TResult> {
+  const values = cloneValues(options.values);
+  const initialValues = cloneValues(options.values);
   return {
     title: options.title,
     subtitle: options.subtitle,
@@ -43,8 +59,25 @@ export function createFormPageState<TValues extends Record<string, unknown>, TRe
     dirty: false,
     errorCode: undefined,
     errorText: undefined,
-    values: cloneValues(options.values),
-    initialValues: cloneValues(options.values),
+    formValues: values,
+    initialFormValues: initialValues,
+    validationErrors: [],
+    submitState: {
+      phase: "idle",
+      duplicateProtected: true,
+      draftCapable: true,
+      ...options.submitState,
+    },
+    workflow: {
+      stepKeys: [],
+      approvalState: "none",
+      visibleFieldKeys: Object.keys(values),
+      dynamicFieldKeys: [],
+      conditionalFieldKeys: [],
+      ...options.workflow,
+    },
+    values,
+    initialValues,
     fieldErrors: [],
     lastSubmission: undefined,
   };
@@ -57,5 +90,7 @@ export function createDefaultFormPageState<TValues extends Record<string, unknow
     title: options.title ?? "Form",
     ...(options.subtitle !== undefined ? { subtitle: options.subtitle } : {}),
     values: options.values,
+    ...(options.workflow ? { workflow: options.workflow } : {}),
+    ...(options.submitState ? { submitState: options.submitState } : {}),
   });
 }

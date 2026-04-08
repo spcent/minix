@@ -90,8 +90,8 @@ Create stable outputs for `notificationList`, `messageThread`, and `unreadBadge`
 
 ## Acceptance
 
-- [ ] shared contracts cover notification list, thread summary, and unread badge outputs
-- [ ] shared contracts cover unread/read receipts, pinned/DND, grouping, filtering, and batch-read behavior
-- [ ] feature package stays platform-agnostic
-- [ ] host adoption, if added, is manifest-driven
-- [ ] `pnpm verify` run
+- [x] shared contracts cover notification list, thread summary, and unread badge outputs
+- [x] shared contracts cover unread/read receipts, pinned/DND, grouping, filtering, and batch-read behavior
+- [x] feature package stays platform-agnostic
+- [x] host adoption, if added, is manifest-driven
+- [x] `pnpm verify` run

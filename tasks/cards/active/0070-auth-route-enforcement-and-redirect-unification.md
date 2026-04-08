@@ -108,8 +108,8 @@ Make `redirectTarget`, unauthenticated interception, forced re-login, and return
 
 ## Acceptance
 
-- [ ] `guardPolicy` is enforced at runtime, not just validated as metadata
-- [ ] unauthorized and forced re-login flows preserve return context consistently
-- [ ] feature controllers no longer each invent their own auth redirect shape where a shared path exists
-- [ ] return-path handling covers unauthenticated intercept, login-success jump, forced re-login, and source passthrough
-- [ ] `pnpm verify` run
+- [x] `guardPolicy` is enforced at runtime, not just validated as metadata
+- [x] unauthorized and forced re-login flows preserve return context consistently
+- [x] feature controllers no longer each invent their own auth redirect shape where a shared path exists
+- [x] return-path handling covers unauthenticated intercept, login-success jump, forced re-login, and source passthrough
+- [x] `pnpm verify` run

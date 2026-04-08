@@ -95,9 +95,9 @@ Model `uploadTask`, `uploadAsset`, `uploadError`, `sharePayload`, `shareChannel`
 
 ## Acceptance
 
-- [ ] upload and share are no longer capability enums with no shared domain model
-- [ ] platform-specific media/file APIs remain inside platform packages
-- [ ] upload contracts cover file type, process, governance, and result metadata explicitly
-- [ ] share contracts cover payload assembly, target channel, and attribution fields explicitly
-- [ ] any host-visible adoption uses manifest-driven wiring
-- [ ] `pnpm verify` run
+- [x] upload and share are no longer capability enums with no shared domain model
+- [x] platform-specific media/file APIs remain inside platform packages
+- [x] upload contracts cover file type, process, governance, and result metadata explicitly
+- [x] share contracts cover payload assembly, target channel, and attribution fields explicitly
+- [x] any host-visible adoption uses manifest-driven wiring
+- [x] `pnpm verify` run

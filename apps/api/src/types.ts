@@ -1,6 +1,8 @@
 import type {
+  AuthIdentityWorkflow,
   AuthIdentity,
   AuthStatus,
+  FeedbackTicketDetailResponse,
   LoginMethod,
   LoginPlatformKind,
   OrderDetailResponse,
@@ -29,9 +31,14 @@ export interface UserState {
   bookshelfNovelIds: Set<string>;
   progressByNovelId: Record<string, ReadingProgress>;
   notificationReadAtById: Record<string, string>;
+  feedbackDetailsById: Record<string, FeedbackTicketDetailResponse>;
+  latestFeedbackTicketId?: string;
   latestPaidOrderId?: string;
   ordersById: Record<string, OrderDetailResponse>;
   orderIdByIdempotencyKey: Record<string, string>;
+  boundPhoneNumber?: string;
+  pendingIdentityWorkflow?: AuthIdentityWorkflow;
+  lastIdentityWorkflow?: AuthIdentityWorkflow;
 }
 
 export interface SessionRecord {

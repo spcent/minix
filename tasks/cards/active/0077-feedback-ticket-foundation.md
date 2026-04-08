@@ -92,8 +92,8 @@ Create stable outputs for `feedbackTicket`, `feedbackCategory`, and `feedbackSta
 
 ## Acceptance
 
-- [ ] shared feedback contracts cover ticket creation, category, status, and context capture
-- [ ] shared feedback contracts cover FAQ/service-loop/priority/processing-history fields explicitly
-- [ ] feedback feature reuses shared form-oriented patterns instead of inventing a host-only flow
-- [ ] attachment references align with upload-domain outputs
-- [ ] `pnpm verify` run
+- [x] shared feedback contracts cover ticket creation, category, status, and context capture
+- [x] shared feedback contracts cover FAQ/service-loop/priority/processing-history fields explicitly
+- [x] feedback feature reuses shared form-oriented patterns instead of inventing a host-only flow
+- [x] attachment references align with upload-domain outputs
+- [x] `pnpm verify` run

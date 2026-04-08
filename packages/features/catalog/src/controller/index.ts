@@ -59,6 +59,8 @@ function deriveSelectedNovelId(state: CatalogState): string | undefined {
 }
 
 function createRecommendedReason(item: NovelListResponse["items"][number], index: number): string {
+  const slotLabel = item.contentCard?.display?.recommendationSlotLabel;
+
   if (item.continueChapterId) {
     return item.continueChapterTitle
       ? `Because you paused at ${item.continueChapterTitle}, this title is the fastest route back into flow.`
@@ -66,13 +68,17 @@ function createRecommendedReason(item: NovelListResponse["items"][number], index
   }
 
   if (item.requiresMembership) {
-    return "Because this title sits inside the premium lane, keep it visible as a quiet merchandising recommendation.";
+    return item.contentAccess?.summaryLabel || "Because this title sits inside the premium lane, keep it visible as a quiet merchandising recommendation.";
   }
 
   if (item.status === "serializing") {
     return item.latestChapterTitle
       ? `Because the serial lane is still moving, ${item.latestChapterTitle} keeps this story relevant right now.`
       : "Because this story is still serializing, it belongs in the active discovery lane.";
+  }
+
+  if (slotLabel) {
+    return `Because this title currently anchors the ${slotLabel.toLowerCase()} lane, it should stay legible inside the discovery mix.`;
   }
 
   if (index === 0) {
@@ -136,7 +142,9 @@ function deriveCatalogReasons(items: NovelListResponse["items"], selectedNovelId
     frontlistReason: frontlistNovel
       ? frontlistNovel.requiresMembership
         ? `Because ${frontlistNovel.title} gives the frontlist a premium edge, discovery can stay commercial without turning into a loud paywall.`
-        : frontlistNovel.status === "serializing"
+        : frontlistNovel.contentCard?.display?.recommendationSlotLabel
+          ? `${frontlistNovel.title} anchors the ${frontlistNovel.contentCard.display.recommendationSlotLabel.toLowerCase()} lane without losing editorial clarity.`
+          : frontlistNovel.status === "serializing"
           ? `Because ${frontlistNovel.title} is still moving, the frontlist stays anchored to a living serial instead of a static archive.`
           : `Because ${frontlistNovel.title} balances category breadth and reading momentum, it anchors the editorial discovery lane.`
       : undefined,

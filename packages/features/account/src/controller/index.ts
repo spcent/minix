@@ -1,5 +1,20 @@
-import { createAuthRedirectParams, createStore, ok, type AppKernel, type Result, type UserSession } from "@minix/core";
-import { type AppRouteId, type CurrentUserResponse } from "@minix/contracts";
+import {
+  createAuthRedirectParams,
+  createStore,
+  ok,
+  persistAuthSessionResponse,
+  type AppKernel,
+  type Result,
+  type UserSession,
+} from "@minix/core";
+import type {
+  AppRouteId,
+  CurrentUserResponse,
+  IdentityBindPhoneRequest,
+  IdentityMergeRequest,
+  IdentityTransitionResponse,
+  IdentityUpgradeRequest,
+} from "@minix/contracts";
 
 import {
   createDefaultAccountState,
@@ -209,7 +224,7 @@ function createRemoteStats(response: CurrentUserResponse): AccountSummaryStat[] 
 }
 
 function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
-  return [
+  const sections: AccountSection[] = [
     {
       key: "identity",
       title: "Identity",
@@ -313,11 +328,83 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
       ],
     },
   ];
+
+  if (
+    response.identityWorkflows.canUpgradeGuest ||
+    response.identityWorkflows.canBindPhone ||
+    response.identityWorkflows.mergePending
+  ) {
+    sections.push({
+      key: "identity-workflows",
+      title: "Identity workflows",
+      items: [
+        {
+          key: "guest-upgrade",
+          label: "Guest upgrade",
+          value: response.identityWorkflows.canUpgradeGuest ? "Available" : "Not needed",
+        },
+        {
+          key: "phone-binding",
+          label: "Phone binding",
+          value: response.identityWorkflows.canBindPhone ? "Available" : "Not required",
+        },
+        {
+          key: "merge-pending",
+          label: "Merge status",
+          value: response.identityWorkflows.mergePending
+            ? response.identityWorkflows.pendingWorkflow?.message ?? "Pending merge confirmation"
+            : "No pending merge",
+          ...(response.identityWorkflows.pendingWorkflow?.targetUserId
+            ? { hint: `Target account: ${response.identityWorkflows.pendingWorkflow.targetUserId}` }
+            : {}),
+        },
+      ],
+    });
+  }
+
+  return sections;
+}
+
+function createRemoteActions(response: CurrentUserResponse): AccountAction[] {
+  const actions: AccountAction[] = [
+    {
+      key: "copy-user-id",
+      label: "Copy user id",
+      emphasis: "secondary",
+    },
+  ];
+
+  if (response.identityWorkflows.canUpgradeGuest) {
+    actions.push({
+      key: "upgrade-guest",
+      label: "Upgrade guest",
+      emphasis: "primary",
+    });
+  }
+
+  if (response.identityWorkflows.canBindPhone) {
+    actions.push({
+      key: "bind-phone",
+      label: "Bind phone",
+      emphasis: "primary",
+    });
+  }
+
+  if (response.identityWorkflows.mergePending) {
+    actions.push({
+      key: "confirm-merge",
+      label: "Confirm merge",
+      emphasis: "primary",
+    });
+  }
+
+  return actions;
 }
 
 function mergeRemoteProfile(baseState: AccountState, profile: CurrentUserResponse): AccountState {
   const remoteSections = createRemoteSections(profile);
   const remoteStats = createRemoteStats(profile);
+  const remoteActions = createRemoteActions(profile);
   const sessionLabel = baseState.sessionLabel ?? "Managed by the current signed-in session.";
   const authStatusLabel = `${baseState.authStatusLabel ?? "Signed in"} · ${createStatusLabel(profile)}`;
 
@@ -334,8 +421,11 @@ function mergeRemoteProfile(baseState: AccountState, profile: CurrentUserRespons
     userProfile: profile.userProfile,
     accountSummary: profile.accountSummary,
     userStatus: profile.userStatus,
+    identityWorkflows: profile.identityWorkflows,
     stats: remoteStats,
     sections: remoteSections,
+    actions: remoteActions,
+    transitionFeedback: profile.identityWorkflows.lastWorkflow?.message,
   };
 }
 
@@ -377,6 +467,30 @@ export function createAccountController(options: CreateAccountControllerOptions)
         reason: "auth-required",
       }),
     );
+  }
+
+  async function persistTransitionResponse(response: IdentityTransitionResponse) {
+    const existing = await kernel.session.get();
+    if (!existing.ok) {
+      return existing;
+    }
+
+    const persisted = await persistAuthSessionResponse(
+      {
+        session: kernel.session,
+        env: kernel.env,
+      },
+      response,
+      existing.value,
+    );
+    if (!persisted.ok) {
+      return persisted;
+    }
+
+    store.setState({
+      transitionFeedback: response.identityWorkflow.message,
+    });
+    return ok(persisted.value);
   }
 
   return {
@@ -500,6 +614,79 @@ export function createAccountController(options: CreateAccountControllerOptions)
 
     async goToLogin() {
       return routeToLogin();
+    },
+
+    async submitGuestUpgrade(input: IdentityUpgradeRequest) {
+      const result = await kernel.request.post<IdentityTransitionResponse>("/auth/identity/upgrade", input);
+      if (!result.ok) {
+        store.setState({
+          transitionFeedback: result.error.message,
+        });
+        return result;
+      }
+
+      const persisted = await persistTransitionResponse(result.value);
+      if (!persisted.ok) {
+        store.setState({
+          transitionFeedback: persisted.error.message,
+        });
+        return persisted;
+      }
+
+      return this.loadInitial();
+    },
+
+    async submitPhoneBinding(input: IdentityBindPhoneRequest) {
+      const result = await kernel.request.post<IdentityTransitionResponse>("/auth/identity/bind-phone", input);
+      if (!result.ok) {
+        store.setState({
+          transitionFeedback: result.error.message,
+        });
+        return result;
+      }
+
+      const persisted = await persistTransitionResponse(result.value);
+      if (!persisted.ok) {
+        store.setState({
+          transitionFeedback: persisted.error.message,
+        });
+        return persisted;
+      }
+
+      return this.loadInitial();
+    },
+
+    async confirmIdentityMerge(input?: Partial<IdentityMergeRequest>) {
+      const targetUserId = input?.targetUserId ?? store.getState().identityWorkflows?.pendingWorkflow?.targetUserId;
+      if (!targetUserId) {
+        store.setState({
+          transitionFeedback: "A merge target is required before confirming the account merge.",
+        });
+        return ok(undefined);
+      }
+
+      const result = await kernel.request.post<IdentityTransitionResponse>("/auth/identity/merge", {
+        targetUserId,
+        confirm: true,
+        ...(input?.workflowKind ? { workflowKind: input.workflowKind } : {}),
+        ...(input?.redirectTarget ? { redirectTarget: input.redirectTarget } : {}),
+      } satisfies IdentityMergeRequest);
+      if (!result.ok) {
+        store.setState({
+          transitionFeedback: result.error.message,
+        });
+        return result;
+      }
+
+      const persisted = await persistTransitionResponse(result.value);
+      if (!persisted.ok) {
+        store.setState({
+          transitionFeedback: persisted.error.message,
+        });
+        return persisted;
+      }
+
+      return this.loadInitial();
     },
   };
 }

@@ -1,4 +1,6 @@
 import type {
+  AuthAbnormalLoginPrompt,
+  AuthIdentityWorkflow,
   AuthRedirectTarget,
   AuthStatus,
   CapabilityKind,
@@ -41,6 +43,8 @@ export interface UserSession {
   profile?: UserProfile;
   loggedIn: boolean;
   authStatus?: AuthStatus;
+  abnormalLoginPrompt?: AuthAbnormalLoginPrompt;
+  identityWorkflow?: AuthIdentityWorkflow;
   platform: PlatformKind;
   redirectTarget?: AuthRedirectTarget;
 }

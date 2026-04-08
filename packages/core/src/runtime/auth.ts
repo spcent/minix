@@ -47,7 +47,7 @@ function isRefreshableSession(session: UserSession | null): session is UserSessi
   return Boolean(session?.loggedIn && session.token?.refreshToken);
 }
 
-function toUserSession(
+export function createUserSessionFromAuthResponse(
   env: RuntimeEnv,
   response: LoginResponse | RefreshTokenResponse,
   previousSession?: UserSession | null,
@@ -94,6 +94,8 @@ function toUserSession(
     authStatus,
     platform: env.platform,
     ...(nextProfile ? { profile: nextProfile } : {}),
+    ...(response.abnormalLoginPrompt ? { abnormalLoginPrompt: response.abnormalLoginPrompt } : {}),
+    ...(response.identityWorkflow ? { identityWorkflow: response.identityWorkflow } : {}),
     ...(response.redirectTarget ? { redirectTarget: response.redirectTarget } : {}),
     token: nextToken,
   };
@@ -103,7 +105,7 @@ function shouldClearAfterRefreshFailure(errorCode: string): boolean {
   return errorCode === "TOKEN_EXPIRED" || errorCode === "UNAUTHORIZED" || errorCode === "FORBIDDEN";
 }
 
-async function persistSession(
+export async function persistAuthSessionResponse(
   options: {
     session: SessionService;
     env: RuntimeEnv;
@@ -111,7 +113,7 @@ async function persistSession(
   response: LoginResponse | RefreshTokenResponse,
   previousSession?: UserSession | null,
 ): Promise<Result<UserSession>> {
-  const session = toUserSession(options.env, response, previousSession);
+  const session = createUserSessionFromAuthResponse(options.env, response, previousSession);
   const stored = await options.session.set(session);
   if (!stored.ok) {
     return stored;
@@ -163,7 +165,7 @@ export function createAuthService(options: {
       return response;
     }
 
-    return persistSession(options, response.value, session);
+    return persistAuthSessionResponse(options, response.value, session);
   }
 
   async function recoverSession(currentSession?: UserSession | null): Promise<Result<UserSession | null>> {
@@ -263,7 +265,7 @@ export function createAuthService(options: {
         return response;
       }
 
-      return persistSession(options, response.value);
+      return persistAuthSessionResponse(options, response.value);
     },
 
     refreshSession,

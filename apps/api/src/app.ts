@@ -3,10 +3,18 @@ import { z } from "zod";
 
 import type {
   AddToBookshelfRequest,
+  AuthAbnormalLoginPrompt,
   AuthIdentity,
+  AuthIdentityFailureReason,
+  AuthIdentityWorkflow,
   AuthRedirectTarget,
   AuthStatus,
   BookshelfMutationResponse,
+  FeedbackTicketDetailResponse,
+  IdentityBindPhoneRequest,
+  IdentityMergeRequest,
+  IdentityTransitionResponse,
+  IdentityUpgradeRequest,
   LoadReadingProgressResponse,
   OrderDetailResponse,
   LoginMethod,
@@ -18,6 +26,8 @@ import type {
   RefreshTokenResponse,
   RemoveFromBookshelfRequest,
   SaveReadingProgressRequest,
+  SubmitFeedbackRequest,
+  UploadAsset,
 } from "@minix/contracts";
 import {
   CHAPTER_CONTENT,
@@ -26,6 +36,7 @@ import {
   NOVELS,
   createCurrentUserResponse,
   createBookshelf,
+  createFeedbackBootstrapResponse,
   createMembershipOverview,
   createMembershipOrderDetail,
   createMembershipPurchaseResponse,
@@ -33,10 +44,12 @@ import {
   deriveReturnTarget,
   getMessageThread,
   getUnreadBadge,
+  getFeedbackTicket,
   listFeed,
   listItems,
   listNotifications,
   listNovels,
+  submitFeedbackTicket,
   markNotificationsRead,
   resolveChapterContent,
   resolveChapterList,
@@ -46,7 +59,7 @@ import { checkAuthRateLimit, resolveClientId, type AuthRateLimitConfig, type Aut
 import { renderSampleCoverAssetSvg, renderSampleProfileAssetSvg, resolveProfileMedia } from "./sample-assets";
 import { createD1ApiStore } from "./store.d1";
 import { getGlobalMemoryApiStore } from "./store";
-import type { ApiBindings, ApiStore, SessionRecord } from "./types";
+import type { ApiBindings, ApiStore, SessionRecord, UserState } from "./types";
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -95,6 +108,43 @@ const loginRequestSchema = z.object({
 const refreshTokenRequestSchema = z.object({
   platform: z.enum(["wechat", "h5"]),
   refreshToken: z.string().min(1),
+});
+
+const authRedirectTargetSchema = z.object({
+  routeId: z.string().min(1).optional(),
+  path: z.string().min(1).optional(),
+  params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  source: z.string().min(1).optional(),
+  label: z.string().min(1).optional(),
+  reason: z.enum(["auth-required", "session-expired", "force-relogin"]).optional(),
+  forceReauth: z.boolean().optional(),
+});
+
+const identityUpgradeSchema = z.object({
+  credential: z.object({
+    method: z.enum(["phone_code", "password"]),
+    phoneNumber: z.string().min(1).optional(),
+    verificationCode: z.string().min(1).optional(),
+    account: z.string().min(1).optional(),
+    password: z.string().min(1).optional(),
+    deviceId: z.string().min(1).optional(),
+  }),
+  mergeStrategy: z.enum(["prompt", "merge"]).optional(),
+  redirectTarget: authRedirectTargetSchema.optional(),
+});
+
+const identityBindPhoneSchema = z.object({
+  phoneNumber: z.string().min(1),
+  verificationCode: z.string().min(1),
+  mergeStrategy: z.enum(["prompt", "merge"]).optional(),
+  redirectTarget: authRedirectTargetSchema.optional(),
+});
+
+const identityMergeSchema = z.object({
+  targetUserId: z.string().min(1),
+  workflowKind: z.enum(["guest_upgrade", "phone_binding"]).optional(),
+  confirm: z.boolean(),
+  redirectTarget: authRedirectTargetSchema.optional(),
 });
 
 const itemsQuerySchema = z.object({
@@ -161,6 +211,51 @@ const threadIdQuerySchema = z.object({
   threadId: z.string().min(1),
 });
 
+const feedbackTicketIdQuerySchema = z.object({
+  ticketId: z.string().min(1),
+});
+
+const uploadAssetSchema = z.object({
+  assetId: z.string().min(1),
+  fileType: z.enum(["image", "audio", "video", "pdf", "avatar", "attachment"]),
+  fileName: z.string().min(1),
+  url: z.string().min(1),
+  thumbnailUrl: z.string().min(1).optional(),
+  coverImageUrl: z.string().min(1).optional(),
+  metadata: z.object({
+    mimeType: z.string().min(1).optional(),
+    sizeBytes: z.number().int().nonnegative(),
+    width: z.number().int().positive().optional(),
+    height: z.number().int().positive().optional(),
+    durationSeconds: z.number().nonnegative().optional(),
+    pageCount: z.number().int().positive().optional(),
+  }),
+});
+
+const feedbackContextSchema = z.object({
+  sourcePage: z.string().min(1),
+  sourceRouteId: z.string().min(1).optional(),
+  sourceLabel: z.string().min(1).optional(),
+  userId: z.string().min(1).optional(),
+  platform: z.string().min(1),
+  appVersion: z.string().min(1),
+  deviceSummary: z.string().min(1).optional(),
+  screenshotAssets: z.array(uploadAssetSchema),
+  attachmentAssets: z.array(uploadAssetSchema),
+});
+
+const submitFeedbackSchema = z.object({
+  type: z.enum(["issue_report", "suggestion", "complaint", "abuse_report", "satisfaction"]),
+  categoryKey: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+  labels: z.array(z.string().min(1)).optional(),
+  revisitRequested: z.boolean().optional(),
+  satisfactionScore: z.number().min(1).max(5).optional(),
+  context: feedbackContextSchema,
+});
+
 const markNotificationsReadSchema = z.object({
   notificationIds: z.array(z.string().min(1)).min(1),
   page: z.number().int().positive().optional(),
@@ -187,6 +282,8 @@ const DEFAULT_ALLOWED_CORS_ORIGINS = [
 const CORS_ALLOW_HEADERS = "authorization, content-type, x-trace-id";
 const CORS_ALLOW_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
 const CORS_MAX_AGE_SECONDS = "600";
+const DEMO_PHONE_VERIFICATION_CODE = "123456";
+const DEMO_PASSWORD = "minix-demo-pass";
 
 function createTraceId() {
   return `api_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -213,6 +310,143 @@ function resolveLoginMethod(payload: z.infer<typeof loginRequestSchema>): LoginM
   }
 
   return payload.platform === "wechat" ? "wechat_code" : "guest";
+}
+
+function sanitizeUserKey(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "_").replace(/_+/g, "_").slice(0, 24) || "demo";
+}
+
+function normalizePhoneNumber(phoneNumber: string): string {
+  return phoneNumber.replace(/[^\d]/g, "");
+}
+
+function createGuestUserId(anonymousId?: string): string {
+  return anonymousId ? `guest_${sanitizeUserKey(anonymousId).slice(0, 32)}` : "guest_minix_demo";
+}
+
+function createUserIdFromCredential(input: {
+  method: Extract<LoginMethod, "guest" | "phone_code" | "password">;
+  anonymousId?: string;
+  phoneNumber?: string;
+  account?: string;
+}): string {
+  switch (input.method) {
+    case "guest":
+      return createGuestUserId(input.anonymousId);
+    case "phone_code":
+      return input.phoneNumber ? `user_phone_${normalizePhoneNumber(input.phoneNumber).slice(-4)}` : "user_phone_demo";
+    case "password":
+      if (input.account) {
+        return `user_account_${sanitizeUserKey(input.account)}`;
+      }
+      return input.phoneNumber ? `user_phone_${normalizePhoneNumber(input.phoneNumber).slice(-4)}` : "user_password_demo";
+  }
+}
+
+function createUserIdFromLogin(payload: z.infer<typeof loginRequestSchema>, method: LoginMethod): string {
+  switch (method) {
+    case "guest":
+      return createUserIdFromCredential({
+        method,
+        ...(payload.credential.anonymousId ? { anonymousId: payload.credential.anonymousId } : {}),
+      });
+    case "phone_code":
+      return createUserIdFromCredential({
+        method,
+        ...(payload.credential.phoneNumber ? { phoneNumber: payload.credential.phoneNumber } : {}),
+      });
+    case "password":
+      return createUserIdFromCredential({
+        method,
+        ...(payload.credential.account ? { account: payload.credential.account } : {}),
+        ...(payload.credential.phoneNumber ? { phoneNumber: payload.credential.phoneNumber } : {}),
+      });
+    default:
+      return "minix-demo-user";
+  }
+}
+
+function createUserIdFromUpgradeRequest(payload: {
+  credential: {
+    method: "phone_code" | "password";
+    phoneNumber?: string | undefined;
+    account?: string | undefined;
+  };
+}): string {
+  return createUserIdFromCredential({
+    method: payload.credential.method,
+    ...(payload.credential.phoneNumber ? { phoneNumber: payload.credential.phoneNumber } : {}),
+    ...(payload.credential.account ? { account: payload.credential.account } : {}),
+  });
+}
+
+function resolveMaskedPhoneNumber(phoneNumber: string | undefined): string | undefined {
+  if (!phoneNumber) {
+    return undefined;
+  }
+
+  const normalized = normalizePhoneNumber(phoneNumber);
+  if (normalized.length < 7) {
+    return undefined;
+  }
+
+  return `${normalized.slice(0, 3)}****${normalized.slice(-4)}`;
+}
+
+function createWorkflowMessage(
+  kind: AuthIdentityWorkflow["kind"],
+  status: AuthIdentityWorkflow["status"],
+  targetLabel?: string,
+): string {
+  if (status === "merge_required") {
+    return targetLabel
+      ? `This identity is already linked to ${targetLabel}. Confirm the merge to continue.`
+      : "This identity is already linked to another account. Confirm the merge to continue.";
+  }
+
+  if (status === "conflict") {
+    return targetLabel
+      ? `The current session conflicts with ${targetLabel}. Resolve the target account before retrying.`
+      : "The current session conflicts with another account.";
+  }
+
+  if (kind === "guest_upgrade") {
+    return "The guest session has been upgraded to a formal account.";
+  }
+
+  if (kind === "phone_binding") {
+    return "The current account is now bound to the verified phone number.";
+  }
+
+  return "The current session has been merged into the target account.";
+}
+
+function createIdentityWorkflow(input: {
+  kind: AuthIdentityWorkflow["kind"];
+  status: AuthIdentityWorkflow["status"];
+  sourceUserId: string;
+  continueTarget?: AuthRedirectTarget | undefined;
+  targetUserId?: string | undefined;
+  targetLabel?: string | undefined;
+  failureReason?: AuthIdentityFailureReason | undefined;
+}): AuthIdentityWorkflow {
+  return {
+    kind: input.kind,
+    status: input.status,
+    sourceUserId: input.sourceUserId,
+    message: createWorkflowMessage(input.kind, input.status, input.targetLabel),
+    ...(input.continueTarget ? { continueTarget: input.continueTarget } : {}),
+    ...(input.targetUserId ? { targetUserId: input.targetUserId } : {}),
+    ...(input.targetLabel ? { targetLabel: input.targetLabel } : {}),
+    ...(input.failureReason ? { failureReason: input.failureReason } : {}),
+  };
+}
+
+function isMergeSampleIdentity(input: {
+  phoneNumber?: string | undefined;
+  account?: string | undefined;
+}): boolean {
+  return normalizePhoneNumber(input.phoneNumber ?? "") === "13800000001" || input.account === "minix-demo";
 }
 
 function resolveAuthStatus(method: LoginMethod): AuthStatus {
@@ -260,6 +494,108 @@ function resolveRedirectTarget(
   }
 
   return Object.keys(nextTarget).length > 0 ? nextTarget : undefined;
+}
+
+function resolveAbnormalLoginPrompt(
+  payload: z.infer<typeof loginRequestSchema>,
+  method: LoginMethod,
+): AuthAbnormalLoginPrompt | undefined {
+  const deviceId = payload.credential.deviceId ?? payload.riskContext?.deviceId;
+  const suspicious =
+    payload.riskContext?.scene === "suspicious-login" ||
+    payload.riskContext?.frequencyKey === "abnormal-login" ||
+    payload.riskContext?.ipRegion === "unusual-region" ||
+    deviceId === "device-risk-review";
+
+  if (!suspicious) {
+    return undefined;
+  }
+
+  return {
+    title: "Unusual sign-in detected",
+    message:
+      method === "guest"
+        ? "This guest sign-in came from an unusual device context. Review the session before upgrading or binding the account."
+        : "This sign-in came from an unusual device or region. Review the session details before continuing.",
+    severity: "warning",
+    acknowledgeRequired: true,
+  };
+}
+
+function createAuthResponseFromSession(
+  session: SessionRecord,
+  requestUrl: string,
+  options: {
+    abnormalLoginPrompt?: AuthAbnormalLoginPrompt | undefined;
+    identityWorkflow?: AuthIdentityWorkflow | undefined;
+    redirectTarget?: AuthRedirectTarget | undefined;
+  } = {},
+): LoginResponse {
+  return {
+    userId: session.userId,
+    accessToken: session.accessToken,
+    refreshToken: session.refreshToken,
+    expiresAt: session.expiresAt,
+    profile: resolveProfileMedia(session.profile, requestUrl),
+    session: {
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+      expiresAt: session.expiresAt,
+      issuedAt: Date.now(),
+      tokenType: "Bearer",
+    },
+    identity: session.identity,
+    authStatus: session.authStatus,
+    ...(session.loginMethod ? { loginMethod: session.loginMethod } : {}),
+    ...(options.abnormalLoginPrompt ? { abnormalLoginPrompt: options.abnormalLoginPrompt } : {}),
+    ...(options.identityWorkflow ? { identityWorkflow: options.identityWorkflow } : {}),
+    ...(options.redirectTarget ? { redirectTarget: options.redirectTarget } : {}),
+  };
+}
+
+function mergeUserStates(target: UserState, source: UserState): UserState {
+  const mergedBookshelf = new Set<string>([...target.bookshelfNovelIds, ...source.bookshelfNovelIds]);
+  return {
+    ...(target.membershipPlanId ?? source.membershipPlanId
+      ? { membershipPlanId: target.membershipPlanId ?? source.membershipPlanId }
+      : {}),
+    bookshelfNovelIds: mergedBookshelf,
+    progressByNovelId: {
+      ...source.progressByNovelId,
+      ...target.progressByNovelId,
+    },
+    notificationReadAtById: {
+      ...source.notificationReadAtById,
+      ...target.notificationReadAtById,
+    },
+    feedbackDetailsById: {
+      ...source.feedbackDetailsById,
+      ...target.feedbackDetailsById,
+    },
+    ...(target.latestFeedbackTicketId ?? source.latestFeedbackTicketId
+      ? { latestFeedbackTicketId: target.latestFeedbackTicketId ?? source.latestFeedbackTicketId }
+      : {}),
+    ...(target.latestPaidOrderId ?? source.latestPaidOrderId
+      ? { latestPaidOrderId: target.latestPaidOrderId ?? source.latestPaidOrderId }
+      : {}),
+    ordersById: {
+      ...source.ordersById,
+      ...target.ordersById,
+    },
+    orderIdByIdempotencyKey: {
+      ...source.orderIdByIdempotencyKey,
+      ...target.orderIdByIdempotencyKey,
+    },
+    ...(target.boundPhoneNumber ?? source.boundPhoneNumber
+      ? { boundPhoneNumber: target.boundPhoneNumber ?? source.boundPhoneNumber }
+      : {}),
+    ...(target.pendingIdentityWorkflow ?? source.pendingIdentityWorkflow
+      ? { pendingIdentityWorkflow: target.pendingIdentityWorkflow ?? source.pendingIdentityWorkflow }
+      : {}),
+    ...(target.lastIdentityWorkflow ?? source.lastIdentityWorkflow
+      ? { lastIdentityWorkflow: target.lastIdentityWorkflow ?? source.lastIdentityWorkflow }
+      : {}),
+  };
 }
 
 function jsonError(code: string, message: string, status: number, traceId: string) {
@@ -513,7 +849,14 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
         deployEnv: c.env?.MINIX_DEPLOY_ENV,
         traceId,
       });
-      return c.json({ code: "RATE_LIMITED", message: "Too many login attempts. Retry later." }, 429);
+      return c.json(
+        {
+          code: "RATE_LIMITED",
+          message: "Too many login attempts. Retry later.",
+          retryAfterSeconds: rateLimitDecision.retryAfterSeconds,
+        },
+        429,
+      );
     }
 
     const loginMethod = resolveLoginMethod(payload);
@@ -537,22 +880,37 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       return jsonError("LOGIN_FAILED", "phone verification login requires both phone number and verification code", 400, traceId);
     }
 
+    if (loginMethod === "phone_code" && payload.credential.verificationCode !== DEMO_PHONE_VERIFICATION_CODE) {
+      return jsonError("LOGIN_FAILED", "invalid phone verification code", 400, traceId);
+    }
+
     if (loginMethod === "password" && (!(payload.credential.phoneNumber || payload.credential.account) || !payload.credential.password)) {
       return jsonError("LOGIN_FAILED", "password login requires an account identifier and password", 400, traceId);
+    }
+
+    if (loginMethod === "password" && payload.credential.password !== DEMO_PASSWORD) {
+      return jsonError("LOGIN_FAILED", "invalid account or password", 400, traceId);
     }
 
     if (loginMethod === "oauth" && (!payload.credential.provider || !payload.credential.providerToken)) {
       return jsonError("LOGIN_FAILED", "third-party login requires both provider and provider token", 400, traceId);
     }
 
+    if (loginMethod === "oauth") {
+      return jsonError("PLATFORM_UNSUPPORTED", "third-party oauth login is reserved in the sample backend", 501, traceId);
+    }
+
     const store = getStore(c.env, options.store);
+    const userId = createUserIdFromLogin(payload, loginMethod);
     const session = await store.createSession({
       platform: payload.platform,
+      userId,
       authStatus: resolveAuthStatus(loginMethod),
-      identity: resolveIdentity(payload, "minix-demo-user", loginMethod),
+      identity: resolveIdentity(payload, userId, loginMethod),
       loginMethod,
     });
     const redirectTarget = resolveRedirectTarget(payload.redirectTarget);
+    const abnormalLoginPrompt = resolveAbnormalLoginPrompt(payload, loginMethod);
     const response: LoginResponse = {
       userId: session.userId,
       accessToken: session.accessToken,
@@ -569,6 +927,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       identity: session.identity,
       authStatus: session.authStatus,
       ...(session.loginMethod ? { loginMethod: session.loginMethod } : {}),
+      ...(abnormalLoginPrompt ? { abnormalLoginPrompt } : {}),
       ...(redirectTarget ? { redirectTarget } : {}),
     };
 
@@ -600,7 +959,14 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
         deployEnv: c.env?.MINIX_DEPLOY_ENV,
         traceId,
       });
-      return c.json({ code: "RATE_LIMITED", message: "Too many refresh attempts. Retry later." }, 429);
+      return c.json(
+        {
+          code: "RATE_LIMITED",
+          message: "Too many refresh attempts. Retry later.",
+          retryAfterSeconds: rateLimitDecision.retryAfterSeconds,
+        },
+        429,
+      );
     }
 
     const store = getStore(c.env, options.store);
@@ -650,12 +1016,326 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     return c.json({ loggedOut: true });
   });
 
+  app.use("/auth/identity/*", requireSession);
+
+  app.post("/auth/identity/upgrade", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, identityUpgradeSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    if (session.authStatus !== "guest" && !session.identity.anonymous) {
+      const workflow = createIdentityWorkflow({
+        kind: "guest_upgrade",
+        status: "blocked",
+        sourceUserId: session.userId,
+        continueTarget: resolveRedirectTarget(payload.redirectTarget),
+        failureReason: "guest_session_required",
+      });
+      return c.json(createAuthResponseFromSession(session, c.req.url, { identityWorkflow: workflow }));
+    }
+
+    if (payload.credential.method === "phone_code") {
+      if (!payload.credential.phoneNumber || !payload.credential.verificationCode) {
+        return jsonError("INVALID_ARGUMENT", "guest upgrade with phone verification requires phone number and verification code", 400, traceId);
+      }
+
+      if (payload.credential.verificationCode !== DEMO_PHONE_VERIFICATION_CODE) {
+        const workflow = createIdentityWorkflow({
+          kind: "guest_upgrade",
+          status: "blocked",
+          sourceUserId: session.userId,
+          continueTarget: resolveRedirectTarget(payload.redirectTarget),
+          failureReason: "verification_code_invalid",
+        });
+        return c.json(createAuthResponseFromSession(session, c.req.url, { identityWorkflow: workflow }));
+      }
+    }
+
+    if (payload.credential.method === "password") {
+      if ((!(payload.credential.account || payload.credential.phoneNumber)) || !payload.credential.password) {
+        return jsonError("INVALID_ARGUMENT", "guest upgrade with password requires an account identifier and password", 400, traceId);
+      }
+
+      if (payload.credential.password !== DEMO_PASSWORD) {
+        return jsonError("LOGIN_FAILED", "invalid account or password", 400, traceId);
+      }
+    }
+
+    const store = getStore(c.env, options.store);
+    const redirectTarget = resolveRedirectTarget(payload.redirectTarget);
+    const targetUserId = createUserIdFromUpgradeRequest(payload);
+    const mergeCandidate = isMergeSampleIdentity(payload.credential);
+    if (mergeCandidate && payload.mergeStrategy !== "merge") {
+      const workflow = createIdentityWorkflow({
+        kind: "guest_upgrade",
+        status: "merge_required",
+        sourceUserId: session.userId,
+        continueTarget: redirectTarget,
+        targetUserId,
+        targetLabel: `account ${targetUserId}`,
+        failureReason: "merge_confirmation_required",
+      });
+      const sourceState = await store.getUserState(session.userId);
+      sourceState.pendingIdentityWorkflow = workflow;
+      sourceState.lastIdentityWorkflow = workflow;
+      if (payload.credential.phoneNumber) {
+        sourceState.boundPhoneNumber = payload.credential.phoneNumber;
+      }
+      await store.saveUserState(session.userId, sourceState);
+      return c.json(createAuthResponseFromSession(session, c.req.url, {
+        identityWorkflow: workflow,
+        redirectTarget,
+      }));
+    }
+
+    const sourceState = await store.getUserState(session.userId);
+    const targetState = await store.getUserState(targetUserId);
+    const workflow = createIdentityWorkflow({
+      kind: "guest_upgrade",
+      status: "completed",
+      sourceUserId: session.userId,
+      continueTarget: redirectTarget,
+      targetUserId,
+      targetLabel: `account ${targetUserId}`,
+    });
+    const nextState = mergeUserStates(targetState, {
+      ...sourceState,
+      lastIdentityWorkflow: workflow,
+      ...(payload.credential.phoneNumber ? { boundPhoneNumber: payload.credential.phoneNumber } : {}),
+    });
+    delete nextState.pendingIdentityWorkflow;
+    nextState.lastIdentityWorkflow = workflow;
+    if (payload.credential.phoneNumber) {
+      nextState.boundPhoneNumber = payload.credential.phoneNumber;
+    }
+    await store.saveUserState(targetUserId, nextState);
+    delete sourceState.pendingIdentityWorkflow;
+    sourceState.lastIdentityWorkflow = workflow;
+    await store.saveUserState(session.userId, sourceState);
+    await store.revokeSession({
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+    });
+    const nextSession = await store.createSession({
+      platform: session.platform,
+      userId: targetUserId,
+      profile: session.profile,
+      authStatus: "authenticated",
+      identity: {
+        anonymous: false,
+        phoneBound: Boolean(payload.credential.phoneNumber),
+        wechatBound: session.platform === "wechat" || Boolean(session.identity.wechatBound),
+      },
+      loginMethod: payload.credential.method,
+    });
+    const response: IdentityTransitionResponse = {
+      ...createAuthResponseFromSession(nextSession, c.req.url, {
+        identityWorkflow: workflow,
+        redirectTarget,
+      }),
+      identityWorkflow: workflow,
+    };
+    return c.json(response);
+  });
+
+  app.post("/auth/identity/bind-phone", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, identityBindPhoneSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const redirectTarget = resolveRedirectTarget(payload.redirectTarget);
+    if (!(session.identity.wechatBound || session.platform === "wechat")) {
+      const workflow = createIdentityWorkflow({
+        kind: "phone_binding",
+        status: "blocked",
+        sourceUserId: session.userId,
+        continueTarget: redirectTarget,
+        failureReason: "wechat_binding_required",
+      });
+      return c.json(createAuthResponseFromSession(session, c.req.url, { identityWorkflow: workflow, redirectTarget }));
+    }
+
+    if (session.identity.phoneBound) {
+      const workflow = createIdentityWorkflow({
+        kind: "phone_binding",
+        status: "conflict",
+        sourceUserId: session.userId,
+        continueTarget: redirectTarget,
+        failureReason: "phone_already_bound",
+      });
+      return c.json(createAuthResponseFromSession(session, c.req.url, { identityWorkflow: workflow, redirectTarget }));
+    }
+
+    if (payload.verificationCode !== DEMO_PHONE_VERIFICATION_CODE) {
+      const workflow = createIdentityWorkflow({
+        kind: "phone_binding",
+        status: "blocked",
+        sourceUserId: session.userId,
+        continueTarget: redirectTarget,
+        failureReason: "verification_code_invalid",
+      });
+      return c.json(createAuthResponseFromSession(session, c.req.url, { identityWorkflow: workflow, redirectTarget }));
+    }
+
+    const store = getStore(c.env, options.store);
+    const targetUserId = createUserIdFromCredential({
+      method: "phone_code",
+      phoneNumber: payload.phoneNumber,
+    });
+    const mergeCandidate = isMergeSampleIdentity({ phoneNumber: payload.phoneNumber }) && targetUserId !== session.userId;
+    if (mergeCandidate && payload.mergeStrategy !== "merge") {
+      const workflow = createIdentityWorkflow({
+        kind: "phone_binding",
+        status: "merge_required",
+        sourceUserId: session.userId,
+        continueTarget: redirectTarget,
+        targetUserId,
+        targetLabel: `account ${targetUserId}`,
+        failureReason: "merge_confirmation_required",
+      });
+      const sourceState = await store.getUserState(session.userId);
+      sourceState.pendingIdentityWorkflow = workflow;
+      sourceState.lastIdentityWorkflow = workflow;
+      sourceState.boundPhoneNumber = payload.phoneNumber;
+      await store.saveUserState(session.userId, sourceState);
+      return c.json(createAuthResponseFromSession(session, c.req.url, {
+        identityWorkflow: workflow,
+        redirectTarget,
+      }));
+    }
+
+    const sourceState = await store.getUserState(session.userId);
+    delete sourceState.pendingIdentityWorkflow;
+    sourceState.lastIdentityWorkflow = createIdentityWorkflow({
+      kind: "phone_binding",
+      status: "completed",
+      sourceUserId: session.userId,
+      continueTarget: redirectTarget,
+      targetUserId: session.userId,
+      targetLabel: `account ${session.userId}`,
+    });
+    sourceState.boundPhoneNumber = payload.phoneNumber;
+    await store.saveUserState(session.userId, sourceState);
+    await store.revokeSession({
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+    });
+    const nextSession = await store.createSession({
+      platform: session.platform,
+      userId: session.userId,
+      profile: session.profile,
+      authStatus: "authenticated",
+      identity: {
+        anonymous: false,
+        phoneBound: true,
+        wechatBound: true,
+        ...(session.identity.realNameVerified !== undefined ? { realNameVerified: session.identity.realNameVerified } : {}),
+      },
+      loginMethod: session.loginMethod ?? "wechat_code",
+    });
+    const workflow = sourceState.lastIdentityWorkflow;
+    const response: IdentityTransitionResponse = {
+      ...createAuthResponseFromSession(nextSession, c.req.url, {
+        identityWorkflow: workflow,
+        redirectTarget,
+      }),
+      identityWorkflow: workflow,
+    };
+    return c.json(response);
+  });
+
+  app.post("/auth/identity/merge", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, identityMergeSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const redirectTarget = resolveRedirectTarget(payload.redirectTarget);
+    if (!payload.confirm) {
+      return jsonError("INVALID_ARGUMENT", "account merge requires explicit confirmation", 400, traceId);
+    }
+
+    const store = getStore(c.env, options.store);
+    const sourceState = await store.getUserState(session.userId);
+    const pendingWorkflow = sourceState.pendingIdentityWorkflow;
+    if (!pendingWorkflow || pendingWorkflow.targetUserId !== payload.targetUserId) {
+      const workflow = createIdentityWorkflow({
+        kind: payload.workflowKind ?? "account_merge",
+        status: "blocked",
+        sourceUserId: session.userId,
+        continueTarget: redirectTarget,
+        targetUserId: payload.targetUserId,
+        targetLabel: `account ${payload.targetUserId}`,
+        failureReason: "merge_target_mismatch",
+      });
+      return c.json(createAuthResponseFromSession(session, c.req.url, { identityWorkflow: workflow, redirectTarget }));
+    }
+
+    const targetState = await store.getUserState(payload.targetUserId);
+    const workflow = createIdentityWorkflow({
+      kind: "account_merge",
+      status: "completed",
+      sourceUserId: session.userId,
+      continueTarget: redirectTarget ?? pendingWorkflow.continueTarget,
+      targetUserId: payload.targetUserId,
+      targetLabel: `account ${payload.targetUserId}`,
+    });
+    const nextState = mergeUserStates(targetState, {
+      ...sourceState,
+      lastIdentityWorkflow: workflow,
+    });
+    delete nextState.pendingIdentityWorkflow;
+    nextState.lastIdentityWorkflow = workflow;
+    await store.saveUserState(payload.targetUserId, nextState);
+    delete sourceState.pendingIdentityWorkflow;
+    sourceState.lastIdentityWorkflow = workflow;
+    await store.saveUserState(session.userId, sourceState);
+    await store.revokeSession({
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+    });
+    const nextSession = await store.createSession({
+      platform: session.platform,
+      userId: payload.targetUserId,
+      profile: session.profile,
+      authStatus: "authenticated",
+      identity: {
+        anonymous: false,
+        ...((Boolean(nextState.boundPhoneNumber) || session.identity.phoneBound !== undefined)
+          ? { phoneBound: Boolean(nextState.boundPhoneNumber) || Boolean(session.identity.phoneBound) }
+          : {}),
+        wechatBound: Boolean(session.identity.wechatBound || session.platform === "wechat"),
+        ...(session.identity.realNameVerified !== undefined ? { realNameVerified: session.identity.realNameVerified } : {}),
+        mergedUserId: session.userId,
+      },
+      loginMethod: session.loginMethod ?? "wechat_code",
+    });
+    const response: IdentityTransitionResponse = {
+      ...createAuthResponseFromSession(nextSession, c.req.url, {
+        identityWorkflow: workflow,
+        redirectTarget: redirectTarget ?? pendingWorkflow.continueTarget,
+      }),
+      identityWorkflow: workflow,
+    };
+    return c.json(response);
+  });
+
   app.use("/items", requireSession);
   app.use("/feed", requireSession);
   app.use("/notifications", requireSession);
   app.use("/notifications/*", requireSession);
   app.use("/messages", requireSession);
   app.use("/messages/*", requireSession);
+  app.use("/feedback", requireSession);
+  app.use("/feedback/*", requireSession);
   app.use("/novels", requireSession);
   app.use("/novels/*", requireSession);
   app.use("/chapters", requireSession);
@@ -759,6 +1439,85 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
     }
 
+    return c.json(response);
+  });
+
+  app.get("/feedback/bootstrap", async (c) => {
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    return c.json(createFeedbackBootstrapResponse(userState));
+  });
+
+  app.get("/feedback/ticket", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), feedbackTicketIdQuerySchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const response = getFeedbackTicket(userState, query.ticketId);
+    if (!response) {
+      return jsonError("NOT_FOUND", "Feedback ticket not found.", 404, traceId);
+    }
+
+    return c.json(response);
+  });
+
+  app.post("/feedback", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, submitFeedbackSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const normalizeUploadAsset = (asset: z.infer<typeof uploadAssetSchema>): UploadAsset => ({
+      assetId: asset.assetId,
+      fileType: asset.fileType,
+      fileName: asset.fileName,
+      url: asset.url,
+      ...(asset.thumbnailUrl !== undefined ? { thumbnailUrl: asset.thumbnailUrl } : {}),
+      ...(asset.coverImageUrl !== undefined ? { coverImageUrl: asset.coverImageUrl } : {}),
+      metadata: {
+        sizeBytes: asset.metadata.sizeBytes,
+        ...(asset.metadata.mimeType !== undefined ? { mimeType: asset.metadata.mimeType } : {}),
+        ...(asset.metadata.width !== undefined ? { width: asset.metadata.width } : {}),
+        ...(asset.metadata.height !== undefined ? { height: asset.metadata.height } : {}),
+        ...(asset.metadata.durationSeconds !== undefined
+          ? { durationSeconds: asset.metadata.durationSeconds }
+          : {}),
+        ...(asset.metadata.pageCount !== undefined ? { pageCount: asset.metadata.pageCount } : {}),
+      },
+    });
+    const normalizedPayload: SubmitFeedbackRequest = {
+      type: payload.type,
+      categoryKey: payload.categoryKey,
+      title: payload.title,
+      description: payload.description,
+      ...(payload.priority !== undefined ? { priority: payload.priority } : {}),
+      ...(payload.labels !== undefined ? { labels: payload.labels } : {}),
+      ...(payload.revisitRequested !== undefined ? { revisitRequested: payload.revisitRequested } : {}),
+      ...(payload.satisfactionScore !== undefined ? { satisfactionScore: payload.satisfactionScore } : {}),
+      context: {
+        sourcePage: payload.context.sourcePage,
+        ...(payload.context.sourceRouteId !== undefined ? { sourceRouteId: payload.context.sourceRouteId } : {}),
+        ...(payload.context.sourceLabel !== undefined ? { sourceLabel: payload.context.sourceLabel } : {}),
+        ...(payload.context.userId !== undefined ? { userId: payload.context.userId } : {}),
+        platform: payload.context.platform,
+        appVersion: payload.context.appVersion,
+        ...(payload.context.deviceSummary !== undefined ? { deviceSummary: payload.context.deviceSummary } : {}),
+        screenshotAssets: payload.context.screenshotAssets.map(normalizeUploadAsset),
+        attachmentAssets: payload.context.attachmentAssets.map(normalizeUploadAsset),
+      },
+    };
+    const response = submitFeedbackTicket(session, userState, normalizedPayload);
+    await store.saveUserState(session.userId, userState);
     return c.json(response);
   });
 

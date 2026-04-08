@@ -1,6 +1,30 @@
 import { createError, fail, ok, type Result } from "../error/index";
+import type { AppErrorCode } from "../error/types";
 import type { RequestAdapter, RequestOptions, ResponseData } from "../ports/request";
 import type { UserSession } from "../types/index";
+
+const KNOWN_ERROR_CODES = new Set<AppErrorCode>([
+  "UNKNOWN",
+  "NETWORK_ERROR",
+  "TIMEOUT",
+  "UNAUTHORIZED",
+  "FORBIDDEN",
+  "INVALID_ARGUMENT",
+  "NOT_FOUND",
+  "PLATFORM_UNSUPPORTED",
+  "CAPABILITY_UNAVAILABLE",
+  "STORAGE_ERROR",
+  "ROUTE_ERROR",
+  "LOGIN_FAILED",
+  "TOKEN_EXPIRED",
+  "USER_CANCELLED",
+  "RATE_LIMITED",
+  "INTERNAL_ERROR",
+]);
+
+function toKnownErrorCode(code?: string): AppErrorCode | undefined {
+  return code && KNOWN_ERROR_CODES.has(code as AppErrorCode) ? (code as AppErrorCode) : undefined;
+}
 
 export interface RequestClient {
   get<T>(url: string, query?: Record<string, unknown>): Promise<Result<T>>;
@@ -62,26 +86,102 @@ function toQueryRecord(query?: Record<string, unknown>): Record<string, string |
   return next;
 }
 
+function parseErrorPayload(data: unknown): {
+  code?: string;
+  message?: string;
+  detail?: Record<string, unknown>;
+} {
+  if (typeof data !== "object" || data === null) {
+    return {};
+  }
+
+  const record = data as Record<string, unknown>;
+  const detail: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (key !== "code" && key !== "message") {
+      detail[key] = value;
+    }
+  }
+
+  return {
+    ...(typeof record.code === "string" ? { code: record.code } : {}),
+    ...(typeof record.message === "string" ? { message: record.message } : {}),
+    ...(Object.keys(detail).length > 0 ? { detail } : {}),
+  };
+}
+
 function mapHttpError<T>(response: ResponseData<T>): Result<T> {
+  const payload = parseErrorPayload(response.data);
+  const normalizedCode = toKnownErrorCode(payload.code);
+  const traceId = response.headers["x-trace-id"];
+  const payloadDetail = payload.detail ? { ...payload.detail } : {};
+  const retryAfter = response.headers["retry-after"];
+  if (retryAfter) {
+    const retryAfterSeconds = Number.parseInt(retryAfter, 10);
+    if (Number.isFinite(retryAfterSeconds)) {
+      payloadDetail.retryAfterSeconds = retryAfterSeconds;
+    }
+  }
+
   if (response.status >= 200 && response.status < 300) {
     return ok(response.data);
   }
 
+  if (response.status === 429) {
+    return fail(
+      createError("RATE_LIMITED", payload.message ?? "Too many requests. Retry later.", {
+        recoverable: true,
+        ...(traceId ? { traceId } : {}),
+        ...(Object.keys(payloadDetail).length > 0 ? { detail: payloadDetail } : {}),
+      }),
+    );
+  }
+
   if (response.status === 401) {
-    return fail(createError("UNAUTHORIZED", "Request is unauthorized", { recoverable: true }));
+    return fail(
+      createError(normalizedCode === "TOKEN_EXPIRED" ? "TOKEN_EXPIRED" : "UNAUTHORIZED", payload.message ?? "Request is unauthorized", {
+        recoverable: true,
+        ...(traceId ? { traceId } : {}),
+        ...(Object.keys(payloadDetail).length > 0 ? { detail: payloadDetail } : {}),
+      }),
+    );
   }
 
   if (response.status === 403) {
-    return fail(createError("FORBIDDEN", "Request is forbidden", { recoverable: false }));
+    return fail(
+      createError(normalizedCode ?? "FORBIDDEN", payload.message ?? "Request is forbidden", {
+        recoverable: false,
+        ...(traceId ? { traceId } : {}),
+        ...(Object.keys(payloadDetail).length > 0 ? { detail: payloadDetail } : {}),
+      }),
+    );
   }
 
   if (response.status === 404) {
-    return fail(createError("NOT_FOUND", "Resource was not found", { recoverable: true }));
+    return fail(
+      createError(normalizedCode ?? "NOT_FOUND", payload.message ?? "Resource was not found", {
+        recoverable: true,
+        ...(traceId ? { traceId } : {}),
+        ...(Object.keys(payloadDetail).length > 0 ? { detail: payloadDetail } : {}),
+      }),
+    );
+  }
+
+  if (response.status >= 400 && response.status < 500 && normalizedCode) {
+    return fail(
+      createError(normalizedCode, payload.message ?? `Request failed with status ${response.status}`, {
+        recoverable: true,
+        ...(traceId ? { traceId } : {}),
+        ...(Object.keys(payloadDetail).length > 0 ? { detail: payloadDetail } : {}),
+      }),
+    );
   }
 
   return fail(
-    createError("NETWORK_ERROR", `Request failed with status ${response.status}`, {
+    createError(normalizedCode ?? "NETWORK_ERROR", payload.message ?? `Request failed with status ${response.status}`, {
       recoverable: response.status >= 500,
+      ...(traceId ? { traceId } : {}),
+      ...(Object.keys(payloadDetail).length > 0 ? { detail: payloadDetail } : {}),
     }),
   );
 }

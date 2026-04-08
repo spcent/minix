@@ -28,6 +28,10 @@ test("createListPageState normalizes pagination and selection defaults", () => {
   assert.equal(state.query.keyword, "advisory");
   assert.equal(state.selectedItemId, "story-1");
   assert.equal(state.items.length, 2);
+  assert.equal(state.pagination.page, 1);
+  assert.equal(state.pagination.pageSize, 12);
+  assert.equal(state.selection.selectedItemIds[0], "story-1");
+  assert.equal(state.status.loadState, "idle");
 });
 
 test("default page protocol factories provide stable baseline state", () => {
@@ -42,10 +46,19 @@ test("default page protocol factories provide stable baseline state", () => {
 
   assert.equal(list.title, "List");
   assert.equal(list.query.page, 1);
+  assert.equal(list.pagination.hasMore, false);
+  assert.equal(list.filters.length, 0);
+  assert.equal(list.selection.selectedItemIds.length, 0);
+  assert.equal(list.status.loadState, "idle");
   assert.equal(detail.title, "Detail");
   assert.equal(detail.loading, false);
+  assert.equal(detail.detailStatus.entryContext, "unknown");
+  assert.equal(detail.detailActions.length, 0);
   assert.equal(form.title, "Form");
   assert.deepEqual(form.values, { email: "" });
+  assert.deepEqual(form.formValues, { email: "" });
+  assert.equal(form.validationErrors.length, 0);
+  assert.equal(form.submitState.phase, "idle");
   assert.equal(profile.title, "Profile");
   assert.equal(profile.selectedActionKey, "open-settings");
   assert.equal(profile.sections[0]?.key, "session");

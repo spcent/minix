@@ -24,6 +24,13 @@ function cloneState(state: FeedState): FeedState {
     ...state,
     items: state.items.map((item) => ({ ...item })),
     tags: state.tags.map((tag) => ({ ...tag })),
+    pagination: { ...state.pagination },
+    filters: state.filters.map((group) => structuredClone(group)),
+    selection: {
+      ...state.selection,
+      selectedItemIds: [...state.selection.selectedItemIds],
+    },
+    status: { ...state.status },
     searchQuery: state.searchQuery ? structuredClone(state.searchQuery) : undefined,
     searchFilters: state.searchFilters.map((group) => structuredClone(group)),
     searchResults: state.searchResults ? structuredClone(state.searchResults) : undefined,
@@ -67,6 +74,30 @@ function createSearchResults(
     ...nextSearchResults,
     recentKeywords,
     emptyText: nextSearchResults.emptyText || fallbackEmptyText,
+  };
+}
+
+function createSelection(selectedItemId: string | undefined): FeedState["selection"] {
+  return {
+    ...(selectedItemId !== undefined ? { selectedItemId } : {}),
+    selectedItemIds: selectedItemId ? [selectedItemId] : [],
+    batchSelectable: false,
+  };
+}
+
+function createListStatus(
+  loadState: FeedState["status"]["loadState"],
+  options: {
+    firstLoaded?: boolean;
+    partialData?: boolean;
+  } = {},
+): FeedState["status"] {
+  return {
+    loadState,
+    firstLoaded: options.firstLoaded ?? !["idle", "loading", "refreshing"].includes(loadState),
+    retryable: true,
+    partialData: options.partialData ?? false,
+    stickyHeaderEnabled: false,
   };
 }
 
@@ -203,11 +234,16 @@ export function createFeedController(options: CreateFeedControllerOptions) {
   }
 
   async function handleFeedFailure(result: FailedFeedResult) {
+    const hasItems = store.getState().items.length > 0;
     store.setState({
       loading: false,
       refreshing: false,
       errorText: result.error.message,
       ready: true,
+      status: createListStatus(hasItems ? "partial" : "error", {
+        firstLoaded: true,
+        partialData: hasItems,
+      }),
     });
 
     if (result.error.code === "UNAUTHORIZED") {
@@ -240,6 +276,9 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         loading: true,
         refreshing: false,
         errorText: undefined,
+        status: createListStatus("loading", {
+          firstLoaded: store.getState().status.firstLoaded,
+        }),
       });
 
       const result = await kernel.request.get<FeedListResponse>(requestPath, createRequestQuery());
@@ -249,16 +288,29 @@ export function createFeedController(options: CreateFeedControllerOptions) {
 
       const nextSearchResults = createSearchResults(result.value, store.getState().recentKeywords, store.getState().emptyText);
       const nextItems = nextSearchResults.items.map((item) => ({ ...item }));
+      const selectedItemId = deriveSelectedItemId(nextItems, store.getState().selectedItemId);
+      const loadState = nextItems.length > 0 ? "ready" : "empty";
       store.setState({
         loading: false,
         refreshing: false,
         ready: true,
         items: nextItems,
         hasMore: nextSearchResults.hasMore,
+        pagination: {
+          page: result.value.searchQuery.page,
+          pageSize: result.value.searchQuery.pageSize,
+          hasMore: nextSearchResults.hasMore,
+          total: nextSearchResults.total,
+        },
+        filters: result.value.searchFilters.map((group) => structuredClone(group)),
         searchQuery: structuredClone(result.value.searchQuery),
         searchFilters: result.value.searchFilters.map((group) => structuredClone(group)),
         searchResults: nextSearchResults,
-        selectedItemId: deriveSelectedItemId(nextItems, store.getState().selectedItemId),
+        selectedItemId,
+        selection: createSelection(selectedItemId),
+        status: createListStatus(loadState, {
+          firstLoaded: true,
+        }),
         tags: result.value.tags?.map((tag) => ({ ...tag })) ?? store.getState().tags,
         featuredReason: nextSearchResults.featuredReason ?? result.value.featuredReason ?? deriveFeaturedReason(nextItems, store.getState().featuredReason),
         recentKeywords: nextSearchResults.recentKeywords,
@@ -280,6 +332,10 @@ export function createFeedController(options: CreateFeedControllerOptions) {
           ...store.getState().query,
           page: 1,
         },
+        status: createListStatus("refreshing", {
+          firstLoaded: store.getState().status.firstLoaded,
+          partialData: store.getState().items.length > 0,
+        }),
       });
 
       const result = await kernel.request.get<FeedListResponse>(requestPath, createRequestQuery());
@@ -288,19 +344,37 @@ export function createFeedController(options: CreateFeedControllerOptions) {
       }
 
       const nextItems = result.value.items.map((item) => ({ ...item }));
+      const selectedItemId = deriveSelectedItemId(nextItems, store.getState().selectedItemId);
+      const nextSearchResults = createSearchResults(result.value, store.getState().recentKeywords, store.getState().emptyText);
+      const loadState = nextItems.length > 0 ? "ready" : "empty";
       store.setState({
         loading: false,
         refreshing: false,
         ready: true,
         items: nextItems,
         hasMore: result.value.hasMore,
-        selectedItemId: deriveSelectedItemId(nextItems, store.getState().selectedItemId),
+        pagination: {
+          page: result.value.searchQuery.page,
+          pageSize: result.value.searchQuery.pageSize,
+          hasMore: result.value.hasMore,
+          total: nextSearchResults.total,
+        },
+        filters: result.value.searchFilters.map((group) => structuredClone(group)),
+        searchQuery: structuredClone(result.value.searchQuery),
+        searchFilters: result.value.searchFilters.map((group) => structuredClone(group)),
+        searchResults: nextSearchResults,
+        selectedItemId,
+        selection: createSelection(selectedItemId),
+        status: createListStatus(loadState, {
+          firstLoaded: true,
+        }),
         tags: result.value.tags?.map((tag) => ({ ...tag })) ?? store.getState().tags,
         featuredReason: result.value.featuredReason ?? deriveFeaturedReason(nextItems, store.getState().featuredReason),
         query: {
           ...store.getState().query,
-          page: result.value.page ?? 1,
-          pageSize: result.value.pageSize ?? store.getState().query.pageSize,
+          keyword: result.value.searchQuery.keyword,
+          page: result.value.searchQuery.page,
+          pageSize: result.value.searchQuery.pageSize,
         },
       });
       return result;
@@ -314,6 +388,10 @@ export function createFeedController(options: CreateFeedControllerOptions) {
 
       store.setState({
         loading: true,
+        status: createListStatus("appending", {
+          firstLoaded: current.status.firstLoaded,
+          partialData: current.items.length > 0,
+        }),
         query: {
           ...current.query,
           page: current.query.page + 1,
@@ -327,18 +405,31 @@ export function createFeedController(options: CreateFeedControllerOptions) {
 
       const nextSearchResults = createSearchResults(result.value, current.recentKeywords, current.emptyText);
       const nextItems = [...current.items, ...nextSearchResults.items.map((item) => ({ ...item }))];
+      const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
+      const loadState = nextItems.length > 0 ? "ready" : "empty";
       store.setState({
         loading: false,
         ready: true,
         items: nextItems,
         hasMore: nextSearchResults.hasMore,
+        pagination: {
+          page: result.value.searchQuery.page,
+          pageSize: result.value.searchQuery.pageSize,
+          hasMore: nextSearchResults.hasMore,
+          total: nextSearchResults.total,
+        },
+        filters: result.value.searchFilters.map((group) => structuredClone(group)),
         searchQuery: structuredClone(result.value.searchQuery),
         searchFilters: result.value.searchFilters.map((group) => structuredClone(group)),
         searchResults: {
           ...nextSearchResults,
           items: nextItems,
         },
-        selectedItemId: deriveSelectedItemId(nextItems, current.selectedItemId),
+        selectedItemId,
+        selection: createSelection(selectedItemId),
+        status: createListStatus(loadState, {
+          firstLoaded: true,
+        }),
         tags: result.value.tags?.map((tag) => ({ ...tag })) ?? current.tags,
         featuredReason: nextSearchResults.featuredReason ?? result.value.featuredReason ?? deriveFeaturedReason(nextItems, current.featuredReason),
         recentKeywords: nextSearchResults.recentKeywords,
@@ -411,6 +502,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
     selectItem(itemId: string) {
       store.setState({
         selectedItemId: itemId,
+        selection: createSelection(itemId),
       });
     },
 

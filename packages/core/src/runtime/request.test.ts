@@ -120,6 +120,58 @@ test("request client maps 401 responses to UNAUTHORIZED", async () => {
   }
 });
 
+test("request client preserves structured client errors from response bodies", async () => {
+  const adapter: RequestAdapter = {
+    async request<T = unknown>() {
+      return responseOk({ code: "LOGIN_FAILED", message: "invalid account or password" } as T, 400);
+    },
+  };
+
+  const client = createRequestClient({
+    adapter,
+    getSession: async () => ok(null),
+    apiBaseUrl: "https://api.example.com",
+  });
+
+  const result = await client.post("/auth/login", {});
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.error.code, "LOGIN_FAILED");
+    assert.equal(result.error.message, "invalid account or password");
+  }
+});
+
+test("request client maps 429 responses to RATE_LIMITED and preserves retry-after", async () => {
+  const adapter: RequestAdapter = {
+    async request<T = unknown>() {
+      return ok<ResponseData<T>>({
+        status: 429,
+        headers: {
+          "retry-after": "60",
+        },
+        data: {
+          code: "RATE_LIMITED",
+          message: "Too many login attempts. Retry later.",
+          retryAfterSeconds: 60,
+        } as T,
+      });
+    },
+  };
+
+  const client = createRequestClient({
+    adapter,
+    getSession: async () => ok(null),
+    apiBaseUrl: "https://api.example.com",
+  });
+
+  const result = await client.post("/auth/login", {});
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.error.code, "RATE_LIMITED");
+    assert.equal(result.error.detail?.retryAfterSeconds, 60);
+  }
+});
+
 test("request client retries once after 401 by refreshing the session", async () => {
   const session = createSessionService(createCacheService(createMemoryAdapter(), "request-test-3"));
   await session.set({

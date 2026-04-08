@@ -8,7 +8,10 @@ import { createMemoryApiStore } from "./store";
 async function login(app: ReturnType<typeof createApiApp>, platform: "h5" | "wechat") {
   const response = await app.request("http://localhost/auth/login", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "cf-connecting-ip": `198.51.100.${Math.floor(Math.random() * 200) + 1}`,
+    },
     body: JSON.stringify({
       platform,
       credential: platform === "wechat" ? { code: "wechat-code" } : { anonymousId: "host-h5-anonymous" },
@@ -118,7 +121,7 @@ test("auth and novel responses resolve sample media under the api origin", async
   };
   assert.equal(loginPayload.profile.avatarUrl, "http://localhost/sample-assets/profiles/minix-user.svg");
   assert.equal(loginPayload.authStatus, "guest");
-  assert.equal(loginPayload.identity.userId, "minix-demo-user");
+  assert.equal(loginPayload.identity.userId, "guest_media-check-user");
   assert.equal(loginPayload.session.accessToken, loginPayload.accessToken);
 
   const novelsResponse = await app.request("http://localhost/novels?page=1&pageSize=1", {
@@ -126,11 +129,18 @@ test("auth and novel responses resolve sample media under the api origin", async
   });
   assert.equal(novelsResponse.status, 200);
   const novelsPayload = (await novelsResponse.json()) as {
-    items: Array<{ coverUrl?: string }>;
+    items: Array<{
+      coverUrl?: string;
+      contentCard: { model: string; display: { recommendationSlotLabel?: string } };
+      contentAccess: { visibility: string };
+    }>;
     searchQuery: { domain: string };
     searchResults: { total: number };
   };
   assert.equal(novelsPayload.items[0]?.coverUrl, "http://localhost/sample-assets/covers/novel-lantern.svg");
+  assert.equal(novelsPayload.items[0]?.contentCard.model, "novel_story");
+  assert.equal(Boolean(novelsPayload.items[0]?.contentCard.display.recommendationSlotLabel), true);
+  assert.equal(novelsPayload.items[0]?.contentAccess.visibility, "public");
   assert.equal(novelsPayload.searchQuery.domain, "novel");
   assert.equal(novelsPayload.searchResults.total >= 1, true);
 });
@@ -147,10 +157,13 @@ test("current user, settings, and discovery endpoints expose normalized shared o
     userProfile: { nickname?: string };
     accountSummary: { userId: string; assets: { membership?: { headline?: string } } };
     userStatus: { availability: string };
+    identityWorkflows: { canUpgradeGuest: boolean; mergePending: boolean };
   };
   assert.equal(mePayload.userProfile.nickname, "MiniX User");
   assert.equal(mePayload.accountSummary.userId, "minix-demo-user");
   assert.equal(mePayload.userStatus.availability, "enabled");
+  assert.equal(mePayload.identityWorkflows.canUpgradeGuest, false);
+  assert.equal(mePayload.identityWorkflows.mergePending, false);
 
   const settingsResponse = await app.request("http://localhost/settings", {
     headers: { authorization: `Bearer ${session.accessToken}` },
@@ -224,6 +237,86 @@ test("current user, settings, and discovery endpoints expose normalized shared o
   assert.equal(threadPayload.messageThread.threadId, "thread_private_tutor");
   assert.equal(threadPayload.messageThread.type, "private");
   assert.equal(threadPayload.messageThread.reserved, true);
+});
+
+test("feedback bootstrap, submit, and ticket detail endpoints expose the shared ticket model", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "h5");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+
+  const bootstrapResponse = await app.request("http://localhost/feedback/bootstrap", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(bootstrapResponse.status, 200);
+  const bootstrapPayload = (await bootstrapResponse.json()) as {
+    feedbackCategories: Array<{ key: string; type: string }>;
+    latestTicket?: { ticketId: string };
+  };
+  assert.equal(bootstrapPayload.feedbackCategories.length > 0, true);
+  assert.equal(bootstrapPayload.feedbackCategories.some((category) => category.key === "product_issue"), true);
+  assert.equal(bootstrapPayload.latestTicket, undefined);
+
+  const submitResponse = await app.request("http://localhost/feedback", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      type: "issue_report",
+      categoryKey: "product_issue",
+      title: "Inbox route feels stale after refresh",
+      description: "After refresh, the inbox badge kept the previous unread count for one render.",
+      revisitRequested: true,
+      context: {
+        sourcePage: "/feedback",
+        sourceRouteId: "feedback.form",
+        sourceLabel: "Feedback page",
+        userId: session.userId,
+        platform: "h5",
+        appVersion: "0.1.0",
+        deviceSummary: "platform:h5 · version:0.1.0",
+        screenshotAssets: [],
+        attachmentAssets: [],
+      },
+    }),
+  });
+  assert.equal(submitResponse.status, 200);
+  const submitPayload = (await submitResponse.json()) as {
+    feedbackTicket: { ticketId: string; title: string; revisitRequested: boolean; context: { sourcePage: string } };
+    feedbackCategory: { key: string };
+    feedbackStatus: { state: string; processingHistory: Array<{ actorLabel: string }> };
+  };
+  assert.equal(submitPayload.feedbackCategory.key, "product_issue");
+  assert.equal(submitPayload.feedbackTicket.title, "Inbox route feels stale after refresh");
+  assert.equal(submitPayload.feedbackTicket.revisitRequested, true);
+  assert.equal(submitPayload.feedbackTicket.context.sourcePage, "/feedback");
+  assert.equal(submitPayload.feedbackStatus.processingHistory.length > 0, true);
+
+  const ticketResponse = await app.request(
+    `http://localhost/feedback/ticket?ticketId=${submitPayload.feedbackTicket.ticketId}`,
+    {
+      headers: { authorization: `Bearer ${session.accessToken}` },
+    },
+  );
+  assert.equal(ticketResponse.status, 200);
+  const ticketPayload = (await ticketResponse.json()) as {
+    feedbackTicket: { ticketId: string };
+    feedbackStatus: { state: string };
+  };
+  assert.equal(ticketPayload.feedbackTicket.ticketId, submitPayload.feedbackTicket.ticketId);
+  assert.equal(ticketPayload.feedbackStatus.state, submitPayload.feedbackStatus.state);
+
+  const refreshedBootstrapResponse = await app.request("http://localhost/feedback/bootstrap", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(refreshedBootstrapResponse.status, 200);
+  const refreshedBootstrapPayload = (await refreshedBootstrapResponse.json()) as {
+    latestTicket?: { ticketId: string };
+    latestCategory?: { key: string };
+  };
+  assert.equal(refreshedBootstrapPayload.latestTicket?.ticketId, submitPayload.feedbackTicket.ticketId);
+  assert.equal(refreshedBootstrapPayload.latestCategory?.key, "product_issue");
 });
 
 test("sample asset routes serve generated svg media", async () => {
@@ -445,8 +538,246 @@ test("login attempts are rate limited per client and platform", async () => {
   assert.equal(limitedResponse.status, 429);
   assert.equal(limitedResponse.headers.get("retry-after"), "60");
   assert.equal(limitedResponse.headers.get("x-ratelimit-remaining"), "0");
-  const body = (await limitedResponse.json()) as { code: string };
+  const body = (await limitedResponse.json()) as { code: string; retryAfterSeconds: number };
   assert.equal(body.code, "RATE_LIMITED");
+  assert.equal(body.retryAfterSeconds, 60);
+});
+
+test("phone verification login accepts the demo code and binds the phone identity", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+
+  const response = await app.request("http://localhost/auth/login", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "cf-connecting-ip": "203.0.113.77",
+    },
+    body: JSON.stringify({
+      platform: "h5",
+      credential: {
+        method: "phone_code",
+        phoneNumber: "13800000001",
+        verificationCode: "123456",
+      },
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  const payload = (await response.json()) as {
+    authStatus: string;
+    loginMethod: string;
+    identity: { userId: string; phoneBound?: boolean };
+  };
+  assert.equal(payload.authStatus, "authenticated");
+  assert.equal(payload.loginMethod, "phone_code");
+  assert.equal(payload.identity.userId, "user_phone_0001");
+  assert.equal(payload.identity.phoneBound, true);
+});
+
+test("password login rejects invalid credentials and oauth remains explicitly reserved", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+
+  const invalidPassword = await app.request("http://localhost/auth/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      platform: "h5",
+      credential: {
+        method: "password",
+        account: "minix-demo",
+        password: "wrong-pass",
+      },
+    }),
+  });
+  assert.equal(invalidPassword.status, 400);
+  const invalidPasswordBody = (await invalidPassword.json()) as { code: string; message: string };
+  assert.equal(invalidPasswordBody.code, "LOGIN_FAILED");
+  assert.equal(invalidPasswordBody.message, "invalid account or password");
+
+  const oauthResponse = await app.request("http://localhost/auth/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      platform: "h5",
+      credential: {
+        method: "oauth",
+        provider: "wechat-open-platform",
+        providerToken: "oauth-token",
+      },
+    }),
+  });
+  assert.equal(oauthResponse.status, 501);
+  const oauthBody = (await oauthResponse.json()) as { code: string };
+  assert.equal(oauthBody.code, "PLATFORM_UNSUPPORTED");
+});
+
+test("login can return an abnormal-login prompt for suspicious risk context", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+
+  const response = await app.request("http://localhost/auth/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      platform: "h5",
+      credential: {
+        method: "password",
+        account: "minix-demo",
+        password: "minix-demo-pass",
+        deviceId: "device-risk-review",
+      },
+      riskContext: {
+        scene: "suspicious-login",
+        ipRegion: "unusual-region",
+      },
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  const payload = (await response.json()) as {
+    abnormalLoginPrompt?: { title: string; severity: string };
+  };
+  assert.equal(payload.abnormalLoginPrompt?.title, "Unusual sign-in detected");
+  assert.equal(payload.abnormalLoginPrompt?.severity, "warning");
+});
+
+test("guest upgrade can promote a guest session into a formal account and expose workflow state", async () => {
+  const store = createMemoryApiStore();
+  const app = createApiApp({ store });
+  const guestSession = await login(app, "h5");
+
+  const upgradeResponse = await app.request("http://localhost/auth/identity/upgrade", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${guestSession.accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      credential: {
+        method: "phone_code",
+        phoneNumber: "13800000022",
+        verificationCode: "123456",
+      },
+      redirectTarget: {
+        path: "/items",
+        source: "account",
+      },
+    }),
+  });
+
+  assert.equal(upgradeResponse.status, 200);
+  const upgradePayload = (await upgradeResponse.json()) as {
+    accessToken: string;
+    authStatus: string;
+    identity: { userId: string; phoneBound?: boolean };
+    identityWorkflow: { kind: string; status: string; targetUserId?: string };
+  };
+  assert.equal(upgradePayload.authStatus, "authenticated");
+  assert.equal(upgradePayload.identity.userId, "user_phone_0022");
+  assert.equal(upgradePayload.identity.phoneBound, true);
+  assert.equal(upgradePayload.identityWorkflow.kind, "guest_upgrade");
+  assert.equal(upgradePayload.identityWorkflow.status, "completed");
+  assert.equal(upgradePayload.identityWorkflow.targetUserId, "user_phone_0022");
+
+  const meResponse = await app.request("http://localhost/me", {
+    headers: { authorization: `Bearer ${upgradePayload.accessToken}` },
+  });
+  assert.equal(meResponse.status, 200);
+  const mePayload = (await meResponse.json()) as {
+    accountSummary: { userId: string; phoneBound: boolean; phoneNumberMasked?: string };
+    identityWorkflows: { lastWorkflow?: { kind: string; status: string } };
+  };
+  assert.equal(mePayload.accountSummary.userId, "user_phone_0022");
+  assert.equal(mePayload.accountSummary.phoneBound, true);
+  assert.equal(mePayload.accountSummary.phoneNumberMasked, "138****0022");
+  assert.equal(mePayload.identityWorkflows.lastWorkflow?.kind, "guest_upgrade");
+  assert.equal(mePayload.identityWorkflows.lastWorkflow?.status, "completed");
+});
+
+test("phone binding can surface a merge-required workflow before merge confirmation", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "wechat");
+
+  const bindResponse = await app.request("http://localhost/auth/identity/bind-phone", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${session.accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      phoneNumber: "13800000001",
+      verificationCode: "123456",
+    }),
+  });
+
+  assert.equal(bindResponse.status, 200);
+  const bindPayload = (await bindResponse.json()) as {
+    identity: { userId: string };
+    identityWorkflow: { kind: string; status: string; targetUserId?: string; failureReason?: string };
+  };
+  assert.equal(bindPayload.identity.userId, "minix-demo-user");
+  assert.equal(bindPayload.identityWorkflow.kind, "phone_binding");
+  assert.equal(bindPayload.identityWorkflow.status, "merge_required");
+  assert.equal(bindPayload.identityWorkflow.targetUserId, "user_phone_0001");
+  assert.equal(bindPayload.identityWorkflow.failureReason, "merge_confirmation_required");
+});
+
+test("account merge can finalize a pending identity merge into the target account", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "wechat");
+
+  const bindResponse = await app.request("http://localhost/auth/identity/bind-phone", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${session.accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      phoneNumber: "13800000001",
+      verificationCode: "123456",
+    }),
+  });
+  const bindPayload = (await bindResponse.json()) as {
+    identityWorkflow: { targetUserId?: string };
+  };
+
+  const mergeResponse = await app.request("http://localhost/auth/identity/merge", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${session.accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      targetUserId: bindPayload.identityWorkflow.targetUserId,
+      workflowKind: "phone_binding",
+      confirm: true,
+    }),
+  });
+
+  assert.equal(mergeResponse.status, 200);
+  const mergePayload = (await mergeResponse.json()) as {
+    identity: { userId: string; mergedUserId?: string };
+    identityWorkflow: { kind: string; status: string; targetUserId?: string };
+    accessToken: string;
+  };
+  assert.equal(mergePayload.identity.userId, "user_phone_0001");
+  assert.equal(mergePayload.identity.mergedUserId, "minix-demo-user");
+  assert.equal(mergePayload.identityWorkflow.kind, "account_merge");
+  assert.equal(mergePayload.identityWorkflow.status, "completed");
+  assert.equal(mergePayload.identityWorkflow.targetUserId, "user_phone_0001");
+
+  const meResponse = await app.request("http://localhost/me", {
+    headers: { authorization: `Bearer ${mergePayload.accessToken}` },
+  });
+  assert.equal(meResponse.status, 200);
+  const mePayload = (await meResponse.json()) as {
+    accountSummary: { userId: string; phoneBound: boolean };
+    identityWorkflows: { mergePending: boolean; lastWorkflow?: { kind: string; status: string } };
+  };
+  assert.equal(mePayload.accountSummary.userId, "user_phone_0001");
+  assert.equal(mePayload.accountSummary.phoneBound, true);
+  assert.equal(mePayload.identityWorkflows.mergePending, false);
+  assert.equal(mePayload.identityWorkflows.lastWorkflow?.kind, "account_merge");
+  assert.equal(mePayload.identityWorkflows.lastWorkflow?.status, "completed");
 });
 
 test("refresh attempts are rate limited per forwarded client ip", async () => {
@@ -554,8 +885,17 @@ test("novel sample flow supports detail, reading progress, bookshelf, and member
 
   const detailResponse = await app.request("http://localhost/novels/detail?novelId=novel_brocade", { headers });
   assert.equal(detailResponse.status, 200);
-  const detail = (await detailResponse.json()) as { id: string; inBookshelf?: boolean };
+  const detail = (await detailResponse.json()) as {
+    id: string;
+    inBookshelf?: boolean;
+    contentDetail: { model: string; lifecycle: { state: string } };
+    contentAccess: { visibility: string; summaryLabel: string };
+  };
   assert.equal(detail.id, "novel_brocade");
+  assert.equal(detail.contentDetail.model, "novel_story");
+  assert.equal(detail.contentDetail.lifecycle.state, "published");
+  assert.equal(detail.contentAccess.visibility, "member_only");
+  assert.equal(detail.contentAccess.summaryLabel.length > 0, true);
 
   const chaptersResponse = await app.request("http://localhost/chapters?novelId=novel_brocade", { headers });
   assert.equal(chaptersResponse.status, 200);

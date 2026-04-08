@@ -4,6 +4,7 @@ export const APP_ROUTE_IDS = {
   overview: "overview.index",
   items: "items.list",
   account: "account.index",
+  feedback: "feedback.form",
   feed: "feed.index",
   mediaTools: "media-tools.workspace",
   messages: "messages.index",

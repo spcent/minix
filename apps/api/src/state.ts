@@ -1,4 +1,4 @@
-import type { OrderDetailResponse, PurchaseMembershipRequest, ReadingProgress } from "@minix/contracts";
+import type { FeedbackTicketDetailResponse, OrderDetailResponse, PurchaseMembershipRequest, ReadingProgress } from "@minix/contracts";
 
 import { createDefaultUserState } from "./data";
 import type { UserState } from "./types";
@@ -8,9 +8,14 @@ interface PersistedUserState {
   bookshelfNovelIds: string[];
   progressByNovelId: Record<string, ReadingProgress>;
   notificationReadAtById?: Record<string, string>;
+  feedbackDetailsById?: Record<string, FeedbackTicketDetailResponse>;
+  latestFeedbackTicketId?: string;
   latestPaidOrderId?: string;
   ordersById?: Record<string, OrderDetailResponse>;
   orderIdByIdempotencyKey?: Record<string, string>;
+  boundPhoneNumber?: string;
+  pendingIdentityWorkflow?: UserState["pendingIdentityWorkflow"];
+  lastIdentityWorkflow?: UserState["lastIdentityWorkflow"];
 }
 
 export function serializeUserState(userState: UserState): string {
@@ -19,9 +24,14 @@ export function serializeUserState(userState: UserState): string {
     bookshelfNovelIds: Array.from(userState.bookshelfNovelIds),
     progressByNovelId: userState.progressByNovelId,
     notificationReadAtById: userState.notificationReadAtById,
+    feedbackDetailsById: userState.feedbackDetailsById,
+    ...(userState.latestFeedbackTicketId ? { latestFeedbackTicketId: userState.latestFeedbackTicketId } : {}),
     ...(userState.latestPaidOrderId ? { latestPaidOrderId: userState.latestPaidOrderId } : {}),
     ordersById: userState.ordersById,
     orderIdByIdempotencyKey: userState.orderIdByIdempotencyKey,
+    ...(userState.boundPhoneNumber ? { boundPhoneNumber: userState.boundPhoneNumber } : {}),
+    ...(userState.pendingIdentityWorkflow ? { pendingIdentityWorkflow: userState.pendingIdentityWorkflow } : {}),
+    ...(userState.lastIdentityWorkflow ? { lastIdentityWorkflow: userState.lastIdentityWorkflow } : {}),
   };
 
   return JSON.stringify(persisted);
@@ -38,8 +48,13 @@ export function deserializeUserState(serialized: string | null | undefined): Use
     bookshelfNovelIds: new Set(parsed.bookshelfNovelIds ?? []),
     progressByNovelId: parsed.progressByNovelId ?? {},
     notificationReadAtById: parsed.notificationReadAtById ?? {},
+    feedbackDetailsById: parsed.feedbackDetailsById ?? {},
+    ...(parsed.latestFeedbackTicketId ? { latestFeedbackTicketId: parsed.latestFeedbackTicketId } : {}),
     ...(parsed.latestPaidOrderId ? { latestPaidOrderId: parsed.latestPaidOrderId } : {}),
     ordersById: parsed.ordersById ?? {},
     orderIdByIdempotencyKey: parsed.orderIdByIdempotencyKey ?? {},
+    ...(parsed.boundPhoneNumber ? { boundPhoneNumber: parsed.boundPhoneNumber } : {}),
+    ...(parsed.pendingIdentityWorkflow ? { pendingIdentityWorkflow: parsed.pendingIdentityWorkflow } : {}),
+    ...(parsed.lastIdentityWorkflow ? { lastIdentityWorkflow: parsed.lastIdentityWorkflow } : {}),
   };
 }

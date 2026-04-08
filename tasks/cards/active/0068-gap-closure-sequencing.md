@@ -90,7 +90,7 @@ Provide one source of truth for the next capability slices and their sequencing 
 
 ## Acceptance
 
-- [ ] sequence starts with auth and user domain hardening before adding new host-visible business surfaces
-- [ ] later slices do not bypass shared contracts by writing directly into host-only state
-- [ ] auth, routing, user, settings, message, payment, content, search, list/detail, form, upload/share, and feedback all have explicit follow-up cards
-- [ ] cards stay local, reversible, and architecture-aligned
+- [x] sequence starts with auth and user domain hardening before adding new host-visible business surfaces
+- [x] later slices do not bypass shared contracts by writing directly into host-only state
+- [x] auth, routing, user, settings, message, payment, content, search, list/detail, form, upload/share, and feedback all have explicit follow-up cards
+- [x] cards stay local, reversible, and architecture-aligned

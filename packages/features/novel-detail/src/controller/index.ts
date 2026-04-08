@@ -39,6 +39,9 @@ function cloneInitialState(initialState: NovelDetailState): NovelDetailState {
   return {
     ...initialState,
     ...(initialState.detail ? { detail: { ...initialState.detail } } : {}),
+    ...(initialState.detailData ? { detailData: { ...initialState.detailData } } : {}),
+    detailStatus: { ...initialState.detailStatus },
+    detailActions: initialState.detailActions.map((action) => ({ ...action })),
   };
 }
 
@@ -75,6 +78,12 @@ function createCadenceSummary(detail: NovelDetail): string {
 }
 
 function createTrialSummary(detail: NovelDetail, accessSummary: string | undefined): string {
+  if (detail.contentAccess?.summaryLabel) {
+    return detail.trialRuleLabel
+      ? `${detail.trialRuleLabel}. ${detail.contentAccess.summaryLabel}`
+      : detail.contentAccess.summaryLabel;
+  }
+
   if (detail.trialRuleLabel && detail.accessRuleSummaryLabel) {
     return `${detail.trialRuleLabel}. ${detail.accessRuleSummaryLabel}`;
   }
@@ -105,7 +114,66 @@ function createBookshelfSummary(detail: NovelDetail): string {
     return `${detail.bookshelfCount} shelf adds suggest this title already behaves like a strong return candidate.`;
   }
 
+  if (detail.contentDetail?.display?.recommendationSlotLabel) {
+    return `${detail.contentDetail.display.recommendationSlotLabel} keeps this title legible as a reusable return point instead of a one-off merch surface.`;
+  }
+
   return "Adding this title to shelf turns the page into a reusable reading return point instead of a one-off merch surface.";
+}
+
+function deriveEntryContext(kernel: AppKernel): NovelDetailState["detailStatus"]["entryContext"] {
+  const current = kernel.router.current();
+  if (!current.ok) {
+    return "unknown";
+  }
+
+  const source = typeof current.value?.params?.source === "string" ? current.value.params.source : undefined;
+  if (source === "share") {
+    return "share";
+  }
+
+  if (source && ["catalog", "feed", "items", "bookshelf", "messages", "search", "list"].includes(source)) {
+    return "list";
+  }
+
+  return current.value?.path ? "deep_link" : "unknown";
+}
+
+function createDetailActions(detail: NovelDetail, state: Pick<NovelDetailState, "membershipLocked" | "bookshelfBusy">) {
+  const actions: NovelDetailState["detailActions"] = [];
+  const primaryLabel = state.membershipLocked ? "Unlock membership" : detail.continueChapterId ? "Continue reading" : "Start reading";
+
+  actions.push({
+    key: state.membershipLocked ? "open-membership" : detail.continueChapterId ? "continue-reading" : "start-reading",
+    label: primaryLabel,
+    enabled: true,
+    emphasis: "primary",
+  });
+
+  actions.push({
+    key: detail.inBookshelf ? "remove-bookshelf" : "add-bookshelf",
+    label: detail.inBookshelf ? "Remove from shelf" : "Add to shelf",
+    enabled: !state.bookshelfBusy,
+    emphasis: detail.inBookshelf ? "secondary" : "secondary",
+  });
+
+  actions.push({
+    key: "open-toc",
+    label: "Open table of contents",
+    enabled: true,
+    emphasis: "secondary",
+  });
+
+  if (detail.requiresMembership && !detail.isPurchased) {
+    actions.push({
+      key: "view-membership",
+      label: "View membership",
+      enabled: true,
+      emphasis: "secondary",
+    });
+  }
+
+  return actions;
 }
 
 export function createNovelDetailController(options: CreateNovelDetailControllerOptions) {
@@ -188,6 +256,11 @@ export function createNovelDetailController(options: CreateNovelDetailController
         store.setState({
           loading: false,
           errorText: "Novel id is missing.",
+          detailStatus: {
+            ...store.getState().detailStatus,
+            loadState: "error",
+            entryContext: deriveEntryContext(kernel),
+          },
         });
         return ok(undefined);
       }
@@ -197,6 +270,16 @@ export function createNovelDetailController(options: CreateNovelDetailController
         errorText: undefined,
         bookshelfBusy: false,
         bookshelfNotice: undefined,
+        detailStatus: {
+          ...store.getState().detailStatus,
+          loadState: "loading",
+          entryContext: deriveEntryContext(kernel),
+          invalidated: false,
+          deleted: false,
+          permissionDenied: false,
+          offline: false,
+          unpublished: false,
+        },
       });
 
       const [detailResult, progressResult] = await Promise.all([
@@ -208,6 +291,11 @@ export function createNovelDetailController(options: CreateNovelDetailController
         store.setState({
           loading: false,
           errorText: detailResult.error.message,
+          detailStatus: {
+            ...store.getState().detailStatus,
+            loadState: detailResult.error.code === "FORBIDDEN" ? "forbidden" : "error",
+            permissionDenied: detailResult.error.code === "FORBIDDEN",
+          },
         });
 
         if (detailResult.error.code === "UNAUTHORIZED") {
@@ -221,6 +309,10 @@ export function createNovelDetailController(options: CreateNovelDetailController
         store.setState({
           loading: false,
           errorText: progressResult.error.message,
+          detailStatus: {
+            ...store.getState().detailStatus,
+            loadState: "error",
+          },
         });
 
         return routeToLogin();
@@ -238,14 +330,31 @@ export function createNovelDetailController(options: CreateNovelDetailController
       const milestoneResult = await kernel.storage.get<LatestReadingMilestoneSnapshot>(latestMilestoneStorageKey);
       const milestone = milestoneResult.ok ? milestoneResult.value : null;
       const milestoneContinuity = deriveLatestMilestoneContinuity(milestone);
+      const membershipLocked = Boolean(detail.requiresMembership && !detail.isPurchased && !detail.isTrial && !detail.isFree);
+      const detailActions = createDetailActions(detail, {
+        membershipLocked,
+        bookshelfBusy: false,
+      });
 
       store.setState({
         ready: true,
         loading: false,
         novelId,
         detail,
+        detailData: detail,
         title: detail.title,
-        membershipLocked: Boolean(detail.requiresMembership && !detail.isPurchased && !detail.isTrial && !detail.isFree),
+        detailStatus: {
+          loadState: "ready",
+          entryContext: deriveEntryContext(kernel),
+          refreshable: true,
+          invalidated: false,
+          deleted: false,
+          permissionDenied: false,
+          offline: false,
+          unpublished: false,
+        },
+        detailActions,
+        membershipLocked,
         membershipMessage: access.accessState !== "open" ? access.accessSummary : undefined,
         accessBadgeLabel: access.accessBadgeLabel,
         accessSummary: access.accessSummary,
@@ -387,6 +496,10 @@ export function createNovelDetailController(options: CreateNovelDetailController
       store.setState({
         bookshelfBusy: true,
         bookshelfNotice: undefined,
+        detailActions: current.detail ? createDetailActions(current.detail, {
+          membershipLocked: current.membershipLocked,
+          bookshelfBusy: true,
+        }) : current.detailActions,
       });
 
       const result = await kernel.request.post<BookshelfMutationResponse>(bookshelfRequestPath, {
@@ -397,6 +510,12 @@ export function createNovelDetailController(options: CreateNovelDetailController
         store.setState({
           bookshelfBusy: false,
           errorText: result.error.message,
+          detailActions: current.detail
+            ? createDetailActions(current.detail, {
+                membershipLocked: current.membershipLocked,
+                bookshelfBusy: false,
+              })
+            : current.detailActions,
         });
 
         if (result.error.code === "UNAUTHORIZED") {
@@ -412,10 +531,26 @@ export function createNovelDetailController(options: CreateNovelDetailController
           inBookshelf: result.value.inBookshelf,
           bookshelfCount: result.value.bookshelfCount,
         },
+        detailData: {
+          ...detail,
+          inBookshelf: result.value.inBookshelf,
+          bookshelfCount: result.value.bookshelfCount,
+        },
         bookshelfSummary: "This title is already on shelf, so the next return can happen from the shelf workspace as well as from detail.",
         bookshelfBusy: false,
         bookshelfNotice: "Added to shelf. You can now resume it from the bookshelf workspace.",
         errorText: undefined,
+        detailActions: createDetailActions(
+          {
+            ...detail,
+            inBookshelf: result.value.inBookshelf,
+            bookshelfCount: result.value.bookshelfCount,
+          },
+          {
+            membershipLocked: current.membershipLocked,
+            bookshelfBusy: false,
+          },
+        ),
       });
 
       return result;
@@ -432,6 +567,10 @@ export function createNovelDetailController(options: CreateNovelDetailController
       store.setState({
         bookshelfBusy: true,
         bookshelfNotice: undefined,
+        detailActions: current.detail ? createDetailActions(current.detail, {
+          membershipLocked: current.membershipLocked,
+          bookshelfBusy: true,
+        }) : current.detailActions,
       });
 
       const result = await kernel.request.delete<BookshelfMutationResponse>(bookshelfRequestPath, {
@@ -442,6 +581,12 @@ export function createNovelDetailController(options: CreateNovelDetailController
         store.setState({
           bookshelfBusy: false,
           errorText: result.error.message,
+          detailActions: current.detail
+            ? createDetailActions(current.detail, {
+                membershipLocked: current.membershipLocked,
+                bookshelfBusy: false,
+              })
+            : current.detailActions,
         });
 
         if (result.error.code === "UNAUTHORIZED") {
@@ -457,6 +602,11 @@ export function createNovelDetailController(options: CreateNovelDetailController
           inBookshelf: result.value.inBookshelf,
           bookshelfCount: result.value.bookshelfCount,
         },
+        detailData: {
+          ...detail,
+          inBookshelf: result.value.inBookshelf,
+          bookshelfCount: result.value.bookshelfCount,
+        },
         bookshelfSummary: createBookshelfSummary({
           ...detail,
           inBookshelf: result.value.inBookshelf,
@@ -465,6 +615,17 @@ export function createNovelDetailController(options: CreateNovelDetailController
         bookshelfBusy: false,
         bookshelfNotice: "Removed from shelf. The title can still be opened from the library or detail route.",
         errorText: undefined,
+        detailActions: createDetailActions(
+          {
+            ...detail,
+            inBookshelf: result.value.inBookshelf,
+            bookshelfCount: result.value.bookshelfCount,
+          },
+          {
+            membershipLocked: current.membershipLocked,
+            bookshelfBusy: false,
+          },
+        ),
       });
 
       return result;

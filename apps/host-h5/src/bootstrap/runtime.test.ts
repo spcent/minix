@@ -92,6 +92,11 @@ function createKernelStub(): AppKernel {
               blacklisted: false,
               guest: false,
             },
+            identityWorkflows: {
+              canUpgradeGuest: false,
+              canBindPhone: false,
+              mergePending: false,
+            },
           } as T);
         }
 
@@ -201,6 +206,32 @@ function createKernelStub(): AppKernel {
               sortOptions: [{ key: "recommended", label: "Recommended" }],
               activeSortKey: "recommended",
             },
+          } as T);
+        }
+
+        if (path === "/feedback/bootstrap") {
+          return ok({
+            feedbackCategories: [
+              {
+                key: "product_issue",
+                label: "Product issue",
+                type: "issue_report",
+                description: "Unexpected behavior or broken experience.",
+                defaultPriority: "high",
+                labels: ["product", "issue"],
+                supportsAttachments: true,
+                customerServiceEntryLabel: "Escalate to support",
+              },
+              {
+                key: "suggestion",
+                label: "Suggestion",
+                type: "suggestion",
+                description: "Product improvement ideas.",
+                defaultPriority: "medium",
+                labels: ["suggestion"],
+                supportsAttachments: true,
+              },
+            ],
           } as T);
         }
 
@@ -358,8 +389,8 @@ test("host h5 runtime creates page controllers on a shared kernel", () => {
   const runtime = createHostH5Runtime(kernel);
 
   assert.equal(runtime.kernel, kernel);
-  assert.deepEqual(Object.keys(runtime.registry), ["login", "overview", "items", "feed", "messages", "mediaTools", "settings", "account"]);
-  assert.deepEqual(Object.keys(runtime.pages), ["login", "overview", "items", "feed", "messages", "mediaTools", "settings", "account"]);
+  assert.deepEqual(Object.keys(runtime.registry), ["login", "overview", "items", "feed", "feedback", "messages", "mediaTools", "settings", "account"]);
+  assert.deepEqual(Object.keys(runtime.pages), ["login", "overview", "items", "feed", "feedback", "messages", "mediaTools", "settings", "account"]);
 });
 
 test("host h5 page entries delegate to runtime controllers", async () => {
@@ -368,6 +399,7 @@ test("host h5 page entries delegate to runtime controllers", async () => {
   const overviewEntry = createHostH5PageEntry(runtime, "overview");
   const itemsEntry = createHostH5PageEntry(runtime, "items");
   const feedEntry = createHostH5PageEntry(runtime, "feed");
+  const feedbackEntry = createHostH5PageEntry(runtime, "feedback");
   const mediaToolsEntry = createHostH5PageEntry(runtime, "mediaTools");
   const messagesEntry = createHostH5PageEntry(runtime, "messages");
   const settingsEntry = createHostH5PageEntry(runtime, "settings");
@@ -377,6 +409,7 @@ test("host h5 page entries delegate to runtime controllers", async () => {
   const overviewResult = await overviewEntry.onShow();
   const itemsResult = await itemsEntry.onShow();
   const feedResult = await feedEntry.onShow();
+  const feedbackResult = await feedbackEntry.onShow();
   const mediaToolsResult = await mediaToolsEntry.onShow();
   const messagesResult = await messagesEntry.onShow();
   const settingsResult = await settingsEntry.onTapLogout();
@@ -386,6 +419,7 @@ test("host h5 page entries delegate to runtime controllers", async () => {
   assert.equal((overviewResult as { ok?: boolean } | undefined)?.ok, true);
   assert.equal((itemsResult as { ok?: boolean } | undefined)?.ok, true);
   assert.equal((feedResult as { ok?: boolean } | undefined)?.ok, true);
+  assert.equal((feedbackResult as { ok?: boolean } | undefined)?.ok, true);
   assert.equal((mediaToolsResult as { ok?: boolean } | undefined)?.ok, true);
   assert.equal((messagesResult as { ok?: boolean } | undefined)?.ok, true);
   assert.deepEqual(settingsResult, { ok: true, value: undefined });

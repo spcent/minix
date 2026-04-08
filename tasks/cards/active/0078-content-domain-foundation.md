@@ -97,8 +97,7 @@ Create stable shared outputs for `contentCard`, `contentDetail`, and `contentAcc
 
 ## Acceptance
 
-- [ ] content contracts cover model, status, display, access, and lifecycle semantics explicitly
-- [ ] current novel sample remains a domain-specific extension, not the only content abstraction
-- [ ] outputs include explicit `contentCard`, `contentDetail`, and `contentAccess` semantics
-- [ ] `pnpm verify` run
-
+- [x] content contracts cover model, status, display, access, and lifecycle semantics explicitly
+- [x] current novel sample remains a domain-specific extension, not the only content abstraction
+- [x] outputs include explicit `contentCard`, `contentDetail`, and `contentAccess` semantics
+- [x] `pnpm verify` run

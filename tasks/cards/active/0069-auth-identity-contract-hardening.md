@@ -99,9 +99,9 @@ Give the kernel one stable auth domain model for `session`, `identity`, `authSta
 
 ## Acceptance
 
-- [ ] auth contract can express WeChat code login, phone verification login, password login, guest login, and reserved third-party login
-- [ ] session state exposes explicit `identity` and `authStatus` instead of inferring everything from token presence
-- [ ] guest upgrade, binding, and merge outcomes have shared result types even if backend behavior is still sample-scoped
-- [ ] auth outputs explicitly cover `session`, `identity`, `authStatus`, and `redirectTarget`
-- [ ] device/risk/frequency/abnormal-login fields are not silently omitted from the shared contract
-- [ ] `pnpm verify` run
+- [x] auth contract can express WeChat code login, phone verification login, password login, guest login, and reserved third-party login
+- [x] session state exposes explicit `identity` and `authStatus` instead of inferring everything from token presence
+- [x] guest upgrade, binding, and merge outcomes have shared result types even if backend behavior is still sample-scoped
+- [x] auth outputs explicitly cover `session`, `identity`, `authStatus`, and `redirectTarget`
+- [x] device/risk/frequency/abnormal-login fields are not silently omitted from the shared contract
+- [x] `pnpm verify` run

@@ -4,6 +4,11 @@ import type {
   ChapterContent,
   ChapterListResponse,
   ChapterSummary,
+  ContentAccess,
+  ContentCard,
+  ContentDetail,
+  ContentDisplay,
+  ContentLifecycle,
   ItemsListResponse,
   MembershipOverview,
   NovelCard,
@@ -16,6 +21,81 @@ import type {
 
 import type { UserState } from "./types";
 import { buildSampleCoverAssetPath } from "./sample-assets";
+
+type RawNovelDetail = Omit<NovelDetail, "contentDetail" | "contentAccess">;
+
+function createNovelLifecycle(detail: RawNovelDetail): ContentLifecycle {
+  return {
+    state: "published",
+    availableActions: ["update", "archive", "delete"],
+    ...(detail.latestChapter?.updatedAt ? { publishedAt: detail.latestChapter.updatedAt } : {}),
+    ...(detail.latestChapter?.updatedAt ? { updatedAt: detail.latestChapter.updatedAt } : {}),
+  };
+}
+
+function createNovelDisplay(detail: RawNovelDetail): ContentDisplay {
+  return {
+    category: {
+      key: detail.categoryKey,
+      label: detail.categoryLabel,
+    },
+    tags: detail.tags.map((tag) => ({ key: tag.key, label: tag.label })),
+    topics: detail.tags.slice(0, 2).map((tag) => ({ key: tag.key, label: tag.label })),
+    recommendationSlot: detail.requiresMembership ? "premium" : detail.status === "serializing" ? "frontlist" : "ranking",
+    recommendationSlotLabel:
+      detail.requiresMembership
+        ? "Premium Spotlight"
+        : detail.status === "serializing"
+          ? "Frontlist Serial"
+          : "Completed Archive",
+    pinned: detail.status === "serializing",
+    featured: detail.requiresMembership || detail.status === "serializing",
+  };
+}
+
+function createNovelContentAccess(detail: RawNovelDetail): ContentAccess {
+  const visibility = detail.requiresMembership ? "member_only" : "public";
+  const accessible = !detail.requiresMembership || Boolean(detail.isPurchased) || detail.isFree;
+  return {
+    visibility,
+    accessible,
+    previewAvailable: Boolean(detail.isFree || detail.isTrial),
+    requiresLogin: false,
+    requiresMembership: detail.requiresMembership,
+    requiresPurchase: false,
+    ...(detail.isPurchased !== undefined ? { purchased: detail.isPurchased } : {}),
+    summaryLabel:
+      detail.accessRuleSummaryLabel ??
+      (detail.requiresMembership
+        ? "This title stays in the premium lane until membership unlocks the complete reading route after the current preview boundary."
+        : "Open-access reading continues without a paywall in the current sample surface."),
+    ...(detail.requiresMembership ? { gateLabel: "Membership required for full reading" } : {}),
+    ...(detail.requiresMembership ? { entitlementLabel: "Membership unlock" } : {}),
+  };
+}
+
+function createNovelContentDetail(detail: RawNovelDetail): ContentDetail {
+  return {
+    contentId: detail.id,
+    model: "novel_story",
+    title: detail.title,
+    ...(detail.subtitle ? { subtitle: detail.subtitle } : {}),
+    summary: detail.summary,
+    ...(detail.coverUrl ? { coverUrl: detail.coverUrl } : {}),
+    authorLabel: detail.author.name,
+    display: createNovelDisplay(detail),
+    lifecycle: createNovelLifecycle(detail),
+    ...(detail.relatedLaneLabel ? { recommendationReason: detail.relatedLaneLabel } : {}),
+  };
+}
+
+function enrichNovelDetail(detail: RawNovelDetail): NovelDetail {
+  return {
+    ...detail,
+    contentDetail: createNovelContentDetail(detail),
+    contentAccess: createNovelContentAccess(detail),
+  };
+}
 
 export const HOST_ITEMS: ItemsListResponse["items"] = [
   {
@@ -117,7 +197,7 @@ export const MEMBER_RENEWAL_LABELS: Record<PurchaseMembershipRequest["planId"], 
   annual: "Annual plan active",
 };
 
-export const NOVELS: NovelDetail[] = [
+const RAW_NOVELS: RawNovelDetail[] = [
   {
     id: "novel_lantern",
     slug: "ashes-of-the-lantern",
@@ -373,6 +453,8 @@ export const NOVELS: NovelDetail[] = [
     isPurchased: false,
   },
 ];
+
+export const NOVELS: NovelDetail[] = RAW_NOVELS.map(enrichNovelDetail);
 
 export const CHAPTER_LISTS: Record<string, ChapterListResponse> = {
   novel_lantern: {

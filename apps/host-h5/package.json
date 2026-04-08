@@ -9,6 +9,7 @@
     "@minix/core": "workspace:*",
     "@minix/feature-account": "workspace:*",
     "@minix/feature-auth": "workspace:*",
+    "@minix/feature-feedback": "workspace:*",
     "@minix/feature-feed": "workspace:*",
     "@minix/feature-items": "workspace:*",
     "@minix/feature-media-tools": "workspace:*",
