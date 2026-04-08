@@ -45,6 +45,9 @@
       "@minix/feature-items": [
         "./packages/features/items/src"
       ],
+      "@minix/feature-media-tools": [
+        "./packages/features/media-tools/src"
+      ],
       "@minix/feature-messages": [
         "./packages/features/messages/src"
       ],

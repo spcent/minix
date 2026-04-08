@@ -4,6 +4,7 @@ import { accountFeatureManifest, createDefaultAccountState } from "@minix/featur
 import { authFeatureManifest, createInitialAuthPageState } from "@minix/feature-auth";
 import { createDefaultFeedState, feedFeatureManifest } from "@minix/feature-feed";
 import { createDefaultItemsPageModel, itemsFeatureManifest } from "@minix/feature-items";
+import { createDefaultMediaToolsState, mediaToolsFeatureManifest } from "@minix/feature-media-tools";
 import { createDefaultMessagesState, messagesFeatureManifest } from "@minix/feature-messages";
 import { settingsFeatureManifest } from "@minix/feature-settings";
 
@@ -194,6 +195,36 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     },
     featureConfig: {
       surface: "messages",
+    },
+    renderMode: "custom",
+  },
+  mediaTools: {
+    feature: mediaToolsFeatureManifest,
+    routeId: APP_ROUTE_IDS.mediaTools,
+    routePath: "/media-tools",
+    pageData: createDefaultMediaToolsState({
+      title: "Media Tools",
+      subtitle: "Minimal upload and share workspace proving the shared contracts through capability adapters.",
+      primaryActionLabel: "Select Upload Asset",
+      secondaryActionLabel: "Dispatch Share Payload",
+    }),
+    controller: {
+      loginRouteId: APP_ROUTE_IDS.login,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+    },
+    guardPolicy: {
+      name: "authenticated-media-tools",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    requiredCapabilities: [
+      { capability: "upload", required: false },
+      { capability: "share", required: false },
+    ],
+    featureConfig: {
+      surface: "media-tools",
+      template: "workspace",
     },
     renderMode: "custom",
   },

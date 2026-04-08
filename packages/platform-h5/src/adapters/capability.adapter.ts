@@ -18,9 +18,14 @@ interface H5PaymentRuntime {
   startPayment?: (payload: Record<string, unknown>) => Promise<Record<string, unknown> | void>;
 }
 
+interface H5UploadRuntime {
+  selectFiles?: (payload: Record<string, unknown>) => Promise<Record<string, unknown> | void>;
+}
+
 export interface H5CapabilityAdapterOptions {
   navigator?: H5NavigatorLike;
   payment?: H5PaymentRuntime;
+  upload?: H5UploadRuntime;
 }
 
 function requirePayloadText(input: CapabilityActionInput): string | null {
@@ -35,6 +40,7 @@ function requirePayloadText(input: CapabilityActionInput): string | null {
 export function createH5CapabilityAdapter(options: H5CapabilityAdapterOptions = {}): CapabilityAdapter {
   const navigator = options.navigator ?? globalThis.navigator;
   const payment = options.payment;
+  const upload = options.upload;
 
   return {
     status(capability) {
@@ -49,6 +55,8 @@ export function createH5CapabilityAdapter(options: H5CapabilityAdapterOptions = 
           return ok(Boolean(navigator?.share));
         case "payment":
           return ok(Boolean(payment?.startPayment));
+        case "upload":
+          return ok(Boolean(upload?.selectFiles));
         default:
           return ok(false);
       }
@@ -86,10 +94,13 @@ export function createH5CapabilityAdapter(options: H5CapabilityAdapterOptions = 
               return fail(createError("CAPABILITY_UNAVAILABLE", "share capability is unavailable", { recoverable: true }));
             }
 
-            await navigator.share(typeof input.payload === "object" && input.payload !== null ? input.payload as Record<string, unknown> : {});
+            const payload = typeof input.payload === "object" && input.payload !== null ? input.payload as Record<string, unknown> : {};
+            await navigator.share(payload);
             return ok({
               capability: input.capability,
               action: input.action,
+              value: payload as TResult,
+              detail: "share dispatch reserved through h5 capability adapter",
             } as CapabilityActionResult<TResult>);
           } catch (error) {
             return fail(createError("CAPABILITY_UNAVAILABLE", "share failed", {
@@ -126,6 +137,27 @@ export function createH5CapabilityAdapter(options: H5CapabilityAdapterOptions = 
             });
           } catch (error) {
             return fail(createError("CAPABILITY_UNAVAILABLE", "h5 payment execution failed", {
+              cause: error,
+              recoverable: true,
+            }));
+          }
+
+        case "upload":
+          try {
+            if (!upload?.selectFiles) {
+              return fail(createError("CAPABILITY_UNAVAILABLE", "upload capability is unavailable", { recoverable: true }));
+            }
+
+            const payload = typeof input.payload === "object" && input.payload !== null ? (input.payload as Record<string, unknown>) : {};
+            const value = await upload.selectFiles(payload);
+            return ok({
+              capability: input.capability,
+              action: input.action,
+              ...(value ? { value: value as TResult } : {}),
+              detail: "upload reservation selected through h5 capability adapter",
+            });
+          } catch (error) {
+            return fail(createError("CAPABILITY_UNAVAILABLE", "h5 upload selection failed", {
               cause: error,
               recoverable: true,
             }));

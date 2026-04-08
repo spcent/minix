@@ -18,6 +18,18 @@ interface WechatCapabilityRuntime {
     success?: () => void;
     fail?: (error: unknown) => void;
   }) => void;
+  chooseMedia?: (options: {
+    count?: number;
+    mediaType?: Array<"image" | "video">;
+    success?: (result: Record<string, unknown>) => void;
+    fail?: (error: unknown) => void;
+  }) => void;
+  chooseMessageFile?: (options: {
+    count?: number;
+    type?: "file" | "image" | "video";
+    success?: (result: Record<string, unknown>) => void;
+    fail?: (error: unknown) => void;
+  }) => void;
   requestPayment?: (options: Record<string, unknown> & {
     success?: (result?: Record<string, unknown>) => void;
     fail?: (error: unknown) => void;
@@ -31,6 +43,27 @@ function requirePayloadText(input: CapabilityActionInput): string | null {
 
   const text = (input.payload as { text?: unknown }).text;
   return typeof text === "string" ? text : null;
+}
+
+function prefersVisualUpload(input: CapabilityActionInput): boolean {
+  if (typeof input.payload !== "object" || input.payload === null) {
+    return false;
+  }
+
+  const payload = input.payload as {
+    preferredFileType?: unknown;
+    acceptedFileTypes?: unknown;
+  };
+
+  if (payload.preferredFileType === "image" || payload.preferredFileType === "video" || payload.preferredFileType === "avatar") {
+    return true;
+  }
+
+  if (Array.isArray(payload.acceptedFileTypes)) {
+    return payload.acceptedFileTypes.some((item) => item === "image" || item === "video" || item === "avatar");
+  }
+
+  return false;
 }
 
 export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime): CapabilityAdapter {
@@ -49,6 +82,8 @@ export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime)
           return ok(Boolean(host.showShareMenu));
         case "payment":
           return ok(Boolean(host.requestPayment));
+        case "upload":
+          return ok(Boolean(host.chooseMedia || host.chooseMessageFile));
         default:
           return ok(false);
       }
@@ -122,11 +157,14 @@ export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime)
           }
 
           return new Promise((resolve) => {
+            const payload = typeof input.payload === "object" && input.payload !== null ? (input.payload as TResult) : undefined;
             host.showShareMenu?.({
               success() {
                 resolve(ok({
                   capability: input.capability,
                   action: input.action,
+                  ...(payload ? { value: payload } : {}),
+                  detail: "share dispatch reserved through wechat capability adapter",
                 } as CapabilityActionResult<TResult>));
               },
               fail(error) {
@@ -165,6 +203,66 @@ export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime)
               },
             });
           });
+
+        case "upload": {
+          const payload = typeof input.payload === "object" && input.payload !== null ? (input.payload as Record<string, unknown>) : {};
+          const useMediaPicker = prefersVisualUpload(input);
+          if (useMediaPicker) {
+            if (!host.chooseMedia) {
+              return Promise.resolve(
+                fail(createError("CAPABILITY_UNAVAILABLE", "upload capability is unavailable", { recoverable: true })),
+              );
+            }
+
+            return new Promise((resolve) => {
+              host.chooseMedia?.({
+                count: typeof payload.maxSelectCount === "number" ? payload.maxSelectCount : 1,
+                mediaType: ["image", "video"],
+                success(result) {
+                  resolve(ok({
+                    capability: input.capability,
+                    action: input.action,
+                    value: result as TResult,
+                    detail: "upload reservation selected through wechat chooseMedia",
+                  }));
+                },
+                fail(error) {
+                  resolve(fail(createError("CAPABILITY_UNAVAILABLE", "wechat media selection failed", {
+                    cause: error,
+                    recoverable: true,
+                  })));
+                },
+              });
+            });
+          }
+
+          if (!host.chooseMessageFile) {
+            return Promise.resolve(
+              fail(createError("CAPABILITY_UNAVAILABLE", "upload capability is unavailable", { recoverable: true })),
+            );
+          }
+
+          return new Promise((resolve) => {
+            host.chooseMessageFile?.({
+              count: typeof payload.maxSelectCount === "number" ? payload.maxSelectCount : 1,
+              type: "file",
+              success(result) {
+                resolve(ok({
+                  capability: input.capability,
+                  action: input.action,
+                  value: result as TResult,
+                  detail: "upload reservation selected through wechat chooseMessageFile",
+                }));
+              },
+              fail(error) {
+                resolve(fail(createError("CAPABILITY_UNAVAILABLE", "wechat file selection failed", {
+                  cause: error,
+                  recoverable: true,
+                })));
+              },
+            });
+          });
+        }
 
         default:
           return Promise.resolve(

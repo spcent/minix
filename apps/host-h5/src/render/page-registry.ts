@@ -1,6 +1,7 @@
 import type { AccountState } from "@minix/feature-account";
 import type { FeedState } from "@minix/feature-feed";
 import type { ItemsFilterValue, ItemsPageItem } from "@minix/feature-items";
+import type { MediaToolsState } from "@minix/feature-media-tools";
 import type { MessagesState } from "@minix/feature-messages";
 import type { SettingsPageModel, Store } from "@minix/core";
 
@@ -1163,6 +1164,8 @@ function resolvePageLabel(pageKey: HostH5PageKey): string {
       return "Today's Plan";
     case "feed":
       return "Discover";
+    case "mediaTools":
+      return "Media Tools";
     case "messages":
       return "Inbox";
     case "settings":
@@ -1175,11 +1178,12 @@ function resolvePageLabel(pageKey: HostH5PageKey): string {
 }
 
 function renderGlobalNavigation(pageKey: HostH5PageKey, authenticated: boolean): string {
-  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "messages.index" | "settings.index" | "account.index"; label: string }> = [
+  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "media-tools.workspace" | "messages.index" | "settings.index" | "account.index"; label: string }> = [
     { key: "login", routeId: "auth.login", label: "Home" },
     { key: "overview", routeId: "overview.index", label: "Overview" },
     { key: "items", routeId: "items.list", label: "Today's Plan" },
     { key: "feed", routeId: "feed.index", label: "Discover" },
+    { key: "mediaTools", routeId: "media-tools.workspace", label: "Media Tools" },
     { key: "messages", routeId: "messages.index", label: "Inbox" },
     { key: "settings", routeId: "settings.index", label: "Preferences" },
     { key: "account", routeId: "account.index", label: "Account" },
@@ -1195,11 +1199,12 @@ function renderGlobalNavigation(pageKey: HostH5PageKey, authenticated: boolean):
 }
 
 function renderFooterLinks(pageKey: HostH5PageKey, authenticated: boolean): string {
-  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "messages.index" | "settings.index" | "account.index"; label: string }> = [
+  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "media-tools.workspace" | "messages.index" | "settings.index" | "account.index"; label: string }> = [
     { key: "login", routeId: "auth.login", label: "Home" },
     { key: "overview", routeId: "overview.index", label: "Overview" },
     { key: "items", routeId: "items.list", label: "Today's Plan" },
     { key: "feed", routeId: "feed.index", label: "Discover" },
+    { key: "mediaTools", routeId: "media-tools.workspace", label: "Media Tools" },
     { key: "messages", routeId: "messages.index", label: "Inbox" },
     { key: "settings", routeId: "settings.index", label: "Preferences" },
     { key: "account", routeId: "account.index", label: "Account" },
@@ -1225,6 +1230,7 @@ function resolveShellTone(pageKey: HostH5PageKey): ShellTone {
       return "landing";
     case "overview":
     case "feed":
+    case "mediaTools":
     case "messages":
       return "dashboard";
     case "items":
@@ -2693,6 +2699,112 @@ function renderFeedPage({ root, runtime, sync }: HostH5PageRenderContext) {
   });
 }
 
+function renderMediaToolsPage({ root, runtime, sync }: HostH5PageRenderContext) {
+  const state = runtime.pages.mediaTools.store.getState() as MediaToolsState;
+
+  renderApp(
+    root,
+    "Media Tools",
+    runtime,
+    "mediaTools",
+    `
+      <section class="me-screen">
+        <section class="me-surface me-hero">
+          <div class="me-hero-copy">
+            <p class="me-eyebrow">Workspace</p>
+            <h1 class="me-title">${escapeHtml(state.title)}</h1>
+            <p class="me-subtitle">${escapeHtml(state.subtitle)}</p>
+            <div class="me-chip-row">
+              <span class="me-chip ${state.uploadAvailable ? "me-chip-accent" : ""}">${escapeHtml(`Upload ${state.uploadAvailable ? "ready" : "reserved"}`)}</span>
+              <span class="me-chip ${state.shareAvailable ? "me-chip-accent" : ""}">${escapeHtml(`Share ${state.shareAvailable ? "ready" : "reserved"}`)}</span>
+            </div>
+          </div>
+          <aside class="me-panel">
+            <p class="me-panel-kicker">Capability Hint</p>
+            <h2 class="me-panel-title">Shared contracts, platform-owned execution</h2>
+            <ul class="me-panel-list">
+              <li>${escapeHtml(`Upload stage: ${state.uploadTask.stage}`)}</li>
+              <li>${escapeHtml(`Share channel: ${state.shareChannel.label}`)}</li>
+              <li>${escapeHtml(`Share count: ${String(state.shareAttribution.shareCount)}`)}</li>
+            </ul>
+          </aside>
+        </section>
+
+        <section class="me-grid me-grid-columns">
+          <section class="me-surface me-card">
+            <p class="me-section-kicker">Upload</p>
+            <h2 class="me-card-title">Upload contract output</h2>
+            <section class="me-settings-section">
+              <div class="me-settings-item">
+                <p class="me-settings-label">Task</p>
+                <p class="me-settings-value">${escapeHtml(`${state.uploadTask.taskId} · ${state.uploadTask.stage}`)}</p>
+              </div>
+              <div class="me-settings-item">
+                <p class="me-settings-label">Governance</p>
+                <p class="me-settings-value">${escapeHtml(`${state.uploadTask.governance.acceptedFileTypes.join(", ")} · max ${String(state.uploadTask.governance.maxSizeBytes)} bytes`)}</p>
+              </div>
+              <div class="me-settings-item">
+                <p class="me-settings-label">Asset</p>
+                <p class="me-settings-value">${escapeHtml(state.uploadAsset ? `${state.uploadAsset.fileName} -> ${state.uploadAsset.url}` : "No asset selected yet.")}</p>
+              </div>
+              <div class="me-settings-item">
+                <p class="me-settings-label">Error</p>
+                <p class="me-settings-value">${escapeHtml(state.uploadError?.message ?? "No upload error.")}</p>
+              </div>
+            </section>
+          </section>
+
+          <section class="me-surface me-card">
+            <p class="me-section-kicker">Share</p>
+            <h2 class="me-card-title">Share payload and attribution</h2>
+            <section class="me-settings-section">
+              <div class="me-settings-item">
+                <p class="me-settings-label">Payload</p>
+                <p class="me-settings-value">${escapeHtml(`${state.sharePayload.title} · ${state.sharePayload.shortLink ?? state.sharePayload.landingUrl ?? "No link"}`)}</p>
+              </div>
+              <div class="me-settings-item">
+                <p class="me-settings-label">Channel</p>
+                <p class="me-settings-value">${escapeHtml(`${state.shareChannel.label} (${state.shareChannel.kind})`)}</p>
+              </div>
+              <div class="me-settings-item">
+                <p class="me-settings-label">Attribution</p>
+                <p class="me-settings-value">${escapeHtml(`shares ${state.shareAttribution.shareCount} · clicks ${state.shareAttribution.clickCount} · conversions ${state.shareAttribution.conversionCount}`)}</p>
+              </div>
+            </section>
+          </section>
+        </section>
+
+        <section class="me-surface me-card">
+          <p class="me-section-kicker">${escapeHtml(state.resultLabel)}</p>
+          <h2 class="me-card-title">Workspace actions</h2>
+          <p class="me-card-subtitle">${escapeHtml(state.capabilityHint)}</p>
+          <div class="me-chip-row">
+            ${state.usageExamples.map((example) => `<span class="me-chip">${escapeHtml(example)}</span>`).join("")}
+          </div>
+          <div class="me-action-group">
+            <button id="media-tools-upload" class="me-button me-button-primary">${escapeHtml(state.primaryActionLabel)}</button>
+            <button id="media-tools-share" class="me-button me-button-secondary">${escapeHtml(state.secondaryActionLabel)}</button>
+            <button id="media-tools-settings" class="me-button me-button-ghost">Open Preferences</button>
+          </div>
+          ${state.lastResult ? `<p class="me-message">${escapeHtml(`${state.lastResult.message}${state.lastResult.detail ? ` · ${state.lastResult.detail}` : ""}`)}</p>` : ""}
+          ${state.errorText ? `<p class="me-message me-message-error">${escapeHtml(state.errorText)}</p>` : ""}
+        </section>
+      </section>
+    `,
+  );
+
+  bindRouteButtons(root, runtime, sync);
+  bindButton(root, "media-tools-upload", () => {
+    void runtime.pages.mediaTools.startUpload().then(sync);
+  });
+  bindButton(root, "media-tools-share", () => {
+    void runtime.pages.mediaTools.startShare().then(sync);
+  });
+  bindButton(root, "media-tools-settings", () => {
+    void runtime.pages.mediaTools.goToSettings().then(sync);
+  });
+}
+
 function renderMessagesPage({ root, runtime, sync }: HostH5PageRenderContext) {
   const state = runtime.pages.messages.store.getState() as MessagesState;
   const selectedThread =
@@ -3021,6 +3133,11 @@ export const hostH5PageRenderers: Partial<Record<HostH5PageKey, HostH5PageRender
   feed: {
     render(context) {
       renderFeedPage(context);
+    },
+  },
+  mediaTools: {
+    render(context) {
+      renderMediaToolsPage(context);
     },
   },
   messages: {

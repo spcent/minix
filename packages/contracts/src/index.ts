@@ -11,6 +11,8 @@ export * from "./api/payment";
 export * from "./api/reading-progress";
 export * from "./api/search";
 export * from "./api/settings";
+export * from "./api/share";
+export * from "./api/upload";
 export * from "./api/user";
 export * from "./kernel/capability";
 export * from "./kernel/common-page";

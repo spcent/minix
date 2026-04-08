@@ -1,0 +1,68 @@
+import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
+import { defineFeatureManifest, type AppKernel, type FeatureConfig } from "@minix/core";
+
+import { createMediaToolsController } from "./controller";
+import { createDefaultMediaToolsState, type MediaToolsState } from "./model";
+
+export interface MediaToolsFeatureControllerOptions {
+  loginRouteId?: AppRouteId;
+  settingsRouteId?: AppRouteId;
+  initialState?: Partial<MediaToolsState>;
+}
+
+export const mediaToolsCapabilityRequirements: CapabilityRequirement[] = [
+  { capability: "upload", required: false },
+  { capability: "share", required: false },
+];
+export const mediaToolsGuardPolicy: GuardPolicy = {
+  name: "authenticated-media-tools",
+  requirements: {
+    authenticated: true,
+  },
+};
+export const mediaToolsFeatureConfig: FeatureConfig = {
+  surface: "media-tools",
+  template: "workspace",
+};
+
+export const mediaToolsFeatureManifest = defineFeatureManifest<
+  MediaToolsFeatureControllerOptions,
+  MediaToolsState,
+  ReturnType<typeof createMediaToolsController>
+>()({
+  featureKey: "media-tools",
+  pageKey: "mediaTools",
+  packageName: "@minix/feature-media-tools",
+  exportName: "mediaToolsFeatureManifest",
+  createController(
+    _host,
+    kernel: AppKernel,
+    options: MediaToolsFeatureControllerOptions,
+    pageData: MediaToolsState,
+  ) {
+    return createMediaToolsController({
+      kernel,
+      ...(options.loginRouteId ? { loginRouteId: options.loginRouteId } : {}),
+      ...(options.settingsRouteId ? { settingsRouteId: options.settingsRouteId } : {}),
+      initialState: {
+        ...createDefaultMediaToolsState(),
+        ...pageData,
+        ...options.initialState,
+      },
+    });
+  },
+  hosts: {
+    wechat: {
+      entryActions: {
+        onShow: "loadInitial",
+      },
+    },
+    h5: {
+      entryActions: {
+        onShow: "loadInitial",
+      },
+    },
+  },
+});
+
+export { createDefaultMediaToolsState };
