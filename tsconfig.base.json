@@ -45,6 +45,9 @@
       "@minix/feature-items": [
         "./packages/features/items/src"
       ],
+      "@minix/feature-messages": [
+        "./packages/features/messages/src"
+      ],
       "@minix/feature-novel-detail": [
         "./packages/features/novel-detail/src"
       ],

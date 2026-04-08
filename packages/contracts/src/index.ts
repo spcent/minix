@@ -3,6 +3,7 @@ export * from "./api/bookshelf";
 export * from "./api/chapters";
 export * from "./api/feed";
 export * from "./api/items";
+export * from "./api/message";
 export * from "./api/membership";
 export * from "./api/novel-detail";
 export * from "./api/novels";

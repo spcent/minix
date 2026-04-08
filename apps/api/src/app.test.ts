@@ -181,6 +181,49 @@ test("current user, settings, and discovery endpoints expose normalized shared o
   assert.deepEqual(feedPayload.searchFilters.find((group) => group.key === "tag")?.selectedKeys, ["speaking"]);
   assert.equal(feedPayload.searchResults.hotKeywords.includes("travel"), true);
   assert.equal(feedPayload.searchResults.suggestionTerms.length > 0, true);
+
+  const notificationsResponse = await app.request("http://localhost/notifications?type=system&onlyUnread=true", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(notificationsResponse.status, 200);
+  const notificationsPayload = (await notificationsResponse.json()) as {
+    notificationList: {
+      items: Array<{ id: string; type: string; receipt: { read: boolean } }>;
+      filters: Array<{ key: string; selectedKeys: string[] }>;
+      onlyUnread: boolean;
+    };
+    messageThread?: { threadId: string; type: string };
+    unreadBadge: { totalUnread: number; notificationUnread: number; threadUnread: number };
+    reservedThreads: Array<{ threadId: string; type: string }>;
+  };
+  assert.equal(notificationsPayload.notificationList.onlyUnread, true);
+  assert.equal(notificationsPayload.notificationList.items.every((item) => item.type === "system"), true);
+  assert.equal(notificationsPayload.notificationList.items.every((item) => item.receipt.read === false), true);
+  assert.deepEqual(notificationsPayload.notificationList.filters.find((group) => group.key === "type")?.selectedKeys, ["system"]);
+  assert.equal(Boolean(notificationsPayload.messageThread?.threadId), true);
+  assert.equal(notificationsPayload.reservedThreads.length >= 1, true);
+  assert.equal(notificationsPayload.unreadBadge.totalUnread > notificationsPayload.unreadBadge.notificationUnread, true);
+
+  const unreadBadgeResponse = await app.request("http://localhost/messages/unread-badge", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(unreadBadgeResponse.status, 200);
+  const unreadBadgePayload = (await unreadBadgeResponse.json()) as {
+    totalUnread: number;
+    threadUnread: number;
+  };
+  assert.equal(unreadBadgePayload.totalUnread >= unreadBadgePayload.threadUnread, true);
+
+  const threadResponse = await app.request("http://localhost/messages/thread?threadId=thread_private_tutor", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(threadResponse.status, 200);
+  const threadPayload = (await threadResponse.json()) as {
+    messageThread: { threadId: string; type: string; reserved: boolean };
+  };
+  assert.equal(threadPayload.messageThread.threadId, "thread_private_tutor");
+  assert.equal(threadPayload.messageThread.type, "private");
+  assert.equal(threadPayload.messageThread.reserved, true);
 });
 
 test("sample asset routes serve generated svg media", async () => {
@@ -243,6 +286,45 @@ test("membership purchase reuses the same paid order for a repeated idempotency 
   assert.equal(second.order.orderId, first.order.orderId);
   assert.equal(second.paymentResult.duplicateProtected, true);
   assert.match(second.paymentResult.message, /Idempotency key matched/);
+});
+
+test("notification batch read persists unread state transitions", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "wechat");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+
+  const markReadResponse = await app.request("http://localhost/notifications/mark-read", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      notificationIds: ["notice_system_security", "notice_business_payment"],
+      page: 1,
+      pageSize: 6,
+      type: "all",
+      onlyUnread: false,
+    }),
+  });
+  assert.equal(markReadResponse.status, 200);
+  const markReadPayload = (await markReadResponse.json()) as {
+    updatedIds: string[];
+    unreadBadge: { notificationUnread: number };
+    notificationList: { items: Array<{ id: string; receipt: { read: boolean } }> };
+  };
+  assert.deepEqual(markReadPayload.updatedIds, ["notice_system_security", "notice_business_payment"]);
+  assert.equal(markReadPayload.unreadBadge.notificationUnread >= 0, true);
+  assert.equal(markReadPayload.notificationList.items.find((item) => item.id === "notice_system_security")?.receipt.read, true);
+
+  const unreadOnlyResponse = await app.request("http://localhost/notifications?onlyUnread=true", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(unreadOnlyResponse.status, 200);
+  const unreadOnlyPayload = (await unreadOnlyResponse.json()) as {
+    notificationList: { items: Array<{ id: string }> };
+  };
+  assert.equal(unreadOnlyPayload.notificationList.items.some((item) => item.id === "notice_system_security"), false);
 });
 
 test("refresh rotation invalidates the previous refresh token", async () => {

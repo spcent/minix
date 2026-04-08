@@ -11,6 +11,7 @@
     "@minix/feature-auth": "workspace:*",
     "@minix/feature-feed": "workspace:*",
     "@minix/feature-items": "workspace:*",
+    "@minix/feature-messages": "workspace:*",
     "@minix/feature-settings": "workspace:*",
     "@minix/platform-h5": "workspace:*"
   }

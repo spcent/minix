@@ -204,6 +204,71 @@ function createKernelStub(): AppKernel {
           } as T);
         }
 
+        if (path === "/notifications") {
+          return ok({
+            notificationList: {
+              items: [
+                {
+                  id: "notice_host_h5_1",
+                  type: "system",
+                  groupKey: "security",
+                  groupLabel: "Security",
+                  title: "Inbox ready",
+                  summary: "Host H5 inbox state is available.",
+                  createdAt: "2026-04-08T09:00:00.000Z",
+                  pinned: true,
+                  doNotDisturb: false,
+                  receipt: {
+                    read: false,
+                    readReceiptRequired: true,
+                  },
+                  touchpoints: [],
+                  tagLabels: ["security"],
+                },
+              ],
+              page: 1,
+              pageSize: 6,
+              total: 1,
+              hasMore: false,
+              grouping: "type",
+              groups: [{ key: "security", label: "Security", count: 1 }],
+              filters: [],
+              onlyUnread: false,
+              selectedNotificationId: "notice_host_h5_1",
+            },
+            messageThread: {
+              threadId: "thread_host_h5",
+              type: "private",
+              title: "Tutor",
+              participantLabels: ["Tutor", "You"],
+              pinned: false,
+              doNotDisturb: false,
+              unreadCount: 1,
+              reserved: true,
+              touchpoints: [],
+            },
+            unreadBadge: {
+              totalUnread: 2,
+              notificationUnread: 1,
+              threadUnread: 1,
+              breakdown: [{ key: "system", label: "System", count: 1 }],
+            },
+            reservedThreads: [
+              {
+                threadId: "thread_host_h5",
+                type: "private",
+                title: "Tutor",
+                participantLabels: ["Tutor", "You"],
+                pinned: false,
+                doNotDisturb: false,
+                unreadCount: 1,
+                reserved: true,
+                touchpoints: [],
+              },
+            ],
+          } as T);
+        }
+
         return ok({
           items: [],
           hasMore: false,
@@ -293,8 +358,8 @@ test("host h5 runtime creates page controllers on a shared kernel", () => {
   const runtime = createHostH5Runtime(kernel);
 
   assert.equal(runtime.kernel, kernel);
-  assert.deepEqual(Object.keys(runtime.registry), ["login", "overview", "items", "feed", "settings", "account"]);
-  assert.deepEqual(Object.keys(runtime.pages), ["login", "overview", "items", "feed", "settings", "account"]);
+  assert.deepEqual(Object.keys(runtime.registry), ["login", "overview", "items", "feed", "messages", "settings", "account"]);
+  assert.deepEqual(Object.keys(runtime.pages), ["login", "overview", "items", "feed", "messages", "settings", "account"]);
 });
 
 test("host h5 page entries delegate to runtime controllers", async () => {
@@ -303,6 +368,7 @@ test("host h5 page entries delegate to runtime controllers", async () => {
   const overviewEntry = createHostH5PageEntry(runtime, "overview");
   const itemsEntry = createHostH5PageEntry(runtime, "items");
   const feedEntry = createHostH5PageEntry(runtime, "feed");
+  const messagesEntry = createHostH5PageEntry(runtime, "messages");
   const settingsEntry = createHostH5PageEntry(runtime, "settings");
   const accountEntry = createHostH5PageEntry(runtime, "account");
 
@@ -310,6 +376,7 @@ test("host h5 page entries delegate to runtime controllers", async () => {
   const overviewResult = await overviewEntry.onShow();
   const itemsResult = await itemsEntry.onShow();
   const feedResult = await feedEntry.onShow();
+  const messagesResult = await messagesEntry.onShow();
   const settingsResult = await settingsEntry.onTapLogout();
   const accountResult = await accountEntry.onShow();
 
@@ -317,6 +384,7 @@ test("host h5 page entries delegate to runtime controllers", async () => {
   assert.equal((overviewResult as { ok?: boolean } | undefined)?.ok, true);
   assert.equal((itemsResult as { ok?: boolean } | undefined)?.ok, true);
   assert.equal((feedResult as { ok?: boolean } | undefined)?.ok, true);
+  assert.equal((messagesResult as { ok?: boolean } | undefined)?.ok, true);
   assert.deepEqual(settingsResult, { ok: true, value: undefined });
   assert.equal((accountResult as { ok?: boolean } | undefined)?.ok, true);
 });

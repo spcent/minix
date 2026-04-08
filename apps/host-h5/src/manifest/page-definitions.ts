@@ -4,6 +4,7 @@ import { accountFeatureManifest, createDefaultAccountState } from "@minix/featur
 import { authFeatureManifest, createInitialAuthPageState } from "@minix/feature-auth";
 import { createDefaultFeedState, feedFeatureManifest } from "@minix/feature-feed";
 import { createDefaultItemsPageModel, itemsFeatureManifest } from "@minix/feature-items";
+import { createDefaultMessagesState, messagesFeatureManifest } from "@minix/feature-messages";
 import { settingsFeatureManifest } from "@minix/feature-settings";
 
 function createMinuteEnglishSettingsPageModel(): SettingsPageModel {
@@ -166,6 +167,33 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     requiredCapabilities: [{ capability: "device" }],
     featureConfig: {
       surface: "feed",
+    },
+    renderMode: "custom",
+  },
+  messages: {
+    feature: messagesFeatureManifest,
+    routeId: APP_ROUTE_IDS.messages,
+    routePath: "/inbox",
+    pageData: createDefaultMessagesState({
+      title: "Inbox",
+      subtitle: "System notices, business updates, reserved conversation threads, and unread badge state live here.",
+      pageSize: 6,
+      emptyText: "No inbox activity is available yet.",
+    }),
+    controller: {
+      messagesRouteId: APP_ROUTE_IDS.messages,
+      loginRouteId: APP_ROUTE_IDS.login,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+      authRedirectSource: "messages",
+    },
+    guardPolicy: {
+      name: "authenticated-messages",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    featureConfig: {
+      surface: "messages",
     },
     renderMode: "custom",
   },

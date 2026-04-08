@@ -7,6 +7,7 @@ interface PersistedUserState {
   membershipPlanId?: PurchaseMembershipRequest["planId"];
   bookshelfNovelIds: string[];
   progressByNovelId: Record<string, ReadingProgress>;
+  notificationReadAtById?: Record<string, string>;
   latestPaidOrderId?: string;
   ordersById?: Record<string, OrderDetailResponse>;
   orderIdByIdempotencyKey?: Record<string, string>;
@@ -17,6 +18,7 @@ export function serializeUserState(userState: UserState): string {
     ...(userState.membershipPlanId ? { membershipPlanId: userState.membershipPlanId } : {}),
     bookshelfNovelIds: Array.from(userState.bookshelfNovelIds),
     progressByNovelId: userState.progressByNovelId,
+    notificationReadAtById: userState.notificationReadAtById,
     ...(userState.latestPaidOrderId ? { latestPaidOrderId: userState.latestPaidOrderId } : {}),
     ordersById: userState.ordersById,
     orderIdByIdempotencyKey: userState.orderIdByIdempotencyKey,
@@ -35,6 +37,7 @@ export function deserializeUserState(serialized: string | null | undefined): Use
     ...(parsed.membershipPlanId ? { membershipPlanId: parsed.membershipPlanId } : {}),
     bookshelfNovelIds: new Set(parsed.bookshelfNovelIds ?? []),
     progressByNovelId: parsed.progressByNovelId ?? {},
+    notificationReadAtById: parsed.notificationReadAtById ?? {},
     ...(parsed.latestPaidOrderId ? { latestPaidOrderId: parsed.latestPaidOrderId } : {}),
     ordersById: parsed.ordersById ?? {},
     orderIdByIdempotencyKey: parsed.orderIdByIdempotencyKey ?? {},

@@ -28,6 +28,7 @@ export interface UserState {
   membershipPlanId?: PurchaseMembershipRequest["planId"];
   bookshelfNovelIds: Set<string>;
   progressByNovelId: Record<string, ReadingProgress>;
+  notificationReadAtById: Record<string, string>;
   latestPaidOrderId?: string;
   ordersById: Record<string, OrderDetailResponse>;
   orderIdByIdempotencyKey: Record<string, string>;

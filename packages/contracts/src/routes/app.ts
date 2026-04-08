@@ -5,6 +5,7 @@ export const APP_ROUTE_IDS = {
   items: "items.list",
   account: "account.index",
   feed: "feed.index",
+  messages: "messages.index",
   catalog: "catalog.index",
   novelDetail: "novel.detail",
   toc: "toc.index",

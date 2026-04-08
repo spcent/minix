@@ -31,9 +31,13 @@ import {
   createMembershipPurchaseResponse,
   createSettingsResponse,
   deriveReturnTarget,
+  getMessageThread,
+  getUnreadBadge,
   listFeed,
   listItems,
+  listNotifications,
   listNovels,
+  markNotificationsRead,
   resolveChapterContent,
   resolveChapterList,
   resolveNovelDetail,
@@ -107,6 +111,18 @@ const feedQuerySchema = z.object({
   domain: z.enum(["all", "content", "user", "novel", "feed"]).optional(),
 });
 
+const notificationsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().optional(),
+  type: z.enum(["system", "business", "campaign", "review", "all"]).optional(),
+  groupKey: z.string().min(1).optional(),
+  threadId: z.string().min(1).optional(),
+  onlyUnread: z
+    .enum(["true", "false"])
+    .transform((value) => value === "true")
+    .optional(),
+});
+
 const novelsQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   pageSize: z.coerce.number().int().positive().optional(),
@@ -139,6 +155,19 @@ const purchaseMembershipSchema = z.object({
 
 const orderIdQuerySchema = z.object({
   orderId: z.string().min(1),
+});
+
+const threadIdQuerySchema = z.object({
+  threadId: z.string().min(1),
+});
+
+const markNotificationsReadSchema = z.object({
+  notificationIds: z.array(z.string().min(1)).min(1),
+  page: z.number().int().positive().optional(),
+  pageSize: z.number().int().positive().optional(),
+  type: z.enum(["system", "business", "campaign", "review", "all"]).optional(),
+  groupKey: z.string().min(1).optional(),
+  onlyUnread: z.boolean().optional(),
 });
 
 const saveReadingProgressSchema = z.object({
@@ -623,6 +652,10 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
 
   app.use("/items", requireSession);
   app.use("/feed", requireSession);
+  app.use("/notifications", requireSession);
+  app.use("/notifications/*", requireSession);
+  app.use("/messages", requireSession);
+  app.use("/messages/*", requireSession);
   app.use("/novels", requireSession);
   app.use("/novels/*", requireSession);
   app.use("/chapters", requireSession);
@@ -675,6 +708,58 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
 
     return c.json(listFeed(query));
+  });
+
+  app.get("/notifications", async (c) => {
+    const query = parseQuery(new URL(c.req.url), notificationsQuerySchema, c.get("traceId"));
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    return c.json(listNotifications(userState, query));
+  });
+
+  app.post("/notifications/mark-read", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, markNotificationsReadSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const response = markNotificationsRead(userState, payload);
+    await store.saveUserState(session.userId, userState);
+    return c.json(response);
+  });
+
+  app.get("/messages/unread-badge", async (c) => {
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    return c.json(getUnreadBadge(userState));
+  });
+
+  app.get("/messages/thread", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), threadIdQuerySchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const response = getMessageThread(userState, query.threadId);
+    if (!response) {
+      return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
+    }
+
+    return c.json(response);
   });
 
   app.get("/novels", async (c) => {
