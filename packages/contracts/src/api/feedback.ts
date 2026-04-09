@@ -1,4 +1,5 @@
 import type { UploadAsset } from "./upload";
+import type { AppRouteId } from "../routes/app";
 
 export const FEEDBACK_TYPES = ["issue_report", "suggestion", "complaint", "abuse_report", "satisfaction"] as const;
 export type FeedbackType = (typeof FEEDBACK_TYPES)[number];
@@ -17,6 +18,25 @@ export interface FeedbackFaqEntry {
   linkUrl?: string;
 }
 
+export interface FeedbackSupportEntry {
+  entryId: string;
+  label: string;
+  summary: string;
+  channel: "messages" | "settings";
+  routeId?: AppRouteId;
+  threadId?: string;
+}
+
+export interface FeedbackRevisitAction {
+  ticketId: string;
+  label: string;
+  summary: string;
+  enabled: boolean;
+  routeId?: AppRouteId;
+  threadId?: string;
+  suggestedReply?: string;
+}
+
 export interface FeedbackProcessingRecord {
   recordedAt: string;
   actorLabel: string;
@@ -30,8 +50,12 @@ export interface FeedbackStatus {
   label: string;
   progressLabel: string;
   revisitRequired: boolean;
+  nextStepLabel?: string;
   faqEntry?: FeedbackFaqEntry;
+  faqEntries?: FeedbackFaqEntry[];
   customerServiceEntryLabel?: string;
+  supportEntry?: FeedbackSupportEntry;
+  revisitAction?: FeedbackRevisitAction;
   handlingProgress: string[];
   processingHistory: FeedbackProcessingRecord[];
 }
@@ -45,7 +69,9 @@ export interface FeedbackCategory {
   labels: string[];
   supportsAttachments: boolean;
   faqEntry?: FeedbackFaqEntry;
+  faqEntries?: FeedbackFaqEntry[];
   customerServiceEntryLabel?: string;
+  supportEntry?: FeedbackSupportEntry;
 }
 
 export interface FeedbackContextCapture {
@@ -86,6 +112,9 @@ export interface FeedbackBootstrapResponse {
   latestTicket?: FeedbackTicket;
   latestStatus?: FeedbackStatus;
   latestCategory?: FeedbackCategory;
+  recommendedFaqEntries?: FeedbackFaqEntry[];
+  supportEntry?: FeedbackSupportEntry;
+  serviceLoopSummary?: string;
 }
 
 export interface SubmitFeedbackRequest {
@@ -101,3 +130,10 @@ export interface SubmitFeedbackRequest {
 }
 
 export interface SubmitFeedbackResponse extends FeedbackTicketDetailResponse {}
+
+export interface FeedbackRevisitRequest {
+  ticketId: string;
+  userMessage?: string;
+}
+
+export interface FeedbackRevisitResponse extends FeedbackTicketDetailResponse {}

@@ -280,6 +280,49 @@ Suggested response shape:
 }
 ```
 
+### `GET /feedback/bootstrap`
+
+Returns the shared feedback intake surface plus the current bounded service-loop handoff.
+
+The normalized response may include:
+
+- `feedbackCategories`
+- `recommendedFaqEntries`
+- `supportEntry`
+- `serviceLoopSummary`
+- `latestTicket`
+- `latestStatus`
+- `latestCategory`
+
+### `POST /feedback`
+
+Creates a feedback ticket using the shared feedback form payload and returns:
+
+- `feedbackTicket`
+- `feedbackCategory`
+- `feedbackStatus`
+
+`feedbackStatus` now carries FAQ recommendations, a bounded support entry, revisit semantics, and processing history so the client does not invent a separate support model.
+
+### `POST /feedback/ticket/revisit`
+
+Reopens or advances an existing ticket inside the same shared support loop.
+
+Request:
+
+```json
+{
+  "ticketId": "fb_123",
+  "userMessage": "Please re-check after I cleared local cache."
+}
+```
+
+Response semantics:
+
+- returns the same `feedbackTicket / feedbackCategory / feedbackStatus` shape as `POST /feedback`
+- may append user follow-up history and move the ticket back into `triaged` or `in_progress`
+- may relay the follow-up into the reserved customer-service thread used by the sample inbox
+
 ## Auth Semantics
 
 - `401` means unauthenticated or token expired

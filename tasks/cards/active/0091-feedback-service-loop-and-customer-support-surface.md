@@ -90,8 +90,8 @@ Move feedback beyond intake-only behavior so users can see a clearer support pat
 
 ## Acceptance
 
-- [ ] feedback surfaces FAQ/support-entry/progress behavior beyond ticket submission alone
-- [ ] processing history and revisit behavior are clearer and more actionable
-- [ ] upload-backed attachments remain aligned with the shared upload pipeline
-- [ ] feedback continues to consume the shared form/detail abstractions
-- [ ] `pnpm verify` run
+- [x] feedback surfaces FAQ/support-entry/progress behavior beyond ticket submission alone
+- [x] processing history and revisit behavior are clearer and more actionable
+- [x] upload-backed attachments remain aligned with the shared upload pipeline
+- [x] feedback continues to consume the shared form/detail abstractions
+- [x] `pnpm verify` run

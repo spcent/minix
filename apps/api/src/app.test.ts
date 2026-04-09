@@ -458,10 +458,16 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
   assert.equal(bootstrapResponse.status, 200);
   const bootstrapPayload = (await bootstrapResponse.json()) as {
     feedbackCategories: Array<{ key: string; type: string }>;
+    recommendedFaqEntries?: Array<{ entryId: string }>;
+    supportEntry?: { threadId?: string };
+    serviceLoopSummary?: string;
     latestTicket?: { ticketId: string };
   };
   assert.equal(bootstrapPayload.feedbackCategories.length > 0, true);
   assert.equal(bootstrapPayload.feedbackCategories.some((category) => category.key === "product_issue"), true);
+  assert.equal(bootstrapPayload.recommendedFaqEntries?.[0]?.entryId, "faq_account_recovery");
+  assert.equal(bootstrapPayload.supportEntry?.threadId, "thread_customer_service");
+  assert.equal(typeof bootstrapPayload.serviceLoopSummary, "string");
   assert.equal(bootstrapPayload.latestTicket, undefined);
 
   const submitResponse = await app.request("http://localhost/feedback", {
@@ -490,13 +496,41 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
   const submitPayload = (await submitResponse.json()) as {
     feedbackTicket: { ticketId: string; title: string; revisitRequested: boolean; context: { sourcePage: string } };
     feedbackCategory: { key: string };
-    feedbackStatus: { state: string; processingHistory: Array<{ actorLabel: string }> };
+    feedbackStatus: {
+      state: string;
+      processingHistory: Array<{ actorLabel: string }>;
+      supportEntry?: { threadId?: string };
+      revisitAction?: { enabled: boolean };
+    };
   };
   assert.equal(submitPayload.feedbackCategory.key, "product_issue");
   assert.equal(submitPayload.feedbackTicket.title, "Inbox route feels stale after refresh");
   assert.equal(submitPayload.feedbackTicket.revisitRequested, true);
   assert.equal(submitPayload.feedbackTicket.context.sourcePage, "/feedback");
   assert.equal(submitPayload.feedbackStatus.processingHistory.length > 0, true);
+  assert.equal(submitPayload.feedbackStatus.supportEntry?.threadId, "thread_customer_service");
+  assert.equal(submitPayload.feedbackStatus.revisitAction?.enabled, true);
+
+  const revisitResponse = await app.request("http://localhost/feedback/ticket/revisit", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      ticketId: submitPayload.feedbackTicket.ticketId,
+      userMessage: "Please re-check after I cleared the local cache and signed in again.",
+    }),
+  });
+  assert.equal(revisitResponse.status, 200);
+  const revisitPayload = (await revisitResponse.json()) as {
+    feedbackTicket: { ticketId: string; revisitRequested: boolean };
+    feedbackStatus: { state: string; processingHistory: Array<{ actorLabel: string; note?: string }> };
+  };
+  assert.equal(revisitPayload.feedbackTicket.ticketId, submitPayload.feedbackTicket.ticketId);
+  assert.equal(revisitPayload.feedbackTicket.revisitRequested, true);
+  assert.equal(revisitPayload.feedbackStatus.state, "in_progress");
+  assert.equal(
+    revisitPayload.feedbackStatus.processingHistory.some((record) => record.actorLabel === "User Follow-up"),
+    true,
+  );
 
   const ticketResponse = await app.request(
     `http://localhost/feedback/ticket?ticketId=${submitPayload.feedbackTicket.ticketId}`,
@@ -510,7 +544,7 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
     feedbackStatus: { state: string };
   };
   assert.equal(ticketPayload.feedbackTicket.ticketId, submitPayload.feedbackTicket.ticketId);
-  assert.equal(ticketPayload.feedbackStatus.state, submitPayload.feedbackStatus.state);
+  assert.equal(ticketPayload.feedbackStatus.state, revisitPayload.feedbackStatus.state);
 
   const refreshedBootstrapResponse = await app.request("http://localhost/feedback/bootstrap", {
     headers: { authorization: `Bearer ${session.accessToken}` },

@@ -13,6 +13,8 @@ import type {
   BookshelfMutationResponse,
   ContentDetailResponse,
   ContentLifecycleMutationResponse,
+  FeedbackRevisitRequest,
+  FeedbackRevisitResponse,
   FeedbackTicketDetailResponse,
   IdentityBindPhoneRequest,
   IdentityMergeRequest,
@@ -67,6 +69,7 @@ import {
   getMessageThread,
   getUnreadBadge,
   getFeedbackTicket,
+  revisitFeedbackTicket,
   applyManagedContentLifecycle,
   listFeed,
   listItems,
@@ -491,6 +494,11 @@ const submitFeedbackSchema = z.object({
   revisitRequested: z.boolean().optional(),
   satisfactionScore: z.number().min(1).max(5).optional(),
   context: feedbackContextSchema,
+});
+
+const revisitFeedbackSchema = z.object({
+  ticketId: z.string().min(1),
+  userMessage: z.string().min(1).optional(),
 });
 
 const markNotificationsReadSchema = z.object({
@@ -2526,6 +2534,29 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
 
     return c.json(response);
+  });
+
+  app.post("/feedback/ticket/revisit", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, revisitFeedbackSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const normalizedPayload: FeedbackRevisitRequest = {
+      ticketId: payload.ticketId,
+      ...(payload.userMessage !== undefined ? { userMessage: payload.userMessage } : {}),
+    };
+    const response = revisitFeedbackTicket(userState, normalizedPayload);
+    if (!response) {
+      return jsonError("NOT_FOUND", "Feedback ticket not found.", 404, traceId);
+    }
+
+    await store.saveUserState(session.userId, userState);
+    return c.json(response satisfies FeedbackRevisitResponse);
   });
 
   app.post("/feedback", async (c) => {

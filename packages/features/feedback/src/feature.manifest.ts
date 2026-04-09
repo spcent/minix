@@ -8,6 +8,7 @@ export interface FeedbackFeatureControllerOptions {
   feedbackRouteId?: AppRouteId;
   loginRouteId?: AppRouteId;
   settingsRouteId?: AppRouteId;
+  messagesRouteId?: AppRouteId;
   cancelRouteId?: AppRouteId;
   bootstrapPath?: string;
   submitPath?: string;
@@ -48,6 +49,7 @@ export const feedbackFeatureManifest = defineFeatureManifest<
       ...(options.feedbackRouteId ? { feedbackRouteId: options.feedbackRouteId } : {}),
       ...(options.loginRouteId ? { loginRouteId: options.loginRouteId } : {}),
       ...(options.settingsRouteId ? { settingsRouteId: options.settingsRouteId } : {}),
+      ...(options.messagesRouteId ? { messagesRouteId: options.messagesRouteId } : {}),
       ...(options.cancelRouteId ? { cancelRouteId: options.cancelRouteId } : {}),
       ...(options.bootstrapPath ? { bootstrapPath: options.bootstrapPath } : {}),
       ...(options.submitPath ? { submitPath: options.submitPath } : {}),

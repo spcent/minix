@@ -2,6 +2,8 @@ import type {
   AppRouteId,
   FeedbackBootstrapResponse,
   FeedbackCategory,
+  FeedbackFaqEntry,
+  FeedbackRevisitResponse,
   FeedbackTicketDetailResponse,
   FormValidationError,
   SubmitFeedbackRequest,
@@ -24,16 +26,21 @@ export interface CreateFeedbackControllerOptions {
   feedbackRouteId?: AppRouteId;
   loginRouteId?: AppRouteId;
   settingsRouteId?: AppRouteId;
+  messagesRouteId?: AppRouteId;
   cancelRouteId?: AppRouteId;
   bootstrapPath?: string;
   submitPath?: string;
   detailPath?: string;
+  revisitPath?: string;
   uploadRequestPath?: string;
   authRedirectSource?: string;
   initialState?: Partial<FeedbackState>;
 }
 
-type FailedFeedbackResult = Extract<Result<FeedbackBootstrapResponse>, { ok: false }> | Extract<Result<FeedbackTicketDetailResponse>, { ok: false }>;
+type FailedFeedbackResult =
+  | Extract<Result<FeedbackBootstrapResponse>, { ok: false }>
+  | Extract<Result<FeedbackTicketDetailResponse>, { ok: false }>
+  | Extract<Result<FeedbackRevisitResponse>, { ok: false }>;
 
 function cloneState(state: FeedbackState): FeedbackState {
   return {
@@ -57,6 +64,10 @@ function cloneState(state: FeedbackState): FeedbackState {
     latestTicket: state.latestTicket ? structuredClone(state.latestTicket) : undefined,
     latestStatus: state.latestStatus ? structuredClone(state.latestStatus) : undefined,
     latestCategory: state.latestCategory ? structuredClone(state.latestCategory) : undefined,
+    recommendedFaqEntries: state.recommendedFaqEntries.map((entry) => structuredClone(entry)),
+    supportEntry: state.supportEntry ? structuredClone(state.supportEntry) : undefined,
+    revisitAction: state.revisitAction ? structuredClone(state.revisitAction) : undefined,
+    serviceLoopSummary: state.serviceLoopSummary,
   };
 }
 
@@ -76,16 +87,38 @@ function buildDeviceSummary(value: unknown): string | undefined {
   return entries.length > 0 ? entries.join(" · ") : undefined;
 }
 
+function resolveFaqEntries(category: FeedbackCategory | undefined, state: FeedbackState): FeedbackFaqEntry[] {
+  if (state.latestStatus?.faqEntries && state.latestStatus.faqEntries.length > 0) {
+    return state.latestStatus.faqEntries.map((entry) => structuredClone(entry));
+  }
+
+  if (state.recommendedFaqEntries.length > 0) {
+    return state.recommendedFaqEntries.map((entry) => structuredClone(entry));
+  }
+
+  if (category?.faqEntries && category.faqEntries.length > 0) {
+    return category.faqEntries.map((entry) => structuredClone(entry));
+  }
+
+  if (category?.faqEntry) {
+    return [structuredClone(category.faqEntry)];
+  }
+
+  return [];
+}
+
 export function createFeedbackController(options: CreateFeedbackControllerOptions) {
   const {
     kernel,
     feedbackRouteId,
     loginRouteId,
     settingsRouteId,
+    messagesRouteId,
     cancelRouteId,
     bootstrapPath = "/feedback/bootstrap",
     submitPath = "/feedback",
     detailPath = "/feedback/ticket",
+    revisitPath = "/feedback/ticket/revisit",
     uploadRequestPath = "/uploads",
     authRedirectSource = "feedback",
     initialState,
@@ -95,12 +128,12 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
     ...initialState,
   });
 
-  async function routeToOptional(routeId?: AppRouteId) {
+  async function routeToOptional(routeId?: AppRouteId, params?: Record<string, string | number | boolean>) {
     if (!routeId) {
       return ok(undefined);
     }
 
-    return kernel.router.toRoute(routeId);
+    return kernel.router.toRoute(routeId, params);
   }
 
   async function routeToLogin() {
@@ -161,13 +194,23 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
       return;
     }
 
+    const currentState = store.getState();
     store.setState({
       values: {
-        ...store.getState().values,
+        ...currentState.values,
         categoryKey: category.key,
         type: category.type,
       },
-      serviceHint: category.customerServiceEntryLabel,
+      recommendedFaqEntries: resolveFaqEntries(category, currentState),
+      supportEntry: category.supportEntry ? structuredClone(category.supportEntry) : currentState.supportEntry,
+      serviceLoopSummary:
+        currentState.latestStatus?.progressLabel ??
+        category.description ??
+        currentState.serviceLoopSummary,
+      serviceHint:
+        category.supportEntry?.label ??
+        category.customerServiceEntryLabel ??
+        currentState.serviceHint,
     });
   }
 
@@ -385,7 +428,10 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
           categoryKey: category.key,
           type: category.type,
         },
-        serviceHint: category.customerServiceEntryLabel,
+        recommendedFaqEntries: resolveFaqEntries(category, store.getState()),
+        supportEntry: category.supportEntry ? structuredClone(category.supportEntry) : store.getState().supportEntry,
+        serviceLoopSummary: category.description ?? store.getState().serviceLoopSummary,
+        serviceHint: category.supportEntry?.label ?? category.customerServiceEntryLabel,
       });
     },
 
@@ -403,7 +449,14 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
           type,
           ...(category ? { categoryKey: category.key } : {}),
         },
-        ...(category?.customerServiceEntryLabel ? { serviceHint: category.customerServiceEntryLabel } : {}),
+        ...(category
+          ? {
+              recommendedFaqEntries: resolveFaqEntries(category, store.getState()),
+              supportEntry: category.supportEntry ? structuredClone(category.supportEntry) : store.getState().supportEntry,
+              serviceLoopSummary: category.description ?? store.getState().serviceLoopSummary,
+              serviceHint: category.supportEntry?.label ?? category.customerServiceEntryLabel,
+            }
+          : {}),
       });
     },
 
@@ -512,7 +565,24 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         latestTicket: structuredClone(result.value.feedbackTicket),
         latestStatus: structuredClone(result.value.feedbackStatus),
         latestCategory: structuredClone(result.value.feedbackCategory),
-        serviceHint: result.value.feedbackCategory.customerServiceEntryLabel,
+        recommendedFaqEntries:
+          result.value.feedbackStatus.faqEntries?.map((entry) => structuredClone(entry)) ??
+          (result.value.feedbackCategory.faqEntries?.map((entry) => structuredClone(entry)) ??
+            (result.value.feedbackCategory.faqEntry ? [structuredClone(result.value.feedbackCategory.faqEntry)] : [])),
+        supportEntry:
+          result.value.feedbackStatus.supportEntry
+            ? structuredClone(result.value.feedbackStatus.supportEntry)
+            : result.value.feedbackCategory.supportEntry
+              ? structuredClone(result.value.feedbackCategory.supportEntry)
+              : undefined,
+        revisitAction: result.value.feedbackStatus.revisitAction
+          ? structuredClone(result.value.feedbackStatus.revisitAction)
+          : undefined,
+        serviceLoopSummary: result.value.feedbackStatus.nextStepLabel ?? result.value.feedbackStatus.progressLabel,
+        serviceHint:
+          result.value.feedbackStatus.supportEntry?.label ??
+          result.value.feedbackCategory.supportEntry?.label ??
+          result.value.feedbackCategory.customerServiceEntryLabel,
         lastSubmission: {
           submittedAt: Date.now(),
           value: structuredClone(result.value),
@@ -544,10 +614,118 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         latestTicket: structuredClone(result.value.feedbackTicket),
         latestStatus: structuredClone(result.value.feedbackStatus),
         latestCategory: structuredClone(result.value.feedbackCategory),
-        serviceHint: result.value.feedbackCategory.customerServiceEntryLabel,
+        recommendedFaqEntries:
+          result.value.feedbackStatus.faqEntries?.map((entry) => structuredClone(entry)) ??
+          (result.value.feedbackCategory.faqEntries?.map((entry) => structuredClone(entry)) ??
+            (result.value.feedbackCategory.faqEntry ? [structuredClone(result.value.feedbackCategory.faqEntry)] : [])),
+        supportEntry:
+          result.value.feedbackStatus.supportEntry
+            ? structuredClone(result.value.feedbackStatus.supportEntry)
+            : result.value.feedbackCategory.supportEntry
+              ? structuredClone(result.value.feedbackCategory.supportEntry)
+              : undefined,
+        revisitAction: result.value.feedbackStatus.revisitAction
+          ? structuredClone(result.value.feedbackStatus.revisitAction)
+          : undefined,
+        serviceLoopSummary: result.value.feedbackStatus.nextStepLabel ?? result.value.feedbackStatus.progressLabel,
+        serviceHint:
+          result.value.feedbackStatus.supportEntry?.label ??
+          result.value.feedbackCategory.supportEntry?.label ??
+          result.value.feedbackCategory.customerServiceEntryLabel,
       });
 
       return result;
+    },
+
+    openSupportEntry() {
+      const supportEntry = store.getState().supportEntry;
+      if (!supportEntry) {
+        return ok(undefined);
+      }
+
+      if (supportEntry.channel === "messages") {
+        return routeToOptional(
+          supportEntry.routeId ?? messagesRouteId,
+          supportEntry.threadId ? { threadId: supportEntry.threadId } : undefined,
+        );
+      }
+
+      return routeToOptional(supportEntry.routeId ?? settingsRouteId);
+    },
+
+    openFaq(entryId?: string) {
+      const faqEntry =
+        store.getState().recommendedFaqEntries.find((entry) => entry.entryId === entryId) ??
+        store.getState().recommendedFaqEntries[0];
+      if (!faqEntry) {
+        return ok(undefined);
+      }
+
+      store.setState({
+        serviceLoopSummary: faqEntry.summary,
+        serviceHint: faqEntry.title,
+      });
+      return ok(faqEntry);
+    },
+
+    async revisitLatestTicket(userMessage?: string) {
+      const ticketId = store.getState().latestTicket?.ticketId;
+      if (!ticketId) {
+        return ok(undefined);
+      }
+
+      store.setState({
+        submitting: true,
+        errorCode: undefined,
+        errorText: undefined,
+        submitState: {
+          ...store.getState().submitState,
+          phase: "submitting",
+          mode: "submit",
+        },
+      });
+
+      const result = await kernel.request.post<FeedbackRevisitResponse>(revisitPath, {
+        ticketId,
+        ...(userMessage ? { userMessage } : {}),
+      });
+      if (!result.ok) {
+        return handleFailure(result);
+      }
+
+      store.setState({
+        submitting: false,
+        latestTicket: structuredClone(result.value.feedbackTicket),
+        latestStatus: structuredClone(result.value.feedbackStatus),
+        latestCategory: structuredClone(result.value.feedbackCategory),
+        recommendedFaqEntries:
+          result.value.feedbackStatus.faqEntries?.map((entry) => structuredClone(entry)) ??
+          (result.value.feedbackCategory.faqEntries?.map((entry) => structuredClone(entry)) ??
+            (result.value.feedbackCategory.faqEntry ? [structuredClone(result.value.feedbackCategory.faqEntry)] : [])),
+        supportEntry:
+          result.value.feedbackStatus.supportEntry
+            ? structuredClone(result.value.feedbackStatus.supportEntry)
+            : result.value.feedbackCategory.supportEntry
+              ? structuredClone(result.value.feedbackCategory.supportEntry)
+              : undefined,
+        revisitAction: result.value.feedbackStatus.revisitAction
+          ? structuredClone(result.value.feedbackStatus.revisitAction)
+          : undefined,
+        serviceLoopSummary: result.value.feedbackStatus.nextStepLabel ?? result.value.feedbackStatus.progressLabel,
+        serviceHint:
+          result.value.feedbackStatus.supportEntry?.label ??
+          result.value.feedbackCategory.supportEntry?.label ??
+          result.value.feedbackCategory.customerServiceEntryLabel,
+        submitState: {
+          ...store.getState().submitState,
+          phase: "submitted",
+          mode: "submit",
+          submittedAt: Date.now(),
+          result: structuredClone(result.value),
+        },
+      });
+
+      return ok(result.value);
     },
 
     goToLogin() {

@@ -1,4 +1,4 @@
-import { NOTIFICATION_TYPES } from "@minix/contracts";
+import { APP_ROUTE_IDS, NOTIFICATION_TYPES } from "@minix/contracts";
 import type {
   AccountOperation,
   BookshelfItem,
@@ -20,7 +20,11 @@ import type {
   FeedbackCategory,
   FeedbackFaqEntry,
   FeedbackPriority,
+  FeedbackRevisitAction,
+  FeedbackRevisitRequest,
+  FeedbackRevisitResponse,
   FeedbackStatus,
+  FeedbackSupportEntry,
   FeedbackTicket,
   FeedbackTicketDetailResponse,
   FeedbackType,
@@ -2902,6 +2906,21 @@ const FEEDBACK_FAQ_ENTRIES: Record<string, FeedbackFaqEntry> = {
   },
 };
 
+function createFeedbackSupportEntry(label: string, summary: string): FeedbackSupportEntry {
+  return {
+    entryId: `support_${label.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
+    label,
+    summary,
+    channel: "messages",
+    routeId: APP_ROUTE_IDS.messages,
+    threadId: "thread_customer_service",
+  };
+}
+
+function createFeedbackFaqEntries(keys: Array<keyof typeof FEEDBACK_FAQ_ENTRIES>): FeedbackFaqEntry[] {
+  return keys.map((key) => ({ ...FEEDBACK_FAQ_ENTRIES[key]! }));
+}
+
 const FEEDBACK_CATEGORIES: FeedbackCategory[] = [
   {
     key: "product_issue",
@@ -2912,7 +2931,12 @@ const FEEDBACK_CATEGORIES: FeedbackCategory[] = [
     labels: ["product", "bug"],
     supportsAttachments: true,
     faqEntry: FEEDBACK_FAQ_ENTRIES.account!,
+    faqEntries: createFeedbackFaqEntries(["account"]),
     customerServiceEntryLabel: "Open Support Desk",
+    supportEntry: createFeedbackSupportEntry(
+      "Open Support Desk",
+      "Route this ticket into the shared customer-service inbox thread for follow-up.",
+    ),
   },
   {
     key: "improvement",
@@ -2923,6 +2947,10 @@ const FEEDBACK_CATEGORIES: FeedbackCategory[] = [
     labels: ["product", "idea"],
     supportsAttachments: true,
     customerServiceEntryLabel: "Open Suggestion Review Queue",
+    supportEntry: createFeedbackSupportEntry(
+      "Open Suggestion Review Queue",
+      "Use the shared inbox thread to clarify product suggestions and expected improvements.",
+    ),
   },
   {
     key: "billing",
@@ -2933,7 +2961,12 @@ const FEEDBACK_CATEGORIES: FeedbackCategory[] = [
     labels: ["payment", "billing"],
     supportsAttachments: true,
     faqEntry: FEEDBACK_FAQ_ENTRIES.payment!,
+    faqEntries: createFeedbackFaqEntries(["payment"]),
     customerServiceEntryLabel: "Open Billing Support",
+    supportEntry: createFeedbackSupportEntry(
+      "Open Billing Support",
+      "Continue billing follow-up in the shared customer-service thread with order context.",
+    ),
   },
   {
     key: "abuse",
@@ -2944,7 +2977,12 @@ const FEEDBACK_CATEGORIES: FeedbackCategory[] = [
     labels: ["abuse", "moderation"],
     supportsAttachments: true,
     faqEntry: FEEDBACK_FAQ_ENTRIES.content!,
+    faqEntries: createFeedbackFaqEntries(["content"]),
     customerServiceEntryLabel: "Open Trust and Safety Desk",
+    supportEntry: createFeedbackSupportEntry(
+      "Open Trust and Safety Desk",
+      "Escalate moderation follow-up into the reserved support thread used by the sample inbox.",
+    ),
   },
   {
     key: "satisfaction",
@@ -2955,6 +2993,10 @@ const FEEDBACK_CATEGORIES: FeedbackCategory[] = [
     labels: ["survey", "quality"],
     supportsAttachments: false,
     customerServiceEntryLabel: "Open Service Quality Desk",
+    supportEntry: createFeedbackSupportEntry(
+      "Open Service Quality Desk",
+      "Continue service-quality follow-up in the shared support inbox thread.",
+    ),
   },
 ];
 
@@ -2963,6 +3005,8 @@ function cloneFeedbackCategory(category: FeedbackCategory): FeedbackCategory {
     ...category,
     labels: [...category.labels],
     ...(category.faqEntry ? { faqEntry: { ...category.faqEntry } } : {}),
+    ...(category.faqEntries ? { faqEntries: category.faqEntries.map((entry) => ({ ...entry })) } : {}),
+    ...(category.supportEntry ? { supportEntry: { ...category.supportEntry } } : {}),
   };
 }
 
@@ -2972,6 +3016,9 @@ function cloneFeedbackStatus(status: FeedbackStatus): FeedbackStatus {
     handlingProgress: [...status.handlingProgress],
     processingHistory: status.processingHistory.map((record) => ({ ...record })),
     ...(status.faqEntry ? { faqEntry: { ...status.faqEntry } } : {}),
+    ...(status.faqEntries ? { faqEntries: status.faqEntries.map((entry) => ({ ...entry })) } : {}),
+    ...(status.supportEntry ? { supportEntry: { ...status.supportEntry } } : {}),
+    ...(status.revisitAction ? { revisitAction: { ...status.revisitAction } } : {}),
   };
 }
 
@@ -2984,7 +3031,40 @@ function resolveFeedbackCategory(categoryKey: string, type: FeedbackType): Feedb
   );
 }
 
+function shiftIsoMinutes(timestamp: string, minutes: number): string {
+  return new Date(new Date(timestamp).getTime() + minutes * 60_000).toISOString();
+}
+
+function createFeedbackRevisitAction(
+  ticketId: string,
+  category: FeedbackCategory,
+  state: FeedbackStatus["state"],
+  revisitRequired: boolean,
+): FeedbackRevisitAction {
+  return {
+    ticketId,
+    label:
+      state === "waiting_user"
+        ? "Reply With Requested Details"
+        : state === "resolved" || state === "closed"
+          ? "Request Follow-up"
+          : "Add More Context",
+    summary:
+      revisitRequired
+        ? "The support lane is waiting for more context before closing the ticket."
+        : `Continue follow-up for ${category.label.toLowerCase()} in the shared support lane.`,
+    enabled: true,
+    ...(category.supportEntry?.routeId ? { routeId: category.supportEntry.routeId } : {}),
+    ...(category.supportEntry?.threadId ? { threadId: category.supportEntry.threadId } : {}),
+    suggestedReply:
+      state === "waiting_user"
+        ? "I am following up with the details you requested."
+        : `Following up on ${ticketId}: please review the latest update.`,
+  };
+}
+
 function createFeedbackStatus(
+  ticketId: string,
   state: FeedbackStatus["state"],
   category: FeedbackCategory,
   revisitRequired: boolean,
@@ -3000,13 +3080,53 @@ function createFeedbackStatus(
     },
   ];
 
-  if (state !== "submitted") {
+  if (state === "triaged" || state === "in_progress" || state === "waiting_user" || state === "resolved" || state === "closed") {
     history.push({
-      recordedAt: createdAt,
+      recordedAt: shiftIsoMinutes(createdAt, 10),
       actorLabel: "Support Queue",
       actionLabel: "Ticket triaged",
-      note: "Sample feedback status advanced for retrieval coverage.",
-      state,
+      note: "The shared support lane assigned the ticket to the right queue.",
+      state: "triaged",
+    });
+  }
+
+  if (state === "in_progress" || state === "waiting_user" || state === "resolved" || state === "closed") {
+    history.push({
+      recordedAt: shiftIsoMinutes(createdAt, 25),
+      actorLabel: "Support Specialist",
+      actionLabel: "Support review started",
+      note: "A support agent started reviewing the provided context and attachments.",
+      state: "in_progress",
+    });
+  }
+
+  if (state === "waiting_user") {
+    history.push({
+      recordedAt: shiftIsoMinutes(createdAt, 35),
+      actorLabel: "Support Specialist",
+      actionLabel: "Additional context requested",
+      note: "The support lane asked for more detail before closing the loop.",
+      state: "waiting_user",
+    });
+  }
+
+  if (state === "resolved" || state === "closed") {
+    history.push({
+      recordedAt: shiftIsoMinutes(createdAt, 45),
+      actorLabel: "Support Specialist",
+      actionLabel: "Resolution posted",
+      note: "A sample resolution was attached to the support loop for follow-up confirmation.",
+      state: "resolved",
+    });
+  }
+
+  if (state === "closed") {
+    history.push({
+      recordedAt: shiftIsoMinutes(createdAt, 60),
+      actorLabel: "System Intake",
+      actionLabel: "Ticket closed",
+      note: "The feedback service loop completed without additional follow-up.",
+      state: "closed",
     });
   }
 
@@ -3036,12 +3156,29 @@ function createFeedbackStatus(
               : state === "resolved"
                 ? "Handled and ready for confirmation"
                 : "Service loop complete",
+    nextStepLabel:
+      state === "waiting_user"
+        ? "Reply from the support entry to continue this ticket."
+        : state === "resolved"
+          ? "Confirm whether the proposed resolution is sufficient."
+          : state === "closed"
+            ? "Open a follow-up if the issue returns."
+            : "Use the support entry if you need to add more context.",
     revisitRequired,
     ...(category.faqEntry ? { faqEntry: { ...category.faqEntry } } : {}),
+    ...(category.faqEntries ? { faqEntries: category.faqEntries.map((entry) => ({ ...entry })) } : {}),
     ...(category.customerServiceEntryLabel
       ? { customerServiceEntryLabel: category.customerServiceEntryLabel }
       : {}),
-    handlingProgress: ["Submitted", "Triaged", "Processed", "Resolved"],
+    ...(category.supportEntry ? { supportEntry: { ...category.supportEntry } } : {}),
+    revisitAction: createFeedbackRevisitAction(ticketId, category, state, revisitRequired),
+    handlingProgress: [
+      "Submitted to intake",
+      "Routed to support lane",
+      "Support review in progress",
+      revisitRequired ? "Waiting for your reply" : "Waiting for support confirmation",
+      "Resolved or closed",
+    ],
     processingHistory: history,
   };
 }
@@ -3079,9 +3216,17 @@ export function createFeedbackBootstrapResponse(userState: UserState): FeedbackB
   const latestDetail = userState.latestFeedbackTicketId
     ? userState.feedbackDetailsById[userState.latestFeedbackTicketId]
     : undefined;
+  const referenceCategory = latestDetail?.feedbackCategory ?? FEEDBACK_CATEGORIES[0];
+  const serviceLoopSummary =
+    latestDetail?.feedbackStatus.nextStepLabel ?? latestDetail?.feedbackStatus.progressLabel ?? referenceCategory?.description;
 
   return {
     feedbackCategories: FEEDBACK_CATEGORIES.map(cloneFeedbackCategory),
+    recommendedFaqEntries:
+      referenceCategory?.faqEntries?.map((entry) => ({ ...entry })) ??
+      (referenceCategory?.faqEntry ? [{ ...referenceCategory.faqEntry }] : []),
+    ...(referenceCategory?.supportEntry ? { supportEntry: { ...referenceCategory.supportEntry } } : {}),
+    ...(serviceLoopSummary !== undefined ? { serviceLoopSummary } : {}),
     ...(latestDetail
       ? {
           latestTicket: structuredClone(latestDetail.feedbackTicket),
@@ -3118,7 +3263,7 @@ export function submitFeedbackTicket(
   };
   const statusState: FeedbackStatus["state"] =
     category.type === "abuse_report" || category.defaultPriority === "urgent" ? "triaged" : "submitted";
-  const status = createFeedbackStatus(statusState, category, revisitRequested, now);
+  const status = createFeedbackStatus(ticketId, statusState, category, revisitRequested, now);
   const response = createFeedbackTicketResponse(ticket, category, status);
 
   userState.feedbackDetailsById[ticketId] = response;
@@ -3129,4 +3274,44 @@ export function submitFeedbackTicket(
 export function getFeedbackTicket(userState: UserState, ticketId: string): FeedbackTicketDetailResponse | null {
   const detail = userState.feedbackDetailsById[ticketId];
   return detail ? createFeedbackTicketResponse(detail.feedbackTicket, detail.feedbackCategory, detail.feedbackStatus) : null;
+}
+
+export function revisitFeedbackTicket(
+  userState: UserState,
+  request: FeedbackRevisitRequest,
+  now = new Date().toISOString(),
+): FeedbackRevisitResponse | null {
+  const existing = userState.feedbackDetailsById[request.ticketId];
+  if (!existing) {
+    return null;
+  }
+
+  const previousState = existing.feedbackStatus.state;
+  const nextState: FeedbackStatus["state"] =
+    previousState === "resolved" || previousState === "closed" ? "triaged" : "in_progress";
+  const nextTicket: FeedbackTicket = {
+    ...structuredClone(existing.feedbackTicket),
+    updatedAt: now,
+    revisitRequested: true,
+  };
+  const nextStatus = createFeedbackStatus(nextTicket.ticketId, nextState, existing.feedbackCategory, true, nextTicket.createdAt);
+  nextStatus.processingHistory.push({
+    recordedAt: now,
+    actorLabel: "User Follow-up",
+    actionLabel: request.userMessage ? "Revisit requested with context" : "Revisit requested",
+    ...(request.userMessage ? { note: request.userMessage } : { note: "The user reopened the support loop from feedback." }),
+    state: nextState,
+  });
+
+  if (existing.feedbackCategory.supportEntry?.threadId && request.userMessage) {
+    sendThreadMessage(userState, {
+      threadId: existing.feedbackCategory.supportEntry.threadId,
+      body: `[${nextTicket.ticketId}] ${request.userMessage}`,
+    });
+  }
+
+  const response = createFeedbackTicketResponse(nextTicket, existing.feedbackCategory, nextStatus);
+  userState.feedbackDetailsById[request.ticketId] = response;
+  userState.latestFeedbackTicketId = request.ticketId;
+  return response;
 }

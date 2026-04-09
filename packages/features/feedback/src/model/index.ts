@@ -1,6 +1,9 @@
 import type {
   FeedbackBootstrapResponse,
   FeedbackCategory,
+  FeedbackFaqEntry,
+  FeedbackRevisitAction,
+  FeedbackSupportEntry,
   FeedbackTicket,
   FeedbackTicketDetailResponse,
   FeedbackStatus,
@@ -32,6 +35,10 @@ export type FeedbackState = FormPageState<FeedbackValues, FeedbackTicketDetailRe
   latestTicket: FeedbackTicket | undefined;
   latestStatus: FeedbackStatus | undefined;
   latestCategory: FeedbackCategory | undefined;
+  recommendedFaqEntries: FeedbackFaqEntry[];
+  supportEntry: FeedbackSupportEntry | undefined;
+  revisitAction: FeedbackRevisitAction | undefined;
+  serviceLoopSummary: string | undefined;
   serviceHint: string | undefined;
 };
 
@@ -74,6 +81,10 @@ export function createDefaultFeedbackState(
     latestTicket: undefined,
     latestStatus: undefined,
     latestCategory: undefined,
+    recommendedFaqEntries: [],
+    supportEntry: undefined,
+    revisitAction: undefined,
+    serviceLoopSummary: undefined,
     serviceHint: undefined,
   };
 }
@@ -88,8 +99,17 @@ export function applyFeedbackBootstrap(
     latestTicket: bootstrap.latestTicket ? structuredClone(bootstrap.latestTicket) : undefined,
     latestStatus: bootstrap.latestStatus ? structuredClone(bootstrap.latestStatus) : undefined,
     latestCategory: bootstrap.latestCategory ? structuredClone(bootstrap.latestCategory) : undefined,
+    recommendedFaqEntries: bootstrap.recommendedFaqEntries
+      ? bootstrap.recommendedFaqEntries.map((entry) => structuredClone(entry))
+      : [],
+    supportEntry: bootstrap.supportEntry ? structuredClone(bootstrap.supportEntry) : undefined,
+    revisitAction: bootstrap.latestStatus?.revisitAction ? structuredClone(bootstrap.latestStatus.revisitAction) : undefined,
+    serviceLoopSummary: bootstrap.serviceLoopSummary,
     serviceHint:
+      bootstrap.supportEntry?.label ??
+      bootstrap.latestCategory?.supportEntry?.label ??
       bootstrap.latestCategory?.customerServiceEntryLabel ??
+      bootstrap.feedbackCategories.find((category) => category.key === state.values.categoryKey)?.supportEntry?.label ??
       bootstrap.feedbackCategories.find((category) => category.key === state.values.categoryKey)?.customerServiceEntryLabel,
   };
 }

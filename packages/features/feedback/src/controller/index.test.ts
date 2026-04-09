@@ -115,7 +115,22 @@ function createKernelStub() {
                 defaultPriority: "high",
                 labels: ["product", "bug"],
                 supportsAttachments: true,
+                faqEntries: [
+                  {
+                    entryId: "faq_account_recovery",
+                    title: "Account Recovery FAQ",
+                    summary: "Use the shared account recovery lane first.",
+                  },
+                ],
                 customerServiceEntryLabel: "Open Support Desk",
+                supportEntry: {
+                  entryId: "support_feedback",
+                  label: "Open Support Desk",
+                  summary: "Continue follow-up in the inbox support thread.",
+                  channel: "messages",
+                  routeId: APP_ROUTE_IDS.messages,
+                  threadId: "thread_customer_service",
+                },
               },
               {
                 key: "improvement",
@@ -126,6 +141,22 @@ function createKernelStub() {
                 supportsAttachments: true,
               },
             ],
+            recommendedFaqEntries: [
+              {
+                entryId: "faq_account_recovery",
+                title: "Account Recovery FAQ",
+                summary: "Use the shared account recovery lane first.",
+              },
+            ],
+            supportEntry: {
+              entryId: "support_feedback",
+              label: "Open Support Desk",
+              summary: "Continue follow-up in the inbox support thread.",
+              channel: "messages",
+              routeId: APP_ROUTE_IDS.messages,
+              threadId: "thread_customer_service",
+            },
+            serviceLoopSummary: "Use the support entry if you need to add more context.",
           };
           return ok(response as T);
         }
@@ -165,6 +196,30 @@ function createKernelStub() {
             label: "Submitted",
             progressLabel: "Queued for initial review",
             revisitRequired: true,
+            nextStepLabel: "Use the support entry if you need to add more context.",
+            faqEntries: [
+              {
+                entryId: "faq_account_recovery",
+                title: "Account Recovery FAQ",
+                summary: "Use the shared account recovery lane first.",
+              },
+            ],
+            supportEntry: {
+              entryId: "support_feedback",
+              label: "Open Support Desk",
+              summary: "Continue follow-up in the inbox support thread.",
+              channel: "messages",
+              routeId: APP_ROUTE_IDS.messages,
+              threadId: "thread_customer_service",
+            },
+            revisitAction: {
+              ticketId: "fb_1",
+              label: "Add More Context",
+              summary: "Continue follow-up in the support lane.",
+              enabled: true,
+              routeId: APP_ROUTE_IDS.messages,
+              threadId: "thread_customer_service",
+            },
             handlingProgress: ["Submitted", "Triaged"],
             processingHistory: [
               {
@@ -179,8 +234,8 @@ function createKernelStub() {
         return ok(response as T);
       },
       async post<T>(_path: string, payload?: unknown) {
-        if (_path === "/uploads") {
-          return ok({
+      if (_path === "/uploads") {
+        return ok({
             source: "adapter_selection",
             uploadTask: {
               taskId: "task_feedback_1",
@@ -224,11 +279,96 @@ function createKernelStub() {
                 height: 900,
               },
             },
-          } as T);
-        }
+        } as T);
+      }
 
+      if (_path === "/feedback/ticket/revisit") {
         const request = payload as {
-          title: string;
+          ticketId: string;
+          userMessage?: string;
+        };
+        return ok({
+          feedbackTicket: {
+            ticketId: request.ticketId,
+            type: "issue_report",
+            categoryKey: "product_issue",
+            title: "Login button missing",
+            description: "The primary login button did not render.",
+            priority: "high",
+            labels: ["product", "bug"],
+            revisitRequested: true,
+            createdAt: "2026-04-08T10:00:00.000Z",
+            updatedAt: "2026-04-08T11:00:00.000Z",
+            context: {
+              sourcePage: "/feedback",
+              userId: "feedback-user",
+              platform: "h5",
+              appVersion: "0.1.0",
+              screenshotAssets: [],
+              attachmentAssets: [],
+            },
+          },
+          feedbackCategory: {
+            key: "product_issue",
+            label: "Product Issue",
+            type: "issue_report",
+            defaultPriority: "high",
+            labels: ["product", "bug"],
+            supportsAttachments: true,
+            customerServiceEntryLabel: "Open Support Desk",
+            supportEntry: {
+              entryId: "support_feedback",
+              label: "Open Support Desk",
+              summary: "Continue follow-up in the inbox support thread.",
+              channel: "messages",
+              routeId: APP_ROUTE_IDS.messages,
+              threadId: "thread_customer_service",
+            },
+          },
+          feedbackStatus: {
+            state: "in_progress",
+            label: "In Progress",
+            progressLabel: "Being processed by support",
+            revisitRequired: true,
+            nextStepLabel: "Reply from the support entry to continue this ticket.",
+            supportEntry: {
+              entryId: "support_feedback",
+              label: "Open Support Desk",
+              summary: "Continue follow-up in the inbox support thread.",
+              channel: "messages",
+              routeId: APP_ROUTE_IDS.messages,
+              threadId: "thread_customer_service",
+            },
+            revisitAction: {
+              ticketId: request.ticketId,
+              label: "Add More Context",
+              summary: request.userMessage ?? "Continue follow-up in the support lane.",
+              enabled: true,
+              routeId: APP_ROUTE_IDS.messages,
+              threadId: "thread_customer_service",
+            },
+            handlingProgress: ["Submitted", "Triaged", "Processed"],
+            processingHistory: [
+              {
+                recordedAt: "2026-04-08T10:00:00.000Z",
+                actorLabel: "System Intake",
+                actionLabel: "Ticket created",
+                state: "submitted",
+              },
+              {
+                recordedAt: "2026-04-08T11:00:00.000Z",
+                actorLabel: "User Follow-up",
+                actionLabel: "Revisit requested with context",
+                note: request.userMessage,
+                state: "in_progress",
+              },
+            ],
+          },
+        } as T);
+      }
+
+      const request = payload as {
+        title: string;
           description: string;
           revisitRequested?: boolean;
           context: { screenshotAssets: unknown[] };
@@ -268,6 +408,23 @@ function createKernelStub() {
             label: "Submitted",
             progressLabel: "Queued for initial review",
             revisitRequired: Boolean(request.revisitRequested),
+            nextStepLabel: "Use the support entry if you need to add more context.",
+            supportEntry: {
+              entryId: "support_feedback",
+              label: "Open Support Desk",
+              summary: "Continue follow-up in the inbox support thread.",
+              channel: "messages",
+              routeId: APP_ROUTE_IDS.messages,
+              threadId: "thread_customer_service",
+            },
+            revisitAction: {
+              ticketId: "fb_1",
+              label: "Add More Context",
+              summary: "Continue follow-up in the support lane.",
+              enabled: true,
+              routeId: APP_ROUTE_IDS.messages,
+              threadId: "thread_customer_service",
+            },
             handlingProgress: ["Submitted", "Triaged"],
             processingHistory: [
               {
@@ -322,6 +479,8 @@ test("feedback controller loads bootstrap data and captures local context", asyn
   assert.equal(controller.store.getState().formValues.userId, "feedback-user");
   assert.equal(controller.store.getState().values.sourceRouteId, APP_ROUTE_IDS.feedback);
   assert.match(controller.store.getState().values.deviceSummary ?? "", /userAgent/);
+  assert.equal(controller.store.getState().recommendedFaqEntries.length, 1);
+  assert.equal(controller.store.getState().supportEntry?.threadId, "thread_customer_service");
 });
 
 test("feedback controller validates required fields before submit", async () => {
@@ -365,6 +524,25 @@ test("feedback controller uploads screenshot assets through the shared pipeline 
   assert.equal(controller.store.getState().submitState.mode, "submit");
 });
 
+test("feedback controller can route into the bounded support entry", async () => {
+  const { kernel, routeCalls } = createKernelStub();
+  const controller = createFeedbackController({
+    kernel,
+    messagesRouteId: APP_ROUTE_IDS.messages,
+    initialState: createDefaultFeedbackState(),
+  });
+
+  await controller.loadInitial();
+  await controller.openSupportEntry();
+
+  assert.deepEqual(routeCalls.at(-1), {
+    routeId: APP_ROUTE_IDS.messages,
+    params: {
+      threadId: "thread_customer_service",
+    },
+  });
+});
+
 test("feedback controller can refresh the latest ticket status", async () => {
   const { kernel } = createKernelStub();
   const controller = createFeedbackController({
@@ -381,6 +559,26 @@ test("feedback controller can refresh the latest ticket status", async () => {
   await controller.refreshLatestStatus();
 
   assert.equal(controller.store.getState().latestStatus?.state, "submitted");
+});
+
+test("feedback controller can request a ticket revisit and keep support-loop state aligned", async () => {
+  const { kernel } = createKernelStub();
+  const controller = createFeedbackController({
+    kernel,
+    initialState: createDefaultFeedbackState(),
+  });
+
+  await controller.loadInitial();
+  controller.updateValues({
+    title: "Broken login button",
+    description: "The primary login button failed to render after refresh.",
+  });
+  await controller.submit();
+  await controller.revisitLatestTicket("Please re-check the rendering after cache clear.");
+
+  assert.equal(controller.store.getState().latestStatus?.state, "in_progress");
+  assert.equal(controller.store.getState().latestStatus?.processingHistory.length, 2);
+  assert.equal(controller.store.getState().serviceLoopSummary, "Reply from the support entry to continue this ticket.");
 });
 
 test("feedback controller routes unauthorized bootstrap responses back to login", async () => {
