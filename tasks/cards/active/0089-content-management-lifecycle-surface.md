@@ -90,8 +90,8 @@ Support draft, publish, review, archive, delete, restore, and access-management 
 
 ## Acceptance
 
-- [ ] content lifecycle states have shared business transitions, not only metadata fields
-- [ ] content access-level changes can be exercised through shared contracts
-- [ ] novel sample remains a specialization, not the only usable content model
-- [ ] lifecycle flows align with shared list/detail/form abstractions
-- [ ] `pnpm verify` run
+- [x] content lifecycle states have shared business transitions, not only metadata fields
+- [x] content access-level changes can be exercised through shared contracts
+- [x] novel sample remains a specialization, not the only usable content model
+- [x] lifecycle flows align with shared list/detail/form abstractions
+- [x] `pnpm verify` run

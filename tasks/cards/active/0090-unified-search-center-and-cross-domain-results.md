@@ -92,8 +92,8 @@ Make `global / content / user / domain` search modes behave like real shared pro
 
 ## Acceptance
 
-- [ ] global search is more than a feed-only wrapper
-- [ ] user-search and broader content-search are representable through real shared flows
-- [ ] search route/query persistence stays normalized across hosts
-- [ ] feed/catalog search reuse shared primitives instead of diverging further
-- [ ] `pnpm verify` run
+- [x] global search is more than a feed-only wrapper
+- [x] user-search and broader content-search are representable through real shared flows
+- [x] search route/query persistence stays normalized across hosts
+- [x] feed/catalog search reuse shared primitives instead of diverging further
+- [x] `pnpm verify` run

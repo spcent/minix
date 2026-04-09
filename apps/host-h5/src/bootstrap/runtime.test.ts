@@ -300,6 +300,46 @@ function createKernelStub(): AppKernel {
           } as T);
         }
 
+        if (path === "/messages/thread") {
+          return ok({
+            messageThread: {
+              threadId: "thread_host_h5",
+              type: "private",
+              title: "Tutor",
+              participantLabels: ["Tutor", "You"],
+              pinned: false,
+              doNotDisturb: false,
+              unreadCount: 1,
+              reserved: true,
+              touchpoints: [],
+            },
+            messageItems: [
+              {
+                messageId: "msg_host_h5_1",
+                threadId: "thread_host_h5",
+                direction: "inbound",
+                senderRole: "advisor",
+                senderLabel: "Tutor",
+                body: "Host runtime thread detail is available.",
+                createdAt: "2026-04-08T09:00:00.000Z",
+                deliveryStatus: "delivered",
+                touchpoints: [],
+              },
+            ],
+            detailActions: {
+              canReply: true,
+              canMarkRead: true,
+              deliveryLabel: "Private message delivery lane",
+            },
+            unreadBadge: {
+              totalUnread: 2,
+              notificationUnread: 1,
+              threadUnread: 1,
+              breakdown: [{ key: "system", label: "System", count: 1 }],
+            },
+          } as T);
+        }
+
         return ok({
           items: [],
           hasMore: false,

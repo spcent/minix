@@ -6,6 +6,9 @@ import type {
   FormValidationError,
   SubmitFeedbackRequest,
   UploadAsset,
+  UploadPipelineRequest,
+  UploadPipelineResponse,
+  UploadSelectionResult,
 } from "@minix/contracts";
 import { createAuthRedirectParams, createStore, ok, type AppKernel, type Result } from "@minix/core";
 
@@ -25,6 +28,7 @@ export interface CreateFeedbackControllerOptions {
   bootstrapPath?: string;
   submitPath?: string;
   detailPath?: string;
+  uploadRequestPath?: string;
   authRedirectSource?: string;
   initialState?: Partial<FeedbackState>;
 }
@@ -72,21 +76,6 @@ function buildDeviceSummary(value: unknown): string | undefined {
   return entries.length > 0 ? entries.join(" · ") : undefined;
 }
 
-function createSampleAsset(kind: "screenshot" | "attachment"): UploadAsset {
-  const suffix = kind === "screenshot" ? "screenshot" : "attachment";
-  return {
-    assetId: `asset_${suffix}_sample`,
-    fileType: kind === "screenshot" ? "image" : "attachment",
-    fileName: kind === "screenshot" ? "feedback-screenshot.png" : "feedback-notes.pdf",
-    url: `https://example.test/assets/${suffix}`,
-    ...(kind === "screenshot" ? { thumbnailUrl: "https://example.test/assets/feedback-screenshot-thumb" } : {}),
-    metadata: {
-      sizeBytes: kind === "screenshot" ? 245_760 : 104_857,
-      ...(kind === "screenshot" ? { width: 1440, height: 900 } : { pageCount: 2 }),
-    },
-  };
-}
-
 export function createFeedbackController(options: CreateFeedbackControllerOptions) {
   const {
     kernel,
@@ -97,6 +86,7 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
     bootstrapPath = "/feedback/bootstrap",
     submitPath = "/feedback",
     detailPath = "/feedback/ticket",
+    uploadRequestPath = "/uploads",
     authRedirectSource = "feedback",
     initialState,
   } = options;
@@ -196,6 +186,108 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
       errors.push({ field: "satisfactionScore", message: "Please provide a satisfaction score.", rule: "cross_field", fieldType: "number", blocking: true });
     }
     return errors;
+  }
+
+  async function addUploadedAsset(kind: "screenshot" | "attachment") {
+    const uploadStatus = kernel.capability?.status("upload");
+    if (!kernel.capability || !uploadStatus?.ok || !uploadStatus.value) {
+      store.setState({
+        errorCode: "CAPABILITY_UNAVAILABLE",
+        errorText: "Upload capability is unavailable on this host.",
+      });
+      return ok(undefined);
+    }
+
+    store.setState({
+      loading: true,
+      errorCode: undefined,
+      errorText: undefined,
+    });
+
+    const selection = await kernel.capability.execute<UploadSelectionResult>({
+      capability: "upload",
+      action: "selectAsset",
+      payload: {
+        scenario: kind === "screenshot" ? "content" : "attachment",
+        preferredFileType: kind === "screenshot" ? "image" : "attachment",
+        acceptedFileTypes: kind === "screenshot" ? ["image"] : ["attachment", "pdf", "image"],
+        maxSelectCount: 1,
+        governance: {
+          maxSizeBytes: kind === "screenshot" ? 10_000_000 : 15_000_000,
+          acceptedFileTypes: kind === "screenshot" ? ["image"] : ["attachment", "pdf", "image"],
+          sensitiveReviewRequired: true,
+          expiresInDays: 30,
+        },
+      },
+    });
+    if (!selection.ok) {
+      store.setState({
+        loading: false,
+        errorCode: selection.error.code,
+        errorText: selection.error.message,
+      });
+      return selection;
+    }
+
+    const value = selection.value.value;
+    if (!value) {
+      store.setState({
+        loading: false,
+        errorCode: "INVALID_ARGUMENT",
+        errorText: "The upload capability did not return a selected asset.",
+      });
+      return ok(undefined);
+    }
+
+    const request: UploadPipelineRequest = {
+      scenario: kind === "screenshot" ? "content" : "attachment",
+      selection: value,
+    };
+    const pipeline = await kernel.request.post<UploadPipelineResponse>(uploadRequestPath, request);
+    if (!pipeline.ok) {
+      store.setState({
+        loading: false,
+        errorCode: pipeline.error.code,
+        errorText: pipeline.error.message,
+      });
+      return pipeline;
+    }
+
+    const uploadedAsset = pipeline.value.uploadAsset;
+    if (!uploadedAsset) {
+      store.setState({
+        loading: false,
+        errorCode: pipeline.value.uploadError?.code,
+        errorText: pipeline.value.uploadError?.message ?? "The upload pipeline did not return a finalized asset.",
+      });
+      return ok(undefined);
+    }
+
+    const nextValues =
+      kind === "screenshot"
+        ? {
+            screenshotAssets: [...store.getState().values.screenshotAssets, uploadedAsset],
+          }
+        : {
+            attachmentAssets: [...store.getState().values.attachmentAssets, uploadedAsset],
+          };
+
+    store.setState({
+      dirty: true,
+      loading: false,
+      errorCode: undefined,
+      errorText: undefined,
+      values: {
+        ...store.getState().values,
+        ...nextValues,
+      },
+      formValues: {
+        ...store.getState().formValues,
+        ...nextValues,
+      },
+    });
+
+    return pipeline;
   }
 
   async function handleFailure(result: FailedFeedbackResult) {
@@ -344,31 +436,11 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
     },
 
     addSampleScreenshot() {
-      store.setState({
-        dirty: true,
-        values: {
-          ...store.getState().values,
-          screenshotAssets: [...store.getState().values.screenshotAssets, createSampleAsset("screenshot")],
-        },
-        formValues: {
-          ...store.getState().formValues,
-          screenshotAssets: [...store.getState().formValues.screenshotAssets, createSampleAsset("screenshot")],
-        },
-      });
+      return addUploadedAsset("screenshot");
     },
 
     addSampleAttachment() {
-      store.setState({
-        dirty: true,
-        values: {
-          ...store.getState().values,
-          attachmentAssets: [...store.getState().values.attachmentAssets, createSampleAsset("attachment")],
-        },
-        formValues: {
-          ...store.getState().formValues,
-          attachmentAssets: [...store.getState().formValues.attachmentAssets, createSampleAsset("attachment")],
-        },
-      });
+      return addUploadedAsset("attachment");
     },
 
     validateForm() {

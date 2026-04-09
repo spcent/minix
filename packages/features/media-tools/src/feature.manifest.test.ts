@@ -34,6 +34,13 @@ function createKernelStub() {
                 sensitiveReviewRequired: true,
               },
               reviewStatus: "pending",
+              lifecycle: {
+                backendBacked: false,
+                retentionStatus: "active",
+                retryCount: 0,
+                canRetry: true,
+                canCancel: false,
+              },
             },
           },
         });

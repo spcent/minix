@@ -92,8 +92,8 @@ Support message threads as actual business conversations rather than only unread
 
 ## Acceptance
 
-- [ ] message threads can expose real message-body state, not only summary rows
-- [ ] consultation and customer-service thread types have bounded sample behavior
-- [ ] notification and conversation surfaces remain separated in shared contracts
-- [ ] delivery and read-state abstractions stay platform-agnostic
-- [ ] `pnpm verify` run
+- [x] message threads can expose real message-body state, not only summary rows
+- [x] consultation and customer-service thread types have bounded sample behavior
+- [x] notification and conversation surfaces remain separated in shared contracts
+- [x] delivery and read-state abstractions stay platform-agnostic
+- [x] `pnpm verify` run

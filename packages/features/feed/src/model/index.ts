@@ -1,15 +1,18 @@
-import type { FeedItem, FeedTag } from "@minix/contracts";
+import type { FeedItem, FeedTag, SearchDomain, SearchMode } from "@minix/contracts";
 import { createDefaultListPageState, type ListPageState } from "@minix/core";
 
 export interface FeedQuery {
   page: number;
   pageSize: number;
   keyword: string;
+  mode: SearchMode;
+  domain: SearchDomain;
 }
 
 export type FeedState = ListPageState<FeedItem> & {
   subtitle: string;
   featuredReason: string | undefined;
+  contentTransitionFeedback: string | undefined;
   tags: FeedTag[];
   activeTag: string | undefined;
   query: FeedQuery;
@@ -45,12 +48,15 @@ export function createFeedState(options: CreateFeedStateOptions): FeedState {
     }),
     subtitle: options.subtitle,
     featuredReason: undefined,
+    contentTransitionFeedback: undefined,
     tags: cloneTags(options.tags ?? []),
     activeTag: undefined,
     query: {
       page: 1,
       pageSize: options.pageSize,
       keyword: "",
+      mode: "global",
+      domain: "feed",
     },
     recentKeywords: [],
   };

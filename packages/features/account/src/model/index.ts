@@ -1,4 +1,11 @@
-import type { AccountSummary, IdentityWorkflowSummary, UserProfile, UserStatus } from "@minix/contracts";
+import type {
+  AccountOperation,
+  AccountSummary,
+  IdentityWorkflowSummary,
+  UserProfile,
+  UserRelationTarget,
+  UserStatus,
+} from "@minix/contracts";
 
 export interface AccountSummaryStat {
   key: string;
@@ -41,6 +48,8 @@ export interface AccountState {
   accountSummary?: AccountSummary;
   userStatus?: UserStatus;
   identityWorkflows?: IdentityWorkflowSummary;
+  accountOperations?: AccountOperation[];
+  relationTargets?: UserRelationTarget[];
   sessionLabel: string | undefined;
   authStatusLabel: string | undefined;
   transitionFeedback: string | undefined;

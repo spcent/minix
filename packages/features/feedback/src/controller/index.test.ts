@@ -22,9 +22,56 @@ function createKernelStub() {
     },
     capability: {
       status(capability: string) {
-        return ok(capability === "device");
+        return ok(capability === "device" || capability === "upload");
       },
-      async execute() {
+      async execute(input?: { capability?: string }) {
+        if (input?.capability === "upload") {
+          return ok({
+            capability: "upload",
+            action: "selectAsset",
+            value: {
+              uploadTask: {
+                taskId: "task_feedback_1",
+                scenario: "content",
+                fileType: "image",
+                stage: "completed",
+                fileName: "feedback-screenshot.png",
+                progress: {
+                  completedBytes: 245760,
+                  totalBytes: 245760,
+                  percentage: 100,
+                },
+                chunkingReserved: true,
+                governance: {
+                  maxSizeBytes: 10_000_000,
+                  acceptedFileTypes: ["image"],
+                  sensitiveReviewRequired: true,
+                  expiresInDays: 30,
+                },
+                reviewStatus: "not_required",
+                lifecycle: {
+                  backendBacked: false,
+                  retentionStatus: "active",
+                  retryCount: 0,
+                  canRetry: true,
+                  canCancel: false,
+                },
+              },
+              uploadAsset: {
+                assetId: "asset_selection_1",
+                fileType: "image",
+                fileName: "feedback-screenshot.png",
+                url: "https://example.test/local/feedback-screenshot.png",
+                metadata: {
+                  sizeBytes: 245760,
+                  width: 1440,
+                  height: 900,
+                },
+              },
+            },
+          });
+        }
+
         return ok({
           capability: "device",
           action: "getInfo",
@@ -132,6 +179,54 @@ function createKernelStub() {
         return ok(response as T);
       },
       async post<T>(_path: string, payload?: unknown) {
+        if (_path === "/uploads") {
+          return ok({
+            source: "adapter_selection",
+            uploadTask: {
+              taskId: "task_feedback_1",
+              scenario: "content",
+              fileType: "image",
+              stage: "reviewing",
+              fileName: "feedback-screenshot.png",
+              progress: {
+                completedBytes: 245760,
+                totalBytes: 245760,
+                percentage: 100,
+              },
+              chunkingReserved: true,
+              governance: {
+                maxSizeBytes: 10_000_000,
+                acceptedFileTypes: ["image"],
+                sensitiveReviewRequired: true,
+                expiresInDays: 30,
+              },
+              reviewStatus: "pending",
+              reviewMessage: "Sensitive review is pending in the sample upload pipeline.",
+              lifecycle: {
+                backendBacked: true,
+                retentionStatus: "active",
+                retryCount: 0,
+                canRetry: false,
+                canCancel: true,
+                lastTransitionAt: "2026-04-08T10:00:00.000Z",
+                expiresAt: "2026-05-08T10:00:00.000Z",
+              },
+            },
+            uploadAsset: {
+              assetId: "asset_uploaded_1",
+              fileType: "image",
+              fileName: "feedback-screenshot.png",
+              url: "https://example.test/uploads/asset_uploaded_1",
+              thumbnailUrl: "https://example.test/uploads/asset_uploaded_1/thumb",
+              metadata: {
+                sizeBytes: 245760,
+                width: 1440,
+                height: 900,
+              },
+            },
+          } as T);
+        }
+
         const request = payload as {
           title: string;
           description: string;
@@ -243,7 +338,7 @@ test("feedback controller validates required fields before submit", async () => 
   assert.equal(controller.store.getState().submitState.phase, "failed");
 });
 
-test("feedback controller can attach sample assets and submit the ticket", async () => {
+test("feedback controller uploads screenshot assets through the shared pipeline before submit", async () => {
   const { kernel } = createKernelStub();
   const controller = createFeedbackController({
     kernel,
@@ -255,7 +350,7 @@ test("feedback controller can attach sample assets and submit the ticket", async
     title: "Broken login button",
     description: "The primary login button failed to render after refresh.",
   });
-  controller.addSampleScreenshot();
+  await controller.addSampleScreenshot();
   controller.toggleRevisitRequested();
   const result = await controller.submit();
 
@@ -263,6 +358,7 @@ test("feedback controller can attach sample assets and submit the ticket", async
   assert.equal(controller.store.getState().latestTicket?.ticketId, "fb_1");
   assert.equal(controller.store.getState().values.screenshotAssets.length, 1);
   assert.equal(controller.store.getState().formValues.screenshotAssets.length, 1);
+  assert.equal(controller.store.getState().values.screenshotAssets[0]?.assetId, "asset_uploaded_1");
   assert.equal(controller.store.getState().latestStatus?.revisitRequired, true);
   assert.equal(controller.store.getState().lastSubmission?.value?.feedbackCategory.key, "product_issue");
   assert.equal(controller.store.getState().submitState.phase, "submitted");

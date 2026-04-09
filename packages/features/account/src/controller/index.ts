@@ -8,12 +8,21 @@ import {
   type UserSession,
 } from "@minix/core";
 import type {
+  AccountCancellationRequest,
+  AccountOperation,
+  AccountOperationResponse,
+  AccountUnbindRequest,
   AppRouteId,
+  ChangeBoundPhoneRequest,
   CurrentUserResponse,
   IdentityBindPhoneRequest,
   IdentityMergeRequest,
   IdentityTransitionResponse,
   IdentityUpgradeRequest,
+  UpdateUserProfileRequest,
+  UserRelationMutationRequest,
+  UserRelationMutationResponse,
+  UserRelationTarget,
 } from "@minix/contracts";
 
 import {
@@ -60,6 +69,17 @@ function cloneState(state: AccountState): AccountState {
       items: section.items.map((item) => ({ ...item })),
     })),
     actions: state.actions.map((action) => ({ ...action })),
+    ...(state.accountOperations
+      ? { accountOperations: state.accountOperations.map((operation) => ({ ...operation })) }
+      : {}),
+    ...(state.relationTargets
+      ? {
+          relationTargets: state.relationTargets.map((target) => ({
+            ...target,
+            actions: target.actions.map((action) => ({ ...action })),
+          })),
+        }
+      : {}),
   };
 }
 
@@ -329,6 +349,40 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
     },
   ];
 
+  if (response.accountOperations.length > 0) {
+    sections.push({
+      key: "account-operations",
+      title: "Account operations",
+      items: response.accountOperations.map((operation) => ({
+        key: `operation-${operation.kind}`,
+        label: operation.label,
+        value: operation.statusLabel,
+        ...(operation.blockedReason ? { hint: operation.blockedReason } : {}),
+      })),
+    });
+  }
+
+  if (response.relationTargets.length > 0) {
+    sections.push({
+      key: "relation-targets",
+      title: "Relation actions",
+      items: response.relationTargets.flatMap((target) => [
+        {
+          key: `relation-${target.targetUserId}`,
+          label: target.displayName,
+          value: target.relationshipSummary,
+          ...(target.remarkName ? { hint: `Remark: ${target.remarkName}` } : {}),
+        },
+        ...target.actions.map((action) => ({
+          key: `relation-${target.targetUserId}-${action.kind}`,
+          label: action.label,
+          value: action.available ? "Available" : "Unavailable",
+          ...(action.blockedReason ? { hint: action.blockedReason } : {}),
+        })),
+      ]),
+    });
+  }
+
   if (
     response.identityWorkflows.canUpgradeGuest ||
     response.identityWorkflows.canBindPhone ||
@@ -374,6 +428,18 @@ function createRemoteActions(response: CurrentUserResponse): AccountAction[] {
     },
   ];
 
+  for (const operation of response.accountOperations) {
+    if (!operation.available) {
+      continue;
+    }
+
+    actions.push({
+      key: operation.kind,
+      label: operation.label,
+      emphasis: operation.kind === "request_cancellation" ? "secondary" : "primary",
+    });
+  }
+
   if (response.identityWorkflows.canUpgradeGuest) {
     actions.push({
       key: "upgrade-guest",
@@ -396,6 +462,20 @@ function createRemoteActions(response: CurrentUserResponse): AccountAction[] {
       label: "Confirm merge",
       emphasis: "primary",
     });
+  }
+
+  for (const target of response.relationTargets) {
+    for (const action of target.actions) {
+      if (!action.available) {
+        continue;
+      }
+
+      actions.push({
+        key: `${action.kind}:${target.targetUserId}`,
+        label: `${action.label} ${target.displayName}`,
+        emphasis: action.kind === "block" ? "secondary" : "primary",
+      });
+    }
   }
 
   return actions;
@@ -422,11 +502,53 @@ function mergeRemoteProfile(baseState: AccountState, profile: CurrentUserRespons
     accountSummary: profile.accountSummary,
     userStatus: profile.userStatus,
     identityWorkflows: profile.identityWorkflows,
+    accountOperations: profile.accountOperations,
+    relationTargets: profile.relationTargets,
     stats: remoteStats,
     sections: remoteSections,
     actions: remoteActions,
     transitionFeedback: profile.identityWorkflows.lastWorkflow?.message,
   };
+}
+
+function findAvailableOperation(
+  operations: AccountOperation[] | undefined,
+  kind: AccountOperation["kind"],
+): Result<AccountOperation | undefined> {
+  const operation = operations?.find((item) => item.kind === kind);
+  if (operation && !operation.available) {
+    return {
+      ok: false,
+      error: {
+        code: "FORBIDDEN",
+        message: operation.blockedReason ?? `${operation.label} is unavailable.`,
+        recoverable: true,
+      },
+    };
+  }
+
+  return ok(operation);
+}
+
+function findAvailableRelationAction(
+  relationTargets: UserRelationTarget[] | undefined,
+  targetUserId: string,
+  kind: UserRelationMutationRequest["action"],
+) {
+  const target = relationTargets?.find((item) => item.targetUserId === targetUserId);
+  const action = target?.actions.find((item) => item.kind === kind);
+  if (action && !action.available) {
+    return {
+      ok: false as const,
+      error: {
+        code: "FORBIDDEN",
+        message: action.blockedReason ?? `${action.label} is unavailable.`,
+        recoverable: true,
+      },
+    };
+  }
+
+  return ok({ target, action });
 }
 
 export function createAccountController(options: CreateAccountControllerOptions) {
@@ -654,6 +776,151 @@ export function createAccountController(options: CreateAccountControllerOptions)
       }
 
       return this.loadInitial();
+    },
+
+    async updateProfile(input: UpdateUserProfileRequest) {
+      const available = findAvailableOperation(store.getState().accountOperations, "edit_profile");
+      if (!available.ok) {
+        store.setState({
+          transitionFeedback: available.error.message,
+        });
+        return available;
+      }
+
+      const result = await kernel.request.post<AccountOperationResponse>("/account/profile", input);
+      if (!result.ok) {
+        store.setState({
+          transitionFeedback: result.error.message,
+        });
+        return result;
+      }
+
+      store.setState({
+        transitionFeedback: result.value.transitionMessage,
+      });
+      const refreshed = await this.loadInitial();
+      if (refreshed.ok) {
+        store.setState({
+          transitionFeedback: result.value.transitionMessage,
+        });
+      }
+      return refreshed;
+    },
+
+    async changePhone(input: ChangeBoundPhoneRequest) {
+      const available = findAvailableOperation(store.getState().accountOperations, "change_phone");
+      if (!available.ok) {
+        store.setState({
+          transitionFeedback: available.error.message,
+        });
+        return available;
+      }
+
+      const result = await kernel.request.post<AccountOperationResponse>("/account/change-phone", input);
+      if (!result.ok) {
+        store.setState({
+          transitionFeedback: result.error.message,
+        });
+        return result;
+      }
+
+      store.setState({
+        transitionFeedback: result.value.transitionMessage,
+      });
+      const refreshed = await this.loadInitial();
+      if (refreshed.ok) {
+        store.setState({
+          transitionFeedback: result.value.transitionMessage,
+        });
+      }
+      return refreshed;
+    },
+
+    async unbindWechat(input: AccountUnbindRequest = { provider: "wechat" }) {
+      const available = findAvailableOperation(store.getState().accountOperations, "unbind_wechat");
+      if (!available.ok) {
+        store.setState({
+          transitionFeedback: available.error.message,
+        });
+        return available;
+      }
+
+      const result = await kernel.request.post<AccountOperationResponse>("/account/unbind", input);
+      if (!result.ok) {
+        store.setState({
+          transitionFeedback: result.error.message,
+        });
+        return result;
+      }
+
+      store.setState({
+        transitionFeedback: result.value.transitionMessage,
+      });
+      const refreshed = await this.loadInitial();
+      if (refreshed.ok) {
+        store.setState({
+          transitionFeedback: result.value.transitionMessage,
+        });
+      }
+      return refreshed;
+    },
+
+    async requestCancellation(input: AccountCancellationRequest = { confirm: true }) {
+      const available = findAvailableOperation(store.getState().accountOperations, "request_cancellation");
+      if (!available.ok) {
+        store.setState({
+          transitionFeedback: available.error.message,
+        });
+        return available;
+      }
+
+      const result = await kernel.request.post<AccountOperationResponse>("/account/cancellation", input);
+      if (!result.ok) {
+        store.setState({
+          transitionFeedback: result.error.message,
+        });
+        return result;
+      }
+
+      store.setState({
+        transitionFeedback: result.value.transitionMessage,
+      });
+      const refreshed = await this.loadInitial();
+      if (refreshed.ok) {
+        store.setState({
+          transitionFeedback: result.value.transitionMessage,
+        });
+      }
+      return refreshed;
+    },
+
+    async applyRelationAction(input: UserRelationMutationRequest) {
+      const available = findAvailableRelationAction(store.getState().relationTargets, input.targetUserId, input.action);
+      if (!available.ok) {
+        store.setState({
+          transitionFeedback: available.error.message,
+        });
+        return available;
+      }
+
+      const result = await kernel.request.post<UserRelationMutationResponse>("/account/relations", input);
+      if (!result.ok) {
+        store.setState({
+          transitionFeedback: result.error.message,
+        });
+        return result;
+      }
+
+      store.setState({
+        transitionFeedback: result.value.transitionMessage,
+      });
+      const refreshed = await this.loadInitial();
+      if (refreshed.ok) {
+        store.setState({
+          transitionFeedback: result.value.transitionMessage,
+        });
+      }
+      return refreshed;
     },
 
     async confirmIdentityMerge(input?: Partial<IdentityMergeRequest>) {

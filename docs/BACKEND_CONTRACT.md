@@ -116,6 +116,132 @@ Binds a verified phone number to the current WeChat-backed session.
 
 Confirms a pending merge and returns the merged target session.
 
+### `POST /orders/cancel`
+
+Cancels a pending order before payment completion.
+
+### `POST /orders/refund`
+
+Moves a paid order into the refund flow and returns the updated order detail.
+
+### `POST /payments/callback`
+
+Applies a sample callback outcome to an order and records callback verification metadata.
+
+### `POST /payments/reconcile`
+
+Reconciles stored order state against stored payment state and returns reconciliation metadata.
+
+### `POST /uploads`
+
+Accepts a platform-selected upload reservation and returns the backend-backed upload task plus any finalized `uploadAsset`.
+
+The current sample pipeline intentionally splits responsibility:
+
+- platform adapters only choose media or files
+- the backend normalizes governance, review status, expiry, retry, and cancellation semantics
+
+### `POST /uploads/retry`
+
+Retries a previously failed or cancelled upload task and returns the refreshed upload task state.
+
+### `POST /uploads/cancel`
+
+Cancels a backend-backed upload task and moves it into scheduled cleanup semantics.
+
+### `POST /share/prepare`
+
+Normalizes a share payload into a landing target, short-link placeholder, and backend-backed attribution record before dispatch.
+
+### `POST /share/return`
+
+Recognizes a share landing or conversion and updates the stored attribution counters plus return-flow metadata.
+
+### `GET /messages/thread`
+
+Returns a conversation-capable message thread including:
+
+- `messageThread` summary
+- `messageItems` for the thread body list
+- `detailActions` describing bounded reply and read behavior
+- `unreadBadge`
+
+### `POST /messages/thread/read`
+
+Marks a thread as read and updates the thread-level unread counters.
+
+### `POST /messages/thread/send`
+
+Appends an outbound message into a bounded sample conversation surface for private, consultation, and customer-service threads.
+
+### `POST /account/profile`
+
+Updates bounded profile fields on the current account and returns the refreshed normalized account-operation surface.
+
+### `POST /account/change-phone`
+
+Updates the currently bound phone number after demo-code verification and returns the refreshed normalized account-operation surface.
+
+### `POST /account/unbind`
+
+Removes the WeChat binding from the current sample account when the operation is available.
+
+### `POST /account/cancellation`
+
+Marks the account as `cancellation_pending` and returns the refreshed normalized account-operation surface.
+
+### `POST /account/relations`
+
+Applies bounded relation actions for the current sample relation target.
+
+Supported sample actions:
+
+- `follow`
+- `unfollow`
+- `block`
+- `unblock`
+- `set_remark`
+- `clear_remark`
+
+### `GET /content/detail`
+
+Returns a bounded generic content detail payload on top of the shared `contentDetail` and `contentAccess` contracts.
+
+### `POST /content/lifecycle`
+
+Applies a bounded lifecycle transition on generic managed content.
+
+Supported sample actions:
+
+- `publish`
+- `update`
+- `archive`
+- `delete`
+- `restore`
+- `submit_review`
+- `approve_review`
+- `reject_review`
+- `change_visibility`
+
+### `GET /feed`
+
+Still backs the official feed surface, but now also acts as the bounded shared search-center orchestration for:
+
+- `mode=global`
+- `mode=content`
+- `mode=user`
+- `mode=domain`
+
+Supported sample domains:
+
+- `feed`
+- `content`
+- `novel`
+- `user`
+- `all`
+
+The normalized `searchResults` payload now carries `domainTabs` and `resultGroups` for cross-domain composition.
+
 ### `GET /me`
 
 Returns the authenticated user summary used by the host app.
@@ -126,6 +252,8 @@ The normalized response includes:
 - `accountSummary`
 - `userStatus`
 - `identityWorkflows`
+- `accountOperations`
+- `relationTargets`
 
 ### `GET /items`
 
@@ -160,6 +288,10 @@ Suggested response shape:
 - `POST /auth/refresh` should return `401` when the refresh token is expired, revoked, or invalid
 - `POST /auth/login` and `POST /auth/refresh` may return `429` with code `RATE_LIMITED`
 - identity workflow endpoints should use `identityWorkflow.status` for merge-required or blocked business outcomes instead of forcing every branch through transport errors
+- payment endpoints should return `callbackVerification`, `reconciliation`, and optional `operationResult` as part of the order detail surface when transaction operations mutate state
+- upload endpoints should return backend-backed lifecycle fields so consuming features do not invent their own moderation, retry, or expiry state
+- share endpoints should preserve attribution ids, landing targets, and auth-aligned return targets so growth flows do not invent a parallel redirect model
+- message endpoints should keep notification lists, thread summaries, and thread bodies as distinct but aligned outputs
 - throttled auth responses should include `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset`
 - refresh tokens should be rotated on successful refresh; the previous refresh token becomes invalid immediately
 - access token expiry must not implicitly revoke a still-valid refresh token
@@ -205,6 +337,9 @@ Future content products should reuse the generic layer instead of treating the n
   - `MINIX_AUTH_REFRESH_MAX_ATTEMPTS`
 - official sample media is served by the API itself under `/sample-assets/covers/:assetId.svg` and `/sample-assets/profiles/:assetId.svg`
 - sample responses may return those media URLs as absolute URLs resolved against the current API origin
+- upload selection remains adapter-only, but upload lifecycle state is now sample-backed through `/uploads`, `/uploads/retry`, and `/uploads/cancel`
+- share dispatch remains adapter-backed, but landing-target normalization and attribution persistence are now sample-backed through `/share/prepare` and `/share/return`
+- notification browsing remains sample-backed through `/notifications`, while conversation-capable message flows now extend through `/messages/thread`, `/messages/thread/read`, and `/messages/thread/send`
 
 ### `GET /novels`
 

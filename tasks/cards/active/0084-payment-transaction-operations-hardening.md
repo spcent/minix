@@ -92,8 +92,8 @@ Make payment safe enough for broader business flows instead of stopping at order
 
 ## Acceptance
 
-- [ ] cancel and refund operations exist in shared contracts and sample workflows
-- [ ] callback verification and reconciliation semantics are explicit
-- [ ] failure, cancel, and recovery paths are first-class, not only success polling
-- [ ] subscription purchase consumes the hardened transaction state machine
-- [ ] `pnpm verify` run
+- [x] cancel and refund operations exist in shared contracts and sample workflows
+- [x] callback verification and reconciliation semantics are explicit
+- [x] failure, cancel, and recovery paths are first-class, not only success polling
+- [x] subscription purchase consumes the hardened transaction state machine
+- [x] `pnpm verify` run

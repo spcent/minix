@@ -1,3 +1,4 @@
+import type { ContentAccess, ContentCard } from "./content";
 import type { SearchFilterGroup, SearchQuery, SearchResults } from "./search";
 
 export interface FeedItem {
@@ -9,6 +10,8 @@ export interface FeedItem {
   recommendedReason?: string;
   updatedAt?: string;
   tag?: string;
+  contentCard?: ContentCard;
+  contentAccess?: ContentAccess;
 }
 
 export interface FeedTag {

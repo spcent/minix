@@ -93,8 +93,8 @@ Turn upload into a reusable business capability that can support feedback, avata
 
 ## Acceptance
 
-- [ ] upload has a real shared end-to-end pipeline instead of only reservation state
-- [ ] feedback or another business feature consumes real upload results
-- [ ] governance and lifecycle states are explicit in sample behavior, not only in contract shape
-- [ ] platform-specific file/media selection stays inside adapter layers
-- [ ] `pnpm verify` run
+- [x] upload has a real shared end-to-end pipeline instead of only reservation state
+- [x] feedback or another business feature consumes real upload results
+- [x] governance and lifecycle states are explicit in sample behavior, not only in contract shape
+- [x] platform-specific file/media selection stays inside adapter layers
+- [x] `pnpm verify` run

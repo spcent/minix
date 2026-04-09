@@ -30,6 +30,13 @@ test("wechat capability adapter delegates clipboard writes, device info lookup, 
       options.success?.({
         uploadTask: {
           taskId: "wechat_media_1",
+          lifecycle: {
+            backendBacked: false,
+            retentionStatus: "active",
+            retryCount: 0,
+            canRetry: true,
+            canCancel: false,
+          },
         },
       });
     },
@@ -38,6 +45,13 @@ test("wechat capability adapter delegates clipboard writes, device info lookup, 
       options.success?.({
         uploadTask: {
           taskId: "wechat_file_1",
+          lifecycle: {
+            backendBacked: false,
+            retentionStatus: "active",
+            retryCount: 0,
+            canRetry: true,
+            canCancel: false,
+          },
         },
       });
     },
@@ -126,6 +140,13 @@ test("wechat capability adapter delegates clipboard writes, device info lookup, 
       value: {
         uploadTask: {
           taskId: "wechat_media_1",
+          lifecycle: {
+            backendBacked: false,
+            retentionStatus: "active",
+            retryCount: 0,
+            canRetry: true,
+            canCancel: false,
+          },
         },
       },
       detail: "upload reservation selected through wechat chooseMedia",
@@ -139,6 +160,13 @@ test("wechat capability adapter delegates clipboard writes, device info lookup, 
       value: {
         uploadTask: {
           taskId: "wechat_file_1",
+          lifecycle: {
+            backendBacked: false,
+            retentionStatus: "active",
+            retryCount: 0,
+            canRetry: true,
+            canCancel: false,
+          },
         },
       },
       detail: "upload reservation selected through wechat chooseMessageFile",

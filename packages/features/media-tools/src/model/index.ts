@@ -69,6 +69,13 @@ export function createDefaultUploadTask(): UploadTask {
     chunkingReserved: true,
     governance: createDefaultUploadGovernance(),
     reviewStatus: "not_required",
+    lifecycle: {
+      backendBacked: false,
+      retentionStatus: "active",
+      retryCount: 0,
+      canRetry: true,
+      canCancel: false,
+    },
   };
 }
 
@@ -86,6 +93,18 @@ export function createDefaultSharePayload(): SharePayload {
     },
     channelMarker: "host-h5-demo",
     inviteCode: "MINIX42",
+    landingTarget: {
+      path: "/inbox",
+      url: "https://example.test/inbox",
+      shortLink: "https://mini.x/invite/demo",
+      channelMarker: "host-h5-demo",
+    },
+    returnTarget: {
+      path: "/workspace/media-tools",
+      source: "media-tools",
+      reason: "auth-required",
+      label: "Media Tools",
+    },
   };
 }
 
@@ -100,9 +119,10 @@ export function createDefaultShareChannel(): ShareChannel {
 
 export function createDefaultShareAttribution(): ShareAttribution {
   return {
+    attributionId: "share_demo_seed",
     channelMarker: "host-h5-demo",
     inviteBindingEnabled: true,
-    returnFlowRecognized: true,
+    returnFlowRecognized: false,
     shareCount: 0,
     clickCount: 0,
     conversionCount: 0,

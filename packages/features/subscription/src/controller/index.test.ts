@@ -495,3 +495,196 @@ test("subscription controller can continue back to toc when the unlock flow star
   );
   assert.deepEqual(routeCalls, [`${APP_ROUTE_IDS.toc}:{"novelId":"novel_lantern","chapterId":"lantern_ch_05"}`]);
 });
+
+test("subscription controller can refresh, cancel, refund, and reconcile transaction state", async () => {
+  const { kernel } = createKernelStub();
+  let latestOrderDetail = {
+    order: {
+      orderId: "ord_pending_1",
+      title: "Monthly Membership",
+      status: "pending_payment" as const,
+      productType: "membership" as const,
+      channel: "h5_pay" as const,
+      currency: "CNY",
+      totalAmountCents: 1900,
+      duplicateProtected: false,
+      createdAt: "2026-04-08T10:00:00.000Z",
+      updatedAt: "2026-04-08T10:00:00.000Z",
+      lineItems: [
+        {
+          productId: "membership_monthly",
+          productType: "membership" as const,
+          title: "Monthly Membership",
+          quantity: 1,
+          unitAmountCents: 1900,
+          totalAmountCents: 1900,
+        },
+      ],
+    },
+    paymentIntent: {
+      intentId: "pi_pending_1",
+      orderId: "ord_pending_1",
+      channel: "h5_pay" as const,
+      status: "processing" as const,
+      clientAction: "h5_redirect" as const,
+    },
+    paymentResult: {
+      orderId: "ord_pending_1",
+      status: "pending" as const,
+      paid: false,
+      duplicateProtected: false,
+      callbackVerified: false,
+      message: "Payment is pending gateway confirmation in the sample payment domain.",
+    },
+    callbackVerification: {
+      status: "pending" as const,
+      message: "The sample gateway callback has not been verified yet.",
+    },
+    reconciliation: {
+      status: "pending" as const,
+      message: "The sample order has not been reconciled yet.",
+    },
+    entitlement: {
+      entitlementId: "ent_membership_ord_pending_1",
+      productType: "membership" as const,
+      active: false,
+      statusLabel: "Pending payment confirmation",
+      sourceOrderId: "ord_pending_1",
+      overview: {
+        active: false,
+        tier: "signed-in" as const,
+        entitlementScope: "none" as const,
+        statusLabel: "Payment pending",
+        renewalLabel: "Renews monthly",
+        headline: "Awaiting Payment",
+        subheadline: "The order is created but membership is not active until the callback is verified.",
+        benefits: [],
+      },
+    },
+  } as any;
+
+  kernel.request.post = async <T>(path: string) => {
+    if (path === "/membership/purchase") {
+      return ok({
+        purchased: true,
+        order: latestOrderDetail.order,
+        paymentIntent: latestOrderDetail.paymentIntent,
+        paymentResult: latestOrderDetail.paymentResult,
+        entitlement: latestOrderDetail.entitlement,
+        source: "reader",
+        novelId: "novel_lantern",
+        chapterId: "lantern_ch_04",
+        returnTarget: "reader",
+        overview: latestOrderDetail.entitlement.overview,
+      } as T);
+    }
+
+    if (path === "/orders/cancel") {
+      latestOrderDetail = {
+        ...latestOrderDetail,
+        order: { ...latestOrderDetail.order, status: "cancelled", updatedAt: "2026-04-08T10:10:00.000Z" },
+        paymentIntent: { ...latestOrderDetail.paymentIntent, status: "cancelled" },
+        paymentResult: { ...latestOrderDetail.paymentResult, status: "cancelled", message: "Order cancelled before payment completion." },
+        reconciliation: { status: "reconciled", message: "Order cancellation and payment result are aligned.", checkedAt: "2026-04-08T10:10:00.000Z" },
+        operationResult: {
+          operation: "cancel",
+          applied: true,
+          orderStatus: "cancelled",
+          paymentStatus: "cancelled",
+          message: "Order cancelled before payment completion.",
+          processedAt: "2026-04-08T10:10:00.000Z",
+        },
+      };
+      return ok(latestOrderDetail as T);
+    }
+
+    if (path === "/payments/reconcile") {
+      latestOrderDetail = {
+        ...latestOrderDetail,
+        reconciliation: { status: "reconciled", message: "The stored payment result matches the current order state.", checkedAt: "2026-04-08T10:11:00.000Z" },
+        operationResult: {
+          operation: "reconcile",
+          applied: true,
+          orderStatus: latestOrderDetail.order.status,
+          paymentStatus: latestOrderDetail.paymentResult.status,
+          message: "The stored payment result matches the current order state.",
+          processedAt: "2026-04-08T10:11:00.000Z",
+        },
+      };
+      return ok(latestOrderDetail as T);
+    }
+
+    if (path === "/orders/refund") {
+      latestOrderDetail = {
+        ...latestOrderDetail,
+        order: { ...latestOrderDetail.order, status: "refunded", updatedAt: "2026-04-08T10:20:00.000Z" },
+        paymentResult: { ...latestOrderDetail.paymentResult, status: "refunded", paid: false, message: "Refund completed in the sample payment domain." },
+        entitlement: { ...latestOrderDetail.entitlement, active: false, statusLabel: "Refunded" },
+        reconciliation: { status: "reconciled", message: "Refund state reconciled with the stored order record.", checkedAt: "2026-04-08T10:20:00.000Z" },
+        operationResult: {
+          operation: "refund",
+          applied: true,
+          orderStatus: "refunded",
+          paymentStatus: "refunded",
+          message: "Refund completed in the sample payment domain.",
+          processedAt: "2026-04-08T10:20:00.000Z",
+        },
+      };
+      return ok(latestOrderDetail as T);
+    }
+
+    return ok({} as T);
+  };
+
+  kernel.request.get = async <T>(path: string) => {
+    if (path === "/orders/detail") {
+      return ok(latestOrderDetail as T);
+    }
+
+    if (path === "/payments/result") {
+      return ok(latestOrderDetail.paymentResult as T);
+    }
+
+    return ok({
+      active: false,
+      tier: "signed-in",
+      entitlementScope: "none",
+      statusLabel: "Signed in with standard reading access",
+      renewalLabel: "Upgrade to unlock reading",
+      headline: "Membership Center",
+      subheadline: "Unlock premium reading.",
+      benefits: [],
+    } as T);
+  };
+
+  const controller = createSubscriptionController({
+    kernel,
+    catalogRouteId: APP_ROUTE_IDS.catalog,
+  });
+
+  await controller.load();
+  await controller.purchaseMembership("monthly");
+  assert.equal(controller.store.getState().canCancelOrder, true);
+  assert.equal(controller.store.getState().paymentResult?.status, "pending");
+
+  await controller.refreshTransaction();
+  await controller.cancelOrder();
+  assert.equal(controller.store.getState().order?.status, "cancelled");
+  assert.equal(controller.store.getState().transactionMessage, "Order cancelled before payment completion.");
+
+  latestOrderDetail = {
+    ...latestOrderDetail,
+    order: { ...latestOrderDetail.order, status: "paid" },
+    paymentIntent: { ...latestOrderDetail.paymentIntent, status: "succeeded" },
+    paymentResult: { ...latestOrderDetail.paymentResult, status: "success", paid: true, message: "Payment callback confirmed the successful payment result." },
+    entitlement: { ...latestOrderDetail.entitlement, active: true, statusLabel: "Membership active" },
+  };
+  await controller.refreshTransaction();
+  await controller.reconcileOrder();
+  assert.equal(controller.store.getState().reconciliation?.status, "reconciled");
+
+  await controller.refundOrder();
+  assert.equal(controller.store.getState().order?.status, "refunded");
+  assert.equal(controller.store.getState().paymentResult?.status, "refunded");
+  assert.equal(controller.store.getState().canRefundOrder, false);
+});

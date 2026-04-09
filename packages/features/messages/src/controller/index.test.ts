@@ -2,7 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { ok, type AppKernel } from "@minix/core";
-import { APP_ROUTE_IDS, type MarkNotificationsReadResponse, type NotificationListResponse } from "@minix/contracts";
+import {
+  APP_ROUTE_IDS,
+  type MarkNotificationsReadResponse,
+  type MessageThreadResponse,
+  type NotificationListResponse,
+  type SendMessageResponse,
+} from "@minix/contracts";
 
 import { createMessagesController } from "./index";
 import { createDefaultMessagesState } from "../model";
@@ -10,6 +16,8 @@ import { createDefaultMessagesState } from "../model";
 function createKernelStub() {
   const routeCalls: Array<{ routeId: string; params?: Record<string, string | number | boolean> }> = [];
   let requestMode: "success" | "unauthorized" = "success";
+  let threadUnreadCount = 1;
+  let sentMessageBody: string | undefined;
 
   const kernel: AppKernel = {
     env: {
@@ -40,7 +48,7 @@ function createKernelStub() {
     },
     session: {} as AppKernel["session"],
     request: {
-      async get<T>(_url: string, query?: Record<string, unknown>) {
+      async get<T>(url: string, query?: Record<string, unknown>) {
         if (requestMode === "unauthorized") {
           return {
             ok: false,
@@ -50,6 +58,66 @@ function createKernelStub() {
               recoverable: true,
             },
           } as const;
+        }
+
+        if (url === "/messages/thread") {
+          const response: MessageThreadResponse = {
+            messageThread: {
+              threadId: String(query?.threadId ?? "thread-1"),
+              type: "private",
+              title: "Tutor",
+              participantLabels: ["Tutor", "You"],
+              pinned: true,
+              doNotDisturb: false,
+              unreadCount: threadUnreadCount,
+              lastMessagePreview: sentMessageBody ?? "Reply",
+              lastMessageAt: "2026-04-08T09:10:00.000Z",
+              reserved: true,
+              touchpoints: [],
+            },
+            messageItems: [
+              {
+                messageId: "msg-1",
+                threadId: "thread-1",
+                direction: "inbound",
+                senderRole: "advisor",
+                senderLabel: "Tutor",
+                body: "Please review the latest task.",
+                createdAt: "2026-04-08T09:00:00.000Z",
+                deliveryStatus: threadUnreadCount > 0 ? "delivered" : "read",
+                ...(threadUnreadCount > 0 ? {} : { readAt: "2026-04-08T09:30:00.000Z" }),
+                touchpoints: [],
+              },
+              ...(sentMessageBody
+                ? [
+                    {
+                      messageId: "msg-out-1",
+                      threadId: "thread-1",
+                      direction: "outbound" as const,
+                      senderRole: "self" as const,
+                      senderLabel: "You",
+                      body: sentMessageBody,
+                      createdAt: "2026-04-08T09:31:00.000Z",
+                      deliveryStatus: "sent" as const,
+                      touchpoints: [],
+                    },
+                  ]
+                : []),
+            ],
+            detailActions: {
+              canReply: true,
+              canMarkRead: threadUnreadCount > 0,
+              deliveryLabel: "Private message delivery lane",
+            },
+            unreadBadge: {
+              totalUnread: 2 + threadUnreadCount,
+              notificationUnread: 2,
+              threadUnread: threadUnreadCount,
+              breakdown: [{ key: "system", label: "System", count: 1 }],
+            },
+          };
+
+          return ok(response as T);
         }
 
         const response: NotificationListResponse = {
@@ -152,7 +220,95 @@ function createKernelStub() {
 
         return ok(response as T);
       },
-      async post<T>(_url: string, body?: Record<string, unknown>) {
+      async post<T>(url: string, body?: Record<string, unknown>) {
+        if (url === "/messages/thread/read") {
+          threadUnreadCount = 0;
+          const response: MessageThreadResponse = {
+            messageThread: {
+              threadId: String(body?.threadId ?? "thread-1"),
+              type: "private",
+              title: "Tutor",
+              participantLabels: ["Tutor", "You"],
+              pinned: true,
+              doNotDisturb: false,
+              unreadCount: 0,
+              lastMessagePreview: sentMessageBody ?? "Reply",
+              lastMessageAt: "2026-04-08T09:10:00.000Z",
+              lastReadAt: "2026-04-08T09:30:00.000Z",
+              reserved: true,
+              touchpoints: [],
+            },
+            messageItems: [
+              {
+                messageId: "msg-1",
+                threadId: "thread-1",
+                direction: "inbound",
+                senderRole: "advisor",
+                senderLabel: "Tutor",
+                body: "Please review the latest task.",
+                createdAt: "2026-04-08T09:00:00.000Z",
+                deliveryStatus: "read",
+                readAt: "2026-04-08T09:30:00.000Z",
+                touchpoints: [],
+              },
+            ],
+            detailActions: {
+              canReply: true,
+              canMarkRead: false,
+              deliveryLabel: "Private message delivery lane",
+            },
+            unreadBadge: {
+              totalUnread: 2,
+              notificationUnread: 2,
+              threadUnread: 0,
+              breakdown: [{ key: "system", label: "System", count: 1 }],
+            },
+          };
+          return ok(response as T);
+        }
+
+        if (url === "/messages/thread/send") {
+          sentMessageBody = String(body?.body ?? "");
+          const response: SendMessageResponse = {
+            messageThread: {
+              threadId: String(body?.threadId ?? "thread-1"),
+              type: "private",
+              title: "Tutor",
+              participantLabels: ["Tutor", "You"],
+              pinned: true,
+              doNotDisturb: false,
+              unreadCount: threadUnreadCount,
+              lastMessagePreview: sentMessageBody,
+              lastMessageAt: "2026-04-08T09:31:00.000Z",
+              reserved: true,
+              touchpoints: [],
+            },
+            messageItem: {
+              messageId: "msg-out-1",
+              threadId: "thread-1",
+              direction: "outbound",
+              senderRole: "self",
+              senderLabel: "You",
+              body: sentMessageBody,
+              createdAt: "2026-04-08T09:31:00.000Z",
+              deliveryStatus: "sent",
+              touchpoints: [],
+            },
+            detailActions: {
+              canReply: true,
+              canMarkRead: threadUnreadCount > 0,
+              deliveryLabel: "Private message delivery lane",
+            },
+            unreadBadge: {
+              totalUnread: 2 + threadUnreadCount,
+              notificationUnread: 2,
+              threadUnread: threadUnreadCount,
+              breakdown: [{ key: "system", label: "System", count: 1 }],
+            },
+          };
+          return ok(response as T);
+        }
+
         const response: MarkNotificationsReadResponse = {
           updatedIds: (body?.notificationIds as string[]) ?? [],
           notificationList: {
@@ -257,6 +413,8 @@ test("messages controller loads notifications with unread badge state", async ()
   assert.equal(controller.store.getState().items.length, 1);
   assert.equal(controller.store.getState().unreadBadge.totalUnread, 3);
   assert.equal(controller.store.getState().selectedThreadId, "thread-1");
+  assert.equal(controller.store.getState().messageItems.length, 1);
+  assert.equal(controller.store.getState().messageThread?.threadId, "thread-1");
 });
 
 test("messages controller appends the next page and keeps the current list", async () => {
@@ -305,6 +463,37 @@ test("messages controller marks visible notifications read", async () => {
   assert.equal(controller.store.getState().items[0]?.receipt.read, true);
   assert.equal(controller.store.getState().unreadBadge.notificationUnread, 0);
   assert.equal(controller.store.getState().lastActionMessage, "1 notification marked read.");
+});
+
+test("messages controller can mark the current thread read and clear thread unread count", async () => {
+  const { kernel } = createKernelStub();
+  const controller = createMessagesController({
+    kernel,
+    initialState: createDefaultMessagesState(),
+  });
+
+  await controller.loadInitial();
+  await controller.markThreadRead();
+
+  assert.equal(controller.store.getState().messageThread?.unreadCount, 0);
+  assert.equal(controller.store.getState().detailActions?.canMarkRead, false);
+  assert.equal(controller.store.getState().unreadBadge.threadUnread, 0);
+});
+
+test("messages controller can send an outbound message into the selected thread", async () => {
+  const { kernel } = createKernelStub();
+  const controller = createMessagesController({
+    kernel,
+    initialState: createDefaultMessagesState(),
+  });
+
+  await controller.loadInitial();
+  controller.updateComposerText("Can you review my next attempt?");
+  await controller.sendMessage();
+
+  assert.equal(controller.store.getState().composerText, "");
+  assert.equal(controller.store.getState().messageItems.at(-1)?.body, "Can you review my next attempt?");
+  assert.equal(controller.store.getState().messageThread?.lastMessagePreview, "Can you review my next attempt?");
 });
 
 test("messages controller routes unauthorized responses back to login", async () => {

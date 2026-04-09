@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { z } from "zod";
 
 import type {
+  AccountOperationResponse,
   AddToBookshelfRequest,
   AuthAbnormalLoginPrompt,
   AuthIdentity,
@@ -10,6 +11,8 @@ import type {
   AuthRedirectTarget,
   AuthStatus,
   BookshelfMutationResponse,
+  ContentDetailResponse,
+  ContentLifecycleMutationResponse,
   FeedbackTicketDetailResponse,
   IdentityBindPhoneRequest,
   IdentityMergeRequest,
@@ -19,15 +22,29 @@ import type {
   OrderDetailResponse,
   LoginMethod,
   LoginResponse,
+  MarkThreadReadRequest,
   MembershipEntitlement,
+  OrderOperationRequest,
+  PaymentCallbackRequest,
   PaymentResult,
   PurchaseMembershipRequest,
   PurchaseMembershipResponse,
   RefreshTokenResponse,
   RemoveFromBookshelfRequest,
   SaveReadingProgressRequest,
+  SendMessageRequest,
+  SendMessageResponse,
+  SharePrepareRequest,
+  SharePrepareResponse,
+  ShareReturnRecognitionRequest,
+  ShareReturnRecognitionResponse,
   SubmitFeedbackRequest,
   UploadAsset,
+  UploadCancelRequest,
+  UploadPipelineRequest,
+  UploadPipelineResponse,
+  UploadRetryRequest,
+  UserRelationMutationResponse,
 } from "@minix/contracts";
 import {
   CHAPTER_CONTENT,
@@ -40,20 +57,30 @@ import {
   createMembershipOverview,
   createMembershipOrderDetail,
   createMembershipPurchaseResponse,
+  createPaymentOperationResult,
   createSettingsResponse,
+  createSharePrepareResponse,
+  createUploadPipelineResponse,
+  cancelUploadPipeline,
   deriveReturnTarget,
+  getManagedContentDetail,
   getMessageThread,
   getUnreadBadge,
   getFeedbackTicket,
+  applyManagedContentLifecycle,
   listFeed,
   listItems,
   listNotifications,
   listNovels,
+  markThreadRead,
   submitFeedbackTicket,
   markNotificationsRead,
+  recognizeShareReturn,
+  retryUploadPipeline,
   resolveChapterContent,
   resolveChapterList,
   resolveNovelDetail,
+  sendThreadMessage,
 } from "./data";
 import { checkAuthRateLimit, resolveClientId, type AuthRateLimitConfig, type AuthRateLimitDecision, type RateLimitCounterStore } from "./rate-limit";
 import { renderSampleCoverAssetSvg, renderSampleProfileAssetSvg, resolveProfileMedia } from "./sample-assets";
@@ -161,6 +188,27 @@ const feedQuerySchema = z.object({
   domain: z.enum(["all", "content", "user", "novel", "feed"]).optional(),
 });
 
+const contentIdQuerySchema = z.object({
+  contentId: z.string().min(1),
+});
+
+const contentLifecycleMutationSchema = z.object({
+  contentId: z.string().min(1),
+  action: z.enum([
+    "publish",
+    "update",
+    "archive",
+    "delete",
+    "restore",
+    "submit_review",
+    "approve_review",
+    "reject_review",
+    "change_visibility",
+  ]),
+  visibility: z.enum(["public", "login_required", "member_only", "purchased_only"]).optional(),
+  reviewMessage: z.string().min(1).max(280).optional(),
+});
+
 const notificationsQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   pageSize: z.coerce.number().int().positive().optional(),
@@ -197,10 +245,23 @@ const bookshelfMutationSchema = z.object({
 const purchaseMembershipSchema = z.object({
   planId: z.enum(["monthly", "quarterly", "annual"]),
   channel: z.enum(["wechat_pay", "h5_pay", "membership_purchase", "virtual_entitlement"]).optional(),
+  paymentScenario: z.enum(["instant_success", "pending"]).optional(),
   idempotencyKey: z.string().min(1).optional(),
   source: z.string().min(1).optional(),
   novelId: z.string().min(1).optional(),
   chapterId: z.string().min(1).optional(),
+});
+
+const orderOperationSchema = z.object({
+  orderId: z.string().min(1),
+  reason: z.string().min(1).optional(),
+});
+
+const paymentCallbackSchema = z.object({
+  orderId: z.string().min(1),
+  outcome: z.enum(["success", "failure", "cancelled"]),
+  verified: z.boolean().optional(),
+  callbackReference: z.string().min(1).optional(),
 });
 
 const orderIdQuerySchema = z.object({
@@ -208,6 +269,40 @@ const orderIdQuerySchema = z.object({
 });
 
 const threadIdQuerySchema = z.object({
+  threadId: z.string().min(1),
+});
+
+const updateAccountProfileSchema = z.object({
+  nickname: z.string().min(1).max(32).optional(),
+  region: z.string().min(1).max(64).optional(),
+  bio: z.string().min(1).max(160).optional(),
+});
+
+const changeAccountPhoneSchema = z.object({
+  phoneNumber: z.string().min(1),
+  verificationCode: z.string().min(1),
+});
+
+const accountUnbindSchema = z.object({
+  provider: z.literal("wechat"),
+});
+
+const accountCancellationSchema = z.object({
+  confirm: z.literal(true),
+});
+
+const relationActionSchema = z.object({
+  targetUserId: z.string().min(1),
+  action: z.enum(["follow", "unfollow", "block", "unblock", "set_remark", "clear_remark"]),
+  remarkName: z.string().min(1).max(40).optional(),
+});
+
+const sendMessageSchema = z.object({
+  threadId: z.string().min(1),
+  body: z.string().min(1),
+});
+
+const markThreadReadSchema = z.object({
   threadId: z.string().min(1),
 });
 
@@ -230,6 +325,148 @@ const uploadAssetSchema = z.object({
     durationSeconds: z.number().nonnegative().optional(),
     pageCount: z.number().int().positive().optional(),
   }),
+});
+
+const uploadGovernanceSchema = z.object({
+  maxSizeBytes: z.number().int().positive(),
+  acceptedFileTypes: z.array(z.enum(["image", "audio", "video", "pdf", "avatar", "attachment"])).min(1),
+  sensitiveReviewRequired: z.boolean(),
+  expiresInDays: z.number().int().positive().optional(),
+});
+
+const uploadProgressSchema = z.object({
+  completedBytes: z.number().int().nonnegative(),
+  totalBytes: z.number().int().nonnegative(),
+  percentage: z.number().min(0).max(100),
+});
+
+const uploadLifecycleSchema = z.object({
+  backendBacked: z.boolean(),
+  retentionStatus: z.enum(["active", "scheduled_cleanup", "expired"]),
+  retryCount: z.number().int().nonnegative(),
+  canRetry: z.boolean(),
+  canCancel: z.boolean(),
+  lastTransitionAt: z.string().min(1).optional(),
+  expiresAt: z.string().min(1).optional(),
+});
+
+const uploadTaskSchema = z.object({
+  taskId: z.string().min(1),
+  scenario: z.enum(["content", "avatar", "attachment"]),
+  fileType: z.enum(["image", "audio", "video", "pdf", "avatar", "attachment"]),
+  stage: z.enum(["idle", "choosing", "compressing", "chunking_reserved", "uploading", "reviewing", "completed", "failed", "canceled"]),
+  fileName: z.string().min(1).optional(),
+  progress: uploadProgressSchema,
+  chunkingReserved: z.boolean(),
+  governance: uploadGovernanceSchema,
+  reviewStatus: z.enum(["not_required", "pending", "approved", "rejected"]),
+  reviewMessage: z.string().min(1).optional(),
+  lifecycle: uploadLifecycleSchema,
+});
+
+const uploadErrorSchema = z.object({
+  code: z.string().min(1),
+  message: z.string().min(1),
+  recoverable: z.boolean(),
+  retryable: z.boolean(),
+  stage: z.enum(["idle", "choosing", "compressing", "chunking_reserved", "uploading", "reviewing", "completed", "failed", "canceled"]),
+});
+
+const uploadSelectionResultSchema = z.object({
+  uploadTask: uploadTaskSchema,
+  uploadAsset: uploadAssetSchema.optional(),
+  uploadError: uploadErrorSchema.optional(),
+});
+
+const uploadPipelineRequestSchema = z.object({
+  scenario: z.enum(["content", "avatar", "attachment"]),
+  selection: uploadSelectionResultSchema,
+});
+
+const uploadRetrySchema = z.object({
+  taskId: z.string().min(1),
+});
+
+const uploadCancelSchema = z.object({
+  taskId: z.string().min(1),
+  reason: z.string().min(1).optional(),
+});
+
+const shareRedirectTargetSchema = z.object({
+  routeId: z.string().min(1).optional(),
+  path: z.string().min(1).optional(),
+  params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  source: z.string().min(1).optional(),
+  label: z.string().min(1).optional(),
+  reason: z.enum(["auth-required", "session-expired", "force-relogin"]).optional(),
+  forceReauth: z.boolean().optional(),
+});
+
+const shareLandingTargetSchema = z.object({
+  routeId: z.string().min(1).optional(),
+  path: z.string().min(1).optional(),
+  url: z.string().min(1).optional(),
+  shortLink: z.string().min(1).optional(),
+  params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  channelMarker: z.string().min(1).optional(),
+  authRedirect: shareRedirectTargetSchema.optional(),
+});
+
+const sharePayloadSchema = z.object({
+  scenario: z.enum(["page", "content", "invite", "poster"]),
+  title: z.string().min(1),
+  summary: z.string().min(1).optional(),
+  coverUrl: z.string().min(1).optional(),
+  landingPath: z.string().min(1).optional(),
+  landingUrl: z.string().min(1).optional(),
+  shortLink: z.string().min(1).optional(),
+  posterImageUrl: z.string().min(1).optional(),
+  trackingParams: z.record(z.string(), z.string()),
+  channelMarker: z.string().min(1).optional(),
+  contentId: z.string().min(1).optional(),
+  inviteCode: z.string().min(1).optional(),
+  shareToken: z.string().min(1).optional(),
+  landingTarget: shareLandingTargetSchema.optional(),
+  returnTarget: shareRedirectTargetSchema.optional(),
+});
+
+const shareChannelSchema = z.object({
+  kind: z.enum(["wechat_session", "wechat_moments", "copy_link", "poster_image", "short_link"]),
+  label: z.string().min(1),
+  executable: z.boolean(),
+  channelMarker: z.string().min(1).optional(),
+});
+
+const shareAttributionSchema = z.object({
+  attributionId: z.string().min(1).optional(),
+  channelMarker: z.string().min(1).optional(),
+  inviteBindingEnabled: z.boolean(),
+  returnFlowRecognized: z.boolean(),
+  shareCount: z.number().int().nonnegative(),
+  clickCount: z.number().int().nonnegative(),
+  conversionCount: z.number().int().nonnegative(),
+  preparedAt: z.string().min(1).optional(),
+  lastSharedAt: z.string().min(1).optional(),
+  lastClickAt: z.string().min(1).optional(),
+  lastConversionAt: z.string().min(1).optional(),
+  lastReturnAt: z.string().min(1).optional(),
+  lastLandingPath: z.string().min(1).optional(),
+  inviteBoundUserId: z.string().min(1).optional(),
+  returnTarget: shareRedirectTargetSchema.optional(),
+});
+
+const sharePrepareSchema = z.object({
+  sharePayload: sharePayloadSchema,
+  shareChannel: shareChannelSchema,
+  shareAttribution: shareAttributionSchema,
+  redirectTarget: shareRedirectTargetSchema.optional(),
+});
+
+const shareReturnRecognitionSchema = z.object({
+  attributionId: z.string().min(1),
+  outcome: z.enum(["click", "return", "conversion"]),
+  recognizedPath: z.string().min(1).optional(),
+  recognizedUserId: z.string().min(1).optional(),
 });
 
 const feedbackContextSchema = z.object({
@@ -322,6 +559,183 @@ function normalizePhoneNumber(phoneNumber: string): string {
 
 function createGuestUserId(anonymousId?: string): string {
   return anonymousId ? `guest_${sanitizeUserKey(anonymousId).slice(0, 32)}` : "guest_minix_demo";
+}
+
+function normalizeUploadAsset(asset: z.infer<typeof uploadAssetSchema>): UploadAsset {
+  return {
+    assetId: asset.assetId,
+    fileType: asset.fileType,
+    fileName: asset.fileName,
+    url: asset.url,
+    ...(asset.thumbnailUrl !== undefined ? { thumbnailUrl: asset.thumbnailUrl } : {}),
+    ...(asset.coverImageUrl !== undefined ? { coverImageUrl: asset.coverImageUrl } : {}),
+    metadata: {
+      sizeBytes: asset.metadata.sizeBytes,
+      ...(asset.metadata.mimeType !== undefined ? { mimeType: asset.metadata.mimeType } : {}),
+      ...(asset.metadata.width !== undefined ? { width: asset.metadata.width } : {}),
+      ...(asset.metadata.height !== undefined ? { height: asset.metadata.height } : {}),
+      ...(asset.metadata.durationSeconds !== undefined
+        ? { durationSeconds: asset.metadata.durationSeconds }
+        : {}),
+      ...(asset.metadata.pageCount !== undefined ? { pageCount: asset.metadata.pageCount } : {}),
+    },
+  };
+}
+
+function normalizeUploadPipelineRequest(
+  payload: z.infer<typeof uploadPipelineRequestSchema>,
+): UploadPipelineRequest {
+  return {
+    scenario: payload.scenario,
+    selection: {
+      uploadTask: {
+        taskId: payload.selection.uploadTask.taskId,
+        scenario: payload.selection.uploadTask.scenario,
+        fileType: payload.selection.uploadTask.fileType,
+        stage: payload.selection.uploadTask.stage,
+        ...(payload.selection.uploadTask.fileName !== undefined
+          ? { fileName: payload.selection.uploadTask.fileName }
+          : {}),
+        progress: {
+          completedBytes: payload.selection.uploadTask.progress.completedBytes,
+          totalBytes: payload.selection.uploadTask.progress.totalBytes,
+          percentage: payload.selection.uploadTask.progress.percentage,
+        },
+        chunkingReserved: payload.selection.uploadTask.chunkingReserved,
+        governance: {
+          maxSizeBytes: payload.selection.uploadTask.governance.maxSizeBytes,
+          acceptedFileTypes: [...payload.selection.uploadTask.governance.acceptedFileTypes],
+          sensitiveReviewRequired: payload.selection.uploadTask.governance.sensitiveReviewRequired,
+          ...(payload.selection.uploadTask.governance.expiresInDays !== undefined
+            ? { expiresInDays: payload.selection.uploadTask.governance.expiresInDays }
+            : {}),
+        },
+        reviewStatus: payload.selection.uploadTask.reviewStatus,
+        ...(payload.selection.uploadTask.reviewMessage !== undefined
+          ? { reviewMessage: payload.selection.uploadTask.reviewMessage }
+          : {}),
+        lifecycle: {
+          backendBacked: payload.selection.uploadTask.lifecycle.backendBacked,
+          retentionStatus: payload.selection.uploadTask.lifecycle.retentionStatus,
+          retryCount: payload.selection.uploadTask.lifecycle.retryCount,
+          canRetry: payload.selection.uploadTask.lifecycle.canRetry,
+          canCancel: payload.selection.uploadTask.lifecycle.canCancel,
+          ...(payload.selection.uploadTask.lifecycle.lastTransitionAt !== undefined
+            ? { lastTransitionAt: payload.selection.uploadTask.lifecycle.lastTransitionAt }
+            : {}),
+          ...(payload.selection.uploadTask.lifecycle.expiresAt !== undefined
+            ? { expiresAt: payload.selection.uploadTask.lifecycle.expiresAt }
+            : {}),
+        },
+      },
+      ...(payload.selection.uploadAsset !== undefined
+        ? { uploadAsset: normalizeUploadAsset(payload.selection.uploadAsset) }
+        : {}),
+      ...(payload.selection.uploadError !== undefined
+        ? {
+            uploadError: {
+              code: payload.selection.uploadError.code,
+              message: payload.selection.uploadError.message,
+              recoverable: payload.selection.uploadError.recoverable,
+              retryable: payload.selection.uploadError.retryable,
+              stage: payload.selection.uploadError.stage,
+            },
+          }
+        : {}),
+    },
+  };
+}
+
+function normalizeSharePrepareRequest(payload: z.infer<typeof sharePrepareSchema>): SharePrepareRequest {
+  const normalizeRedirectTarget = (
+    value:
+      | z.infer<typeof shareRedirectTargetSchema>
+      | undefined,
+  ) =>
+    value
+      ? {
+          ...(value.routeId !== undefined ? { routeId: value.routeId } : {}),
+          ...(value.path !== undefined ? { path: value.path } : {}),
+          ...(value.params !== undefined ? { params: value.params } : {}),
+          ...(value.source !== undefined ? { source: value.source } : {}),
+          ...(value.label !== undefined ? { label: value.label } : {}),
+          ...(value.reason !== undefined ? { reason: value.reason } : {}),
+          ...(value.forceReauth !== undefined ? { forceReauth: value.forceReauth } : {}),
+        }
+      : undefined;
+  const landingAuthRedirect = normalizeRedirectTarget(payload.sharePayload.landingTarget?.authRedirect);
+  const landingTarget = payload.sharePayload.landingTarget
+    ? {
+        ...(payload.sharePayload.landingTarget.routeId !== undefined
+          ? { routeId: payload.sharePayload.landingTarget.routeId }
+          : {}),
+        ...(payload.sharePayload.landingTarget.path !== undefined ? { path: payload.sharePayload.landingTarget.path } : {}),
+        ...(payload.sharePayload.landingTarget.url !== undefined ? { url: payload.sharePayload.landingTarget.url } : {}),
+        ...(payload.sharePayload.landingTarget.shortLink !== undefined
+          ? { shortLink: payload.sharePayload.landingTarget.shortLink }
+          : {}),
+        ...(payload.sharePayload.landingTarget.params !== undefined ? { params: payload.sharePayload.landingTarget.params } : {}),
+        ...(payload.sharePayload.landingTarget.channelMarker !== undefined
+          ? { channelMarker: payload.sharePayload.landingTarget.channelMarker }
+          : {}),
+        ...(landingAuthRedirect !== undefined ? { authRedirect: landingAuthRedirect } : {}),
+      }
+    : undefined;
+  const returnTarget = normalizeRedirectTarget(payload.sharePayload.returnTarget);
+  const attributionReturnTarget = normalizeRedirectTarget(payload.shareAttribution.returnTarget);
+  const redirectTarget = normalizeRedirectTarget(payload.redirectTarget);
+
+  return {
+    sharePayload: {
+      scenario: payload.sharePayload.scenario,
+      title: payload.sharePayload.title,
+      ...(payload.sharePayload.summary !== undefined ? { summary: payload.sharePayload.summary } : {}),
+      ...(payload.sharePayload.coverUrl !== undefined ? { coverUrl: payload.sharePayload.coverUrl } : {}),
+      ...(payload.sharePayload.landingPath !== undefined ? { landingPath: payload.sharePayload.landingPath } : {}),
+      ...(payload.sharePayload.landingUrl !== undefined ? { landingUrl: payload.sharePayload.landingUrl } : {}),
+      ...(payload.sharePayload.shortLink !== undefined ? { shortLink: payload.sharePayload.shortLink } : {}),
+      ...(payload.sharePayload.posterImageUrl !== undefined
+        ? { posterImageUrl: payload.sharePayload.posterImageUrl }
+        : {}),
+      trackingParams: payload.sharePayload.trackingParams,
+      ...(payload.sharePayload.channelMarker !== undefined ? { channelMarker: payload.sharePayload.channelMarker } : {}),
+      ...(payload.sharePayload.contentId !== undefined ? { contentId: payload.sharePayload.contentId } : {}),
+      ...(payload.sharePayload.inviteCode !== undefined ? { inviteCode: payload.sharePayload.inviteCode } : {}),
+      ...(payload.sharePayload.shareToken !== undefined ? { shareToken: payload.sharePayload.shareToken } : {}),
+      ...(landingTarget !== undefined ? { landingTarget } : {}),
+      ...(returnTarget !== undefined ? { returnTarget } : {}),
+    },
+    shareChannel: {
+      kind: payload.shareChannel.kind,
+      label: payload.shareChannel.label,
+      executable: payload.shareChannel.executable,
+      ...(payload.shareChannel.channelMarker !== undefined ? { channelMarker: payload.shareChannel.channelMarker } : {}),
+    },
+    shareAttribution: {
+      ...(payload.shareAttribution.attributionId !== undefined ? { attributionId: payload.shareAttribution.attributionId } : {}),
+      ...(payload.shareAttribution.channelMarker !== undefined ? { channelMarker: payload.shareAttribution.channelMarker } : {}),
+      inviteBindingEnabled: payload.shareAttribution.inviteBindingEnabled,
+      returnFlowRecognized: payload.shareAttribution.returnFlowRecognized,
+      shareCount: payload.shareAttribution.shareCount,
+      clickCount: payload.shareAttribution.clickCount,
+      conversionCount: payload.shareAttribution.conversionCount,
+      ...(payload.shareAttribution.preparedAt !== undefined ? { preparedAt: payload.shareAttribution.preparedAt } : {}),
+      ...(payload.shareAttribution.lastSharedAt !== undefined ? { lastSharedAt: payload.shareAttribution.lastSharedAt } : {}),
+      ...(payload.shareAttribution.lastClickAt !== undefined ? { lastClickAt: payload.shareAttribution.lastClickAt } : {}),
+      ...(payload.shareAttribution.lastConversionAt !== undefined
+        ? { lastConversionAt: payload.shareAttribution.lastConversionAt }
+        : {}),
+      ...(payload.shareAttribution.lastReturnAt !== undefined ? { lastReturnAt: payload.shareAttribution.lastReturnAt } : {}),
+      ...(payload.shareAttribution.lastLandingPath !== undefined
+        ? { lastLandingPath: payload.shareAttribution.lastLandingPath }
+        : {}),
+      ...(payload.shareAttribution.inviteBoundUserId !== undefined
+        ? { inviteBoundUserId: payload.shareAttribution.inviteBoundUserId }
+        : {}),
+      ...(attributionReturnTarget !== undefined ? { returnTarget: attributionReturnTarget } : {}),
+    },
+    ...(redirectTarget !== undefined ? { redirectTarget } : {}),
+  };
 }
 
 function createUserIdFromCredential(input: {
@@ -568,6 +982,14 @@ function mergeUserStates(target: UserState, source: UserState): UserState {
       ...source.notificationReadAtById,
       ...target.notificationReadAtById,
     },
+    threadReadAtById: {
+      ...source.threadReadAtById,
+      ...target.threadReadAtById,
+    },
+    threadMessagesByThreadId: {
+      ...source.threadMessagesByThreadId,
+      ...target.threadMessagesByThreadId,
+    },
     feedbackDetailsById: {
       ...source.feedbackDetailsById,
       ...target.feedbackDetailsById,
@@ -586,8 +1008,46 @@ function mergeUserStates(target: UserState, source: UserState): UserState {
       ...source.orderIdByIdempotencyKey,
       ...target.orderIdByIdempotencyKey,
     },
+    sharePreparesById: {
+      ...source.sharePreparesById,
+      ...target.sharePreparesById,
+    },
+    uploadsByTaskId: {
+      ...source.uploadsByTaskId,
+      ...target.uploadsByTaskId,
+    },
     ...(target.boundPhoneNumber ?? source.boundPhoneNumber
       ? { boundPhoneNumber: target.boundPhoneNumber ?? source.boundPhoneNumber }
+      : {}),
+    ...(target.wechatBoundOverride !== undefined || source.wechatBoundOverride !== undefined
+      ? { wechatBoundOverride: target.wechatBoundOverride ?? source.wechatBoundOverride }
+      : {}),
+    ...(target.profileOverrides ?? source.profileOverrides
+      ? {
+          profileOverrides: {
+            ...(source.profileOverrides ?? {}),
+            ...(target.profileOverrides ?? {}),
+          },
+        }
+      : {}),
+    ...(target.availabilityStatus ?? source.availabilityStatus
+      ? { availabilityStatus: target.availabilityStatus ?? source.availabilityStatus }
+      : {}),
+    ...(target.relationTarget ?? source.relationTarget
+      ? {
+          relationTarget: {
+            ...(source.relationTarget ?? {}),
+            ...(target.relationTarget ?? {}),
+          } as NonNullable<UserState["relationTarget"]>,
+        }
+      : {}),
+    ...(target.managedContentById ?? source.managedContentById
+      ? {
+          managedContentById: {
+            ...(source.managedContentById ?? {}),
+            ...(target.managedContentById ?? {}),
+          },
+        }
       : {}),
     ...(target.pendingIdentityWorkflow ?? source.pendingIdentityWorkflow
       ? { pendingIdentityWorkflow: target.pendingIdentityWorkflow ?? source.pendingIdentityWorkflow }
@@ -596,6 +1056,194 @@ function mergeUserStates(target: UserState, source: UserState): UserState {
       ? { lastIdentityWorkflow: target.lastIdentityWorkflow ?? source.lastIdentityWorkflow }
       : {}),
   };
+}
+
+function cloneOrderDetail(detail: OrderDetailResponse): OrderDetailResponse {
+  return structuredClone(detail);
+}
+
+function applyOrderCancellation(detail: OrderDetailResponse, reason?: string): OrderDetailResponse {
+  const next = cloneOrderDetail(detail);
+  const processedAt = new Date().toISOString();
+  const cancellable = next.order.status === "created" || next.order.status === "pending_payment";
+  if (cancellable) {
+    next.order.status = "cancelled";
+    next.order.updatedAt = processedAt;
+    next.paymentIntent.status = "cancelled";
+    next.paymentResult.status = "cancelled";
+    next.paymentResult.paid = false;
+    next.paymentResult.callbackVerified = false;
+    next.paymentResult.message = reason
+      ? `Order cancelled before payment completion. Reason: ${reason}.`
+      : "Order cancelled before payment completion.";
+    next.callbackVerification = {
+      status: "pending",
+      message: "No callback verification is required after the cancellation.",
+    };
+    next.reconciliation = {
+      status: "reconciled",
+      message: "Order cancellation and payment result are aligned.",
+      checkedAt: processedAt,
+    };
+  }
+
+  next.operationResult = createPaymentOperationResult({
+    operation: "cancel",
+    applied: cancellable,
+    orderStatus: next.order.status,
+    paymentStatus: next.paymentResult.status,
+    message: cancellable
+      ? next.paymentResult.message
+      : "The current order can no longer be cancelled.",
+    processedAt,
+  });
+  return next;
+}
+
+function applyOrderRefund(detail: OrderDetailResponse, reason?: string): OrderDetailResponse {
+  const next = cloneOrderDetail(detail);
+  const processedAt = new Date().toISOString();
+  const refundable = next.order.status === "paid";
+  if (refundable) {
+    next.order.status = "refunded";
+    next.order.updatedAt = processedAt;
+    next.paymentIntent.status = "succeeded";
+    next.paymentResult.status = "refunded";
+    next.paymentResult.paid = false;
+    next.paymentResult.callbackVerified = true;
+    next.paymentResult.message = reason
+      ? `Refund completed in the sample payment domain. Reason: ${reason}.`
+      : "Refund completed in the sample payment domain.";
+    next.callbackVerification = {
+      status: "verified",
+      message: "The payment callback remained verified through the refund transition.",
+      verifiedAt: processedAt,
+      callbackReference: next.callbackVerification.callbackReference ?? `cb_${next.order.orderId}`,
+    };
+    next.reconciliation = {
+      status: "reconciled",
+      message: "Refund state reconciled with the stored order record.",
+      checkedAt: processedAt,
+    };
+    if (next.entitlement) {
+      next.entitlement.active = false;
+      next.entitlement.statusLabel = "Refunded";
+    }
+  }
+
+  next.operationResult = createPaymentOperationResult({
+    operation: "refund",
+    applied: refundable,
+    orderStatus: next.order.status,
+    paymentStatus: next.paymentResult.status,
+    message: refundable
+      ? next.paymentResult.message
+      : "Only paid orders can enter the refund flow.",
+    processedAt,
+  });
+  return next;
+}
+
+function applyPaymentCallback(detail: OrderDetailResponse, payload: PaymentCallbackRequest): OrderDetailResponse {
+  const next = cloneOrderDetail(detail);
+  const processedAt = new Date().toISOString();
+  const verified = payload.verified !== false;
+  next.order.updatedAt = processedAt;
+  next.callbackVerification = {
+    status: verified ? "verified" : "rejected",
+    message: verified
+      ? "Sample callback verification succeeded."
+      : "Sample callback verification rejected the callback payload.",
+    ...(verified ? { verifiedAt: processedAt } : {}),
+    ...(payload.callbackReference ? { callbackReference: payload.callbackReference } : {}),
+  };
+  next.paymentIntent.status = verified ? "succeeded" : "verifying";
+
+  if (payload.outcome === "success" && verified) {
+    next.order.status = "paid";
+    next.paymentIntent.status = "succeeded";
+    next.paymentResult.status = "success";
+    next.paymentResult.paid = true;
+    next.paymentResult.callbackVerified = true;
+    next.paymentResult.message = "Payment callback confirmed the successful payment result.";
+    next.paymentResult.polledAt = processedAt;
+    if (next.entitlement) {
+      next.entitlement.active = true;
+      next.entitlement.statusLabel = "Membership active";
+    }
+  } else if (payload.outcome === "failure") {
+    next.order.status = "payment_failed";
+    next.paymentIntent.status = verified ? "failed" : "verifying";
+    next.paymentResult.status = "failure";
+    next.paymentResult.paid = false;
+    next.paymentResult.callbackVerified = verified;
+    next.paymentResult.message = verified
+      ? "Payment callback marked the order as failed."
+      : "Payment callback could not be verified and the order remains in a failed state.";
+    next.paymentResult.polledAt = processedAt;
+    if (next.entitlement) {
+      next.entitlement.active = false;
+      next.entitlement.statusLabel = "Payment failed";
+    }
+  } else if (payload.outcome === "cancelled") {
+    next.order.status = "cancelled";
+    next.paymentIntent.status = "cancelled";
+    next.paymentResult.status = "cancelled";
+    next.paymentResult.paid = false;
+    next.paymentResult.callbackVerified = verified;
+    next.paymentResult.message = "Payment callback marked the order as cancelled.";
+    next.paymentResult.polledAt = processedAt;
+    if (next.entitlement) {
+      next.entitlement.active = false;
+      next.entitlement.statusLabel = "Cancelled";
+    }
+  }
+
+  next.reconciliation = {
+    status: "pending",
+    message: "Callback applied. Reconciliation is still pending.",
+  };
+  next.operationResult = createPaymentOperationResult({
+    operation: "verify_callback",
+    applied: true,
+    orderStatus: next.order.status,
+    paymentStatus: next.paymentResult.status,
+    message: next.paymentResult.message,
+    processedAt,
+  });
+  return next;
+}
+
+function applyPaymentReconciliation(detail: OrderDetailResponse): OrderDetailResponse {
+  const next = cloneOrderDetail(detail);
+  const processedAt = new Date().toISOString();
+  const matches =
+    (next.order.status === "paid" && next.paymentResult.status === "success" && next.paymentResult.paid) ||
+    (next.order.status === "cancelled" && next.paymentResult.status === "cancelled" && !next.paymentResult.paid) ||
+    (next.order.status === "payment_failed" && next.paymentResult.status === "failure" && !next.paymentResult.paid) ||
+    (next.order.status === "refunded" && next.paymentResult.status === "refunded" && !next.paymentResult.paid) ||
+    (next.order.status === "pending_payment" && next.paymentResult.status === "pending");
+  next.reconciliation = matches
+    ? {
+        status: "reconciled",
+        message: "The stored payment result matches the current order state.",
+        checkedAt: processedAt,
+      }
+    : {
+        status: "mismatch",
+        message: "The stored payment result does not match the current order state.",
+        checkedAt: processedAt,
+        mismatchReason: `${next.order.status} vs ${next.paymentResult.status}`,
+      };
+  next.operationResult = createPaymentOperationResult({
+    operation: "reconcile",
+    applied: true,
+    orderStatus: next.order.status,
+    paymentStatus: next.paymentResult.status,
+    message: next.reconciliation.message,
+    processedAt,
+  });
+  return next;
 }
 
 function jsonError(code: string, message: string, status: number, traceId: string) {
@@ -1330,10 +1978,14 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
 
   app.use("/items", requireSession);
   app.use("/feed", requireSession);
+  app.use("/content", requireSession);
+  app.use("/content/*", requireSession);
   app.use("/notifications", requireSession);
   app.use("/notifications/*", requireSession);
   app.use("/messages", requireSession);
   app.use("/messages/*", requireSession);
+  app.use("/account", requireSession);
+  app.use("/account/*", requireSession);
   app.use("/feedback", requireSession);
   app.use("/feedback/*", requireSession);
   app.use("/novels", requireSession);
@@ -1347,6 +1999,10 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   app.use("/orders/*", requireSession);
   app.use("/payments", requireSession);
   app.use("/payments/*", requireSession);
+  app.use("/share", requireSession);
+  app.use("/share/*", requireSession);
+  app.use("/uploads", requireSession);
+  app.use("/uploads/*", requireSession);
   app.use("/reading-progress", requireSession);
   app.use("/settings", requireSession);
 
@@ -1368,7 +2024,212 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
 
   app.get("/settings", async (c) => {
     const session = c.get("session");
-    return c.json(createSettingsResponse(session, c.env?.MINIX_DEPLOY_ENV));
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    return c.json(createSettingsResponse(session, userState, c.env?.MINIX_DEPLOY_ENV));
+  });
+
+  app.post("/account/profile", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, updateAccountProfileSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const current = createCurrentUserResponse(session, userState, c.req.url);
+    const operation = current.accountOperations.find((item) => item.kind === "edit_profile");
+    if (!operation?.available) {
+      return jsonError("FORBIDDEN", operation?.blockedReason ?? "Profile editing is unavailable.", 409, traceId);
+    }
+
+    userState.profileOverrides = {
+      ...(userState.profileOverrides ?? {}),
+      ...(payload.nickname ? { nickname: payload.nickname } : {}),
+      ...(payload.region ? { region: payload.region } : {}),
+      ...(payload.bio ? { bio: payload.bio } : {}),
+    };
+    await store.saveUserState(session.userId, userState);
+
+    const next = createCurrentUserResponse(session, userState, c.req.url);
+    const response: AccountOperationResponse = {
+      userProfile: next.userProfile,
+      accountSummary: next.accountSummary,
+      userStatus: next.userStatus,
+      accountOperations: next.accountOperations,
+      transitionMessage: "Profile updated.",
+    };
+    return c.json(response);
+  });
+
+  app.post("/account/change-phone", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, changeAccountPhoneSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    if (payload.verificationCode !== DEMO_PHONE_VERIFICATION_CODE) {
+      return jsonError("INVALID_ARGUMENT", "invalid phone verification code", 400, traceId);
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const current = createCurrentUserResponse(session, userState, c.req.url);
+    const operation = current.accountOperations.find((item) => item.kind === "change_phone");
+    if (!operation?.available) {
+      return jsonError("FORBIDDEN", operation?.blockedReason ?? "Phone binding changes are unavailable.", 409, traceId);
+    }
+
+    userState.boundPhoneNumber = payload.phoneNumber;
+    await store.saveUserState(session.userId, userState);
+
+    const next = createCurrentUserResponse(session, userState, c.req.url);
+    const response: AccountOperationResponse = {
+      userProfile: next.userProfile,
+      accountSummary: next.accountSummary,
+      userStatus: next.userStatus,
+      accountOperations: next.accountOperations,
+      transitionMessage: "Phone binding updated.",
+    };
+    return c.json(response);
+  });
+
+  app.post("/account/unbind", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, accountUnbindSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const current = createCurrentUserResponse(session, userState, c.req.url);
+    const operation = current.accountOperations.find((item) => item.kind === "unbind_wechat");
+    if (!operation?.available) {
+      return jsonError("FORBIDDEN", operation?.blockedReason ?? "WeChat unbinding is unavailable.", 409, traceId);
+    }
+
+    if (payload.provider === "wechat") {
+      userState.wechatBoundOverride = false;
+    }
+    await store.saveUserState(session.userId, userState);
+
+    const next = createCurrentUserResponse(session, userState, c.req.url);
+    const response: AccountOperationResponse = {
+      userProfile: next.userProfile,
+      accountSummary: next.accountSummary,
+      userStatus: next.userStatus,
+      accountOperations: next.accountOperations,
+      transitionMessage: "WeChat binding removed.",
+    };
+    return c.json(response);
+  });
+
+  app.post("/account/cancellation", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, accountCancellationSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const current = createCurrentUserResponse(session, userState, c.req.url);
+    const operation = current.accountOperations.find((item) => item.kind === "request_cancellation");
+    if (!operation?.available) {
+      return jsonError("FORBIDDEN", operation?.blockedReason ?? "Cancellation is unavailable.", 409, traceId);
+    }
+
+    if (payload.confirm) {
+      userState.availabilityStatus = "cancellation_pending";
+    }
+    await store.saveUserState(session.userId, userState);
+
+    const next = createCurrentUserResponse(session, userState, c.req.url);
+    const response: AccountOperationResponse = {
+      userProfile: next.userProfile,
+      accountSummary: next.accountSummary,
+      userStatus: next.userStatus,
+      accountOperations: next.accountOperations,
+      transitionMessage: "Cancellation request submitted.",
+    };
+    return c.json(response);
+  });
+
+  app.post("/account/relations", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, relationActionSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const current = createCurrentUserResponse(session, userState, c.req.url);
+    const target = current.relationTargets.find((item) => item.targetUserId === payload.targetUserId);
+    if (!target || !userState.relationTarget || userState.relationTarget.targetUserId !== payload.targetUserId) {
+      return jsonError("NOT_FOUND", "Relation target not found.", 404, traceId);
+    }
+
+    const action = target.actions.find((item) => item.kind === payload.action);
+    if (!action?.available) {
+      return jsonError("FORBIDDEN", action?.blockedReason ?? "Relation action is unavailable.", 409, traceId);
+    }
+
+    switch (payload.action) {
+      case "follow":
+        userState.relationTarget.following = true;
+        break;
+      case "unfollow":
+        userState.relationTarget.following = false;
+        userState.relationTarget.friend = false;
+        break;
+      case "block":
+        userState.relationTarget.blocked = true;
+        userState.relationTarget.following = false;
+        userState.relationTarget.friend = false;
+        break;
+      case "unblock":
+        userState.relationTarget.blocked = false;
+        break;
+      case "set_remark":
+        if (!payload.remarkName) {
+          return jsonError("INVALID_ARGUMENT", "remark name is required when setting a remark", 400, traceId);
+        }
+        userState.relationTarget.remarkName = payload.remarkName;
+        break;
+      case "clear_remark":
+        delete userState.relationTarget.remarkName;
+        break;
+    }
+
+    await store.saveUserState(session.userId, userState);
+    const next = createCurrentUserResponse(session, userState, c.req.url);
+    const response: UserRelationMutationResponse = {
+      accountSummary: next.accountSummary,
+      userStatus: next.userStatus,
+      relationTargets: next.relationTargets,
+      transitionMessage:
+        payload.action === "follow"
+          ? "Followed relation target."
+          : payload.action === "unfollow"
+            ? "Unfollowed relation target."
+            : payload.action === "block"
+              ? "Relation target blocked."
+              : payload.action === "unblock"
+                ? "Relation target unblocked."
+                : payload.action === "set_remark"
+                  ? "Remark name updated."
+                  : "Remark name cleared.",
+    };
+    return c.json(response);
   });
 
   app.get("/items", (c) => {
@@ -1381,13 +2242,57 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     return c.json(listItems(query.page, query.pageSize));
   });
 
-  app.get("/feed", (c) => {
+  app.get("/feed", async (c) => {
     const query = parseQuery(new URL(c.req.url), feedQuerySchema, c.get("traceId"));
     if (query instanceof Response) {
       return query;
     }
 
-    return c.json(listFeed(query));
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    return c.json(listFeed(query, userState));
+  });
+
+  app.get("/content/detail", async (c) => {
+    const query = parseQuery(new URL(c.req.url), contentIdQuerySchema, c.get("traceId"));
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const response = getManagedContentDetail(query.contentId, userState);
+    if (!response) {
+      return jsonError("NOT_FOUND", "Managed content not found.", 404, c.get("traceId"));
+    }
+
+    return c.json(response satisfies ContentDetailResponse);
+  });
+
+  app.post("/content/lifecycle", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, contentLifecycleMutationSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const response = applyManagedContentLifecycle(userState, {
+      contentId: payload.contentId,
+      action: payload.action,
+      ...(payload.visibility ? { visibility: payload.visibility } : {}),
+      ...(payload.reviewMessage ? { reviewMessage: payload.reviewMessage } : {}),
+    });
+    if (!response) {
+      return jsonError("NOT_FOUND", "Managed content not found.", 404, traceId);
+    }
+
+    await store.saveUserState(session.userId, userState);
+    return c.json(response satisfies ContentLifecycleMutationResponse);
   });
 
   app.get("/notifications", async (c) => {
@@ -1442,6 +2347,162 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     return c.json(response);
   });
 
+  app.post("/messages/thread/read", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, markThreadReadSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const request: MarkThreadReadRequest = {
+      threadId: payload.threadId,
+    };
+    const response = markThreadRead(userState, request);
+    if (!response) {
+      return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
+    }
+
+    await store.saveUserState(session.userId, userState);
+    return c.json(response);
+  });
+
+  app.post("/messages/thread/send", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, sendMessageSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const request: SendMessageRequest = {
+      threadId: payload.threadId,
+      body: payload.body,
+    };
+    const response = sendThreadMessage(userState, request);
+    if (!response) {
+      return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
+    }
+
+    await store.saveUserState(session.userId, userState);
+    return c.json(response satisfies SendMessageResponse);
+  });
+
+  app.post("/share/prepare", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, sharePrepareSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const response = createSharePrepareResponse(normalizeSharePrepareRequest(payload), c.req.url);
+    userState.sharePreparesById[response.shareAttribution.attributionId ?? response.sharePayload.shareToken ?? response.sharePayload.title] = response;
+    await store.saveUserState(session.userId, userState);
+    return c.json(response);
+  });
+
+  app.post("/share/return", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, shareReturnRecognitionSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const existing = userState.sharePreparesById[payload.attributionId];
+    if (!existing) {
+      return jsonError("NOT_FOUND", "Share attribution was not found.", 404, traceId);
+    }
+
+    const request: ShareReturnRecognitionRequest = {
+      attributionId: payload.attributionId,
+      outcome: payload.outcome,
+      ...(payload.recognizedPath !== undefined ? { recognizedPath: payload.recognizedPath } : {}),
+      ...(payload.recognizedUserId !== undefined ? { recognizedUserId: payload.recognizedUserId } : {}),
+    };
+    const response = recognizeShareReturn(existing, request);
+    userState.sharePreparesById[payload.attributionId] = {
+      sharePayload: response.sharePayload,
+      shareChannel: response.shareChannel,
+      shareAttribution: response.shareAttribution,
+      landingTarget: response.landingTarget ?? existing.landingTarget,
+    };
+    await store.saveUserState(session.userId, userState);
+    return c.json(response);
+  });
+
+  app.post("/uploads", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, uploadPipelineRequestSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const response = createUploadPipelineResponse(normalizeUploadPipelineRequest(payload), c.req.url);
+    userState.uploadsByTaskId[response.uploadTask.taskId] = response;
+    await store.saveUserState(session.userId, userState);
+    return c.json(response);
+  });
+
+  app.post("/uploads/retry", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, uploadRetrySchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const existing = userState.uploadsByTaskId[payload.taskId];
+    if (!existing) {
+      return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
+    }
+
+    const request: UploadRetryRequest = { taskId: payload.taskId };
+    const response = retryUploadPipeline(existing, request);
+    userState.uploadsByTaskId[payload.taskId] = response;
+    await store.saveUserState(session.userId, userState);
+    return c.json(response);
+  });
+
+  app.post("/uploads/cancel", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, uploadCancelSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const existing = userState.uploadsByTaskId[payload.taskId];
+    if (!existing) {
+      return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
+    }
+
+    const request: UploadCancelRequest = {
+      taskId: payload.taskId,
+      ...(payload.reason !== undefined ? { reason: payload.reason } : {}),
+    };
+    const response = cancelUploadPipeline(existing, request);
+    userState.uploadsByTaskId[payload.taskId] = response;
+    await store.saveUserState(session.userId, userState);
+    return c.json(response);
+  });
+
   app.get("/feedback/bootstrap", async (c) => {
     const session = c.get("session");
     const store = getStore(c.env, options.store);
@@ -1477,24 +2538,6 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const session = c.get("session");
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
-    const normalizeUploadAsset = (asset: z.infer<typeof uploadAssetSchema>): UploadAsset => ({
-      assetId: asset.assetId,
-      fileType: asset.fileType,
-      fileName: asset.fileName,
-      url: asset.url,
-      ...(asset.thumbnailUrl !== undefined ? { thumbnailUrl: asset.thumbnailUrl } : {}),
-      ...(asset.coverImageUrl !== undefined ? { coverImageUrl: asset.coverImageUrl } : {}),
-      metadata: {
-        sizeBytes: asset.metadata.sizeBytes,
-        ...(asset.metadata.mimeType !== undefined ? { mimeType: asset.metadata.mimeType } : {}),
-        ...(asset.metadata.width !== undefined ? { width: asset.metadata.width } : {}),
-        ...(asset.metadata.height !== undefined ? { height: asset.metadata.height } : {}),
-        ...(asset.metadata.durationSeconds !== undefined
-          ? { durationSeconds: asset.metadata.durationSeconds }
-          : {}),
-        ...(asset.metadata.pageCount !== undefined ? { pageCount: asset.metadata.pageCount } : {}),
-      },
-    });
     const normalizedPayload: SubmitFeedbackRequest = {
       type: payload.type,
       categoryKey: payload.categoryKey,
@@ -1668,6 +2711,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const purchasePayload: PurchaseMembershipRequest = {
       planId: payload.planId,
       ...(payload.channel ? { channel: payload.channel } : {}),
+      ...(payload.paymentScenario ? { paymentScenario: payload.paymentScenario } : {}),
       ...(payload.idempotencyKey ? { idempotencyKey: payload.idempotencyKey } : {}),
       ...(payload.source ? { source: payload.source } : {}),
       ...(payload.novelId ? { novelId: payload.novelId } : {}),
@@ -1680,7 +2724,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
 
     const existingOrderId = purchasePayload.idempotencyKey ? userState.orderIdByIdempotencyKey[purchasePayload.idempotencyKey] : undefined;
     const existingOrder = existingOrderId ? userState.ordersById[existingOrderId] : undefined;
-    if (existingOrder?.entitlement && "overview" in existingOrder.entitlement) {
+    if (existingOrder?.entitlement && "overview" in existingOrder.entitlement && existingOrder.order.status === "paid") {
       return c.json(
         createMembershipPurchaseResponse(
           {
@@ -1691,6 +2735,8 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
               duplicateProtected: true,
               message: "Idempotency key matched an existing paid order. Returning the stored result without another charge.",
             },
+            callbackVerification: existingOrder.callbackVerification,
+            reconciliation: existingOrder.reconciliation,
             entitlement: existingOrder.entitlement as MembershipEntitlement,
           },
           purchasePayload,
@@ -1698,11 +2744,13 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       );
     }
 
-    userState.membershipPlanId = purchasePayload.planId;
     const duplicateProtected = Boolean(userState.latestPaidOrderId);
     const orderDetail = createMembershipOrderDetail(session, purchasePayload, duplicateProtected);
     userState.ordersById[orderDetail.order.orderId] = orderDetail;
-    userState.latestPaidOrderId = orderDetail.order.orderId;
+    if (orderDetail.order.status === "paid") {
+      userState.membershipPlanId = purchasePayload.planId;
+      userState.latestPaidOrderId = orderDetail.order.orderId;
+    }
     if (purchasePayload.idempotencyKey) {
       userState.orderIdByIdempotencyKey[purchasePayload.idempotencyKey] = orderDetail.order.orderId;
     }
@@ -1729,6 +2777,52 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     return c.json(orderDetail satisfies OrderDetailResponse);
   });
 
+  app.post("/orders/cancel", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, orderOperationSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const existing = userState.ordersById[payload.orderId];
+    if (!existing) {
+      return jsonError("NOT_FOUND", "Order not found.", 404, traceId);
+    }
+
+    const nextOrder = applyOrderCancellation(existing, payload.reason);
+    userState.ordersById[payload.orderId] = nextOrder;
+    await store.saveUserState(session.userId, userState);
+    return c.json(nextOrder satisfies OrderDetailResponse);
+  });
+
+  app.post("/orders/refund", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, orderOperationSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const existing = userState.ordersById[payload.orderId];
+    if (!existing) {
+      return jsonError("NOT_FOUND", "Order not found.", 404, traceId);
+    }
+
+    const nextOrder = applyOrderRefund(existing, payload.reason);
+    userState.ordersById[payload.orderId] = nextOrder;
+    if (nextOrder.order.status === "refunded" && userState.latestPaidOrderId === payload.orderId) {
+      delete userState.latestPaidOrderId;
+      delete userState.membershipPlanId;
+    }
+    await store.saveUserState(session.userId, userState);
+    return c.json(nextOrder satisfies OrderDetailResponse);
+  });
+
   app.get("/payments/result", async (c) => {
     const traceId = c.get("traceId");
     const query = parseQuery(new URL(c.req.url), orderIdQuerySchema, traceId);
@@ -1744,10 +2838,73 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       return jsonError("NOT_FOUND", "Payment result not found.", 404, traceId);
     }
 
-    return c.json({
+    const nextResult = {
       ...orderDetail.paymentResult,
       polledAt: new Date().toISOString(),
-    } satisfies PaymentResult);
+    } satisfies PaymentResult;
+    userState.ordersById[query.orderId] = {
+      ...orderDetail,
+      paymentResult: nextResult,
+    };
+    await store.saveUserState(session.userId, userState);
+    return c.json(nextResult);
+  });
+
+  app.post("/payments/callback", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, paymentCallbackSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const existing = userState.ordersById[payload.orderId];
+    if (!existing) {
+      return jsonError("NOT_FOUND", "Order not found.", 404, traceId);
+    }
+
+    const callbackPayload: PaymentCallbackRequest = {
+      orderId: payload.orderId,
+      outcome: payload.outcome,
+      ...(payload.verified !== undefined ? { verified: payload.verified } : {}),
+      ...(payload.callbackReference ? { callbackReference: payload.callbackReference } : {}),
+    };
+    const nextOrder = applyPaymentCallback(existing, callbackPayload);
+    userState.ordersById[payload.orderId] = nextOrder;
+    if (nextOrder.order.status === "paid" && nextOrder.entitlement && "overview" in nextOrder.entitlement) {
+      const membershipProductId = nextOrder.order.lineItems.find((item) => item.productType === "membership")?.productId ?? "";
+      userState.membershipPlanId = membershipProductId.endsWith("_annual")
+        ? "annual"
+        : membershipProductId.endsWith("_monthly")
+          ? "monthly"
+          : "quarterly";
+      userState.latestPaidOrderId = payload.orderId;
+    }
+    await store.saveUserState(session.userId, userState);
+    return c.json(nextOrder satisfies OrderDetailResponse);
+  });
+
+  app.post("/payments/reconcile", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, orderOperationSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const existing = userState.ordersById[payload.orderId];
+    if (!existing) {
+      return jsonError("NOT_FOUND", "Order not found.", 404, traceId);
+    }
+
+    const nextOrder = applyPaymentReconciliation(existing);
+    userState.ordersById[payload.orderId] = nextOrder;
+    await store.saveUserState(session.userId, userState);
+    return c.json(nextOrder satisfies OrderDetailResponse);
   });
 
   app.get("/reading-progress", async (c) => {

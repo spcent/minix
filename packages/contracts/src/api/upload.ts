@@ -20,6 +20,12 @@ export type UploadReviewStatus = (typeof UPLOAD_REVIEW_STATUSES)[number];
 export const UPLOAD_SCENARIOS = ["content", "avatar", "attachment"] as const;
 export type UploadScenario = (typeof UPLOAD_SCENARIOS)[number];
 
+export const UPLOAD_RETENTION_STATUSES = ["active", "scheduled_cleanup", "expired"] as const;
+export type UploadRetentionStatus = (typeof UPLOAD_RETENTION_STATUSES)[number];
+
+export const UPLOAD_PIPELINE_SOURCES = ["adapter_selection", "backend_retry", "backend_cancel"] as const;
+export type UploadPipelineSource = (typeof UPLOAD_PIPELINE_SOURCES)[number];
+
 export interface UploadGovernance {
   maxSizeBytes: number;
   acceptedFileTypes: UploadFileType[];
@@ -31,6 +37,16 @@ export interface UploadProgress {
   completedBytes: number;
   totalBytes: number;
   percentage: number;
+}
+
+export interface UploadLifecycle {
+  backendBacked: boolean;
+  retentionStatus: UploadRetentionStatus;
+  retryCount: number;
+  canRetry: boolean;
+  canCancel: boolean;
+  lastTransitionAt?: string;
+  expiresAt?: string;
 }
 
 export interface UploadAssetMetadata {
@@ -70,6 +86,8 @@ export interface UploadTask {
   chunkingReserved: boolean;
   governance: UploadGovernance;
   reviewStatus: UploadReviewStatus;
+  reviewMessage?: string;
+  lifecycle: UploadLifecycle;
 }
 
 export interface UploadSelectionRequest {
@@ -84,4 +102,22 @@ export interface UploadSelectionResult {
   uploadTask: UploadTask;
   uploadAsset?: UploadAsset;
   uploadError?: UploadError;
+}
+
+export interface UploadPipelineRequest {
+  scenario: UploadScenario;
+  selection: UploadSelectionResult;
+}
+
+export interface UploadPipelineResponse extends UploadSelectionResult {
+  source: UploadPipelineSource;
+}
+
+export interface UploadRetryRequest {
+  taskId: string;
+}
+
+export interface UploadCancelRequest {
+  taskId: string;
+  reason?: string;
 }

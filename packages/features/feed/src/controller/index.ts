@@ -1,5 +1,25 @@
-import { createAuthRedirectParams, createStore, ok, type AppKernel, type Result } from "@minix/core";
-import { type AppRouteId, type FeedItem, type FeedListResponse, type SearchResults } from "@minix/contracts";
+import {
+  createAuthRedirectParams,
+  createStore,
+  normalizeSearchKeyword,
+  ok,
+  pushRecentSearchKeyword,
+  resolveSearchDomainParam,
+  resolveSearchModeParam,
+  type AppKernel,
+  type Result,
+} from "@minix/core";
+import {
+  type AppRouteId,
+  type ContentLifecycleAction,
+  type ContentLifecycleMutationResponse,
+  type ContentVisibility,
+  type FeedItem,
+  type FeedListResponse,
+  type SearchDomain,
+  type SearchMode,
+  type SearchResults,
+} from "@minix/contracts";
 
 import { createDefaultFeedState, type FeedState } from "../model";
 
@@ -51,17 +71,8 @@ function deriveFeaturedReason(items: FeedItem[], fallback?: string): string | un
   return items.find((item) => item.recommendedReason)?.recommendedReason ?? fallback;
 }
 
-function normalizeKeyword(keyword: string): string {
-  return keyword.trim();
-}
-
 function createRecentKeywords(current: string[], keyword: string): string[] {
-  const normalized = normalizeKeyword(keyword);
-  if (!normalized) {
-    return current;
-  }
-
-  return [normalized, ...current.filter((entry) => entry !== normalized)].slice(0, 5);
+  return pushRecentSearchKeyword(current, keyword);
 }
 
 function createSearchResults(
@@ -83,6 +94,14 @@ function createSelection(selectedItemId: string | undefined): FeedState["selecti
     selectedItemIds: selectedItemId ? [selectedItemId] : [],
     batchSelectable: false,
   };
+}
+
+function replaceFeedItem(items: FeedItem[], nextItem: FeedItem): FeedItem[] {
+  return items.map((item) => (item.id === nextItem.id ? nextItem : item));
+}
+
+function deriveSelectedContentId(state: FeedState): string | undefined {
+  return state.items.find((item) => item.id === state.selectedItemId)?.contentCard?.contentId;
 }
 
 function createListStatus(
@@ -187,11 +206,15 @@ export function createFeedController(options: CreateFeedControllerOptions) {
 
     const keyword = typeof current.value.params.keyword === "string" ? current.value.params.keyword : store.getState().query.keyword;
     const tag = typeof current.value.params.tag === "string" ? current.value.params.tag : store.getState().activeTag;
+    const mode = resolveSearchModeParam(current.value.params.mode, store.getState().query.mode);
+    const domain = resolveSearchDomainParam(current.value.params.domain, store.getState().query.domain);
 
     store.setState({
       query: {
         ...store.getState().query,
         keyword,
+        mode,
+        domain,
       },
       activeTag: tag,
     });
@@ -203,6 +226,8 @@ export function createFeedController(options: CreateFeedControllerOptions) {
       page: current.query.page,
       pageSize: current.query.pageSize,
       ...(current.query.keyword ? { keyword: current.query.keyword } : {}),
+      ...(current.query.mode !== "global" ? { mode: current.query.mode } : {}),
+      ...(current.query.domain !== "feed" ? { domain: current.query.domain } : {}),
       ...(current.activeTag && current.activeTag !== "all" ? { tag: current.activeTag } : {}),
     };
   }
@@ -210,6 +235,8 @@ export function createFeedController(options: CreateFeedControllerOptions) {
   function createRouteParams(overrides: {
     keyword: string | undefined;
     tag: string | undefined;
+    mode?: SearchMode;
+    domain?: SearchDomain;
   }): Record<string, string | number | boolean> | undefined {
     const params: Record<string, string | number | boolean> = {};
 
@@ -219,6 +246,14 @@ export function createFeedController(options: CreateFeedControllerOptions) {
 
     if (overrides.tag && overrides.tag !== "all") {
       params.tag = overrides.tag;
+    }
+
+    if (overrides.mode && overrides.mode !== "global") {
+      params.mode = overrides.mode;
+    }
+
+    if (overrides.domain && overrides.domain !== "feed") {
+      params.domain = overrides.domain;
     }
 
     return Object.keys(params).length > 0 ? params : undefined;
@@ -264,7 +299,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
       store.setState({
         query: {
           ...store.getState().query,
-          keyword: normalizeKeyword(keyword),
+          keyword: normalizeSearchKeyword(keyword),
         },
       });
     },
@@ -276,6 +311,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         loading: true,
         refreshing: false,
         errorText: undefined,
+        contentTransitionFeedback: undefined,
         status: createListStatus("loading", {
           firstLoaded: store.getState().status.firstLoaded,
         }),
@@ -317,6 +353,8 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         query: {
           ...store.getState().query,
           keyword: result.value.searchQuery.keyword,
+          mode: result.value.searchQuery.mode,
+          domain: result.value.searchQuery.domain,
           page: result.value.searchQuery.page,
           pageSize: result.value.searchQuery.pageSize,
         },
@@ -328,6 +366,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
       store.setState({
         refreshing: true,
         errorText: undefined,
+        contentTransitionFeedback: undefined,
         query: {
           ...store.getState().query,
           page: 1,
@@ -373,6 +412,8 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         query: {
           ...store.getState().query,
           keyword: result.value.searchQuery.keyword,
+          mode: result.value.searchQuery.mode,
+          domain: result.value.searchQuery.domain,
           page: result.value.searchQuery.page,
           pageSize: result.value.searchQuery.pageSize,
         },
@@ -436,6 +477,8 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         query: {
           ...current.query,
           keyword: result.value.searchQuery.keyword,
+          mode: result.value.searchQuery.mode,
+          domain: result.value.searchQuery.domain,
           page: result.value.searchQuery.page,
           pageSize: result.value.searchQuery.pageSize,
         },
@@ -451,6 +494,8 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         createRouteParams({
           keyword,
           tag: store.getState().activeTag,
+          mode: store.getState().query.mode,
+          domain: store.getState().query.domain,
         }),
       );
       store.setState({
@@ -475,6 +520,8 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         createRouteParams({
           keyword: undefined,
           tag: store.getState().activeTag,
+          mode: store.getState().query.mode,
+          domain: store.getState().query.domain,
         }),
       );
       return this.loadInitial();
@@ -494,6 +541,35 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         createRouteParams({
           keyword: store.getState().query.keyword,
           tag: nextTag,
+          mode: store.getState().query.mode,
+          domain: store.getState().query.domain,
+        }),
+      );
+      return this.loadInitial();
+    },
+
+    async applySearchScope(input: {
+      mode?: SearchMode;
+      domain?: SearchDomain;
+    }) {
+      const nextMode = input.mode ?? store.getState().query.mode;
+      const nextDomain = input.domain ?? store.getState().query.domain;
+      store.setState({
+        query: {
+          ...store.getState().query,
+          mode: nextMode,
+          domain: nextDomain,
+          page: 1,
+        },
+      });
+
+      await routeToOptional(
+        feedRouteId,
+        createRouteParams({
+          keyword: store.getState().query.keyword,
+          tag: store.getState().activeTag,
+          mode: nextMode,
+          domain: nextDomain,
         }),
       );
       return this.loadInitial();
@@ -513,6 +589,69 @@ export function createFeedController(options: CreateFeedControllerOptions) {
       }
 
       return kernel.router.toRoute(detailRouteId, { id: nextItemId });
+    },
+
+    async applyContentLifecycleAction(
+      action: ContentLifecycleAction,
+      options: {
+        contentId?: string;
+        visibility?: ContentVisibility;
+        reviewMessage?: string;
+      } = {},
+    ) {
+      const state = store.getState();
+      const contentId = options.contentId ?? deriveSelectedContentId(state);
+      if (!contentId) {
+        store.setState({
+          contentTransitionFeedback: "Select a managed content item before changing lifecycle state.",
+        });
+        return ok(undefined);
+      }
+
+      const result = await kernel.request.post<ContentLifecycleMutationResponse>("/content/lifecycle", {
+        contentId,
+        action,
+        ...(options.visibility ? { visibility: options.visibility } : {}),
+        ...(options.reviewMessage ? { reviewMessage: options.reviewMessage } : {}),
+      });
+      if (!result.ok) {
+        store.setState({
+          contentTransitionFeedback: result.error.message,
+        });
+        return result;
+      }
+
+      const currentItem = state.items.find((item) => item.id === contentId);
+      if (currentItem) {
+        const nextItem: FeedItem = {
+          ...currentItem,
+          title: result.value.contentCard.title,
+          ...(result.value.contentCard.subtitle ? { subtitle: result.value.contentCard.subtitle } : {}),
+          ...(result.value.contentDetail.recommendationReason ?? currentItem.recommendedReason
+            ? { recommendedReason: result.value.contentDetail.recommendationReason ?? currentItem.recommendedReason }
+            : {}),
+          contentCard: result.value.contentCard,
+          contentAccess: result.value.contentAccess,
+        };
+        const nextItems = replaceFeedItem(state.items, nextItem);
+        store.setState({
+          items: nextItems,
+          searchResults: state.searchResults
+            ? {
+                ...state.searchResults,
+                items: replaceFeedItem(state.searchResults.items, nextItem),
+              }
+            : state.searchResults,
+          featuredReason: deriveFeaturedReason(nextItems, state.featuredReason),
+          contentTransitionFeedback: result.value.transitionMessage,
+        });
+      } else {
+        store.setState({
+          contentTransitionFeedback: result.value.transitionMessage,
+        });
+      }
+
+      return result;
     },
 
     async goToSettings() {

@@ -41,6 +41,53 @@ export interface UserRelationSummary {
   remarkName?: string;
 }
 
+export const ACCOUNT_OPERATION_KINDS = [
+  "edit_profile",
+  "change_phone",
+  "unbind_wechat",
+  "request_cancellation",
+] as const;
+export type AccountOperationKind = (typeof ACCOUNT_OPERATION_KINDS)[number];
+
+export interface AccountOperation {
+  kind: AccountOperationKind;
+  label: string;
+  available: boolean;
+  statusLabel: string;
+  blockedReason?: string;
+}
+
+export const USER_RELATION_ACTION_KINDS = [
+  "follow",
+  "unfollow",
+  "block",
+  "unblock",
+  "set_remark",
+  "clear_remark",
+] as const;
+export type UserRelationActionKind = (typeof USER_RELATION_ACTION_KINDS)[number];
+
+export interface UserRelationAction {
+  kind: UserRelationActionKind;
+  label: string;
+  available: boolean;
+  active?: boolean;
+  requiresInput?: boolean;
+  blockedReason?: string;
+}
+
+export interface UserRelationTarget {
+  targetUserId: string;
+  displayName: string;
+  relationshipSummary: string;
+  following: boolean;
+  followedBy: boolean;
+  friend: boolean;
+  blocked: boolean;
+  remarkName?: string;
+  actions: UserRelationAction[];
+}
+
 export interface AccountSummary {
   userId: string;
   phoneBound: boolean;
@@ -73,4 +120,46 @@ export interface CurrentUserResponse {
   accountSummary: AccountSummary;
   userStatus: UserStatus;
   identityWorkflows: IdentityWorkflowSummary;
+  accountOperations: AccountOperation[];
+  relationTargets: UserRelationTarget[];
+}
+
+export interface UpdateUserProfileRequest {
+  nickname?: string;
+  region?: string;
+  bio?: string;
+}
+
+export interface ChangeBoundPhoneRequest {
+  phoneNumber: string;
+  verificationCode: string;
+}
+
+export interface AccountUnbindRequest {
+  provider: "wechat";
+}
+
+export interface AccountCancellationRequest {
+  confirm: true;
+}
+
+export interface AccountOperationResponse {
+  userProfile: UserProfile;
+  accountSummary: AccountSummary;
+  userStatus: UserStatus;
+  accountOperations: AccountOperation[];
+  transitionMessage: string;
+}
+
+export interface UserRelationMutationRequest {
+  targetUserId: string;
+  action: UserRelationActionKind;
+  remarkName?: string;
+}
+
+export interface UserRelationMutationResponse {
+  accountSummary: AccountSummary;
+  userStatus: UserStatus;
+  relationTargets: UserRelationTarget[];
+  transitionMessage: string;
 }

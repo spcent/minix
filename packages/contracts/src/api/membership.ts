@@ -20,6 +20,7 @@ export interface MembershipOverview {
 export interface PurchaseMembershipRequest {
   planId: "monthly" | "quarterly" | "annual";
   channel?: PaymentChannel;
+  paymentScenario?: "instant_success" | "pending";
   idempotencyKey?: string;
   source?: string;
   novelId?: string;

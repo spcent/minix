@@ -67,6 +67,13 @@ test("h5 capability adapter can write clipboard text, read device info, and rese
               sensitiveReviewRequired: true,
             },
             reviewStatus: "pending",
+            lifecycle: {
+              backendBacked: false,
+              retentionStatus: "active",
+              retryCount: 0,
+              canRetry: true,
+              canCancel: false,
+            },
           },
           uploadAsset: {
             assetId: "asset_1",
@@ -178,6 +185,13 @@ test("h5 capability adapter can write clipboard text, read device info, and rese
             sensitiveReviewRequired: true,
           },
           reviewStatus: "pending",
+          lifecycle: {
+            backendBacked: false,
+            retentionStatus: "active",
+            retryCount: 0,
+            canRetry: true,
+            canCancel: false,
+          },
         },
         uploadAsset: {
           assetId: "asset_1",

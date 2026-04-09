@@ -1,13 +1,20 @@
 import type {
+  UserAvailabilityStatus,
   AuthIdentityWorkflow,
   AuthIdentity,
   AuthStatus,
+  ContentLifecycle,
+  ContentModel,
+  ContentVisibility,
   FeedbackTicketDetailResponse,
   LoginMethod,
   LoginPlatformKind,
+  MessageBodyItem,
   OrderDetailResponse,
   PurchaseMembershipRequest,
   ReadingProgress,
+  SharePrepareResponse,
+  UploadPipelineResponse,
 } from "@minix/contracts";
 
 export interface ApiBindings {
@@ -31,12 +38,45 @@ export interface UserState {
   bookshelfNovelIds: Set<string>;
   progressByNovelId: Record<string, ReadingProgress>;
   notificationReadAtById: Record<string, string>;
+  threadReadAtById: Record<string, string>;
+  threadMessagesByThreadId: Record<string, MessageBodyItem[]>;
   feedbackDetailsById: Record<string, FeedbackTicketDetailResponse>;
   latestFeedbackTicketId?: string;
   latestPaidOrderId?: string;
   ordersById: Record<string, OrderDetailResponse>;
   orderIdByIdempotencyKey: Record<string, string>;
+  sharePreparesById: Record<string, SharePrepareResponse>;
+  uploadsByTaskId: Record<string, UploadPipelineResponse>;
   boundPhoneNumber?: string;
+  wechatBoundOverride?: boolean;
+  profileOverrides?: {
+    nickname?: string;
+    region?: string;
+    bio?: string;
+  };
+  availabilityStatus?: UserAvailabilityStatus;
+  relationTarget?: {
+    targetUserId: string;
+    displayName: string;
+    following: boolean;
+    followedBy: boolean;
+    friend: boolean;
+    blocked: boolean;
+    remarkName?: string;
+  };
+  managedContentById?: Record<
+    string,
+    {
+      model: ContentModel;
+      visibility: ContentVisibility;
+      lifecycle: ContentLifecycle;
+      authorLabel: string;
+      summary: string;
+      categoryKey: string;
+      categoryLabel: string;
+      tags: Array<{ key: string; label: string }>;
+    }
+  >;
   pendingIdentityWorkflow?: AuthIdentityWorkflow;
   lastIdentityWorkflow?: AuthIdentityWorkflow;
 }

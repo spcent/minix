@@ -10,6 +10,15 @@ export type MessageTouchpointChannel = (typeof MESSAGE_TOUCHPOINT_CHANNELS)[numb
 export const NOTIFICATION_GROUPING_MODES = ["timeline", "type"] as const;
 export type NotificationGroupingMode = (typeof NOTIFICATION_GROUPING_MODES)[number];
 
+export const MESSAGE_DIRECTIONS = ["inbound", "outbound"] as const;
+export type MessageDirection = (typeof MESSAGE_DIRECTIONS)[number];
+
+export const MESSAGE_SENDER_ROLES = ["self", "advisor", "support", "system", "peer"] as const;
+export type MessageSenderRole = (typeof MESSAGE_SENDER_ROLES)[number];
+
+export const MESSAGE_DELIVERY_STATUSES = ["pending", "sent", "delivered", "read", "failed"] as const;
+export type MessageDeliveryStatus = (typeof MESSAGE_DELIVERY_STATUSES)[number];
+
 export interface MessageTouchpoint {
   channel: MessageTouchpointChannel;
   executable: boolean;
@@ -99,6 +108,26 @@ export interface MessageThread {
   touchpoints: MessageTouchpoint[];
 }
 
+export interface MessageBodyItem {
+  messageId: string;
+  threadId: string;
+  direction: MessageDirection;
+  senderRole: MessageSenderRole;
+  senderLabel: string;
+  body: string;
+  createdAt: string;
+  updatedAt?: string;
+  deliveryStatus: MessageDeliveryStatus;
+  readAt?: string;
+  touchpoints: MessageTouchpoint[];
+}
+
+export interface MessageThreadActions {
+  canReply: boolean;
+  canMarkRead: boolean;
+  deliveryLabel: string;
+}
+
 export interface UnreadBadgeBreakdown {
   key: string;
   label: string;
@@ -122,6 +151,8 @@ export interface NotificationListResponse {
 
 export interface MessageThreadResponse {
   messageThread: MessageThread;
+  messageItems: MessageBodyItem[];
+  detailActions: MessageThreadActions;
   unreadBadge: UnreadBadge;
 }
 
@@ -138,4 +169,20 @@ export interface MarkNotificationsReadResponse {
   updatedIds: string[];
   notificationList: NotificationList;
   unreadBadge: UnreadBadge;
+}
+
+export interface SendMessageRequest {
+  threadId: string;
+  body: string;
+}
+
+export interface SendMessageResponse {
+  messageThread: MessageThread;
+  messageItem: MessageBodyItem;
+  detailActions: MessageThreadActions;
+  unreadBadge: UnreadBadge;
+}
+
+export interface MarkThreadReadRequest {
+  threadId: string;
 }

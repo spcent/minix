@@ -78,6 +78,64 @@ function createKernelStub() {
       canBindPhone: false,
       mergePending: false,
     },
+    accountOperations: [
+      {
+        kind: "edit_profile",
+        label: "Edit profile",
+        available: true,
+        statusLabel: "You can update nickname, region, and bio.",
+      },
+      {
+        kind: "change_phone",
+        label: "Change phone",
+        available: true,
+        statusLabel: "A verified phone can be replaced.",
+      },
+      {
+        kind: "unbind_wechat",
+        label: "Unbind WeChat",
+        available: false,
+        statusLabel: "No WeChat binding is active.",
+        blockedReason: "No WeChat binding is active.",
+      },
+      {
+        kind: "request_cancellation",
+        label: "Request cancellation",
+        available: true,
+        statusLabel: "Submit a cancellation request for the current account.",
+      },
+    ],
+    relationTargets: [
+      {
+        targetUserId: "creator_sample",
+        displayName: "MiniX Mentor",
+        relationshipSummary: "Mutual connection",
+        following: true,
+        followedBy: true,
+        friend: true,
+        blocked: false,
+        remarkName: "MiniX User",
+        actions: [
+          {
+            kind: "unfollow",
+            label: "Unfollow",
+            available: true,
+            active: true,
+          },
+          {
+            kind: "block",
+            label: "Block",
+            available: true,
+          },
+          {
+            kind: "clear_remark",
+            label: "Clear remark",
+            available: true,
+            active: true,
+          },
+        ],
+      },
+    ],
   };
   let postResult: Result<unknown> = ok({
     userId: "user-12345",
@@ -154,26 +212,38 @@ function createKernelStub() {
       async post<T>(path: string, body?: unknown) {
         postCalls.push({ path, body });
         if (postResult.ok) {
-          const payload = postResult.value as {
-            identity?: { phoneBound?: boolean; wechatBound?: boolean };
-            identityWorkflow?: CurrentUserResponse["identityWorkflows"]["lastWorkflow"];
-          };
-          userResponse = {
-            ...userResponse,
-            accountSummary: {
-              ...userResponse.accountSummary,
-              phoneBound: payload.identity?.phoneBound ?? userResponse.accountSummary.phoneBound,
-              wechatBound: payload.identity?.wechatBound ?? userResponse.accountSummary.wechatBound,
-            },
-            identityWorkflows: {
-              ...userResponse.identityWorkflows,
-              mergePending: payload.identityWorkflow?.status === "merge_required",
-              ...(payload.identityWorkflow?.status === "merge_required"
-                ? { pendingWorkflow: payload.identityWorkflow }
-                : {}),
-              ...(payload.identityWorkflow ? { lastWorkflow: payload.identityWorkflow } : {}),
-            },
-          };
+          if (path.startsWith("/auth/identity/")) {
+            const payload = postResult.value as {
+              identity?: { phoneBound?: boolean; wechatBound?: boolean };
+              identityWorkflow?: CurrentUserResponse["identityWorkflows"]["lastWorkflow"];
+            };
+            userResponse = {
+              ...userResponse,
+              accountSummary: {
+                ...userResponse.accountSummary,
+                phoneBound: payload.identity?.phoneBound ?? userResponse.accountSummary.phoneBound,
+                wechatBound: payload.identity?.wechatBound ?? userResponse.accountSummary.wechatBound,
+              },
+              identityWorkflows: {
+                ...userResponse.identityWorkflows,
+                mergePending: payload.identityWorkflow?.status === "merge_required",
+                ...(payload.identityWorkflow?.status === "merge_required"
+                  ? { pendingWorkflow: payload.identityWorkflow }
+                  : {}),
+                ...(payload.identityWorkflow ? { lastWorkflow: payload.identityWorkflow } : {}),
+              },
+            };
+          } else if (path.startsWith("/account/")) {
+            const payload = postResult.value as Partial<CurrentUserResponse> & { transitionMessage?: string };
+            userResponse = {
+              ...userResponse,
+              ...(payload.userProfile ? { userProfile: payload.userProfile } : {}),
+              ...(payload.accountSummary ? { accountSummary: payload.accountSummary } : {}),
+              ...(payload.userStatus ? { userStatus: payload.userStatus } : {}),
+              ...(payload.accountOperations ? { accountOperations: payload.accountOperations } : {}),
+              ...(payload.relationTargets ? { relationTargets: payload.relationTargets } : {}),
+            };
+          }
         }
         return postResult as Result<T>;
       },
@@ -372,6 +442,8 @@ test("account controller surfaces identity workflow actions from the normalized 
       canBindPhone: false,
       mergePending: false,
     },
+    accountOperations: [],
+    relationTargets: [],
   });
   const controller = createAccountController({
     kernel,
@@ -398,4 +470,232 @@ test("account controller can submit phone binding and refresh account state", as
 
   assert.equal(postCalls[0]?.path, "/auth/identity/bind-phone");
   assert.equal(controller.store.getState().transitionFeedback, "The current account is now bound to the verified phone number.");
+});
+
+test("account controller can update profile through the shared account endpoint", async () => {
+  const { kernel, postCalls, setPostResult } = createKernelStub();
+  setPostResult(
+    ok({
+      userProfile: {
+        nickname: "Updated Casey",
+        avatarUrl: "https://img.test/avatar.png",
+        gender: "unknown",
+        region: "Hangzhou, CN",
+        bio: "Updated bio",
+        tags: ["member-ready"],
+      },
+      accountSummary: {
+        userId: "user-12345",
+        phoneBound: true,
+        phoneNumberMasked: "138****0001",
+        wechatBound: false,
+        realNameStatus: "unverified",
+        assets: {
+          points: 1280,
+          level: 4,
+          membership: {
+            active: false,
+            tier: "guest",
+            entitlementScope: "none",
+            statusLabel: "Guest mode",
+            renewalLabel: "Upgrade anytime",
+            headline: "Guest",
+            subheadline: "Guest",
+            benefits: [],
+          },
+          entitlementLabels: ["basic-access"],
+          balanceCents: 0,
+        },
+        relations: {
+          followingCount: 12,
+          followerCount: 28,
+          friendCount: 6,
+          blockedCount: 1,
+          remarkName: "MiniX User",
+        },
+      },
+      userStatus: {
+        availability: "enabled",
+        enabled: true,
+        frozen: false,
+        cancellationInProgress: false,
+        blacklisted: false,
+        guest: false,
+      },
+      accountOperations: [
+        {
+          kind: "edit_profile",
+          label: "Edit profile",
+          available: true,
+          statusLabel: "You can update nickname, region, and bio.",
+        },
+      ],
+      transitionMessage: "Profile updated.",
+    }),
+  );
+
+  const controller = createAccountController({
+    kernel,
+    loginRouteId: APP_ROUTE_IDS.login,
+  });
+
+  await controller.loadInitial();
+  await controller.updateProfile({
+    nickname: "Updated Casey",
+    region: "Hangzhou, CN",
+    bio: "Updated bio",
+  });
+
+  assert.equal(postCalls.at(-1)?.path, "/account/profile");
+  assert.equal(controller.store.getState().transitionFeedback, "Profile updated.");
+});
+
+test("account controller can request cancellation and refresh status", async () => {
+  const { kernel, postCalls, setPostResult } = createKernelStub();
+  setPostResult(
+    ok({
+      userProfile: {
+        nickname: "Casey",
+      },
+      accountSummary: {
+        userId: "user-12345",
+        phoneBound: true,
+        phoneNumberMasked: "138****0001",
+        wechatBound: false,
+        realNameStatus: "unverified",
+        assets: {
+          points: 980,
+          level: 4,
+          membership: {
+            active: false,
+            tier: "guest",
+            entitlementScope: "none",
+            statusLabel: "Guest mode",
+            renewalLabel: "Upgrade anytime",
+            headline: "Guest",
+            subheadline: "Guest",
+            benefits: [],
+          },
+          entitlementLabels: ["basic-access"],
+          balanceCents: 0,
+        },
+        relations: {
+          followingCount: 12,
+          followerCount: 28,
+          friendCount: 6,
+          blockedCount: 1,
+          remarkName: "MiniX User",
+        },
+      },
+      userStatus: {
+        availability: "cancellation_pending",
+        enabled: false,
+        frozen: false,
+        cancellationInProgress: true,
+        blacklisted: false,
+        guest: false,
+      },
+      accountOperations: [
+        {
+          kind: "request_cancellation",
+          label: "Request cancellation",
+          available: false,
+          statusLabel: "Cancellation has already been requested.",
+          blockedReason: "Cancellation is already pending for this account.",
+        },
+      ],
+      transitionMessage: "Cancellation request submitted.",
+    }),
+  );
+
+  const controller = createAccountController({
+    kernel,
+    loginRouteId: APP_ROUTE_IDS.login,
+  });
+
+  await controller.loadInitial();
+  await controller.requestCancellation();
+
+  assert.equal(postCalls.at(-1)?.path, "/account/cancellation");
+  assert.equal(controller.store.getState().transitionFeedback, "Cancellation request submitted.");
+});
+
+test("account controller can apply relation actions through the shared relation endpoint", async () => {
+  const { kernel, postCalls, setPostResult } = createKernelStub();
+  setPostResult(
+    ok({
+      accountSummary: {
+        userId: "user-12345",
+        phoneBound: true,
+        phoneNumberMasked: "138****0001",
+        wechatBound: false,
+        realNameStatus: "unverified",
+        assets: {
+          points: 1280,
+          level: 4,
+          membership: {
+            active: false,
+            tier: "guest",
+            entitlementScope: "none",
+            statusLabel: "Guest mode",
+            renewalLabel: "Upgrade anytime",
+            headline: "Guest",
+            subheadline: "Guest",
+            benefits: [],
+          },
+          entitlementLabels: ["basic-access"],
+          balanceCents: 0,
+        },
+        relations: {
+          followingCount: 11,
+          followerCount: 28,
+          friendCount: 5,
+          blockedCount: 1,
+          remarkName: "MiniX User",
+        },
+      },
+      userStatus: {
+        availability: "enabled",
+        enabled: true,
+        frozen: false,
+        cancellationInProgress: false,
+        blacklisted: false,
+        guest: false,
+      },
+      relationTargets: [
+        {
+          targetUserId: "creator_sample",
+          displayName: "MiniX Mentor",
+          relationshipSummary: "Not following",
+          following: false,
+          followedBy: true,
+          friend: false,
+          blocked: false,
+          remarkName: "MiniX User",
+          actions: [
+            {
+              kind: "follow",
+              label: "Follow",
+              available: true,
+            },
+          ],
+        },
+      ],
+      transitionMessage: "Unfollowed relation target.",
+    }),
+  );
+
+  const controller = createAccountController({
+    kernel,
+    loginRouteId: APP_ROUTE_IDS.login,
+  });
+
+  await controller.loadInitial();
+  await controller.applyRelationAction({
+    targetUserId: "creator_sample",
+    action: "unfollow",
+  });
+
+  assert.equal(postCalls.at(-1)?.path, "/account/relations");
+  assert.equal(controller.store.getState().transitionFeedback, "Unfollowed relation target.");
 });

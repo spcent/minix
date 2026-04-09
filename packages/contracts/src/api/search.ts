@@ -31,6 +31,21 @@ export interface SearchSortOption {
   label: string;
 }
 
+export interface SearchDomainTab {
+  domain: SearchDomain;
+  label: string;
+  total: number;
+  active: boolean;
+}
+
+export interface SearchResultGroup<TItem> {
+  domain: SearchDomain;
+  label: string;
+  total: number;
+  items: TItem[];
+  featuredReason?: string;
+}
+
 export interface SearchResults<TItem> {
   items: TItem[];
   total: number;
@@ -42,4 +57,7 @@ export interface SearchResults<TItem> {
   recentKeywords: string[];
   sortOptions: SearchSortOption[];
   activeSortKey: string;
+  activeDomain?: SearchDomain;
+  domainTabs?: SearchDomainTab[];
+  resultGroups?: SearchResultGroup<TItem>[];
 }

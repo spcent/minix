@@ -10,7 +10,14 @@ import {
   type LatestMilestoneHistoryEntry,
   type LatestReadingMilestoneSnapshot,
 } from "@minix/core";
-import { type AppRouteId, type MembershipOverview, type PurchaseMembershipRequest, type PurchaseMembershipResponse } from "@minix/contracts";
+import type {
+  AppRouteId,
+  MembershipOverview,
+  OrderDetailResponse,
+  OrderOperationRequest,
+  PurchaseMembershipRequest,
+  PurchaseMembershipResponse,
+} from "@minix/contracts";
 import { createInitialSubscriptionState, type SubscriptionState } from "../model";
 
 export interface CreateSubscriptionControllerOptions {
@@ -23,6 +30,11 @@ export interface CreateSubscriptionControllerOptions {
   bookshelfRouteId?: AppRouteId;
   requestPath?: string;
   purchaseRequestPath?: string;
+  orderDetailRequestPath?: string;
+  cancelRequestPath?: string;
+  refundRequestPath?: string;
+  reconcileRequestPath?: string;
+  paymentResultRequestPath?: string;
   latestMilestoneStorageKey?: string;
   latestMilestoneHistoryStorageKey?: string;
   initialState?: Partial<SubscriptionState>;
@@ -39,6 +51,11 @@ export function createSubscriptionController(options: CreateSubscriptionControll
     bookshelfRouteId,
     requestPath = "/membership",
     purchaseRequestPath = "/membership/purchase",
+    orderDetailRequestPath = "/orders/detail",
+    cancelRequestPath = "/orders/cancel",
+    refundRequestPath = "/orders/refund",
+    reconcileRequestPath = "/payments/reconcile",
+    paymentResultRequestPath = "/payments/result",
     latestMilestoneStorageKey = LATEST_READING_MILESTONE_STORAGE_KEY,
     latestMilestoneHistoryStorageKey = LATEST_READING_MILESTONE_HISTORY_STORAGE_KEY,
     initialState,
@@ -116,6 +133,29 @@ export function createSubscriptionController(options: CreateSubscriptionControll
     }
 
     return `${overview.statusLabel}. Premium continuation is still blocked until an entitlement is added.`;
+  }
+
+  function applyOrderDetailToState(current: SubscriptionState, detail: OrderDetailResponse): Partial<SubscriptionState> {
+    const entitlement = detail.entitlement as SubscriptionState["entitlement"];
+    return {
+      order: detail.order,
+      paymentIntent: detail.paymentIntent,
+      paymentResult: detail.paymentResult,
+      callbackVerification: detail.callbackVerification,
+      reconciliation: detail.reconciliation,
+      entitlement,
+      transactionMessage: detail.operationResult?.message ?? detail.paymentResult.message,
+      canCancelOrder: detail.order.status === "created" || detail.order.status === "pending_payment",
+      canRefundOrder: detail.order.status === "paid",
+      ...(entitlement?.productType === "membership"
+        ? {
+            overview: entitlement.overview,
+            benefits: entitlement.overview.benefits,
+            entitlementSummary: deriveEntitlementSummary(entitlement.overview),
+            recommendedPlanId: deriveRecommendedPlanId(current.source, entitlement.overview),
+          }
+        : {}),
+    };
   }
 
   function deriveRecommendedPlanId(source?: string, overview?: MembershipOverview) {
@@ -279,8 +319,13 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         order: undefined,
         paymentIntent: undefined,
         paymentResult: undefined,
+        callbackVerification: undefined,
+        reconciliation: undefined,
         entitlement: undefined,
         paymentExecutionDetail: undefined,
+        transactionMessage: undefined,
+        canCancelOrder: false,
+        canRefundOrder: false,
         entitlementSummary: deriveEntitlementSummary(result.value),
         recommendedPlanId: deriveRecommendedPlanId(source, result.value),
         unlockOutcomeLabel: deriveUnlockOutcomeLabel(source),
@@ -329,10 +374,6 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         purchasing: false,
         title: result.value.overview.headline,
         overview: result.value.overview,
-        order: result.value.order,
-        paymentIntent: result.value.paymentIntent,
-        paymentResult: result.value.paymentResult,
-        entitlement: result.value.entitlement,
         benefits: result.value.overview.benefits,
         source: nextSource,
         novelId: result.value.novelId ?? current.novelId,
@@ -360,11 +401,136 @@ export function createSubscriptionController(options: CreateSubscriptionControll
                 ? "Access is now unlocked for the title that triggered this detail-page paywall."
                 : "Access is now unlocked for the premium flow you came from.",
         errorText: undefined,
+        ...applyOrderDetailToState(current, {
+          order: result.value.order,
+          paymentIntent: result.value.paymentIntent,
+          paymentResult: result.value.paymentResult,
+          callbackVerification: {
+            status: "pending",
+            message: "Callback verification is pending until the sample gateway confirms the order.",
+          },
+          reconciliation: {
+            status: result.value.paymentResult.status === "success" ? "pending" : "not_required",
+            message:
+              result.value.paymentResult.status === "success"
+                ? "The order still needs reconciliation."
+                : "Reconciliation is not required for this transaction state.",
+          },
+          entitlement: result.value.entitlement,
+        }),
       });
 
       await reservePlatformPayment(result.value);
 
       return result;
+    },
+
+    async refreshTransaction() {
+      const orderId = store.getState().order?.orderId;
+      if (!orderId) {
+        return ok(undefined);
+      }
+
+      const detail = await kernel.request.get<OrderDetailResponse>(orderDetailRequestPath, { orderId });
+      if (!detail.ok) {
+        store.setState({
+          errorText: detail.error.message,
+        });
+        return detail;
+      }
+
+      const paymentResult = await kernel.request.get<typeof detail.value.paymentResult>(paymentResultRequestPath, { orderId });
+      store.setState({
+        errorText: undefined,
+        ...applyOrderDetailToState(store.getState(), {
+          ...detail.value,
+          ...(paymentResult.ok ? { paymentResult: paymentResult.value } : {}),
+        }),
+      });
+      return ok(undefined);
+    },
+
+    async cancelOrder(reason?: string) {
+      const orderId = store.getState().order?.orderId;
+      if (!orderId) {
+        return ok(undefined);
+      }
+
+      store.setState({
+        purchasing: true,
+        errorText: undefined,
+      });
+
+      const result = await kernel.request.post<OrderDetailResponse>(cancelRequestPath, {
+        orderId,
+        ...(reason ? { reason } : {}),
+      } satisfies OrderOperationRequest);
+      if (!result.ok) {
+        store.setState({
+          purchasing: false,
+          errorText: result.error.message,
+        });
+        return result;
+      }
+
+      store.setState({
+        purchasing: false,
+        ...applyOrderDetailToState(store.getState(), result.value),
+      });
+      return ok(undefined);
+    },
+
+    async refundOrder(reason?: string) {
+      const orderId = store.getState().order?.orderId;
+      if (!orderId) {
+        return ok(undefined);
+      }
+
+      store.setState({
+        purchasing: true,
+        errorText: undefined,
+      });
+
+      const result = await kernel.request.post<OrderDetailResponse>(refundRequestPath, {
+        orderId,
+        ...(reason ? { reason } : {}),
+      } satisfies OrderOperationRequest);
+      if (!result.ok) {
+        store.setState({
+          purchasing: false,
+          errorText: result.error.message,
+        });
+        return result;
+      }
+
+      store.setState({
+        purchasing: false,
+        ...applyOrderDetailToState(store.getState(), result.value),
+      });
+      return ok(undefined);
+    },
+
+    async reconcileOrder() {
+      const orderId = store.getState().order?.orderId;
+      if (!orderId) {
+        return ok(undefined);
+      }
+
+      const result = await kernel.request.post<OrderDetailResponse>(reconcileRequestPath, {
+        orderId,
+      } satisfies OrderOperationRequest);
+      if (!result.ok) {
+        store.setState({
+          errorText: result.error.message,
+        });
+        return result;
+      }
+
+      store.setState({
+        errorText: undefined,
+        ...applyOrderDetailToState(store.getState(), result.value),
+      });
+      return ok(undefined);
     },
 
     async continueAfterPurchase() {

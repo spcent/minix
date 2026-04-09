@@ -6,6 +6,8 @@ import {
   deriveLatestMilestoneContinuity,
   LATEST_READING_MILESTONE_HISTORY_STORAGE_KEY,
   LATEST_READING_MILESTONE_STORAGE_KEY,
+  normalizeSearchKeyword,
+  pushRecentSearchKeyword,
   type AppKernel,
   type LatestMilestoneHistoryEntry,
   type LatestReadingMilestoneSnapshot,
@@ -210,17 +212,8 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
     );
   }
 
-  function normalizeSearchKeyword(keyword: string): string {
-    return keyword.trim();
-  }
-
   function createRecentSearches(current: string[], keyword: string): string[] {
-    const normalized = normalizeSearchKeyword(keyword);
-    if (!normalized) {
-      return current;
-    }
-
-    return [normalized, ...current.filter((item) => item !== normalized)].slice(0, 5);
+    return pushRecentSearchKeyword(current, keyword);
   }
 
   async function persistRecentSearches(recentSearches: string[]) {

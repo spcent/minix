@@ -15,6 +15,7 @@ export const CONTENT_PUBLICATION_STATES = [
   "offline",
   "under_review",
   "review_rejected",
+  "deleted",
 ] as const;
 export type ContentPublicationState = (typeof CONTENT_PUBLICATION_STATES)[number];
 
@@ -32,6 +33,10 @@ export const CONTENT_LIFECYCLE_ACTIONS = [
   "archive",
   "delete",
   "restore",
+  "submit_review",
+  "approve_review",
+  "reject_review",
+  "change_visibility",
 ] as const;
 export type ContentLifecycleAction = (typeof CONTENT_LIFECYCLE_ACTIONS)[number];
 
@@ -66,6 +71,7 @@ export interface ContentLifecycle {
   publishedAt?: string;
   updatedAt?: string;
   offlineAt?: string;
+  reviewMessage?: string;
 }
 
 export interface ContentAccess {
@@ -105,4 +111,23 @@ export interface ContentDetail {
   lifecycle: ContentLifecycle;
   recommendationReason?: string;
   bodyPreview?: string;
+}
+
+export interface ContentDetailResponse {
+  contentDetail: ContentDetail;
+  contentAccess: ContentAccess;
+}
+
+export interface ContentLifecycleMutationRequest {
+  contentId: string;
+  action: ContentLifecycleAction;
+  visibility?: ContentVisibility;
+  reviewMessage?: string;
+}
+
+export interface ContentLifecycleMutationResponse {
+  contentCard: ContentCard;
+  contentDetail: ContentDetail;
+  contentAccess: ContentAccess;
+  transitionMessage: string;
 }

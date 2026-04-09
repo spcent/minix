@@ -2,13 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { ok, type AppKernel } from "@minix/core";
-import { APP_ROUTE_IDS, type FeedListResponse } from "@minix/contracts";
+import { APP_ROUTE_IDS, type FeedListResponse, type SearchDomain, type SearchMode } from "@minix/contracts";
 
 import { createFeedController } from "./index";
 import { createDefaultFeedState } from "../model";
 
 function createKernelStub() {
   const requestCalls: Array<Record<string, unknown>> = [];
+  const postCalls: Array<{ path: string; body?: unknown }> = [];
   const routeCalls: Array<{ routeId: string; params?: Record<string, string | number | boolean> }> = [];
   const storageValues = new Map<string, unknown>();
   let requestMode: "success" | "unauthorized" = "success";
@@ -59,15 +60,61 @@ function createKernelStub() {
         }
 
         const page = Number(query?.page ?? 1);
+        const mode: SearchMode =
+          query?.mode === "global" || query?.mode === "content" || query?.mode === "user" || query?.mode === "domain"
+            ? query.mode
+            : "global";
+        const domain: SearchDomain =
+          query?.domain === "all" || query?.domain === "content" || query?.domain === "user" || query?.domain === "novel" || query?.domain === "feed"
+            ? query.domain
+            : "feed";
         const searchResponse: FeedListResponse = {
           items:
-            page === 1
+            mode === "user" || domain === "user"
+              ? [
+                  {
+                    id: "user-mentor",
+                    title: "MiniX Mentor",
+                    subtitle: "Suggested user",
+                    eyebrow: "User",
+                    tag: "user",
+                    recommendedReason: "Shared relation surface sample result",
+                  },
+                ]
+              : page === 1
               ? [
                   {
                     id: "story-1",
                     title: "Story 1",
                     tag: "news",
                     recommendedReason: "Lead story for the current lane.",
+                    contentCard: {
+                      contentId: "story-1",
+                      model: "article",
+                      title: "Story 1",
+                      summary: "Lead story summary",
+                      authorLabel: "Editorial",
+                      display: {
+                        category: { key: "news", label: "News" },
+                        tags: [{ key: "news", label: "News" }],
+                        topics: [{ key: "news", label: "News" }],
+                        pinned: true,
+                        featured: true,
+                      },
+                      lifecycle: {
+                        state: "draft",
+                        availableActions: ["publish", "change_visibility"],
+                      },
+                    },
+                    contentAccess: {
+                      visibility: "public",
+                      accessible: true,
+                      previewAvailable: true,
+                      requiresLogin: false,
+                      requiresMembership: false,
+                      requiresPurchase: false,
+                      summaryLabel: "Visible to everyone.",
+                    },
                   },
                 ]
               : [
@@ -83,34 +130,74 @@ function createKernelStub() {
           tags: [
             { key: "all", label: "All" },
             { key: "news", label: "News" },
+            { key: "user", label: "User" },
           ],
           searchQuery: {
             keyword: typeof query?.keyword === "string" ? query.keyword : "",
-            mode: "global",
-            domain: "feed",
+            mode,
+            domain,
             page,
             pageSize: Number(query?.pageSize ?? 12),
           },
           searchFilters: [
             {
-              key: "tag",
-              label: "Content type",
-              selectedKeys: typeof query?.tag === "string" ? [query.tag] : [],
+              key: "domain",
+              label: "Search domain",
+              selectedKeys: domain !== "feed" ? [domain] : [],
               options: [
-                { key: "all", label: "All", count: 2 },
-                { key: "news", label: "News", count: 2 },
+                { key: "all", label: "All", count: 3 },
+                { key: "feed", label: "Feed", count: 2 },
+                { key: "user", label: "User", count: 1 },
               ],
             },
           ],
           searchResults: {
             items:
-              page === 1
+              mode === "user" || domain === "user"
+                ? [
+                    {
+                      id: "user-mentor",
+                      title: "MiniX Mentor",
+                      subtitle: "Suggested user",
+                      eyebrow: "User",
+                      tag: "user",
+                      recommendedReason: "Shared relation surface sample result",
+                    },
+                  ]
+                : page === 1
                 ? [
                     {
                       id: "story-1",
                       title: "Story 1",
                       tag: "news",
                       recommendedReason: "Lead story for the current lane.",
+                      contentCard: {
+                        contentId: "story-1",
+                        model: "article",
+                        title: "Story 1",
+                        summary: "Lead story summary",
+                        authorLabel: "Editorial",
+                        display: {
+                          category: { key: "news", label: "News" },
+                          tags: [{ key: "news", label: "News" }],
+                          topics: [{ key: "news", label: "News" }],
+                          pinned: true,
+                          featured: true,
+                        },
+                        lifecycle: {
+                          state: "draft",
+                          availableActions: ["publish", "change_visibility"],
+                        },
+                      },
+                      contentAccess: {
+                        visibility: "public",
+                        accessible: true,
+                        previewAvailable: true,
+                        requiresLogin: false,
+                        requiresMembership: false,
+                        requiresPurchase: false,
+                        summaryLabel: "Visible to everyone.",
+                      },
                     },
                   ]
                 : [
@@ -120,21 +207,82 @@ function createKernelStub() {
                       tag: "news",
                     },
                   ],
-            total: 2,
-            hasMore: page === 1,
+            total: mode === "user" || domain === "user" ? 1 : 2,
+            hasMore: mode === "user" || domain === "user" ? false : page === 1,
             emptyText: "No feed items are available yet.",
-            ...(page === 1 ? { featuredReason: "Lead story for the current lane." } : {}),
+            ...(mode === "user" || domain === "user"
+              ? { featuredReason: "Shared relation surface sample result" }
+              : page === 1
+                ? { featuredReason: "Lead story for the current lane." }
+                : {}),
             suggestionTerms: ["travel", "review"],
             hotKeywords: ["travel", "review"],
             recentKeywords: [],
             sortOptions: [{ key: "recommended", label: "Recommended" }],
             activeSortKey: "recommended",
+            activeDomain: domain,
+            domainTabs: [
+              { domain: "all", label: "All", total: 3, active: domain === "all" },
+              { domain: "feed", label: "Feed", total: 2, active: domain === "feed" },
+              { domain: "user", label: "User", total: 1, active: domain === "user" },
+            ],
           },
         };
         return ok(searchResponse as T);
       },
-      async post<T>() {
-        return ok({} as T);
+      async post<T>(path: string, body?: unknown) {
+        postCalls.push({ path, body });
+        return ok({
+          contentCard: {
+            contentId: "story-1",
+            model: "article",
+            title: "Story 1",
+            summary: "Lead story summary",
+            authorLabel: "Editorial",
+            display: {
+              category: { key: "news", label: "News" },
+              tags: [{ key: "news", label: "News" }],
+              topics: [{ key: "news", label: "News" }],
+              pinned: true,
+              featured: false,
+            },
+            lifecycle: {
+              state: "published",
+              availableActions: ["archive", "delete", "change_visibility"],
+            },
+          },
+          contentDetail: {
+            contentId: "story-1",
+            model: "article",
+            title: "Story 1",
+            summary: "Lead story summary",
+            authorLabel: "Editorial",
+            display: {
+              category: { key: "news", label: "News" },
+              tags: [{ key: "news", label: "News" }],
+              topics: [{ key: "news", label: "News" }],
+              pinned: true,
+              featured: false,
+            },
+            lifecycle: {
+              state: "published",
+              availableActions: ["archive", "delete", "change_visibility"],
+            },
+            recommendationReason: "Lifecycle status: published.",
+          },
+          contentAccess: {
+            visibility: "member_only",
+            accessible: false,
+            previewAvailable: true,
+            requiresLogin: false,
+            requiresMembership: true,
+            requiresPurchase: false,
+            summaryLabel: "Visible to members only.",
+            entitlementLabel: "Membership access",
+            gateLabel: "Access is gated by the current visibility rule.",
+          },
+          transitionMessage: "Content published.",
+        } as T);
       },
       async put<T>() {
         return ok({} as T);
@@ -179,6 +327,7 @@ function createKernelStub() {
     kernel,
     requestCalls,
     routeCalls,
+    postCalls,
     storageValues,
     setRequestMode(mode: "success" | "unauthorized") {
       requestMode = mode;
@@ -199,7 +348,7 @@ test("feed controller loads feed items and derives the featured reason", async (
   assert.equal(controller.store.getState().items.length, 1);
   assert.equal(controller.store.getState().selectedItemId, "story-1");
   assert.equal(controller.store.getState().pagination.page, 1);
-  assert.equal(controller.store.getState().filters[0]?.key, "tag");
+  assert.equal(controller.store.getState().filters[0]?.key, "domain");
   assert.equal(controller.store.getState().selection.selectedItemIds[0], "story-1");
   assert.equal(controller.store.getState().status.loadState, "ready");
   assert.equal(controller.store.getState().featuredReason, "Lead story for the current lane.");
@@ -228,6 +377,33 @@ test("feed controller submits keyword searches and persists recent keywords", as
     },
   });
   assert.deepEqual(storageValues.get("feed.recent-keywords"), ["advisory"]);
+});
+
+test("feed controller can switch into the shared user-search scope and persist route params", async () => {
+  const { kernel, requestCalls, routeCalls } = createKernelStub();
+  const controller = createFeedController({
+    kernel,
+    feedRouteId: APP_ROUTE_IDS.items,
+    initialState: createDefaultFeedState(),
+  });
+
+  await controller.applySearchScope({
+    mode: "user",
+    domain: "user",
+  });
+
+  assert.equal((requestCalls.at(-1) as Record<string, unknown>)?.mode, "user");
+  assert.equal((requestCalls.at(-1) as Record<string, unknown>)?.domain, "user");
+  assert.deepEqual(routeCalls.at(-1), {
+    routeId: APP_ROUTE_IDS.items,
+    params: {
+      mode: "user",
+      domain: "user",
+    },
+  });
+  assert.equal(controller.store.getState().searchQuery?.mode, "user");
+  assert.equal(controller.store.getState().searchQuery?.domain, "user");
+  assert.equal(controller.store.getState().items[0]?.eyebrow, "User");
 });
 
 test("feed controller can load the next page and append results", async () => {
@@ -295,4 +471,27 @@ test("feed controller can open the selected item and route into settings", async
       routeId: APP_ROUTE_IDS.settings,
     },
   ]);
+});
+
+test("feed controller can apply managed content lifecycle actions on the selected item", async () => {
+  const { kernel, postCalls } = createKernelStub();
+  const controller = createFeedController({
+    kernel,
+    initialState: createDefaultFeedState(),
+  });
+
+  await controller.loadInitial();
+  await controller.applyContentLifecycleAction("publish", {
+    visibility: "member_only",
+  });
+
+  assert.equal(postCalls[0]?.path, "/content/lifecycle");
+  assert.deepEqual(postCalls[0]?.body, {
+    contentId: "story-1",
+    action: "publish",
+    visibility: "member_only",
+  });
+  assert.equal(controller.store.getState().items[0]?.contentCard?.lifecycle.state, "published");
+  assert.equal(controller.store.getState().items[0]?.contentAccess?.visibility, "member_only");
+  assert.equal(controller.store.getState().contentTransitionFeedback, "Content published.");
 });

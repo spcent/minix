@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { ok, type AppKernel } from "@minix/core";
-import { APP_ROUTE_IDS, type NotificationListResponse } from "@minix/contracts";
+import { APP_ROUTE_IDS, type MessageThreadResponse, type NotificationListResponse } from "@minix/contracts";
 
 import { messagesFeatureManifest } from "./feature.manifest";
 import { createDefaultMessagesState } from "./model";
@@ -10,7 +10,49 @@ import { createDefaultMessagesState } from "./model";
 function createKernelStub() {
   const kernel = {
     request: {
-      async get<T>() {
+      async get<T>(url?: string) {
+        if (url === "/messages/thread") {
+          const response: MessageThreadResponse = {
+            messageThread: {
+              threadId: "thread-1",
+              type: "private",
+              title: "Tutor",
+              participantLabels: ["Tutor", "You"],
+              pinned: true,
+              doNotDisturb: false,
+              unreadCount: 1,
+              reserved: true,
+              touchpoints: [],
+            },
+            messageItems: [
+              {
+                messageId: "msg-1",
+                threadId: "thread-1",
+                direction: "inbound",
+                senderRole: "advisor",
+                senderLabel: "Tutor",
+                body: "Loaded from manifest controller",
+                createdAt: "2026-04-08T09:00:00.000Z",
+                deliveryStatus: "delivered",
+                touchpoints: [],
+              },
+            ],
+            detailActions: {
+              canReply: true,
+              canMarkRead: true,
+              deliveryLabel: "Private message delivery lane",
+            },
+            unreadBadge: {
+              totalUnread: 2,
+              notificationUnread: 1,
+              threadUnread: 1,
+              breakdown: [{ key: "system", label: "System", count: 1 }],
+            },
+          };
+
+          return ok(response as T);
+        }
+
         const response: NotificationListResponse = {
           notificationList: {
             items: [
@@ -116,4 +158,5 @@ test("messages feature manifest creates a reusable inbox controller from host pa
   assert.equal(controller.store.getState().items.length, 1);
   assert.equal(controller.store.getState().title, "Inbox");
   assert.equal(controller.store.getState().unreadBadge.totalUnread, 2);
+  assert.equal(controller.store.getState().messageItems.length, 1);
 });

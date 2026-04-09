@@ -90,8 +90,8 @@ Turn share into a real reusable business capability rather than a contract wrapp
 
 ## Acceptance
 
-- [ ] share flow supports business landing targets beyond a raw payload demo
-- [ ] attribution and return-flow recognition survive through a sample end-to-end path
-- [ ] invite/share source markers integrate with auth and routing recovery
-- [ ] copy-link and native share paths both fit the shared contract
-- [ ] `pnpm verify` run
+- [x] share flow supports business landing targets beyond a raw payload demo
+- [x] attribution and return-flow recognition survive through a sample end-to-end path
+- [x] invite/share source markers integrate with auth and routing recovery
+- [x] copy-link and native share paths both fit the shared contract
+- [x] `pnpm verify` run

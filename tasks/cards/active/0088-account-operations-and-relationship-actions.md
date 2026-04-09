@@ -93,8 +93,8 @@ Close the gap between modeled account/user state and actual user-facing operatio
 
 ## Acceptance
 
-- [ ] account surface supports bounded real operations instead of labels only
-- [ ] relationship fields have bounded actions where the shared contract already models them
-- [ ] user status restrictions affect account operations coherently
-- [ ] shared account flows do not regress existing account summary rendering
-- [ ] `pnpm verify` run
+- [x] account surface supports bounded real operations instead of labels only
+- [x] relationship fields have bounded actions where the shared contract already models them
+- [x] user status restrictions affect account operations coherently
+- [x] shared account flows do not regress existing account summary rendering
+- [x] `pnpm verify` run

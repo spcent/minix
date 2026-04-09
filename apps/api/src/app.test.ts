@@ -158,12 +158,16 @@ test("current user, settings, and discovery endpoints expose normalized shared o
     accountSummary: { userId: string; assets: { membership?: { headline?: string } } };
     userStatus: { availability: string };
     identityWorkflows: { canUpgradeGuest: boolean; mergePending: boolean };
+    accountOperations: Array<{ kind: string; available: boolean }>;
+    relationTargets: Array<{ targetUserId: string; actions: Array<{ kind: string }> }>;
   };
   assert.equal(mePayload.userProfile.nickname, "MiniX User");
   assert.equal(mePayload.accountSummary.userId, "minix-demo-user");
   assert.equal(mePayload.userStatus.availability, "enabled");
   assert.equal(mePayload.identityWorkflows.canUpgradeGuest, false);
   assert.equal(mePayload.identityWorkflows.mergePending, false);
+  assert.equal(mePayload.accountOperations.some((item) => item.kind === "edit_profile"), true);
+  assert.equal(mePayload.relationTargets[0]?.targetUserId, "creator_sample");
 
   const settingsResponse = await app.request("http://localhost/settings", {
     headers: { authorization: `Bearer ${session.accessToken}` },
@@ -232,11 +236,212 @@ test("current user, settings, and discovery endpoints expose normalized shared o
   });
   assert.equal(threadResponse.status, 200);
   const threadPayload = (await threadResponse.json()) as {
-    messageThread: { threadId: string; type: string; reserved: boolean };
+    messageThread: { threadId: string; type: string; reserved: boolean; unreadCount: number };
+    messageItems: Array<{ messageId: string; direction: string; body: string }>;
+    detailActions: { canReply: boolean; canMarkRead: boolean };
   };
   assert.equal(threadPayload.messageThread.threadId, "thread_private_tutor");
   assert.equal(threadPayload.messageThread.type, "private");
   assert.equal(threadPayload.messageThread.reserved, true);
+  assert.equal(threadPayload.messageItems.length >= 1, true);
+  assert.equal(threadPayload.detailActions.canReply, true);
+  assert.equal(threadPayload.detailActions.canMarkRead, true);
+});
+
+test("account operation endpoints update normalized account and relation state", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "wechat");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+
+  const profileResponse = await app.request("http://localhost/account/profile", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      nickname: "Account Casey",
+      region: "Hangzhou, CN",
+      bio: "Updated through the account endpoint.",
+    }),
+  });
+  assert.equal(profileResponse.status, 200);
+  const profilePayload = (await profileResponse.json()) as {
+    userProfile: { nickname?: string; region?: string };
+    transitionMessage: string;
+  };
+  assert.equal(profilePayload.userProfile.nickname, "Account Casey");
+  assert.equal(profilePayload.userProfile.region, "Hangzhou, CN");
+  assert.equal(profilePayload.transitionMessage, "Profile updated.");
+
+  const phoneResponse = await app.request("http://localhost/account/change-phone", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      phoneNumber: "13800000022",
+      verificationCode: "123456",
+    }),
+  });
+  assert.equal(phoneResponse.status, 200);
+  const phonePayload = (await phoneResponse.json()) as {
+    accountSummary: { phoneBound: boolean; phoneNumberMasked?: string };
+    transitionMessage: string;
+  };
+  assert.equal(phonePayload.accountSummary.phoneBound, true);
+  assert.equal(phonePayload.accountSummary.phoneNumberMasked, "138****0022");
+  assert.equal(phonePayload.transitionMessage, "Phone binding updated.");
+
+  const relationResponse = await app.request("http://localhost/account/relations", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      targetUserId: "creator_sample",
+      action: "set_remark",
+      remarkName: "Trusted mentor",
+    }),
+  });
+  assert.equal(relationResponse.status, 200);
+  const relationPayload = (await relationResponse.json()) as {
+    relationTargets: Array<{ targetUserId: string; remarkName?: string }>;
+    transitionMessage: string;
+  };
+  assert.equal(relationPayload.relationTargets[0]?.targetUserId, "creator_sample");
+  assert.equal(relationPayload.relationTargets[0]?.remarkName, "Trusted mentor");
+  assert.equal(relationPayload.transitionMessage, "Remark name updated.");
+
+  const cancellationResponse = await app.request("http://localhost/account/cancellation", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      confirm: true,
+    }),
+  });
+  assert.equal(cancellationResponse.status, 200);
+  const cancellationPayload = (await cancellationResponse.json()) as {
+    userStatus: { availability: string; cancellationInProgress: boolean };
+    accountOperations: Array<{ kind: string; available: boolean }>;
+    transitionMessage: string;
+  };
+  assert.equal(cancellationPayload.userStatus.availability, "cancellation_pending");
+  assert.equal(cancellationPayload.userStatus.cancellationInProgress, true);
+  assert.equal(
+    cancellationPayload.accountOperations.find((item) => item.kind === "request_cancellation")?.available,
+    false,
+  );
+  assert.equal(cancellationPayload.transitionMessage, "Cancellation request submitted.");
+
+  const settingsResponse = await app.request("http://localhost/settings", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(settingsResponse.status, 200);
+  const settingsPayload = (await settingsResponse.json()) as {
+    preferences: { account: { phoneEntryLabel: string; cancellationEntryLabel: string } };
+  };
+  assert.equal(settingsPayload.preferences.account.phoneEntryLabel, "Change phone");
+  assert.equal(settingsPayload.preferences.account.cancellationEntryLabel, "Cancellation requested");
+});
+
+test("content lifecycle endpoints update generic managed content state", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "wechat");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+
+  const detailResponse = await app.request("http://localhost/content/detail?contentId=lesson_2", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(detailResponse.status, 200);
+  const detailPayload = (await detailResponse.json()) as {
+    contentDetail: { lifecycle: { state: string } };
+    contentAccess: { visibility: string };
+  };
+  assert.equal(detailPayload.contentDetail.lifecycle.state, "draft");
+  assert.equal(detailPayload.contentAccess.visibility, "login_required");
+
+  const publishResponse = await app.request("http://localhost/content/lifecycle", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      contentId: "lesson_2",
+      action: "publish",
+    }),
+  });
+  assert.equal(publishResponse.status, 200);
+  const publishPayload = (await publishResponse.json()) as {
+    contentCard: { lifecycle: { state: string } };
+    transitionMessage: string;
+  };
+  assert.equal(publishPayload.contentCard.lifecycle.state, "published");
+  assert.equal(publishPayload.transitionMessage, "Content published.");
+
+  const visibilityResponse = await app.request("http://localhost/content/lifecycle", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      contentId: "lesson_2",
+      action: "change_visibility",
+      visibility: "member_only",
+    }),
+  });
+  assert.equal(visibilityResponse.status, 200);
+  const visibilityPayload = (await visibilityResponse.json()) as {
+    contentAccess: { visibility: string; requiresMembership: boolean };
+    transitionMessage: string;
+  };
+  assert.equal(visibilityPayload.contentAccess.visibility, "member_only");
+  assert.equal(visibilityPayload.contentAccess.requiresMembership, true);
+  assert.equal(visibilityPayload.transitionMessage, "Content visibility updated.");
+
+  const feedResponse = await app.request("http://localhost/feed", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(feedResponse.status, 200);
+  const feedPayload = (await feedResponse.json()) as {
+    items: Array<{ id: string; contentCard?: { lifecycle: { state: string } }; contentAccess?: { visibility: string } }>;
+  };
+  assert.equal(feedPayload.items.find((item) => item.id === "lesson_2")?.contentCard?.lifecycle.state, "published");
+  assert.equal(feedPayload.items.find((item) => item.id === "lesson_2")?.contentAccess?.visibility, "member_only");
+});
+
+test("feed endpoint composes cross-domain search results for user and content scopes", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "wechat");
+
+  const userSearchResponse = await app.request("http://localhost/feed?mode=user&domain=user&keyword=mentor", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(userSearchResponse.status, 200);
+  const userSearchPayload = (await userSearchResponse.json()) as {
+    items: Array<{ eyebrow?: string; title: string }>;
+    searchQuery: { mode: string; domain: string };
+    searchResults: { activeDomain?: string; domainTabs?: Array<{ domain: string; total: number }> };
+    searchFilters: Array<{ key: string; selectedKeys: string[] }>;
+  };
+  assert.equal(userSearchPayload.searchQuery.mode, "user");
+  assert.equal(userSearchPayload.searchQuery.domain, "user");
+  assert.equal(userSearchPayload.items[0]?.eyebrow, "User");
+  assert.equal(userSearchPayload.searchResults.activeDomain, "user");
+  assert.deepEqual(userSearchPayload.searchFilters[0]?.selectedKeys, ["user"]);
+  assert.equal(userSearchPayload.searchResults.domainTabs?.some((item) => item.domain === "user" && item.total >= 1), true);
+
+  const contentSearchResponse = await app.request("http://localhost/feed?mode=content&domain=all&keyword=review", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(contentSearchResponse.status, 200);
+  const contentSearchPayload = (await contentSearchResponse.json()) as {
+    items: Array<{ id: string; contentCard?: { lifecycle: { state: string } } }>;
+    searchQuery: { mode: string; domain: string };
+    searchResults: { resultGroups?: Array<{ domain: string; total: number }> };
+  };
+  assert.equal(contentSearchPayload.searchQuery.mode, "content");
+  assert.equal(contentSearchPayload.searchQuery.domain, "all");
+  assert.equal(Boolean(contentSearchPayload.items.some((item) => item.contentCard?.lifecycle.state)), true);
+  assert.equal(
+    contentSearchPayload.searchResults.resultGroups?.some((group) => group.domain === "content" && group.total >= 1),
+    true,
+  );
 });
 
 test("feedback bootstrap, submit, and ticket detail endpoints expose the shared ticket model", async () => {
@@ -319,6 +524,193 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
   assert.equal(refreshedBootstrapPayload.latestCategory?.key, "product_issue");
 });
 
+test("upload endpoints back the shared media pipeline with retry and cancel flows", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "h5");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+
+  const createResponse = await app.request("http://localhost/uploads", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      scenario: "content",
+      selection: {
+        uploadTask: {
+          taskId: "upload_selection_1",
+          scenario: "content",
+          fileType: "image",
+          stage: "completed",
+          fileName: "feedback-screenshot.png",
+          progress: {
+            completedBytes: 245760,
+            totalBytes: 245760,
+            percentage: 100,
+          },
+          chunkingReserved: true,
+          governance: {
+            maxSizeBytes: 10_000_000,
+            acceptedFileTypes: ["image"],
+            sensitiveReviewRequired: true,
+            expiresInDays: 30,
+          },
+          reviewStatus: "not_required",
+          lifecycle: {
+            backendBacked: false,
+            retentionStatus: "active",
+            retryCount: 0,
+            canRetry: true,
+            canCancel: false,
+          },
+        },
+        uploadAsset: {
+          assetId: "asset_selection_1",
+          fileType: "image",
+          fileName: "feedback-screenshot.png",
+          url: "https://example.test/local/feedback-screenshot.png",
+          metadata: {
+            sizeBytes: 245760,
+            width: 1440,
+            height: 900,
+          },
+        },
+      },
+    }),
+  });
+  assert.equal(createResponse.status, 200);
+  const created = (await createResponse.json()) as {
+    source: string;
+    uploadTask: { taskId: string; stage: string; lifecycle: { backendBacked: boolean; canCancel: boolean } };
+    uploadAsset?: { assetId: string; url: string };
+  };
+  assert.equal(created.source, "adapter_selection");
+  assert.equal(created.uploadTask.stage, "reviewing");
+  assert.equal(created.uploadTask.lifecycle.backendBacked, true);
+  assert.equal(created.uploadTask.lifecycle.canCancel, true);
+  assert.equal(Boolean(created.uploadAsset?.assetId), true);
+
+  const cancelResponse = await app.request("http://localhost/uploads/cancel", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      taskId: created.uploadTask.taskId,
+      reason: "user_cancelled",
+    }),
+  });
+  assert.equal(cancelResponse.status, 200);
+  const cancelled = (await cancelResponse.json()) as {
+    source: string;
+    uploadTask: { stage: string; lifecycle: { canRetry: boolean; retentionStatus: string } };
+    uploadError?: { code: string };
+  };
+  assert.equal(cancelled.source, "backend_cancel");
+  assert.equal(cancelled.uploadTask.stage, "canceled");
+  assert.equal(cancelled.uploadTask.lifecycle.canRetry, true);
+  assert.equal(cancelled.uploadTask.lifecycle.retentionStatus, "scheduled_cleanup");
+  assert.equal(cancelled.uploadError?.code, "UPLOAD_CANCELLED");
+
+  const retryResponse = await app.request("http://localhost/uploads/retry", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      taskId: created.uploadTask.taskId,
+    }),
+  });
+  assert.equal(retryResponse.status, 200);
+  const retried = (await retryResponse.json()) as {
+    source: string;
+    uploadTask: { stage: string; lifecycle: { retryCount: number; canCancel: boolean } };
+  };
+  assert.equal(retried.source, "backend_retry");
+  assert.equal(retried.uploadTask.stage, "reviewing");
+  assert.equal(retried.uploadTask.lifecycle.retryCount, 1);
+  assert.equal(retried.uploadTask.lifecycle.canCancel, true);
+});
+
+test("share endpoints preserve attribution through prepare and return recognition", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "h5");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+
+  const prepareResponse = await app.request("http://localhost/share/prepare", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      sharePayload: {
+        scenario: "invite",
+        title: "Invite a friend to MiniX",
+        landingPath: "/login",
+        trackingParams: {
+          channel: "host-h5",
+          campaign: "invite",
+        },
+        channelMarker: "host-h5-demo",
+        inviteCode: "MINIX42",
+      },
+      shareChannel: {
+        kind: "copy_link",
+        label: "Copy Link",
+        executable: true,
+      },
+      shareAttribution: {
+        inviteBindingEnabled: true,
+        returnFlowRecognized: false,
+        shareCount: 0,
+        clickCount: 0,
+        conversionCount: 0,
+      },
+      redirectTarget: {
+        path: "/workspace/media-tools",
+        source: "media-tools",
+        reason: "auth-required",
+      },
+    }),
+  });
+  assert.equal(prepareResponse.status, 200);
+  const prepared = (await prepareResponse.json()) as {
+    landingTarget: { path?: string; shortLink?: string; authRedirect?: { path?: string; source?: string } };
+    sharePayload: { shareToken?: string; shortLink?: string };
+    shareAttribution: { attributionId?: string; preparedAt?: string };
+  };
+  assert.equal(prepared.landingTarget.path, "/login");
+  assert.equal(Boolean(prepared.landingTarget.shortLink), true);
+  assert.equal(prepared.landingTarget.authRedirect?.path, "/workspace/media-tools");
+  assert.equal(Boolean(prepared.sharePayload.shareToken), true);
+  assert.equal(Boolean(prepared.shareAttribution.attributionId), true);
+  assert.equal(Boolean(prepared.shareAttribution.preparedAt), true);
+
+  const returnResponse = await app.request("http://localhost/share/return", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      attributionId: prepared.shareAttribution.attributionId,
+      outcome: "conversion",
+      recognizedPath: "/login",
+      recognizedUserId: session.userId,
+    }),
+  });
+  assert.equal(returnResponse.status, 200);
+  const recognized = (await returnResponse.json()) as {
+    shareAttribution: {
+      returnFlowRecognized: boolean;
+      clickCount: number;
+      conversionCount: number;
+      inviteBoundUserId?: string;
+      lastLandingPath?: string;
+    };
+  };
+  assert.equal(recognized.shareAttribution.returnFlowRecognized, true);
+  assert.equal(recognized.shareAttribution.clickCount, 1);
+  assert.equal(recognized.shareAttribution.conversionCount, 1);
+  assert.equal(recognized.shareAttribution.inviteBoundUserId, session.userId);
+  assert.equal(recognized.shareAttribution.lastLandingPath, "/login");
+});
+
 test("sample asset routes serve generated svg media", async () => {
   const app = createApiApp({ store: createMemoryApiStore() });
 
@@ -381,6 +773,157 @@ test("membership purchase reuses the same paid order for a repeated idempotency 
   assert.match(second.paymentResult.message, /Idempotency key matched/);
 });
 
+test("pending membership orders can be cancelled before payment completion", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "h5");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+
+  const purchaseResponse = await app.request("http://localhost/membership/purchase", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      planId: "monthly",
+      paymentScenario: "pending",
+      source: "reader",
+    }),
+  });
+  assert.equal(purchaseResponse.status, 200);
+  const purchase = (await purchaseResponse.json()) as {
+    order: { orderId: string; status: string };
+    paymentResult: { status: string; paid: boolean };
+  };
+  assert.equal(purchase.order.status, "pending_payment");
+  assert.equal(purchase.paymentResult.status, "pending");
+  assert.equal(purchase.paymentResult.paid, false);
+
+  const cancelResponse = await app.request("http://localhost/orders/cancel", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      orderId: purchase.order.orderId,
+      reason: "user_cancelled",
+    }),
+  });
+  assert.equal(cancelResponse.status, 200);
+  const cancelled = (await cancelResponse.json()) as {
+    order: { status: string };
+    paymentResult: { status: string; paid: boolean };
+    reconciliation: { status: string };
+    operationResult: { operation: string; applied: boolean };
+  };
+  assert.equal(cancelled.order.status, "cancelled");
+  assert.equal(cancelled.paymentResult.status, "cancelled");
+  assert.equal(cancelled.paymentResult.paid, false);
+  assert.equal(cancelled.reconciliation.status, "reconciled");
+  assert.equal(cancelled.operationResult.operation, "cancel");
+  assert.equal(cancelled.operationResult.applied, true);
+});
+
+test("pending membership orders can be confirmed by callback and reconciled", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "h5");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+
+  const purchaseResponse = await app.request("http://localhost/membership/purchase", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      planId: "quarterly",
+      paymentScenario: "pending",
+      source: "reader",
+    }),
+  });
+  const purchase = (await purchaseResponse.json()) as {
+    order: { orderId: string; status: string };
+  };
+
+  const callbackResponse = await app.request("http://localhost/payments/callback", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      orderId: purchase.order.orderId,
+      outcome: "success",
+      verified: true,
+      callbackReference: "cb_sample_success",
+    }),
+  });
+  assert.equal(callbackResponse.status, 200);
+  const confirmed = (await callbackResponse.json()) as {
+    order: { status: string };
+    paymentResult: { status: string; paid: boolean; callbackVerified: boolean };
+    callbackVerification: { status: string; callbackReference?: string };
+  };
+  assert.equal(confirmed.order.status, "paid");
+  assert.equal(confirmed.paymentResult.status, "success");
+  assert.equal(confirmed.paymentResult.paid, true);
+  assert.equal(confirmed.paymentResult.callbackVerified, true);
+  assert.equal(confirmed.callbackVerification.status, "verified");
+  assert.equal(confirmed.callbackVerification.callbackReference, "cb_sample_success");
+
+  const reconcileResponse = await app.request("http://localhost/payments/reconcile", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      orderId: purchase.order.orderId,
+    }),
+  });
+  assert.equal(reconcileResponse.status, 200);
+  const reconciled = (await reconcileResponse.json()) as {
+    reconciliation: { status: string };
+    operationResult: { operation: string; applied: boolean };
+  };
+  assert.equal(reconciled.reconciliation.status, "reconciled");
+  assert.equal(reconciled.operationResult.operation, "reconcile");
+  assert.equal(reconciled.operationResult.applied, true);
+});
+
+test("paid membership orders can enter the refund flow", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "h5");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+
+  const purchaseResponse = await app.request("http://localhost/membership/purchase", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      planId: "annual",
+      source: "reader",
+    }),
+  });
+  const purchase = (await purchaseResponse.json()) as {
+    order: { orderId: string };
+  };
+
+  const refundResponse = await app.request("http://localhost/orders/refund", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      orderId: purchase.order.orderId,
+      reason: "duplicate_charge",
+    }),
+  });
+  assert.equal(refundResponse.status, 200);
+  const refunded = (await refundResponse.json()) as {
+    order: { status: string };
+    paymentResult: { status: string; paid: boolean };
+    entitlement?: { active: boolean; statusLabel: string };
+  };
+  assert.equal(refunded.order.status, "refunded");
+  assert.equal(refunded.paymentResult.status, "refunded");
+  assert.equal(refunded.paymentResult.paid, false);
+  assert.equal(refunded.entitlement?.active, false);
+  assert.equal(refunded.entitlement?.statusLabel, "Refunded");
+});
+
 test("notification batch read persists unread state transitions", async () => {
   const app = createApiApp({ store: createMemoryApiStore() });
   const session = await login(app, "wechat");
@@ -418,6 +961,62 @@ test("notification batch read persists unread state transitions", async () => {
     notificationList: { items: Array<{ id: string }> };
   };
   assert.equal(unreadOnlyPayload.notificationList.items.some((item) => item.id === "notice_system_security"), false);
+});
+
+test("message thread endpoints support read transitions and outbound replies", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "h5");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+
+  const beforeResponse = await app.request("http://localhost/messages/thread?threadId=thread_consultation_case", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(beforeResponse.status, 200);
+  const before = (await beforeResponse.json()) as {
+    messageThread: { unreadCount: number };
+    messageItems: Array<{ body: string }>;
+  };
+  assert.equal(before.messageThread.unreadCount >= 1, true);
+  assert.equal(before.messageItems.length >= 1, true);
+
+  const readResponse = await app.request("http://localhost/messages/thread/read", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      threadId: "thread_consultation_case",
+    }),
+  });
+  assert.equal(readResponse.status, 200);
+  const markedRead = (await readResponse.json()) as {
+    messageThread: { unreadCount: number };
+    detailActions: { canMarkRead: boolean };
+    unreadBadge: { threadUnread: number };
+  };
+  assert.equal(markedRead.messageThread.unreadCount, 0);
+  assert.equal(markedRead.detailActions.canMarkRead, false);
+  assert.equal(markedRead.unreadBadge.threadUnread >= 0, true);
+
+  const sendResponse = await app.request("http://localhost/messages/thread/send", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      threadId: "thread_consultation_case",
+      body: "Please escalate this consultation case.",
+    }),
+  });
+  assert.equal(sendResponse.status, 200);
+  const sent = (await sendResponse.json()) as {
+    messageThread: { lastMessagePreview?: string };
+    messageItem: { direction: string; senderRole: string; body: string; deliveryStatus: string };
+  };
+  assert.equal(sent.messageItem.direction, "outbound");
+  assert.equal(sent.messageItem.senderRole, "self");
+  assert.equal(sent.messageItem.body, "Please escalate this consultation case.");
+  assert.equal(sent.messageItem.deliveryStatus, "sent");
+  assert.equal(sent.messageThread.lastMessagePreview, "Please escalate this consultation case.");
 });
 
 test("refresh rotation invalidates the previous refresh token", async () => {

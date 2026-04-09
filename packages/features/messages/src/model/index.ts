@@ -1,4 +1,6 @@
 import type {
+  MessageBodyItem,
+  MessageThreadActions,
   MessageThread,
   NotificationFilterGroup,
   NotificationGroupSummary,
@@ -14,6 +16,10 @@ export type MessagesState = Omit<ListPageState<NotificationItem>, "filters"> & {
   unreadBadge: UnreadBadge;
   reservedThreads: MessageThread[];
   selectedThreadId: string | undefined;
+  messageThread: MessageThread | undefined;
+  messageItems: MessageBodyItem[];
+  detailActions: MessageThreadActions | undefined;
+  composerText: string;
   activeType: NotificationType | "all";
   activeGroupKey: string;
   onlyUnread: boolean;
@@ -51,6 +57,10 @@ export function createDefaultMessagesState(
     unreadBadge: createEmptyUnreadBadge(),
     reservedThreads: [],
     selectedThreadId: undefined,
+    messageThread: undefined,
+    messageItems: [],
+    detailActions: undefined,
+    composerText: "",
     activeType: "all",
     activeGroupKey: "all",
     onlyUnread: false,

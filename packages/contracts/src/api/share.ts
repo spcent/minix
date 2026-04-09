@@ -1,3 +1,5 @@
+import type { AuthRedirectTarget } from "./auth";
+
 export const SHARE_SCENARIOS = ["page", "content", "invite", "poster"] as const;
 export type ShareScenario = (typeof SHARE_SCENARIOS)[number];
 
@@ -9,6 +11,19 @@ export const SHARE_CHANNEL_KINDS = [
   "short_link",
 ] as const;
 export type ShareChannelKind = (typeof SHARE_CHANNEL_KINDS)[number];
+
+export const SHARE_RETURN_OUTCOMES = ["click", "return", "conversion"] as const;
+export type ShareReturnOutcome = (typeof SHARE_RETURN_OUTCOMES)[number];
+
+export interface ShareLandingTarget {
+  routeId?: string;
+  path?: string;
+  url?: string;
+  shortLink?: string;
+  params?: Record<string, string | number | boolean>;
+  channelMarker?: string;
+  authRedirect?: AuthRedirectTarget;
+}
 
 export interface SharePayload {
   scenario: ShareScenario;
@@ -23,6 +38,9 @@ export interface SharePayload {
   channelMarker?: string;
   contentId?: string;
   inviteCode?: string;
+  shareToken?: string;
+  landingTarget?: ShareLandingTarget;
+  returnTarget?: AuthRedirectTarget;
 }
 
 export interface ShareChannel {
@@ -33,15 +51,21 @@ export interface ShareChannel {
 }
 
 export interface ShareAttribution {
+  attributionId?: string;
   channelMarker?: string;
   inviteBindingEnabled: boolean;
   returnFlowRecognized: boolean;
   shareCount: number;
   clickCount: number;
   conversionCount: number;
+  preparedAt?: string;
   lastSharedAt?: string;
   lastClickAt?: string;
   lastConversionAt?: string;
+  lastReturnAt?: string;
+  lastLandingPath?: string;
+  inviteBoundUserId?: string;
+  returnTarget?: AuthRedirectTarget;
 }
 
 export interface ShareDispatchRequest {
@@ -54,4 +78,23 @@ export interface ShareDispatchResult {
   sharePayload: SharePayload;
   shareChannel: ShareChannel;
   shareAttribution: ShareAttribution;
+}
+
+export interface SharePrepareRequest extends ShareDispatchRequest {
+  redirectTarget?: AuthRedirectTarget;
+}
+
+export interface SharePrepareResponse extends ShareDispatchResult {
+  landingTarget: ShareLandingTarget;
+}
+
+export interface ShareReturnRecognitionRequest {
+  attributionId: string;
+  outcome: ShareReturnOutcome;
+  recognizedPath?: string;
+  recognizedUserId?: string;
+}
+
+export interface ShareReturnRecognitionResponse extends ShareDispatchResult {
+  landingTarget?: ShareLandingTarget;
 }

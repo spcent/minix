@@ -1,5 +1,6 @@
 import { NOTIFICATION_TYPES } from "@minix/contracts";
 import type {
+  AccountOperation,
   BookshelfItem,
   BookshelfResponse,
   ChapterContent,
@@ -8,7 +9,11 @@ import type {
   ContentAccess,
   ContentCard,
   ContentDetail,
+  ContentDetailResponse,
   ContentDisplay,
+  ContentLifecycleAction,
+  ContentLifecycleMutationRequest,
+  ContentLifecycleMutationResponse,
   ContentLifecycle,
   CurrentUserResponse,
   FeedbackBootstrapResponse,
@@ -24,6 +29,9 @@ import type {
   FeedTag,
   ItemsListResponse,
   MarkNotificationsReadResponse,
+  MarkThreadReadRequest,
+  MessageBodyItem,
+  MessageThreadActions,
   MessageThread,
   MessageThreadResponse,
   MessageTouchpoint,
@@ -40,8 +48,11 @@ import type {
   NotificationType,
   Order,
   OrderDetailResponse,
+  PaymentCallbackVerification,
   PaymentChannel,
   PaymentIntent,
+  PaymentOperationResult,
+  PaymentReconciliation,
   PaymentResult,
   PurchaseMembershipRequest,
   PurchaseMembershipResponse,
@@ -50,10 +61,29 @@ import type {
   SearchFilterGroup,
   SearchResults,
   SearchSortOption,
+  SharePrepareRequest,
+  SharePrepareResponse,
+  ShareReturnRecognitionRequest,
+  ShareReturnRecognitionResponse,
+  SendMessageRequest,
+  SendMessageResponse,
   SettingsResponse,
   SubmitFeedbackRequest,
   SubmitFeedbackResponse,
+  UserAvailabilityStatus,
+  UserRelationAction,
+  UserRelationTarget,
   UnreadBadge,
+  UploadAsset,
+  UploadCancelRequest,
+  UploadError,
+  UploadPipelineRequest,
+  UploadPipelineResponse,
+  UploadProgress,
+  UploadRetryRequest,
+  UploadReviewStatus,
+  UploadScenario,
+  UploadTask,
 } from "@minix/contracts";
 
 import {
@@ -84,14 +114,599 @@ function resolveMaskedPhoneNumber(phoneNumber: string | undefined): string | und
   return `${normalized.slice(0, 3)}****${normalized.slice(-4)}`;
 }
 
+function createDefaultManagedContentEntries(): NonNullable<UserState["managedContentById"]> {
+  return {
+    lesson_1: {
+      model: "article",
+      visibility: "public",
+      lifecycle: {
+        state: "published",
+        availableActions: ["update", "archive", "delete", "change_visibility"],
+        publishedAt: "2026-04-01T08:00:00.000Z",
+        updatedAt: "2026-04-01T08:00:00.000Z",
+      },
+      authorLabel: "MiniX Editorial",
+      summary: HOST_ITEMS[0]?.subtitle ?? "Warm-up content block.",
+      categoryKey: "warm-up",
+      categoryLabel: "Warm-up",
+      tags: [{ key: "article", label: "Article" }],
+    },
+    lesson_2: {
+      model: "course",
+      visibility: "login_required",
+      lifecycle: {
+        state: "draft",
+        availableActions: ["publish", "submit_review", "delete", "change_visibility"],
+        updatedAt: "2026-04-02T08:00:00.000Z",
+      },
+      authorLabel: "MiniX Curriculum",
+      summary: HOST_ITEMS[1]?.subtitle ?? "Dialogue content block.",
+      categoryKey: "input",
+      categoryLabel: "Input",
+      tags: [{ key: "course", label: "Course" }],
+    },
+    lesson_3: {
+      model: "post",
+      visibility: "member_only",
+      lifecycle: {
+        state: "under_review",
+        availableActions: ["approve_review", "reject_review", "change_visibility"],
+        updatedAt: "2026-04-03T08:00:00.000Z",
+        reviewMessage: "Waiting for review approval before publishing.",
+      },
+      authorLabel: "MiniX Review Queue",
+      summary: HOST_ITEMS[2]?.subtitle ?? "Practice content block.",
+      categoryKey: "practice",
+      categoryLabel: "Practice",
+      tags: [{ key: "review", label: "Review" }],
+    },
+    lesson_4: {
+      model: "consultation_service",
+      visibility: "purchased_only",
+      lifecycle: {
+        state: "review_rejected",
+        availableActions: ["update", "submit_review", "delete", "change_visibility"],
+        updatedAt: "2026-04-04T08:00:00.000Z",
+        reviewMessage: "Needs a clearer service scope before approval.",
+      },
+      authorLabel: "MiniX Coaching",
+      summary: HOST_ITEMS[3]?.subtitle ?? "Speaking content block.",
+      categoryKey: "speaking",
+      categoryLabel: "Speaking",
+      tags: [{ key: "service", label: "Service" }],
+    },
+    lesson_5: {
+      model: "tool_config",
+      visibility: "public",
+      lifecycle: {
+        state: "offline",
+        availableActions: ["restore", "delete", "change_visibility"],
+        updatedAt: "2026-04-05T08:00:00.000Z",
+        offlineAt: "2026-04-05T08:00:00.000Z",
+      },
+      authorLabel: "MiniX Operations",
+      summary: HOST_ITEMS[4]?.subtitle ?? "Review content block.",
+      categoryKey: "wrap-up",
+      categoryLabel: "Wrap-up",
+      tags: [{ key: "tool", label: "Tool" }],
+    },
+  };
+}
+
 export function createDefaultUserState(): UserState {
   return {
     bookshelfNovelIds: new Set(DEFAULT_BOOKSHELF_NOVEL_IDS),
     progressByNovelId: structuredClone(DEFAULT_PROGRESS_BY_NOVEL_ID),
     notificationReadAtById: {},
+    threadReadAtById: {},
+    threadMessagesByThreadId: {},
     feedbackDetailsById: {},
     ordersById: {},
     orderIdByIdempotencyKey: {},
+    sharePreparesById: {},
+    uploadsByTaskId: {},
+    profileOverrides: {
+      region: "Shanghai, CN",
+      bio: "Sample user profile for shared account-domain integration.",
+    },
+    relationTarget: {
+      targetUserId: "creator_sample",
+      displayName: "MiniX Mentor",
+      following: true,
+      followedBy: true,
+      friend: true,
+      blocked: false,
+      remarkName: "MiniX User",
+    },
+    managedContentById: createDefaultManagedContentEntries(),
+  };
+}
+
+function resolveUserAvailability(session: SessionRecord, userState: UserState): UserAvailabilityStatus {
+  if (session.authStatus === "guest") {
+    return "guest";
+  }
+
+  return userState.availabilityStatus ?? "enabled";
+}
+
+function createAccountOperations(
+  session: SessionRecord,
+  userState: UserState,
+  availability: UserAvailabilityStatus,
+): AccountOperation[] {
+  const restrictedReason =
+    availability === "frozen"
+      ? "This account is frozen and cannot change account settings right now."
+      : availability === "blacklisted"
+        ? "This account is blacklisted and account operations are locked."
+        : availability === "cancellation_pending"
+          ? "Cancellation is already pending for this account."
+          : undefined;
+
+  return [
+    {
+      kind: "edit_profile",
+      label: "Edit profile",
+      available: availability === "enabled",
+      statusLabel:
+        availability === "enabled"
+          ? "You can update nickname, region, and bio."
+          : restrictedReason ?? "Unavailable",
+      ...(availability === "enabled" ? {} : { blockedReason: restrictedReason ?? "Unavailable" }),
+    },
+    {
+      kind: "change_phone",
+      label: session.identity.phoneBound || Boolean(userState.boundPhoneNumber) ? "Change phone" : "Bind phone",
+      available: availability === "enabled",
+      statusLabel:
+        availability === "enabled"
+          ? (session.identity.phoneBound || Boolean(userState.boundPhoneNumber))
+            ? "A verified phone can be replaced."
+            : "No verified phone is currently bound."
+          : restrictedReason ?? "Unavailable",
+      ...(availability === "enabled" ? {} : { blockedReason: restrictedReason ?? "Unavailable" }),
+    },
+    {
+      kind: "unbind_wechat",
+      label: "Unbind WeChat",
+      available: availability === "enabled" && Boolean(userState.wechatBoundOverride ?? session.identity.wechatBound),
+      statusLabel: Boolean(userState.wechatBoundOverride ?? session.identity.wechatBound)
+        ? availability === "enabled"
+          ? "WeChat binding can be removed from the current account."
+          : restrictedReason ?? "Unavailable"
+        : "No WeChat binding is active.",
+      ...(availability === "enabled" && Boolean(userState.wechatBoundOverride ?? session.identity.wechatBound)
+        ? {}
+        : {
+            blockedReason:
+              restrictedReason ??
+              (Boolean(userState.wechatBoundOverride ?? session.identity.wechatBound)
+                ? "Unavailable"
+                : "No WeChat binding is active."),
+          }),
+    },
+    {
+      kind: "request_cancellation",
+      label: "Request cancellation",
+      available: availability === "enabled",
+      statusLabel:
+        availability === "cancellation_pending"
+          ? "Cancellation has already been requested."
+          : availability === "enabled"
+            ? "Submit a cancellation request for the current account."
+            : restrictedReason ?? "Unavailable",
+      ...(availability === "enabled" ? {} : { blockedReason: restrictedReason ?? "Unavailable" }),
+    },
+  ];
+}
+
+function createPrimaryRelationTarget(
+  userState: UserState,
+  availability: UserAvailabilityStatus,
+): UserRelationTarget[] {
+  const relation = userState.relationTarget;
+  if (!relation) {
+    return [];
+  }
+
+  const actionBlockedReason =
+    availability === "enabled" ? undefined : "Relationship actions are unavailable for the current account status.";
+
+  const actions: UserRelationAction[] = [
+    {
+      kind: relation.following ? "unfollow" : "follow",
+      label: relation.following ? "Unfollow" : "Follow",
+      available: availability === "enabled" && !relation.blocked,
+      active: relation.following,
+      ...(availability === "enabled" && !relation.blocked
+        ? {}
+        : { blockedReason: actionBlockedReason ?? "Blocked users cannot be followed." }),
+    },
+    {
+      kind: relation.blocked ? "unblock" : "block",
+      label: relation.blocked ? "Unblock" : "Block",
+      available: availability === "enabled",
+      active: relation.blocked,
+      ...(availability === "enabled" || !actionBlockedReason ? {} : { blockedReason: actionBlockedReason }),
+    },
+    {
+      kind: "set_remark",
+      label: relation.remarkName ? "Update remark" : "Set remark",
+      available: availability === "enabled",
+      active: Boolean(relation.remarkName),
+      requiresInput: true,
+      ...(availability === "enabled" || !actionBlockedReason ? {} : { blockedReason: actionBlockedReason }),
+    },
+  ];
+
+  if (relation.remarkName) {
+    actions.push({
+      kind: "clear_remark",
+      label: "Clear remark",
+      available: availability === "enabled",
+      active: true,
+      ...(availability === "enabled" || !actionBlockedReason ? {} : { blockedReason: actionBlockedReason }),
+    });
+  }
+
+  return [
+    {
+      targetUserId: relation.targetUserId,
+      displayName: relation.displayName,
+      relationshipSummary: relation.blocked
+        ? "Blocked contact"
+        : relation.friend
+          ? "Mutual connection"
+          : relation.following
+            ? "Following"
+            : "Not following",
+      following: relation.following,
+      followedBy: relation.followedBy,
+      friend: relation.friend,
+      blocked: relation.blocked,
+      ...(relation.remarkName ? { remarkName: relation.remarkName } : {}),
+      actions,
+    },
+  ];
+}
+
+export function createSharePrepareResponse(
+  request: SharePrepareRequest,
+  requestUrl: string,
+  now = new Date().toISOString(),
+): SharePrepareResponse {
+  const attributionId = request.shareAttribution.attributionId ?? `share_${crypto.randomUUID()}`;
+  const channelMarker =
+    request.shareChannel.channelMarker ??
+    request.sharePayload.channelMarker ??
+    request.shareAttribution.channelMarker ??
+    "minix-share";
+  const landingPath = request.sharePayload.landingPath ?? "/login";
+  const landingUrl = request.sharePayload.landingUrl ?? new URL(landingPath, requestUrl).toString();
+  const shortLink = request.sharePayload.shortLink ?? `https://mini.x/s/${attributionId.slice(-8)}`;
+
+  const landingTarget = {
+    ...(request.sharePayload.landingTarget?.routeId ? { routeId: request.sharePayload.landingTarget.routeId } : {}),
+    path: landingPath,
+    url: landingUrl,
+    shortLink,
+    ...(request.sharePayload.landingTarget?.params ? { params: request.sharePayload.landingTarget.params } : {}),
+    channelMarker,
+    ...(request.redirectTarget ? { authRedirect: request.redirectTarget } : {}),
+  };
+
+  return {
+    sharePayload: {
+      ...request.sharePayload,
+      landingPath,
+      landingUrl,
+      shortLink,
+      channelMarker,
+      shareToken: attributionId,
+      landingTarget,
+      ...(request.redirectTarget ? { returnTarget: request.redirectTarget } : {}),
+    },
+    shareChannel: {
+      ...request.shareChannel,
+      channelMarker,
+    },
+    shareAttribution: {
+      ...request.shareAttribution,
+      attributionId,
+      channelMarker,
+      returnFlowRecognized: false,
+      shareCount: request.shareAttribution.shareCount + 1,
+      preparedAt: now,
+      lastSharedAt: now,
+      ...(request.redirectTarget ? { returnTarget: request.redirectTarget } : {}),
+    },
+    landingTarget,
+  };
+}
+
+export function recognizeShareReturn(
+  existing: SharePrepareResponse,
+  request: ShareReturnRecognitionRequest,
+  now = new Date().toISOString(),
+): ShareReturnRecognitionResponse {
+  const next = structuredClone(existing);
+  next.shareAttribution.returnFlowRecognized = request.outcome === "return" || request.outcome === "conversion";
+  next.shareAttribution.clickCount += 1;
+  next.shareAttribution.lastClickAt = now;
+  next.shareAttribution.lastReturnAt = now;
+  const lastLandingPath = request.recognizedPath ?? next.landingTarget.path;
+  if (lastLandingPath) {
+    next.shareAttribution.lastLandingPath = lastLandingPath;
+  }
+
+  if (request.outcome === "conversion") {
+    next.shareAttribution.conversionCount += 1;
+    next.shareAttribution.lastConversionAt = now;
+    if (request.recognizedUserId) {
+      next.shareAttribution.inviteBoundUserId = request.recognizedUserId;
+    }
+  }
+
+  return {
+    sharePayload: next.sharePayload,
+    shareChannel: next.shareChannel,
+    shareAttribution: next.shareAttribution,
+    landingTarget: next.landingTarget,
+  };
+}
+
+function cloneUploadProgress(progress: UploadProgress): UploadProgress {
+  return {
+    completedBytes: progress.completedBytes,
+    totalBytes: progress.totalBytes,
+    percentage: progress.percentage,
+  };
+}
+
+function cloneUploadAsset(asset: UploadAsset): UploadAsset {
+  return {
+    assetId: asset.assetId,
+    fileType: asset.fileType,
+    fileName: asset.fileName,
+    url: asset.url,
+    ...(asset.thumbnailUrl ? { thumbnailUrl: asset.thumbnailUrl } : {}),
+    ...(asset.coverImageUrl ? { coverImageUrl: asset.coverImageUrl } : {}),
+    metadata: {
+      sizeBytes: asset.metadata.sizeBytes,
+      ...(asset.metadata.mimeType ? { mimeType: asset.metadata.mimeType } : {}),
+      ...(asset.metadata.width !== undefined ? { width: asset.metadata.width } : {}),
+      ...(asset.metadata.height !== undefined ? { height: asset.metadata.height } : {}),
+      ...(asset.metadata.durationSeconds !== undefined
+        ? { durationSeconds: asset.metadata.durationSeconds }
+        : {}),
+      ...(asset.metadata.pageCount !== undefined ? { pageCount: asset.metadata.pageCount } : {}),
+    },
+  };
+}
+
+function cloneUploadTask(task: UploadTask): UploadTask {
+  return {
+    taskId: task.taskId,
+    scenario: task.scenario,
+    fileType: task.fileType,
+    stage: task.stage,
+    ...(task.fileName ? { fileName: task.fileName } : {}),
+    progress: cloneUploadProgress(task.progress),
+    chunkingReserved: task.chunkingReserved,
+    governance: {
+      maxSizeBytes: task.governance.maxSizeBytes,
+      acceptedFileTypes: [...task.governance.acceptedFileTypes],
+      sensitiveReviewRequired: task.governance.sensitiveReviewRequired,
+      ...(task.governance.expiresInDays !== undefined ? { expiresInDays: task.governance.expiresInDays } : {}),
+    },
+    reviewStatus: task.reviewStatus,
+    ...(task.reviewMessage ? { reviewMessage: task.reviewMessage } : {}),
+    lifecycle: {
+      backendBacked: task.lifecycle.backendBacked,
+      retentionStatus: task.lifecycle.retentionStatus,
+      retryCount: task.lifecycle.retryCount,
+      canRetry: task.lifecycle.canRetry,
+      canCancel: task.lifecycle.canCancel,
+      ...(task.lifecycle.lastTransitionAt ? { lastTransitionAt: task.lifecycle.lastTransitionAt } : {}),
+      ...(task.lifecycle.expiresAt ? { expiresAt: task.lifecycle.expiresAt } : {}),
+    },
+  };
+}
+
+function cloneUploadError(uploadError: UploadError): UploadError {
+  return {
+    code: uploadError.code,
+    message: uploadError.message,
+    recoverable: uploadError.recoverable,
+    retryable: uploadError.retryable,
+    stage: uploadError.stage,
+  };
+}
+
+function buildUploadedAssetUrl(taskId: string, requestUrl: string): string {
+  return new URL(`/uploads/assets/${taskId}`, requestUrl).toString();
+}
+
+function buildUploadedThumbnailUrl(taskId: string, requestUrl: string): string {
+  return new URL(`/uploads/assets/${taskId}/thumb`, requestUrl).toString();
+}
+
+function createUploadLifecycle(task: UploadTask, input: {
+  backendBacked: boolean;
+  retryCount?: number;
+  canRetry: boolean;
+  canCancel: boolean;
+  lastTransitionAt: string;
+  expiresAt?: string;
+}): UploadTask["lifecycle"] {
+  return {
+    backendBacked: input.backendBacked,
+    retentionStatus: task.stage === "canceled" ? "scheduled_cleanup" : "active",
+    retryCount: input.retryCount ?? task.lifecycle.retryCount,
+    canRetry: input.canRetry,
+    canCancel: input.canCancel,
+    lastTransitionAt: input.lastTransitionAt,
+    ...(input.expiresAt ? { expiresAt: input.expiresAt } : {}),
+  };
+}
+
+function createUploadErrorResult(task: UploadTask, message: string, code: string, now: string): UploadPipelineResponse {
+  const failedTask = cloneUploadTask(task);
+  failedTask.stage = "failed";
+  failedTask.reviewStatus = "rejected";
+  failedTask.reviewMessage = message;
+  failedTask.lifecycle = createUploadLifecycle(failedTask, {
+    backendBacked: true,
+    canRetry: true,
+    canCancel: false,
+    lastTransitionAt: now,
+    ...(failedTask.governance.expiresInDays !== undefined
+      ? { expiresAt: new Date(Date.parse(now) + failedTask.governance.expiresInDays * 24 * 60 * 60 * 1000).toISOString() }
+      : {}),
+  });
+
+  return {
+    source: "adapter_selection",
+    uploadTask: failedTask,
+    uploadError: {
+      code,
+      message,
+      recoverable: true,
+      retryable: true,
+      stage: "failed",
+    },
+  };
+}
+
+export function createUploadPipelineResponse(
+  request: UploadPipelineRequest,
+  requestUrl: string,
+  now = new Date().toISOString(),
+): UploadPipelineResponse {
+  const task = cloneUploadTask(request.selection.uploadTask);
+  const selectedAsset = request.selection.uploadAsset ? cloneUploadAsset(request.selection.uploadAsset) : undefined;
+  const sizeBytes = selectedAsset?.metadata.sizeBytes ?? task.progress.totalBytes ?? 0;
+  const expiresAt =
+    task.governance.expiresInDays !== undefined
+      ? new Date(Date.parse(now) + task.governance.expiresInDays * 24 * 60 * 60 * 1000).toISOString()
+      : undefined;
+
+  if (sizeBytes > task.governance.maxSizeBytes) {
+    return createUploadErrorResult(task, "The selected asset exceeds the configured upload size limit.", "UPLOAD_TOO_LARGE", now);
+  }
+
+  if (selectedAsset && !task.governance.acceptedFileTypes.includes(selectedAsset.fileType)) {
+    return createUploadErrorResult(task, "The selected asset type is not accepted for this upload flow.", "UPLOAD_TYPE_REJECTED", now);
+  }
+
+  const rejectedByPolicy = /blocked|reject|sensitive/i.test(task.fileName ?? selectedAsset?.fileName ?? "");
+  if (rejectedByPolicy) {
+    return createUploadErrorResult(task, "The sample upload policy rejected this asset during review.", "UPLOAD_REVIEW_REJECTED", now);
+  }
+
+  const reviewStatus: UploadReviewStatus = task.governance.sensitiveReviewRequired ? "pending" : "approved";
+  task.stage = reviewStatus === "pending" ? "reviewing" : "completed";
+  task.reviewStatus = reviewStatus;
+  task.reviewMessage =
+    reviewStatus === "pending"
+      ? "Sensitive review is pending in the sample upload pipeline."
+      : "The asset cleared sample validation and is ready for downstream business use.";
+  task.progress = {
+    completedBytes: sizeBytes,
+    totalBytes: sizeBytes,
+    percentage: 100,
+  };
+  task.lifecycle = createUploadLifecycle(task, {
+    backendBacked: true,
+    canRetry: false,
+    canCancel: reviewStatus === "pending",
+    lastTransitionAt: now,
+    ...(expiresAt ? { expiresAt } : {}),
+  });
+
+  const assetId = `upl_${crypto.randomUUID()}`;
+  const uploadAsset: UploadAsset | undefined = selectedAsset
+    ? {
+        ...selectedAsset,
+        assetId,
+        url: buildUploadedAssetUrl(assetId, requestUrl),
+        ...(selectedAsset.fileType === "image" || selectedAsset.fileType === "avatar"
+          ? { thumbnailUrl: buildUploadedThumbnailUrl(assetId, requestUrl) }
+          : {}),
+      }
+    : undefined;
+
+  return {
+    source: "adapter_selection",
+    uploadTask: task,
+    ...(uploadAsset ? { uploadAsset } : {}),
+  };
+}
+
+export function retryUploadPipeline(
+  existing: UploadPipelineResponse,
+  _request: UploadRetryRequest,
+  now = new Date().toISOString(),
+): UploadPipelineResponse {
+  const nextTask = cloneUploadTask(existing.uploadTask);
+  nextTask.stage = "reviewing";
+  nextTask.reviewStatus = nextTask.governance.sensitiveReviewRequired ? "pending" : "approved";
+  nextTask.reviewMessage =
+    nextTask.reviewStatus === "pending"
+      ? "Upload retry succeeded and the asset is pending sample review."
+      : "Upload retry succeeded and the asset is ready again.";
+  nextTask.progress = {
+    completedBytes: existing.uploadAsset?.metadata.sizeBytes ?? nextTask.progress.totalBytes,
+    totalBytes: existing.uploadAsset?.metadata.sizeBytes ?? nextTask.progress.totalBytes,
+    percentage: 100,
+  };
+  nextTask.lifecycle = createUploadLifecycle(nextTask, {
+    backendBacked: true,
+    retryCount: existing.uploadTask.lifecycle.retryCount + 1,
+    canRetry: false,
+    canCancel: nextTask.reviewStatus === "pending",
+    lastTransitionAt: now,
+    ...(existing.uploadTask.lifecycle.expiresAt ? { expiresAt: existing.uploadTask.lifecycle.expiresAt } : {}),
+  });
+
+  return {
+    source: "backend_retry",
+    uploadTask: nextTask,
+    ...(existing.uploadAsset ? { uploadAsset: cloneUploadAsset(existing.uploadAsset) } : {}),
+  };
+}
+
+export function cancelUploadPipeline(
+  existing: UploadPipelineResponse,
+  request: UploadCancelRequest,
+  now = new Date().toISOString(),
+): UploadPipelineResponse {
+  const nextTask = cloneUploadTask(existing.uploadTask);
+  nextTask.stage = "canceled";
+  nextTask.reviewMessage = request.reason
+    ? `Upload cancelled in sample pipeline: ${request.reason}.`
+    : "Upload cancelled in the sample pipeline.";
+  nextTask.lifecycle = createUploadLifecycle(nextTask, {
+    backendBacked: true,
+    retryCount: existing.uploadTask.lifecycle.retryCount,
+    canRetry: true,
+    canCancel: false,
+    lastTransitionAt: now,
+    ...(existing.uploadTask.lifecycle.expiresAt ? { expiresAt: existing.uploadTask.lifecycle.expiresAt } : {}),
+  });
+
+  return {
+    source: "backend_cancel",
+    uploadTask: nextTask,
+    ...(existing.uploadAsset ? { uploadAsset: cloneUploadAsset(existing.uploadAsset) } : {}),
+    uploadError: {
+      code: "UPLOAD_CANCELLED",
+      message: nextTask.reviewMessage,
+      recoverable: true,
+      retryable: true,
+      stage: "canceled",
+    },
   };
 }
 
@@ -162,6 +777,38 @@ function createMembershipEntitlement(
   };
 }
 
+function createPendingCallbackVerification(): PaymentCallbackVerification {
+  return {
+    status: "pending",
+    message: "The sample gateway callback has not been verified yet.",
+  };
+}
+
+function createPendingReconciliation(): PaymentReconciliation {
+  return {
+    status: "pending",
+    message: "The sample order has not been reconciled yet.",
+  };
+}
+
+export function createPaymentOperationResult(input: {
+  operation: PaymentOperationResult["operation"];
+  applied: boolean;
+  orderStatus: PaymentOperationResult["orderStatus"];
+  paymentStatus: PaymentOperationResult["paymentStatus"];
+  message: string;
+  processedAt?: string;
+}): PaymentOperationResult {
+  return {
+    operation: input.operation,
+    applied: input.applied,
+    orderStatus: input.orderStatus,
+    paymentStatus: input.paymentStatus,
+    message: input.message,
+    processedAt: input.processedAt ?? new Date().toISOString(),
+  };
+}
+
 export function createMembershipOrderDetail(
   session: SessionRecord,
   payload: PurchaseMembershipRequest,
@@ -172,10 +819,11 @@ export function createMembershipOrderDetail(
   const amountCents = createMembershipAmountCents(payload.planId);
   const title = createMembershipProductLabel(payload.planId);
   const channel = createPaymentChannel(payload.channel, session.platform);
+  const pending = payload.paymentScenario === "pending";
   const order: Order = {
     orderId,
     title,
-    status: "paid",
+    status: pending ? "pending_payment" : "paid",
     productType: "membership",
     channel,
     currency: "CNY",
@@ -202,7 +850,7 @@ export function createMembershipOrderDetail(
     intentId: `pi_${orderId}`,
     orderId,
     channel,
-    status: "succeeded",
+    status: pending ? "processing" : "succeeded",
     clientAction: session.platform === "wechat" ? "wechat_sdk" : "h5_redirect",
     clientPayload: {
       orderId,
@@ -213,21 +861,38 @@ export function createMembershipOrderDetail(
   };
   const paymentResult: PaymentResult = {
     orderId,
-    status: "success",
-    paid: true,
+    status: pending ? "pending" : "success",
+    paid: !pending,
     duplicateProtected,
     callbackVerified: false,
-    message: duplicateProtected
-      ? "Duplicate payment protection kept the active entitlement and returned the existing paid outcome."
-      : "Payment completed in the sample payment domain.",
-    polledAt: now,
+    message: pending
+      ? "Payment is pending gateway confirmation in the sample payment domain."
+      : duplicateProtected
+        ? "Duplicate payment protection kept the active entitlement and returned the existing paid outcome."
+        : "Payment completed in the sample payment domain.",
+    ...(pending ? {} : { polledAt: now }),
   };
   const entitlement = createMembershipEntitlement(payload.planId, orderId);
+  if (pending) {
+    entitlement.active = false;
+    entitlement.statusLabel = "Pending payment confirmation";
+    entitlement.overview = {
+      ...entitlement.overview,
+      active: false,
+      tier: "signed-in",
+      entitlementScope: "none",
+      statusLabel: "Payment pending",
+      headline: "Awaiting Payment",
+      subheadline: "The order is created but membership is not active until the callback is verified.",
+    };
+  }
 
   return {
     order,
     paymentIntent,
     paymentResult,
+    callbackVerification: createPendingCallbackVerification(),
+    reconciliation: createPendingReconciliation(),
     entitlement,
   };
 }
@@ -257,45 +922,55 @@ export function createCurrentUserResponse(
 ): CurrentUserResponse {
   const membership = createMembershipOverview(userState.membershipPlanId);
   const avatarUrl = session.profile.avatarUrl && requestUrl ? resolveSampleMediaUrl(session.profile.avatarUrl, requestUrl) : session.profile.avatarUrl;
+  const availability = resolveUserAvailability(session, userState);
+  const relationTargets = createPrimaryRelationTarget(userState, availability);
+  const relation = relationTargets[0];
+  const followingCount = 11 + (relation?.following ? 1 : 0);
+  const blockedCount = relation?.blocked ? 1 : 0;
+  const displayNickname = userState.profileOverrides?.nickname ?? session.profile.nickname;
+  const region = userState.profileOverrides?.region ?? (session.platform === "wechat" ? "Shanghai, CN" : "Web session");
+  const bio = userState.profileOverrides?.bio ?? "Sample user profile for shared account-domain integration.";
+  const phoneBound = Boolean(userState.boundPhoneNumber || session.identity.phoneBound);
+  const wechatBound = userState.wechatBoundOverride ?? Boolean(session.identity.wechatBound);
 
   return {
     userProfile: {
-      nickname: session.profile.nickname,
+      nickname: displayNickname,
       ...(avatarUrl ? { avatarUrl } : {}),
       gender: "unknown",
-      region: session.platform === "wechat" ? "Shanghai, CN" : "Web session",
-      bio: "Sample user profile for shared account-domain integration.",
+      region,
+      bio,
       tags: session.authStatus === "guest" ? ["guest", "trial"] : ["member-ready", "cross-host"],
     },
     accountSummary: {
       userId: session.userId,
-      phoneBound: Boolean(session.identity.phoneBound),
-      ...(session.identity.phoneBound
+      phoneBound,
+      ...(phoneBound
         ? { phoneNumberMasked: resolveMaskedPhoneNumber(userState.boundPhoneNumber) ?? "138****0001" }
         : {}),
-      wechatBound: Boolean(session.identity.wechatBound),
+      wechatBound,
       realNameStatus: session.identity.realNameVerified ? "verified" : "unverified",
       assets: {
-        points: session.authStatus === "guest" ? 0 : 1280,
+        points: session.authStatus === "guest" ? 0 : availability === "cancellation_pending" ? 980 : 1280,
         level: session.authStatus === "guest" ? 1 : 4,
         membership,
         entitlementLabels: membership.active ? ["premium-reading", "priority-support"] : ["basic-access"],
         balanceCents: 0,
       },
       relations: {
-        followingCount: 12,
+        followingCount,
         followerCount: 28,
-        friendCount: 6,
-        blockedCount: 1,
-        remarkName: session.authStatus === "guest" ? "Guest session" : "MiniX User",
+        friendCount: relation?.friend ? 6 : 5,
+        blockedCount,
+        remarkName: relation?.remarkName ?? (session.authStatus === "guest" ? "Guest session" : "MiniX User"),
       },
     },
     userStatus: {
-      availability: session.authStatus === "guest" ? "guest" : "enabled",
-      enabled: session.authStatus !== "guest",
-      frozen: false,
-      cancellationInProgress: false,
-      blacklisted: false,
+      availability,
+      enabled: availability === "enabled",
+      frozen: availability === "frozen",
+      cancellationInProgress: availability === "cancellation_pending",
+      blacklisted: availability === "blacklisted",
       guest: session.authStatus === "guest",
     },
     identityWorkflows: {
@@ -303,15 +978,24 @@ export function createCurrentUserResponse(
       canBindPhone:
         session.authStatus === "authenticated" &&
         Boolean(session.identity.wechatBound || session.platform === "wechat") &&
-        !session.identity.phoneBound,
+        !phoneBound,
       mergePending: Boolean(userState.pendingIdentityWorkflow),
       ...(userState.pendingIdentityWorkflow ? { pendingWorkflow: userState.pendingIdentityWorkflow } : {}),
       ...(userState.lastIdentityWorkflow ? { lastWorkflow: userState.lastIdentityWorkflow } : {}),
     },
+    accountOperations: createAccountOperations(session, userState, availability),
+    relationTargets,
   };
 }
 
-export function createSettingsResponse(session: SessionRecord, deployEnv: string | undefined): SettingsResponse {
+export function createSettingsResponse(
+  session: SessionRecord,
+  userState: UserState,
+  deployEnv: string | undefined,
+): SettingsResponse {
+  const availability = resolveUserAvailability(session, userState);
+  const phoneBound = Boolean(session.identity.phoneBound || userState.boundPhoneNumber);
+  const wechatBound = userState.wechatBoundOverride ?? Boolean(session.identity.wechatBound);
   return {
     preferences: {
       language: "zh-CN",
@@ -326,9 +1010,9 @@ export function createSettingsResponse(session: SessionRecord, deployEnv: string
       },
       account: {
         profileEntryLabel: "Edit profile",
-        phoneEntryLabel: session.identity.phoneBound ? "Change phone" : "Bind phone",
-        unbindEntryLabel: session.identity.wechatBound ? "Unbind WeChat" : "Bind WeChat",
-        cancellationEntryLabel: "Cancellation entry",
+        phoneEntryLabel: phoneBound ? "Change phone" : "Bind phone",
+        unbindEntryLabel: wechatBound ? "Unbind WeChat" : "Bind WeChat",
+        cancellationEntryLabel: availability === "cancellation_pending" ? "Cancellation requested" : "Cancellation entry",
       },
       content: {
         sortOrder: "recommended",
@@ -656,9 +1340,11 @@ function resolveFeedTag(itemId: string): FeedTag {
   return { key: "review", label: "Review" };
 }
 
-function createFeedItems(): FeedItem[] {
+function createFeedItems(userState?: UserState): FeedItem[] {
   return HOST_ITEMS.map((item, index) => {
     const tag = resolveFeedTag(item.id);
+    const managedContent = createManagedContentCard(item.id, userState);
+    const managedAccess = createManagedContentAccess(item.id, userState);
     return {
       id: item.id,
       title: item.title,
@@ -667,6 +1353,8 @@ function createFeedItems(): FeedItem[] {
       ...(item.recommendedReason ? { recommendedReason: item.recommendedReason } : {}),
       updatedAt: `2026-04-0${Math.min(index + 1, 8)}T08:00:00.000Z`,
       tag: tag.key,
+      ...(managedContent ? { contentCard: managedContent } : {}),
+      ...(managedAccess ? { contentAccess: managedAccess } : {}),
     };
   });
 }
@@ -798,6 +1486,246 @@ function createFeedSearchResults(
   };
 }
 
+function filterSearchItems<TItem>(
+  items: TItem[],
+  keyword: string,
+  project: (item: TItem) => Array<string | undefined>,
+): TItem[] {
+  const normalizedKeyword = keyword.trim().toLowerCase();
+  if (!normalizedKeyword) {
+    return items;
+  }
+
+  return items.filter((item) =>
+    project(item).some((value) => value?.toLowerCase().includes(normalizedKeyword)),
+  );
+}
+
+function createUserSearchItems(userState?: UserState): FeedItem[] {
+  const relation = userState?.relationTarget;
+  const items: FeedItem[] = [
+    {
+      id: "user_current",
+      title: userState?.profileOverrides?.nickname ?? "MiniX User",
+      subtitle: "Current signed-in account",
+      eyebrow: "User",
+      recommendedReason: "Use the shared search center to jump between account, creator, and domain surfaces.",
+      tag: "user",
+    },
+  ];
+
+  if (relation) {
+    items.push({
+      id: relation.targetUserId,
+      title: relation.displayName,
+      subtitle: relation.friend ? "Mutual connection" : relation.following ? "Following" : "Suggested user",
+      eyebrow: "User",
+      recommendedReason: relation.remarkName
+        ? `Remark: ${relation.remarkName}`
+        : relation.blocked
+          ? "Blocked relation target"
+          : "Shared relation surface sample result",
+      tag: "user",
+    });
+  }
+
+  return items;
+}
+
+function createNovelFeedItems(userState?: UserState): FeedItem[] {
+  return NOVELS.slice(0, 4).map((detail) => ({
+    id: detail.id,
+    title: detail.title,
+    ...(detail.subtitle ? { subtitle: detail.subtitle } : {}),
+    eyebrow: "Novel",
+    recommendedReason: detail.relatedLaneLabel ?? detail.summary,
+    ...(detail.latestChapter?.updatedAt ? { updatedAt: detail.latestChapter.updatedAt } : {}),
+    tag: "novel",
+    contentCard: createNovelContentCard(detail, detail.continueChapterId, detail.latestChapter?.title),
+    contentAccess: createNovelContentAccess(detail),
+  }));
+}
+
+function createContentSearchItems(userState?: UserState): FeedItem[] {
+  return HOST_ITEMS.map((item, index) => {
+    const contentCard = createManagedContentCard(item.id, userState);
+    const contentAccess = createManagedContentAccess(item.id, userState);
+    return {
+      id: item.id,
+      title: item.title,
+      ...(item.subtitle ? { subtitle: item.subtitle } : {}),
+      eyebrow: "Content",
+      ...(contentCard?.lifecycle.reviewMessage ?? item.recommendedReason
+        ? { recommendedReason: contentCard?.lifecycle.reviewMessage ?? item.recommendedReason }
+        : {}),
+      updatedAt: `2026-04-1${Math.min(index, 8)}T08:00:00.000Z`,
+      tag: "content",
+      ...(contentCard ? { contentCard } : {}),
+      ...(contentAccess ? { contentAccess } : {}),
+    };
+  });
+}
+
+function createSearchDomainTabs(input: Array<{ domain: SearchDomain; label: string; total: number }>, activeDomain: SearchDomain) {
+  return input.map((item) => ({
+    ...item,
+    active: item.domain === activeDomain,
+  }));
+}
+
+function createSearchResultGroups(
+  input: Array<{ domain: SearchDomain; label: string; items: FeedItem[] }>,
+) {
+  return input.map((group) => ({
+    domain: group.domain,
+    label: group.label,
+    total: group.items.length,
+    items: group.items,
+    ...(group.items[0]?.recommendedReason ? { featuredReason: group.items[0].recommendedReason } : {}),
+  }));
+}
+
+function createUnifiedFeedResults(
+  input: {
+    keyword: string;
+    page: number;
+    pageSize: number;
+    mode: FeedListResponse["searchQuery"]["mode"];
+    domain: SearchDomain;
+    tag?: string | undefined;
+  },
+  userState?: UserState,
+): FeedListResponse {
+  const hotKeywords = ["travel", "speaking", "listening", "review", "user", "novel"];
+  const feedItems = filterSearchItems(createFeedItems(userState), input.keyword, (item) => [
+    item.title,
+    item.subtitle,
+    item.eyebrow,
+    item.recommendedReason,
+  ]);
+  const contentItems = filterSearchItems(createContentSearchItems(userState), input.keyword, (item) => [
+    item.title,
+    item.subtitle,
+    item.eyebrow,
+    item.recommendedReason,
+    item.contentCard?.lifecycle.state,
+  ]);
+  const novelItems = filterSearchItems(createNovelFeedItems(userState), input.keyword, (item) => [
+    item.title,
+    item.subtitle,
+    item.recommendedReason,
+  ]);
+  const userItems = filterSearchItems(createUserSearchItems(userState), input.keyword, (item) => [
+    item.title,
+    item.subtitle,
+    item.recommendedReason,
+  ]);
+
+  const searchMode = input.mode;
+  const requestedDomain = input.domain;
+  const scopedGroups =
+    searchMode === "user" || requestedDomain === "user"
+      ? [{ domain: "user" as const, label: "Users", items: userItems }]
+      : searchMode === "content"
+        ? [
+            { domain: "content" as const, label: "Content", items: contentItems },
+            { domain: "novel" as const, label: "Novels", items: novelItems },
+          ]
+        : requestedDomain === "all"
+          ? [
+              { domain: "feed" as const, label: "Feed", items: feedItems },
+              { domain: "content" as const, label: "Content", items: contentItems },
+              { domain: "novel" as const, label: "Novels", items: novelItems },
+              { domain: "user" as const, label: "Users", items: userItems },
+            ]
+          : requestedDomain === "content"
+            ? [{ domain: "content" as const, label: "Content", items: contentItems }]
+            : requestedDomain === "novel"
+              ? [{ domain: "novel" as const, label: "Novels", items: novelItems }]
+              : [{ domain: "feed" as const, label: "Feed", items: feedItems }];
+
+  const flattened = scopedGroups.flatMap((group) => group.items);
+  const start = (input.page - 1) * input.pageSize;
+  const pagedItems = flattened.slice(start, start + input.pageSize);
+  const hasMore = start + input.pageSize < flattened.length;
+  const activeDomain =
+    requestedDomain === "all"
+      ? searchMode === "user"
+        ? "user"
+        : searchMode === "content"
+          ? "content"
+          : "all"
+      : requestedDomain;
+
+  const tags = [
+    { key: "all", label: "All" },
+    { key: "feed", label: "Feed" },
+    { key: "content", label: "Content" },
+    { key: "novel", label: "Novel" },
+    { key: "user", label: "User" },
+  ];
+
+  const resultGroups = createSearchResultGroups(scopedGroups);
+  return {
+    items: pagedItems,
+    page: input.page,
+    pageSize: input.pageSize,
+    hasMore,
+    tags,
+    ...(pagedItems[0]?.recommendedReason ? { featuredReason: pagedItems[0].recommendedReason } : {}),
+    searchQuery: {
+      keyword: input.keyword,
+      mode: searchMode,
+      domain: requestedDomain,
+      page: input.page,
+      pageSize: input.pageSize,
+    },
+    searchFilters: [
+      {
+        key: "domain",
+        label: "Search domain",
+        selectedKeys: activeDomain === "all" ? [] : [activeDomain],
+        options: [
+          { key: "all", label: "All", count: flattened.length },
+          { key: "feed", label: "Feed", count: feedItems.length },
+          { key: "content", label: "Content", count: contentItems.length },
+          { key: "novel", label: "Novel", count: novelItems.length },
+          { key: "user", label: "User", count: userItems.length },
+        ],
+      },
+    ],
+    searchResults: {
+      items: pagedItems,
+      total: flattened.length,
+      hasMore,
+      emptyText:
+        searchMode === "user" || requestedDomain === "user"
+          ? "No user results matched this search."
+          : searchMode === "content" || requestedDomain === "content"
+            ? "No content results matched this search."
+            : "No cross-domain results matched this search.",
+      ...(pagedItems[0]?.recommendedReason ? { featuredReason: pagedItems[0].recommendedReason } : {}),
+      suggestionTerms: createSuggestionTerms(input.keyword, hotKeywords),
+      hotKeywords,
+      recentKeywords: [],
+      sortOptions: createFeedSortOptions(),
+      activeSortKey: "recommended",
+      domainTabs: createSearchDomainTabs(
+        [
+          { domain: "all", label: "All", total: feedItems.length + contentItems.length + novelItems.length + userItems.length },
+          { domain: "feed", label: "Feed", total: feedItems.length },
+          { domain: "content", label: "Content", total: contentItems.length },
+          { domain: "novel", label: "Novel", total: novelItems.length },
+          { domain: "user", label: "User", total: userItems.length },
+        ],
+        activeDomain,
+      ),
+      activeDomain,
+      resultGroups,
+    },
+  };
+}
+
 function createNovelSearchResults(
   items: NovelCard[],
   total: number,
@@ -823,60 +1751,217 @@ function createNovelSearchResults(
   };
 }
 
+function resolveManagedContentEntry(contentId: string, userState?: UserState) {
+  return userState?.managedContentById?.[contentId] ?? createDefaultManagedContentEntries()[contentId];
+}
+
+function createManagedContentDisplay(contentId: string, userState?: UserState): ContentDisplay | undefined {
+  const entry = resolveManagedContentEntry(contentId, userState);
+  if (!entry) {
+    return undefined;
+  }
+
+  return {
+    category: {
+      key: entry.categoryKey,
+      label: entry.categoryLabel,
+    },
+    tags: entry.tags.map((tag) => ({ ...tag })),
+    topics: entry.tags.map((tag) => ({ ...tag })),
+    recommendationSlot: entry.lifecycle.state === "published" ? "editorial" : "related",
+    recommendationSlotLabel: entry.lifecycle.state === "published" ? "Managed Frontlist" : "Lifecycle Queue",
+    pinned: entry.lifecycle.state === "published",
+    featured: entry.lifecycle.state === "under_review" || entry.lifecycle.state === "review_rejected",
+  };
+}
+
+function createManagedContentCard(contentId: string, userState?: UserState): ContentCard | undefined {
+  const entry = resolveManagedContentEntry(contentId, userState);
+  const base = HOST_ITEMS.find((item) => item.id === contentId);
+  const display = createManagedContentDisplay(contentId, userState);
+  if (!entry || !base || !display) {
+    return undefined;
+  }
+
+  return {
+    contentId,
+    model: entry.model,
+    title: base.title,
+    ...(base.subtitle ? { subtitle: base.subtitle } : {}),
+    summary: entry.summary,
+    authorLabel: entry.authorLabel,
+    display,
+    lifecycle: {
+      ...entry.lifecycle,
+      availableActions: [...entry.lifecycle.availableActions],
+    },
+  };
+}
+
+function createManagedContentAccess(contentId: string, userState?: UserState): ContentAccess | undefined {
+  const entry = resolveManagedContentEntry(contentId, userState);
+  if (!entry) {
+    return undefined;
+  }
+
+  return {
+    visibility: entry.visibility,
+    accessible: entry.visibility === "public",
+    previewAvailable: entry.lifecycle.state !== "deleted",
+    requiresLogin: entry.visibility === "login_required",
+    requiresMembership: entry.visibility === "member_only",
+    requiresPurchase: entry.visibility === "purchased_only",
+    summaryLabel:
+      entry.visibility === "public"
+        ? "Visible to everyone."
+        : entry.visibility === "login_required"
+          ? "Visible after sign-in."
+          : entry.visibility === "member_only"
+            ? "Visible to members only."
+            : "Visible after purchase only.",
+    ...(entry.visibility === "member_only"
+      ? { entitlementLabel: "Membership access" }
+      : entry.visibility === "purchased_only"
+        ? { entitlementLabel: "Purchase access" }
+        : {}),
+    ...(entry.visibility !== "public" ? { gateLabel: "Access is gated by the current visibility rule." } : {}),
+  };
+}
+
+function createManagedContentDetail(contentId: string, userState?: UserState): ContentDetail | undefined {
+  const card = createManagedContentCard(contentId, userState);
+  if (!card) {
+    return undefined;
+  }
+
+  return {
+    ...card,
+    recommendationReason: `Lifecycle status: ${card.lifecycle.state}.`,
+    bodyPreview: `${card.summary} Lifecycle state: ${card.lifecycle.state}.`,
+  };
+}
+
+export function getManagedContentDetail(contentId: string, userState: UserState): ContentDetailResponse | undefined {
+  const contentDetail = createManagedContentDetail(contentId, userState);
+  const contentAccess = createManagedContentAccess(contentId, userState);
+  if (!contentDetail || !contentAccess) {
+    return undefined;
+  }
+
+  return {
+    contentDetail,
+    contentAccess,
+  };
+}
+
+export function applyManagedContentLifecycle(
+  userState: UserState,
+  input: ContentLifecycleMutationRequest,
+): ContentLifecycleMutationResponse | undefined {
+  const current = resolveManagedContentEntry(input.contentId, userState);
+  if (!current) {
+    return undefined;
+  }
+
+  if (!userState.managedContentById) {
+    userState.managedContentById = createDefaultManagedContentEntries();
+  }
+
+  const next = structuredClone(current);
+  const now = new Date().toISOString();
+
+  switch (input.action) {
+    case "publish":
+      next.lifecycle.state = "published";
+      next.lifecycle.availableActions = ["update", "archive", "delete", "change_visibility"];
+      next.lifecycle.publishedAt = next.lifecycle.publishedAt ?? now;
+      delete next.lifecycle.offlineAt;
+      delete next.lifecycle.reviewMessage;
+      break;
+    case "archive":
+      next.lifecycle.state = "offline";
+      next.lifecycle.availableActions = ["restore", "delete", "change_visibility"];
+      next.lifecycle.offlineAt = now;
+      break;
+    case "delete":
+      next.lifecycle.state = "deleted";
+      next.lifecycle.availableActions = ["restore"];
+      break;
+    case "restore":
+      next.lifecycle.state = "published";
+      next.lifecycle.availableActions = ["update", "archive", "delete", "change_visibility"];
+      next.lifecycle.publishedAt = next.lifecycle.publishedAt ?? now;
+      delete next.lifecycle.offlineAt;
+      break;
+    case "submit_review":
+      next.lifecycle.state = "under_review";
+      next.lifecycle.availableActions = ["approve_review", "reject_review", "change_visibility"];
+      next.lifecycle.reviewMessage = input.reviewMessage ?? "Submitted for review.";
+      break;
+    case "approve_review":
+      next.lifecycle.state = "published";
+      next.lifecycle.availableActions = ["update", "archive", "delete", "change_visibility"];
+      next.lifecycle.publishedAt = next.lifecycle.publishedAt ?? now;
+      delete next.lifecycle.reviewMessage;
+      break;
+    case "reject_review":
+      next.lifecycle.state = "review_rejected";
+      next.lifecycle.availableActions = ["update", "submit_review", "delete", "change_visibility"];
+      next.lifecycle.reviewMessage = input.reviewMessage ?? "Review rejected in sample workflow.";
+      break;
+    case "change_visibility":
+      if (input.visibility) {
+        next.visibility = input.visibility;
+      }
+      break;
+    case "update":
+      if (input.reviewMessage) {
+        next.summary = input.reviewMessage;
+      }
+      break;
+  }
+
+  next.lifecycle.updatedAt = now;
+  userState.managedContentById[input.contentId] = next;
+
+  const contentCard = createManagedContentCard(input.contentId, userState);
+  const contentDetail = createManagedContentDetail(input.contentId, userState);
+  const contentAccess = createManagedContentAccess(input.contentId, userState);
+  if (!contentCard || !contentDetail || !contentAccess) {
+    return undefined;
+  }
+
+  return {
+    contentCard,
+    contentDetail,
+    contentAccess,
+    transitionMessage:
+      input.action === "change_visibility"
+        ? "Content visibility updated."
+        : input.action === "submit_review"
+          ? "Content submitted for review."
+          : input.action === "approve_review"
+            ? "Content review approved."
+            : input.action === "reject_review"
+              ? "Content review rejected."
+              : input.action === "archive"
+                ? "Content archived."
+                : input.action === "restore"
+                  ? "Content restored."
+                  : input.action === "delete"
+                    ? "Content deleted."
+                    : input.action === "publish"
+                      ? "Content published."
+                      : "Content updated.",
+  };
+}
+
 function resolveSearchDomain(inputDomain: string | undefined, fallback: SearchDomain): SearchDomain {
   if (inputDomain === "all" || inputDomain === "content" || inputDomain === "user" || inputDomain === "novel" || inputDomain === "feed") {
     return inputDomain;
   }
 
   return fallback;
-}
-
-function createEmptyFeedResults(
-  page: number,
-  pageSize: number,
-  keyword: string,
-  mode: FeedListResponse["searchQuery"]["mode"],
-  domain: SearchDomain,
-): FeedListResponse {
-  const hotKeywords = ["travel", "speaking", "listening", "review"];
-  const tags = [{ key: "all", label: "All" }];
-
-  return {
-    items: [],
-    page,
-    pageSize,
-    hasMore: false,
-    tags,
-    searchQuery: {
-      keyword,
-      mode,
-      domain,
-      page,
-      pageSize,
-    },
-    searchFilters: [
-      {
-        key: "tag",
-        label: "Content type",
-        selectedKeys: [],
-        options: tags,
-      },
-    ],
-    searchResults: {
-      items: [],
-      total: 0,
-      hasMore: false,
-      emptyText:
-        mode === "user" || domain === "user"
-          ? "User search is modeled in the shared contract, but the sample API does not ship user results yet."
-          : "No feed results matched this search yet.",
-      suggestionTerms: createSuggestionTerms(keyword, hotKeywords),
-      hotKeywords,
-      recentKeywords: [],
-      sortOptions: createFeedSortOptions(),
-      activeSortKey: "recommended",
-    },
-  };
 }
 
 export function listFeed(input: {
@@ -886,7 +1971,7 @@ export function listFeed(input: {
   tag?: string | undefined;
   mode?: string | undefined;
   domain?: string | undefined;
-}): FeedListResponse {
+}, userState?: UserState): FeedListResponse {
   const page = input.page ?? 1;
   const pageSize = input.pageSize ?? 6;
   const keyword = input.keyword?.trim() ?? "";
@@ -894,12 +1979,22 @@ export function listFeed(input: {
   const mode = input.mode === "content" || input.mode === "user" || input.mode === "domain" ? input.mode : "global";
   const domain = resolveSearchDomain(input.domain, "feed");
 
-  if (mode === "user" || domain === "user") {
-    return createEmptyFeedResults(page, pageSize, keyword, mode, domain);
+  if (mode !== "global" || domain !== "feed") {
+    return createUnifiedFeedResults(
+      {
+        page,
+        pageSize,
+        keyword,
+        mode,
+        domain,
+        ...(input.tag ? { tag: input.tag } : {}),
+      },
+      userState,
+    );
   }
 
   const hotKeywords = ["travel", "speaking", "listening", "review"];
-  const allItems = createFeedItems();
+  const allItems = createFeedItems(userState);
   const allTags = [{ key: "all", label: "All" }, ...Array.from(new Map(allItems.map((item) => {
     const tag = resolveFeedTag(item.id);
     return [tag.key, tag];
@@ -1185,6 +2280,97 @@ const RESERVED_THREADS: MessageThread[] = [
   },
 ];
 
+const THREAD_MESSAGE_SEEDS: Record<string, MessageBodyItem[]> = {
+  thread_private_tutor: [
+    {
+      messageId: "msg_private_1",
+      threadId: "thread_private_tutor",
+      direction: "inbound",
+      senderRole: "advisor",
+      senderLabel: "Tutor Mila",
+      body: "I left pronunciation notes on your latest speaking task.",
+      createdAt: "2026-04-08T09:10:00.000Z",
+      deliveryStatus: "delivered",
+      touchpoints: DEFAULT_MESSAGE_TOUCHPOINTS,
+    },
+    {
+      messageId: "msg_private_2",
+      threadId: "thread_private_tutor",
+      direction: "inbound",
+      senderRole: "advisor",
+      senderLabel: "Tutor Mila",
+      body: "Reply here if you want me to review your next recording tonight.",
+      createdAt: "2026-04-08T09:12:00.000Z",
+      deliveryStatus: "delivered",
+      touchpoints: DEFAULT_MESSAGE_TOUCHPOINTS,
+    },
+  ],
+  thread_consultation_case: [
+    {
+      messageId: "msg_consult_1",
+      threadId: "thread_consultation_case",
+      direction: "outbound",
+      senderRole: "self",
+      senderLabel: "You",
+      body: "I need advice on the premium reading workflow for our consultation flow.",
+      createdAt: "2026-04-08T07:42:00.000Z",
+      deliveryStatus: "read",
+      readAt: "2026-04-08T07:44:00.000Z",
+      touchpoints: DEFAULT_MESSAGE_TOUCHPOINTS,
+    },
+    {
+      messageId: "msg_consult_2",
+      threadId: "thread_consultation_case",
+      direction: "inbound",
+      senderRole: "advisor",
+      senderLabel: "Consultation Desk",
+      body: "Your consultation request is queued for an advisor reply.",
+      createdAt: "2026-04-08T07:55:00.000Z",
+      deliveryStatus: "delivered",
+      touchpoints: DEFAULT_MESSAGE_TOUCHPOINTS,
+    },
+  ],
+  thread_customer_service: [
+    {
+      messageId: "msg_support_1",
+      threadId: "thread_customer_service",
+      direction: "outbound",
+      senderRole: "self",
+      senderLabel: "You",
+      body: "Can you confirm whether my billing question was resolved?",
+      createdAt: "2026-04-07T18:10:00.000Z",
+      deliveryStatus: "read",
+      readAt: "2026-04-07T18:12:00.000Z",
+      touchpoints: DEFAULT_MESSAGE_TOUCHPOINTS,
+    },
+    {
+      messageId: "msg_support_2",
+      threadId: "thread_customer_service",
+      direction: "inbound",
+      senderRole: "support",
+      senderLabel: "Support Bot",
+      body: "Your billing question was marked resolved.",
+      createdAt: "2026-04-07T18:20:00.000Z",
+      deliveryStatus: "read",
+      readAt: "2026-04-07T18:25:00.000Z",
+      touchpoints: DEFAULT_MESSAGE_TOUCHPOINTS,
+    },
+  ],
+  thread_group_members: [
+    {
+      messageId: "msg_group_1",
+      threadId: "thread_group_members",
+      direction: "inbound",
+      senderRole: "peer",
+      senderLabel: "Community Host",
+      body: "Weekly challenge picks are ready to review.",
+      createdAt: "2026-04-08T08:05:00.000Z",
+      deliveryStatus: "delivered",
+      touchpoints: DEFAULT_MESSAGE_TOUCHPOINTS,
+    },
+  ],
+};
+
 const NOTIFICATION_SEEDS: NotificationSeed[] = [
   {
     id: "notice_system_security",
@@ -1286,6 +2472,19 @@ function cloneTouchpoints(touchpoints: MessageTouchpoint[]): MessageTouchpoint[]
   return touchpoints.map((touchpoint) => ({ ...touchpoint }));
 }
 
+function cloneMessageBodyItem(message: MessageBodyItem): MessageBodyItem {
+  return {
+    ...message,
+    ...(message.updatedAt ? { updatedAt: message.updatedAt } : {}),
+    ...(message.readAt ? { readAt: message.readAt } : {}),
+    touchpoints: cloneTouchpoints(message.touchpoints),
+  };
+}
+
+function cloneMessageItems(messages: MessageBodyItem[]): MessageBodyItem[] {
+  return messages.map((message) => cloneMessageBodyItem(message));
+}
+
 function cloneReservedThreads(): MessageThread[] {
   return RESERVED_THREADS.map((thread) => ({
     ...thread,
@@ -1294,9 +2493,77 @@ function cloneReservedThreads(): MessageThread[] {
   }));
 }
 
+function getThreadMessages(userState: UserState, threadId: string): MessageBodyItem[] {
+  const seeded = THREAD_MESSAGE_SEEDS[threadId] ? cloneMessageItems(THREAD_MESSAGE_SEEDS[threadId]) : [];
+  const appended = userState.threadMessagesByThreadId[threadId] ? cloneMessageItems(userState.threadMessagesByThreadId[threadId]) : [];
+  const lastReadAt = userState.threadReadAtById[threadId];
+
+  return [...seeded, ...appended]
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+    .map((message) => {
+      if (message.direction === "inbound" && lastReadAt && message.createdAt <= lastReadAt) {
+        return {
+          ...message,
+          deliveryStatus: "read",
+          readAt: lastReadAt,
+        };
+      }
+
+      return message;
+    });
+}
+
+function countUnreadThreadMessages(userState: UserState, threadId: string): number {
+  const lastReadAt = userState.threadReadAtById[threadId];
+  const messages = getThreadMessages(userState, threadId);
+  return messages.filter((message) => {
+    if (message.direction !== "inbound") {
+      return false;
+    }
+
+    if (!lastReadAt) {
+      return true;
+    }
+
+    return message.createdAt > lastReadAt;
+  }).length;
+}
+
+function createMessageThreadActions(thread: MessageThread): MessageThreadActions {
+  return {
+    canReply: thread.type !== "group",
+    canMarkRead: thread.unreadCount > 0,
+    deliveryLabel:
+      thread.type === "customer_service"
+        ? "Customer-service delivery lane"
+        : thread.type === "consultation"
+          ? "Consultation thread delivery lane"
+          : thread.type === "private"
+            ? "Private message delivery lane"
+            : "Reserved group delivery lane",
+  };
+}
+
+function deriveThreadState(userState: UserState, thread: MessageThread): MessageThread {
+  const messages = getThreadMessages(userState, thread.threadId);
+  const lastMessage = messages[messages.length - 1];
+  const unreadCount = countUnreadThreadMessages(userState, thread.threadId);
+
+  return {
+    ...thread,
+    participantLabels: [...thread.participantLabels],
+    touchpoints: cloneTouchpoints(thread.touchpoints),
+    unreadCount,
+    ...(lastMessage ? { lastMessagePreview: lastMessage.body } : {}),
+    ...(lastMessage ? { lastMessageAt: lastMessage.createdAt } : {}),
+    ...(userState.threadReadAtById[thread.threadId] ? { lastReadAt: userState.threadReadAtById[thread.threadId] } : {}),
+  };
+}
+
 function createNotificationItem(seed: NotificationSeed, userState: UserState): NotificationItem {
   const readAt = userState.notificationReadAtById[seed.id];
-  const thread = seed.threadId ? RESERVED_THREADS.find((item) => item.threadId === seed.threadId) : undefined;
+  const threadSeed = seed.threadId ? RESERVED_THREADS.find((item) => item.threadId === seed.threadId) : undefined;
+  const thread = threadSeed ? deriveThreadState(userState, threadSeed) : undefined;
 
   return {
     id: seed.id,
@@ -1416,7 +2683,9 @@ function createNotificationFilters(
 function createUnreadBadge(userState: UserState): UnreadBadge {
   const notifications = sortNotifications(NOTIFICATION_SEEDS.map((seed) => createNotificationItem(seed, userState)));
   const notificationUnread = notifications.filter((item) => !item.receipt.read).length;
-  const threadUnread = RESERVED_THREADS.reduce((total, thread) => total + thread.unreadCount, 0);
+  const threadUnread = cloneReservedThreads()
+    .map((thread) => deriveThreadState(userState, thread))
+    .reduce((total, thread) => total + thread.unreadCount, 0);
   const breakdown: Array<{ key: string; label: string; count: number }> = NOTIFICATION_TYPES
     .map((type) => ({
       key: type,
@@ -1499,7 +2768,7 @@ export function listNotifications(
   },
 ): NotificationListResponse {
   const notificationList = createNotificationList(userState, input);
-  const reservedThreads = cloneReservedThreads();
+  const reservedThreads = cloneReservedThreads().map((thread) => deriveThreadState(userState, thread));
   const selectedThread =
     (input.threadId ? reservedThreads.find((thread) => thread.threadId === input.threadId) : undefined) ??
     reservedThreads.find((thread) => thread.unreadCount > 0) ??
@@ -1545,13 +2814,66 @@ export function getUnreadBadge(userState: UserState): UnreadBadge {
 }
 
 export function getMessageThread(userState: UserState, threadId: string): MessageThreadResponse | null {
-  const messageThread = cloneReservedThreads().find((thread) => thread.threadId === threadId);
+  const threadSeed = cloneReservedThreads().find((thread) => thread.threadId === threadId);
+  const messageThread = threadSeed ? deriveThreadState(userState, threadSeed) : undefined;
   if (!messageThread) {
     return null;
   }
 
   return {
     messageThread,
+    messageItems: getThreadMessages(userState, threadId),
+    detailActions: createMessageThreadActions(messageThread),
+    unreadBadge: createUnreadBadge(userState),
+  };
+}
+
+export function markThreadRead(userState: UserState, input: MarkThreadReadRequest): MessageThreadResponse | null {
+  const existing = getMessageThread(userState, input.threadId);
+  if (!existing) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  userState.threadReadAtById[input.threadId] = now;
+  return getMessageThread(userState, input.threadId);
+}
+
+export function sendThreadMessage(userState: UserState, input: SendMessageRequest): SendMessageResponse | null {
+  const threadSeed = cloneReservedThreads().find((thread) => thread.threadId === input.threadId);
+  if (!threadSeed) {
+    return null;
+  }
+  if (!createMessageThreadActions(threadSeed).canReply) {
+    return null;
+  }
+
+  const sentAt = new Date().toISOString();
+  const messageItem: MessageBodyItem = {
+    messageId: `msg_${crypto.randomUUID()}`,
+    threadId: input.threadId,
+    direction: "outbound",
+    senderRole: "self",
+    senderLabel: "You",
+    body: input.body,
+    createdAt: sentAt,
+    deliveryStatus: "sent",
+    touchpoints: cloneTouchpoints(threadSeed.touchpoints),
+  };
+  const existingMessages = userState.threadMessagesByThreadId[input.threadId] ?? [];
+  const nextMessages = [...existingMessages];
+  nextMessages.push(messageItem);
+  userState.threadMessagesByThreadId[input.threadId] = nextMessages;
+
+  const messageThread = getMessageThread(userState, input.threadId)?.messageThread;
+  if (!messageThread) {
+    return null;
+  }
+
+  return {
+    messageThread,
+    messageItem,
+    detailActions: createMessageThreadActions(messageThread),
     unreadBadge: createUnreadBadge(userState),
   };
 }

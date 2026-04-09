@@ -8,8 +8,12 @@ import {
 import type {
   AppRouteId,
   MarkNotificationsReadResponse,
+  MarkThreadReadRequest,
+  MessageThreadResponse,
   NotificationListResponse,
   NotificationType,
+  SendMessageRequest,
+  SendMessageResponse,
 } from "@minix/contracts";
 
 import { createDefaultMessagesState, type MessagesState } from "../model";
@@ -22,11 +26,15 @@ export interface CreateMessagesControllerOptions {
   settingsRouteId?: AppRouteId;
   requestPath?: string;
   markReadPath?: string;
+  threadPath?: string;
+  markThreadReadPath?: string;
+  sendMessagePath?: string;
   authRedirectSource?: string;
 }
 
 type FailedMessagesResult = Extract<Result<NotificationListResponse>, { ok: false }>;
 type FailedMarkReadResult = Extract<Result<MarkNotificationsReadResponse>, { ok: false }>;
+type FailedThreadResult = Extract<Result<MessageThreadResponse>, { ok: false }> | Extract<Result<SendMessageResponse>, { ok: false }>;
 
 function cloneState(state: MessagesState): MessagesState {
   return {
@@ -36,8 +44,12 @@ function cloneState(state: MessagesState): MessagesState {
     groups: state.groups.map((group) => ({ ...group })),
     unreadBadge: structuredClone(state.unreadBadge),
     reservedThreads: state.reservedThreads.map((thread) => structuredClone(thread)),
+    ...(state.messageThread ? { messageThread: structuredClone(state.messageThread) } : {}),
+    messageItems: state.messageItems.map((item) => structuredClone(item)),
+    ...(state.detailActions ? { detailActions: { ...state.detailActions } } : {}),
     searchFilters: state.searchFilters.map((group) => structuredClone(group)),
     query: { ...state.query },
+    composerText: state.composerText,
   };
 }
 
@@ -76,6 +88,9 @@ export function createMessagesController(options: CreateMessagesControllerOption
     settingsRouteId,
     requestPath = "/notifications",
     markReadPath = "/notifications/mark-read",
+    threadPath = "/messages/thread",
+    markThreadReadPath = "/messages/thread/read",
+    sendMessagePath = "/messages/thread/send",
     authRedirectSource = "messages",
   } = options;
   const store = createStore<MessagesState>({
@@ -148,6 +163,20 @@ export function createMessagesController(options: CreateMessagesControllerOption
     };
   }
 
+  function applyThreadResponse(response: MessageThreadResponse) {
+    store.setState({
+      loading: false,
+      refreshing: false,
+      errorText: undefined,
+      errorCode: undefined,
+      messageThread: response.messageThread,
+      messageItems: response.messageItems,
+      detailActions: response.detailActions,
+      unreadBadge: response.unreadBadge,
+      selectedThreadId: response.messageThread.threadId,
+    });
+  }
+
   function applyResponse(response: NotificationListResponse, mode: "replace" | "append") {
     const current = store.getState();
     const nextItems =
@@ -173,6 +202,14 @@ export function createMessagesController(options: CreateMessagesControllerOption
       unreadBadge: response.unreadBadge,
       reservedThreads: response.reservedThreads,
       selectedThreadId,
+      messageThread:
+        selectedThreadId && response.reservedThreads.some((thread) => thread.threadId === selectedThreadId)
+          ? current.messageThread
+          : undefined,
+      messageItems:
+        current.messageThread && current.messageThread.threadId === selectedThreadId ? current.messageItems : [],
+      detailActions:
+        current.messageThread && current.messageThread.threadId === selectedThreadId ? current.detailActions : undefined,
       selectedItemId:
         nextItems.find((item) => item.id === current.selectedItemId)?.id ??
         response.notificationList.selectedNotificationId ??
@@ -186,7 +223,7 @@ export function createMessagesController(options: CreateMessagesControllerOption
     });
   }
 
-  async function handleLoadFailure(result: FailedMessagesResult | FailedMarkReadResult) {
+  async function handleLoadFailure(result: FailedMessagesResult | FailedMarkReadResult | FailedThreadResult) {
     store.setState({
       loading: false,
       refreshing: false,
@@ -202,6 +239,16 @@ export function createMessagesController(options: CreateMessagesControllerOption
     return result;
   }
 
+  async function loadThread(threadId: string) {
+    const result = await kernel.request.get<MessageThreadResponse>(threadPath, { threadId });
+    if (!result.ok) {
+      return handleLoadFailure(result);
+    }
+
+    applyThreadResponse(result.value);
+    return result;
+  }
+
   async function loadPage(mode: "replace" | "append", page: number) {
     const result = await kernel.request.get<NotificationListResponse>(requestPath, createRequestQuery(page));
     if (!result.ok) {
@@ -209,6 +256,12 @@ export function createMessagesController(options: CreateMessagesControllerOption
     }
 
     applyResponse(result.value, mode);
+    if (mode === "replace") {
+      const selectedThreadId = store.getState().selectedThreadId;
+      if (selectedThreadId) {
+        await loadThread(selectedThreadId);
+      }
+    }
     return result;
   }
 
@@ -323,6 +376,59 @@ export function createMessagesController(options: CreateMessagesControllerOption
       store.setState({
         selectedThreadId: threadId,
       });
+      return loadThread(threadId);
+    },
+
+    updateComposerText(value: string) {
+      store.setState({
+        composerText: value,
+      });
+    },
+
+    async markThreadRead(threadId?: string) {
+      const targetThreadId = threadId ?? store.getState().selectedThreadId;
+      if (!targetThreadId) {
+        return ok(undefined);
+      }
+
+      const request: MarkThreadReadRequest = {
+        threadId: targetThreadId,
+      };
+      const result = await kernel.request.post<MessageThreadResponse>(markThreadReadPath, request);
+      if (!result.ok) {
+        return handleLoadFailure(result);
+      }
+
+      applyThreadResponse(result.value);
+      return result;
+    },
+
+    async sendMessage(body?: string) {
+      const targetThreadId = store.getState().selectedThreadId;
+      const nextBody = body ?? store.getState().composerText;
+      if (!targetThreadId || !nextBody.trim()) {
+        return ok(undefined);
+      }
+
+      const request: SendMessageRequest = {
+        threadId: targetThreadId,
+        body: nextBody.trim(),
+      };
+      const result = await kernel.request.post<SendMessageResponse>(sendMessagePath, request);
+      if (!result.ok) {
+        return handleLoadFailure(result);
+      }
+
+      store.setState({
+        composerText: "",
+      });
+      applyThreadResponse({
+        messageThread: result.value.messageThread,
+        messageItems: [...store.getState().messageItems, result.value.messageItem],
+        detailActions: result.value.detailActions,
+        unreadBadge: result.value.unreadBadge,
+      });
+      return result;
     },
 
     async applyType(type: NotificationType | "all") {

@@ -69,6 +69,8 @@ function createKernelStub() {
             canBindPhone: false,
             mergePending: false,
           },
+          accountOperations: [],
+          relationTargets: [],
         } as T);
       },
     },
