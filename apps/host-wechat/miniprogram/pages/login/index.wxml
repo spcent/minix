@@ -68,8 +68,8 @@
 
   <view class="card landing-card landing-cta">
     <view class="section-label">Start from Home</view>
-    <view class="subtitle">{{authenticated ? (redirectTarget === 'overview' ? 'You are signed in. Continue back to Overview, or choose another unlocked page from Home.' : (redirectTarget === 'plan' ? 'You are signed in. Continue back to Today\'s Plan, or choose another unlocked page from Home.' : (redirectTarget === 'preferences' ? 'You are signed in. Continue back to Preferences, or choose another unlocked page from Home.' : 'You are signed in. Home stays in place and the rest of the product unlocks through the menu and actions below.'))) : 'Home explains the product and previews the lesson shape. The rest of the product unlocks after sign-in.'}}</view>
-    <view class="status-text">{{loading ? 'Preparing your lesson...' : (authenticated ? (redirectTarget === 'overview' ? 'Signed in. Continue to Overview.' : (redirectTarget === 'plan' ? 'Signed in. Continue to Today\'s Plan.' : (redirectTarget === 'preferences' ? 'Signed in. Continue to Preferences.' : 'Signed in. Choose where to go next.'))) : 'Ready for today\'s practice')}}</view>
+    <view class="subtitle">{{authStatus === 'reauth_required' ? 'Sign in again to continue. The original route id, params, and source are preserved.' : (authenticated ? (redirectTarget ? 'You are signed in. Continue back to the requested page, or choose another unlocked page from Home.' : 'You are signed in. Home stays in place and the rest of the product unlocks through the menu and actions below.') : 'Home explains the product and previews the lesson shape. The rest of the product unlocks after sign-in.')}}</view>
+    <view class="status-text">{{loading ? 'Preparing your lesson...' : (authStatus === 'reauth_required' ? (redirectLabel ? 'Sign in again to continue to the protected page.' : 'Sign in again to continue.') : (authenticated ? (redirectTarget ? 'Signed in. Continue to the requested page.' : 'Signed in. Choose where to go next.') : 'Ready for today\'s practice'))}}</view>
 
     <button wx:if="{{!authenticated}}" class="button" type="primary" loading="{{loading}}" bindtap="onTapLogin">
       Sign In To Continue
@@ -79,16 +79,8 @@
       Restore Learning Session
     </button>
 
-    <button wx:if="{{authenticated && redirectTarget === 'overview'}}" class="button" type="primary" bindtap="onTapContinueDestination">
-      Continue to Overview
-    </button>
-
-    <button wx:if="{{authenticated && redirectTarget === 'plan'}}" class="button" type="primary" bindtap="onTapContinueDestination">
-      Continue to Today's Plan
-    </button>
-
-    <button wx:if="{{authenticated && redirectTarget === 'preferences'}}" class="button" type="primary" bindtap="onTapContinueDestination">
-      Continue to Preferences
+    <button wx:if="{{authenticated && redirectTarget}}" class="button" type="primary" bindtap="onTapContinueDestination">
+      Continue to {{redirectLabel || 'Requested Page'}}
     </button>
 
     <button wx:if="{{authenticated && !redirectTarget}}" class="button" type="primary" bindtap="onTapOverview">

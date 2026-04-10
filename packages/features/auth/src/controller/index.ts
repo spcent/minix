@@ -61,6 +61,12 @@ function formatProtectedPageNotice(label?: string | null): string | null {
   return label ? `Return to Home and sign in to open ${label}.` : null;
 }
 
+function formatForceReauthNotice(label?: string | null): string {
+  return label
+    ? `Sign in again to continue to ${label}.`
+    : "Sign in again to continue.";
+}
+
 function createAnonymousId(): string {
   return `guest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -655,7 +661,9 @@ export function createAuthController(options: CreateAuthControllerOptions) {
       store.setState({
         loading: true,
         errorMessage: null,
-        noticeMessage: redirectState.noticeMessage,
+        noticeMessage: store.getState().redirectForceReauth
+          ? formatForceReauthNotice(store.getState().redirectLabel)
+          : redirectState.noticeMessage,
         redirectTarget: redirectState.target,
         redirectRouteId: store.getState().redirectRouteId,
         redirectSource: store.getState().redirectSource,
@@ -665,6 +673,16 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         redirectReason: store.getState().redirectReason,
         redirectForceReauth: store.getState().redirectForceReauth,
       });
+
+      if (store.getState().redirectForceReauth) {
+        store.setState({
+          loading: false,
+          authenticated: false,
+          authStatus: "reauth_required",
+          abnormalLoginPrompt: null,
+        });
+        return ok(false);
+      }
 
       if (kernel.auth.recoverSession) {
         const recovered = await kernel.auth.recoverSession();

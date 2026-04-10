@@ -512,6 +512,9 @@ test("auth controller preserves generic protected route ids and force-reauth met
   });
 
   await controller.restoreSession();
+  assert.equal(controller.store.getState().authStatus, "reauth_required");
+  assert.equal(controller.store.getState().authenticated, false);
+  assert.equal(controller.store.getState().noticeMessage, "Sign in again to continue to Inbox.");
   controller.setLoginMethod("phone_code");
   controller.updateCredentials({
     phoneNumber: "13800000001",

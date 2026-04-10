@@ -88,9 +88,9 @@ Guarantee consistent login interception, redirectTarget propagation, forced re-l
 
 ## Acceptance
 
-- [ ] route guard is enabled through shared runtime policy
-- [ ] `redirectTarget` supports arbitrary registered route ids and params
-- [ ] forced re-login has a first-class auth status and UI recovery path
-- [ ] expired-session and silent-refresh behavior is consistent across hosts
-- [ ] tests cover guarded route recovery matrix
-- [ ] `pnpm verify` run
+- [x] route guard is enabled through shared runtime policy
+- [x] `redirectTarget` supports arbitrary registered route ids and params
+- [x] forced re-login has a first-class auth status and UI recovery path
+- [x] expired-session and silent-refresh behavior is consistent across hosts
+- [x] tests cover guarded route recovery matrix
+- [x] `pnpm verify` run

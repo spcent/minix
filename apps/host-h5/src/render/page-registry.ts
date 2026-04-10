@@ -1893,17 +1893,14 @@ function renderIdentityWorkflowPage(
 
 function renderLoginPage({ root, runtime, sync }: HostH5PageRenderContext) {
   const state = runtime.pages.login.store.getState();
-  const redirectDestinationLabel =
-    state.redirectTarget === "overview"
-      ? "Overview"
-      : state.redirectTarget === "plan"
-        ? "Today's Plan"
-        : state.redirectTarget === "preferences"
-          ? "Preferences"
-          : null;
+  const redirectDestinationLabel = state.redirectLabel ?? (state.redirectTarget ? buildGenericTitle(String(state.redirectTarget)) : null);
   const statusText = state.loading
     ? "Preparing your lesson..."
-    : state.authenticated
+    : state.authStatus === "reauth_required"
+      ? redirectDestinationLabel
+        ? `Sign in again to continue to ${redirectDestinationLabel}.`
+        : "Sign in again to continue."
+      : state.authenticated
       ? redirectDestinationLabel
         ? `Signed in. Continue to ${redirectDestinationLabel}, or choose another page from Home.`
         : "Signed in. Use the menu or the actions below to open the rest of the product."
@@ -2017,10 +2014,12 @@ function renderLoginPage({ root, runtime, sync }: HostH5PageRenderContext) {
           <div class="me-progress-row">
             <div class="me-progress-copy">
               <p class="me-section-kicker">Start From Home</p>
-              <h2 class="me-progress-title">${escapeHtml(state.authenticated ? "You're signed in. Choose where to go next." : "Sign in from Home when you are ready to begin")}</h2>
+              <h2 class="me-progress-title">${escapeHtml(state.authStatus === "reauth_required" ? "Re-authentication is required" : state.authenticated ? "You're signed in. Choose where to go next." : "Sign in from Home when you are ready to begin")}</h2>
               <p class="me-progress-note">
                 ${escapeHtml(
-                  state.authenticated
+                  state.authStatus === "reauth_required"
+                    ? `${statusText} The original route id, path, params, and source are preserved until sign-in succeeds.`
+                    : state.authenticated
                     ? redirectDestinationLabel
                       ? `${statusText} Home no longer redirects automatically, so you stay in control before returning to the protected page you asked for.`
                       : `${statusText} Home no longer redirects automatically. Use Overview, Today's Plan, or Preferences when you want to move deeper into the product.`
@@ -2028,7 +2027,7 @@ function renderLoginPage({ root, runtime, sync }: HostH5PageRenderContext) {
                 )}
               </p>
             </div>
-            <div class="me-progress-pill">${escapeHtml(state.authenticated ? "Signed In" : "Start")}</div>
+            <div class="me-progress-pill">${escapeHtml(state.authStatus === "reauth_required" ? "Re-auth" : state.authenticated ? "Signed In" : "Start")}</div>
           </div>
           <div class="me-action-group">
             ${

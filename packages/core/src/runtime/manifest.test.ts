@@ -170,6 +170,11 @@ test("manifest guard redirects protected deep links with centralized recovery me
       enableAutoLogin: false,
       enableRouteGuard: true,
     },
+    session: {
+      async get() {
+        return ok(null);
+      },
+    },
     auth: {
       async recoverSession() {
         return ok(null);
@@ -213,5 +218,202 @@ test("manifest guard redirects protected deep links with centralized recovery me
     label: "Inbox",
     reason: "force-relogin",
     forceReauth: true,
+  });
+});
+
+test("manifest guard allows protected entry after silent refresh recovery", async () => {
+  let actionRan = false;
+  const controller = {
+    async loadInitial() {
+      actionRan = true;
+      return ok(undefined);
+    },
+  };
+  const protectedFeatureManifest: FeatureManifest<Record<string, never>, Record<string, never>, typeof controller> = {
+    featureKey: "items",
+    pageKey: "items",
+    packageName: "@minix/feature-items",
+    exportName: "itemsFeatureManifest",
+    createController() {
+      return controller;
+    },
+    hosts: {
+      h5: {
+        entryActions: {
+          onShow: "loadInitial",
+        },
+      },
+      wechat: {
+        entryActions: {
+          onShow: "loadInitial",
+        },
+      },
+    },
+  };
+  const definitions = defineHostPageDefinitions({
+    items: {
+      feature: protectedFeatureManifest,
+      routeId: APP_ROUTE_IDS.items,
+      routePath: "/plan",
+      controller: {},
+      pageData: {},
+      guardPolicy: {
+        requirements: {
+          authenticated: true,
+        },
+      },
+    },
+  });
+  const kernel = {
+    features: {
+      enableAutoLogin: false,
+      enableRouteGuard: true,
+    },
+    session: {
+      async get() {
+        return ok({
+          loggedIn: true,
+          platform: "h5",
+          identity: { userId: "user_1" },
+          token: {
+            accessToken: "expired",
+            refreshToken: "refresh_1",
+            expiresAt: Date.now() - 1_000,
+          },
+        });
+      },
+    },
+    auth: {
+      async recoverSession() {
+        return ok({
+          loggedIn: true,
+          platform: "h5",
+          identity: { userId: "user_1" },
+          token: {
+            accessToken: "fresh",
+            refreshToken: "refresh_2",
+            expiresAt: Date.now() + 60_000,
+          },
+        });
+      },
+    },
+    router: {
+      current() {
+        return ok({ path: "/plan" });
+      },
+    },
+  } as unknown as AppKernel;
+
+  const entry = createManifestPageRegistry("h5", kernel, definitions).items.createEntry();
+  const onShow = entry.onShow;
+  if (typeof onShow !== "function") {
+    throw new Error("onShow entry action was not registered");
+  }
+  const result = await onShow();
+
+  assert.equal(actionRan, true);
+  assert.deepEqual(result, { ok: true, value: undefined });
+});
+
+test("manifest guard redirects expired sessions with generic route params after refresh failure", async () => {
+  const routeCalls: Array<{ routeId: string; params?: Record<string, string | number | boolean> }> = [];
+  const controller = {
+    async loadInitial() {
+      throw new Error("expired guarded action should not run");
+    },
+  };
+  const protectedFeatureManifest: FeatureManifest<Record<string, never>, Record<string, never>, typeof controller> = {
+    featureKey: "account",
+    pageKey: "account",
+    packageName: "@minix/feature-account",
+    exportName: "accountFeatureManifest",
+    createController() {
+      return controller;
+    },
+    hosts: {
+      h5: {
+        entryActions: {
+          onShow: "loadInitial",
+        },
+      },
+      wechat: {
+        entryActions: {
+          onShow: "loadInitial",
+        },
+      },
+    },
+  };
+  const definitions = defineHostPageDefinitions({
+    account: {
+      feature: protectedFeatureManifest,
+      routeId: APP_ROUTE_IDS.account,
+      routePath: "/account",
+      controller: {},
+      pageData: {},
+      guardPolicy: {
+        requirements: {
+          authenticated: true,
+        },
+      },
+    },
+  });
+  const kernel = {
+    features: {
+      enableAutoLogin: false,
+      enableRouteGuard: true,
+    },
+    session: {
+      async get() {
+        return ok({
+          loggedIn: true,
+          platform: "h5",
+          identity: { userId: "user_1" },
+          token: {
+            accessToken: "expired",
+            refreshToken: "refresh_1",
+            expiresAt: Date.now() - 1_000,
+          },
+        });
+      },
+    },
+    auth: {
+      async recoverSession() {
+        return ok(null);
+      },
+    },
+    router: {
+      current() {
+        return ok({
+          path: "/account",
+          params: {
+            tab: "security",
+          },
+        });
+      },
+      async replaceRoute(routeId: string, params?: Record<string, string | number | boolean>) {
+        routeCalls.push({ routeId, ...(params ? { params } : {}) });
+        return ok(undefined);
+      },
+    },
+  } as unknown as AppKernel;
+
+  const entry = createManifestPageRegistry("h5", kernel, definitions).account.createEntry();
+  const onShow = entry.onShow;
+  if (typeof onShow !== "function") {
+    throw new Error("onShow entry action was not registered");
+  }
+  await onShow();
+
+  const routeCall = routeCalls[0];
+  assert.ok(routeCall?.params);
+  assert.equal(routeCall.routeId, APP_ROUTE_IDS.login);
+  assert.deepEqual(readAuthRedirectTarget({ path: "/", params: routeCall.params }), {
+    routeId: APP_ROUTE_IDS.account,
+    path: "/account",
+    params: {
+      tab: "security",
+    },
+    source: "account",
+    reason: "session-expired",
   });
 });

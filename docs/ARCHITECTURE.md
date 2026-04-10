@@ -284,6 +284,7 @@ Within each host, `src/manifest/page-definitions.ts` is the editable source of t
 - feature flags and page definitions live behind explicit builder helpers so shape checks happen at the source boundary
 - `src/manifest/app.manifest.ts` is generated from that source instead of being hand-maintained
 - guards and scaffolds should update the source module, then regenerate derived host manifest files
+- protected-route recovery is evaluated by the shared manifest runtime, which preserves route id, path, params, source, and re-auth reason before redirecting to login
 
 Within each host, `src/manifest/page-config.ts` isolates host-owned configurable page state:
 

@@ -3,13 +3,14 @@ import {
   CAPABILITY_KINDS,
   type AppRouteId,
   type AppRouteMap,
+  type AuthRedirectReason,
   type CapabilityRequirement,
   type GuardPolicy,
 } from "@minix/contracts";
 
 import type { AppKernel } from "./app";
 import { createAuthRedirectParams } from "./auth-redirect";
-import type { FeatureConfig, FeatureFlags } from "../types/index";
+import type { FeatureConfig, FeatureFlags, UserSession } from "../types/index";
 
 export type HostKind = "wechat" | "h5";
 
@@ -203,6 +204,76 @@ function shouldEnforceAuthGuard(kernel: AppKernel, guardPolicy?: GuardPolicy): b
   return Boolean(kernel.features.enableRouteGuard && guardPolicy?.requirements?.authenticated);
 }
 
+function isExpiredSession(session: UserSession | null | undefined): boolean {
+  return Boolean(session?.loggedIn && session.token?.accessToken && session.token.expiresAt !== undefined && session.token.expiresAt <= Date.now());
+}
+
+function normalizeRedirectReason(reason: string | undefined, fallback: AuthRedirectReason): AuthRedirectReason {
+  return reason === "auth-required" || reason === "session-expired" || reason === "force-relogin" ? reason : fallback;
+}
+
+function createGuardRedirectParams(input: {
+  pageKey: string;
+  definition: HostPageDefinition;
+  routeParams?: Record<string, string | number | boolean> | undefined;
+  reason: AuthRedirectReason;
+}) {
+  return createAuthRedirectParams({
+    routeId: input.definition.routeId,
+    path: input.definition.routePath,
+    ...(input.routeParams ? { params: input.routeParams } : {}),
+    source: input.pageKey,
+    ...(input.definition.navigationBarTitleText ? { label: input.definition.navigationBarTitleText } : {}),
+    reason: input.reason,
+    forceReauth: input.reason === "force-relogin",
+  });
+}
+
+async function evaluateAuthGuard(
+  kernel: AppKernel,
+  pageKey: string,
+  definition: HostPageDefinition,
+  args: unknown[],
+): Promise<
+  | { effect: "allow" }
+  | { effect: "deny" }
+  | { effect: "redirect"; redirectTo?: string | undefined; params?: Record<string, string | number | boolean> | undefined }
+> {
+  if (!shouldEnforceAuthGuard(kernel, definition.guardPolicy)) {
+    return { effect: "allow" };
+  }
+
+  const existing = await kernel.session.get();
+  const existingSession = existing.ok ? existing.value : null;
+  const hadSession = Boolean(existingSession?.loggedIn && existingSession.token?.accessToken);
+  const hadExpiredSession = isExpiredSession(existingSession);
+  const recovered = kernel.auth.recoverSession ? await kernel.auth.recoverSession(existing.ok ? existing.value : undefined) : existing;
+  if (recovered.ok && recovered.value) {
+    return { effect: "allow" };
+  }
+
+  if (definition.guardPolicy?.onFail?.effect === "deny") {
+    return { effect: "deny" };
+  }
+
+  const current = kernel.router.current();
+  const currentParams = current.ok ? current.value?.params : undefined;
+  const queryParams = currentParams ?? toRouteParams(args[0]);
+  const fallbackReason: AuthRedirectReason = hadSession || hadExpiredSession || !recovered.ok ? "session-expired" : "auth-required";
+  const reason = normalizeRedirectReason(definition.guardPolicy?.onFail?.reason, fallbackReason);
+
+  return {
+    effect: "redirect",
+    ...(definition.guardPolicy?.onFail?.redirectTo ? { redirectTo: definition.guardPolicy.onFail.redirectTo } : {}),
+    params: createGuardRedirectParams({
+      pageKey,
+      definition,
+      ...(queryParams ? { routeParams: queryParams } : {}),
+      reason,
+    }),
+  };
+}
+
 function createEntry<TController, TBehavior extends HostFeatureBehavior>(
   kernel: AppKernel,
   pageKey: string,
@@ -218,36 +289,17 @@ function createEntry<TController, TBehavior extends HostFeatureBehavior>(
 
   for (const [entryAction, controllerAction] of Object.entries(actionMap)) {
     entry[entryAction] = async (...args: unknown[]) => {
-      if (shouldEnforceAuthGuard(kernel, definition.guardPolicy)) {
-        const recovered = kernel.auth.recoverSession ? await kernel.auth.recoverSession() : null;
-        if (recovered?.ok && recovered.value === null) {
-          if (definition.guardPolicy?.onFail?.effect === "deny") {
-            return undefined;
-          }
+      const guardDecision = await evaluateAuthGuard(kernel, pageKey, definition, args);
+      if (guardDecision.effect === "deny") {
+        return undefined;
+      }
 
-          const current = kernel.router.current();
-          const currentParams = current.ok ? current.value?.params : undefined;
-          const queryParams = currentParams ?? toRouteParams(args[0]);
-          const redirectParams = createAuthRedirectParams({
-            routeId: definition.routeId,
-            path: definition.routePath,
-            ...(queryParams ? { params: queryParams } : {}),
-            source: pageKey,
-            ...(definition.navigationBarTitleText ? { label: definition.navigationBarTitleText } : {}),
-            reason:
-              definition.guardPolicy?.onFail?.reason === "session-expired" ||
-              definition.guardPolicy?.onFail?.reason === "force-relogin"
-                ? definition.guardPolicy.onFail.reason
-                : "auth-required",
-            forceReauth: definition.guardPolicy?.onFail?.reason === "force-relogin",
-          });
-
-          if (definition.guardPolicy?.onFail?.redirectTo) {
-            return kernel.router.replace(definition.guardPolicy.onFail.redirectTo, redirectParams);
-          }
-
-          return kernel.router.replaceRoute(APP_ROUTE_IDS.login, redirectParams);
+      if (guardDecision.effect === "redirect") {
+        if (guardDecision.redirectTo) {
+          return kernel.router.replace(guardDecision.redirectTo, guardDecision.params);
         }
+
+        return kernel.router.replaceRoute(APP_ROUTE_IDS.login, guardDecision.params);
       }
 
       const target = (controller as Record<string, unknown>)[controllerAction];
