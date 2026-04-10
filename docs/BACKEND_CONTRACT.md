@@ -35,6 +35,13 @@ Request:
 }
 ```
 
+Supported login methods are `wechat_code`, `guest`, `phone_code`, `password`, and `oauth`.
+
+- `phone_code` must use a dynamic challenge issued by `POST /auth/verification-code/request`; static demo codes are no longer part of the default login path.
+- `password` must match a stored hashed credential configured through `POST /auth/password/register` or `POST /auth/password/reset`.
+- `oauth` must include a provider token, provider user id, and a valid state issued by `POST /auth/oauth/authorize`, or complete through `POST /auth/oauth/callback`.
+- successful responses may include `riskDecision`, `credentialProtection`, and `abnormalLoginPrompt` in addition to the standard session output.
+
 Response:
 
 ```json
@@ -49,6 +56,37 @@ Response:
   }
 }
 ```
+
+### `POST /auth/verification-code/request`
+
+Issues a short-lived phone verification challenge for `login`, `guest_upgrade`, `phone_binding`, `change_phone`, or `password_reset`.
+
+Response semantics:
+
+- returns `verificationId`, masked phone number, expiry timestamp, retry interval, max attempts, and delivery metadata
+- local/sample deployments use the built-in simulated SMS provider and may expose `delivery.debugCode` for automated tests
+- consuming login and account flows must submit the returned code before it expires or before the attempt limit is exhausted
+
+### `POST /auth/password/register`
+
+Creates or replaces a hashed password credential for an account or phone subject.
+
+Response semantics:
+
+- returns the derived user id, normalized credential subject, and credential-protection metadata
+- phone-based password registration must be paired with a `password_reset` verification challenge
+
+### `POST /auth/password/reset`
+
+Resets a phone-based password credential after a valid `password_reset` verification challenge.
+
+### `POST /auth/oauth/authorize`
+
+Creates a short-lived OAuth state record and returns a provider authorization URL.
+
+### `POST /auth/oauth/callback`
+
+Validates OAuth provider, state, provider token, and provider user id, persists the provider identity, and returns the authenticated session.
 
 ### `POST /auth/logout`
 
@@ -93,7 +131,7 @@ Request:
   "credential": {
     "method": "phone_code",
     "phoneNumber": "13800000022",
-    "verificationCode": "123456"
+    "verificationCode": "code-from-/auth/verification-code/request"
   },
   "redirectTarget": {
     "path": "/items",
@@ -180,7 +218,7 @@ Updates bounded profile fields on the current account and returns the refreshed 
 
 ### `POST /account/change-phone`
 
-Updates the currently bound phone number after demo-code verification and returns the refreshed normalized account-operation surface.
+Updates the currently bound phone number after a valid `change_phone` verification challenge and returns the refreshed normalized account-operation surface.
 
 ### `POST /account/unbind`
 
@@ -330,6 +368,8 @@ Response semantics:
 - `429` means auth abuse controls blocked the request for the current client window
 - `POST /auth/refresh` should return `401` when the refresh token is expired, revoked, or invalid
 - `POST /auth/login` and `POST /auth/refresh` may return `429` with code `RATE_LIMITED`
+- `POST /auth/login` no longer validates static demo phone codes or static demo passwords by default; phone-code login uses stored verification challenges and password login uses hashed stored credentials
+- OAuth login/callback rejects missing, expired, or mismatched state with `credentialProtection.failureReason = "oauth_state_invalid"`
 - identity workflow endpoints should use `identityWorkflow.status` for merge-required or blocked business outcomes instead of forcing every branch through transport errors
 - payment endpoints should return `callbackVerification`, `reconciliation`, and optional `operationResult` as part of the order detail surface when transaction operations mutate state
 - upload endpoints should return backend-backed lifecycle fields so consuming features do not invent their own moderation, retry, or expiry state

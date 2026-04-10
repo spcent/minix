@@ -1,9 +1,11 @@
 import type {
   AuthAbnormalLoginPrompt,
+  AuthCredentialProtection,
   AuthIdentityFailureReason,
   AuthIdentityWorkflow,
   AuthRedirectReason,
   AuthStatus,
+  AuthVerificationPurpose,
   LoginMethod,
 } from "@minix/contracts";
 
@@ -18,6 +20,8 @@ export interface AuthCredentialState {
   password: string;
   provider: string;
   providerToken: string;
+  providerUserId: string;
+  oauthState: string;
   deviceId: string;
 }
 
@@ -42,6 +46,25 @@ export interface AuthPageState {
   rateLimitMessage: string | null;
   retryAfterSeconds: number | null;
   abnormalLoginPrompt: AuthAbnormalLoginPrompt | null;
+  credentialProtection: AuthCredentialProtection | null;
+  phoneVerification:
+    | {
+        verificationId: string;
+        phoneNumberMasked: string;
+        purpose: AuthVerificationPurpose;
+        expiresAt: number;
+        retryAfterSeconds: number;
+        debugCode: string | null;
+      }
+    | null;
+  oauthAuthorization:
+    | {
+        provider: string;
+        state: string;
+        authorizationUrl: string;
+        expiresAt: number;
+      }
+    | null;
   identityWorkflow: AuthIdentityWorkflow | null;
   identityFailureReason: AuthIdentityFailureReason | null;
 }
@@ -71,12 +94,17 @@ export function createInitialAuthPageState(): AuthPageState {
       password: "",
       provider: "",
       providerToken: "",
+      providerUserId: "",
+      oauthState: "",
       deviceId: "",
     },
     fieldErrors: {},
     rateLimitMessage: null,
     retryAfterSeconds: null,
     abnormalLoginPrompt: null,
+    credentialProtection: null,
+    phoneVerification: null,
+    oauthAuthorization: null,
     identityWorkflow: null,
     identityFailureReason: null,
   };

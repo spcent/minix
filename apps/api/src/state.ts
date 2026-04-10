@@ -33,6 +33,7 @@ interface PersistedUserState {
   managedContentById?: UserState["managedContentById"];
   pendingIdentityWorkflow?: UserState["pendingIdentityWorkflow"];
   lastIdentityWorkflow?: UserState["lastIdentityWorkflow"];
+  authSecurity?: UserState["authSecurity"];
 }
 
 export function serializeUserState(userState: UserState): string {
@@ -58,6 +59,7 @@ export function serializeUserState(userState: UserState): string {
     ...(userState.managedContentById ? { managedContentById: userState.managedContentById } : {}),
     ...(userState.pendingIdentityWorkflow ? { pendingIdentityWorkflow: userState.pendingIdentityWorkflow } : {}),
     ...(userState.lastIdentityWorkflow ? { lastIdentityWorkflow: userState.lastIdentityWorkflow } : {}),
+    ...(userState.authSecurity ? { authSecurity: userState.authSecurity } : {}),
   };
 
   return JSON.stringify(persisted);
@@ -91,5 +93,6 @@ export function deserializeUserState(serialized: string | null | undefined): Use
     ...(parsed.managedContentById ? { managedContentById: parsed.managedContentById } : {}),
     ...(parsed.pendingIdentityWorkflow ? { pendingIdentityWorkflow: parsed.pendingIdentityWorkflow } : {}),
     ...(parsed.lastIdentityWorkflow ? { lastIdentityWorkflow: parsed.lastIdentityWorkflow } : {}),
+    ...(parsed.authSecurity ? { authSecurity: parsed.authSecurity } : {}),
   };
 }

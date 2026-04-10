@@ -408,13 +408,13 @@ test("auth controller keeps abnormal-login prompts from successful credential lo
   assert.equal(controller.store.getState().abnormalLoginPrompt, null);
 });
 
-test("auth controller treats oauth as a credential-driven flow and surfaces unsupported errors", async () => {
+test("auth controller treats oauth as a credential-driven flow with callback state", async () => {
   const runtime = createKernelStub();
   runtime.setExchangeResult({
     ok: false,
     error: {
-      code: "PLATFORM_UNSUPPORTED",
-      message: "third-party oauth login is reserved in the sample backend",
+      code: "LOGIN_FAILED",
+      message: "oauth state is invalid or expired",
       recoverable: true,
     },
   });
@@ -427,12 +427,14 @@ test("auth controller treats oauth as a credential-driven flow and surfaces unsu
   controller.setLoginMethod("oauth");
   controller.updateCredentials({
     provider: "wechat-open-platform",
-    providerToken: "oauth-token",
+    providerToken: "oauth-token-valid",
+    providerUserId: "provider-user-1",
+    oauthState: "oauth_state_1",
   });
   const result = await controller.submitSelectedLogin();
 
   assert.equal(result.ok, false);
-  assert.equal(controller.store.getState().errorMessage, "third-party oauth login is reserved in the sample backend");
+  assert.equal(controller.store.getState().errorMessage, "oauth state is invalid or expired");
 });
 
 test("auth controller can route from home to overview, plan, and settings after login", async () => {

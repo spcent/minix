@@ -13,6 +13,8 @@ export interface LoginCredential {
   password?: string;
   provider?: string;
   providerToken?: string;
+  providerUserId?: string;
+  oauthState?: string;
   deviceId?: string;
   raw?: unknown;
 }

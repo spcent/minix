@@ -28,6 +28,37 @@ async function login(app: ReturnType<typeof createApiApp>, platform: "h5" | "wec
   };
 }
 
+async function requestPhoneCode(
+  app: ReturnType<typeof createApiApp>,
+  phoneNumber: string,
+  purpose: "login" | "guest_upgrade" | "phone_binding" | "change_phone" | "password_reset",
+) {
+  const response = await app.request("http://localhost/auth/verification-code/request", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      phoneNumber,
+      purpose,
+    }),
+  });
+  assert.equal(response.status, 200);
+  const payload = (await response.json()) as { delivery: { debugCode?: string } };
+  assert.equal(typeof payload.delivery.debugCode, "string");
+  return payload.delivery.debugCode!;
+}
+
+async function registerPasswordCredential(
+  app: ReturnType<typeof createApiApp>,
+  input: { account?: string; phoneNumber?: string; password: string },
+) {
+  const response = await app.request("http://localhost/auth/password/register", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  assert.equal(response.status, 200);
+}
+
 test("host sample flow supports login, items, refresh, and logout", async () => {
   const app = createApiApp({ store: createMemoryApiStore() });
   const session = await login(app, "h5");
@@ -274,12 +305,13 @@ test("account operation endpoints update normalized account and relation state",
   assert.equal(profilePayload.userProfile.region, "Hangzhou, CN");
   assert.equal(profilePayload.transitionMessage, "Profile updated.");
 
+  const phoneVerificationCode = await requestPhoneCode(app, "13800000022", "change_phone");
   const phoneResponse = await app.request("http://localhost/account/change-phone", {
     method: "POST",
     headers,
     body: JSON.stringify({
       phoneNumber: "13800000022",
-      verificationCode: "123456",
+      verificationCode: phoneVerificationCode,
     }),
   });
   assert.equal(phoneResponse.status, 200);
@@ -1176,8 +1208,9 @@ test("login attempts are rate limited per client and platform", async () => {
   assert.equal(body.retryAfterSeconds, 60);
 });
 
-test("phone verification login accepts the demo code and binds the phone identity", async () => {
+test("phone verification login accepts a requested code and binds the phone identity", async () => {
   const app = createApiApp({ store: createMemoryApiStore() });
+  const verificationCode = await requestPhoneCode(app, "13800000001", "login");
 
   const response = await app.request("http://localhost/auth/login", {
     method: "POST",
@@ -1190,7 +1223,7 @@ test("phone verification login accepts the demo code and binds the phone identit
       credential: {
         method: "phone_code",
         phoneNumber: "13800000001",
-        verificationCode: "123456",
+        verificationCode,
       },
     }),
   });
@@ -1207,8 +1240,12 @@ test("phone verification login accepts the demo code and binds the phone identit
   assert.equal(payload.identity.phoneBound, true);
 });
 
-test("password login rejects invalid credentials and oauth remains explicitly reserved", async () => {
+test("password login uses stored credentials and oauth validates callback state", async () => {
   const app = createApiApp({ store: createMemoryApiStore() });
+  await registerPasswordCredential(app, {
+    account: "minix-demo",
+    password: "minix-demo-pass",
+  });
 
   const invalidPassword = await app.request("http://localhost/auth/login", {
     method: "POST",
@@ -1227,6 +1264,30 @@ test("password login rejects invalid credentials and oauth remains explicitly re
   assert.equal(invalidPasswordBody.code, "LOGIN_FAILED");
   assert.equal(invalidPasswordBody.message, "invalid account or password");
 
+  const validPassword = await app.request("http://localhost/auth/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      platform: "h5",
+      credential: {
+        method: "password",
+        account: "minix-demo",
+        password: "minix-demo-pass",
+      },
+    }),
+  });
+  assert.equal(validPassword.status, 200);
+
+  const authorizeResponse = await app.request("http://localhost/auth/oauth/authorize", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      provider: "wechat-open-platform",
+    }),
+  });
+  assert.equal(authorizeResponse.status, 200);
+  const authorizePayload = (await authorizeResponse.json()) as { state: string };
+
   const oauthResponse = await app.request("http://localhost/auth/login", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -1235,17 +1296,25 @@ test("password login rejects invalid credentials and oauth remains explicitly re
       credential: {
         method: "oauth",
         provider: "wechat-open-platform",
-        providerToken: "oauth-token",
+        providerToken: "oauth-token-valid",
+        providerUserId: "provider-user-1",
+        oauthState: authorizePayload.state,
       },
     }),
   });
-  assert.equal(oauthResponse.status, 501);
-  const oauthBody = (await oauthResponse.json()) as { code: string };
-  assert.equal(oauthBody.code, "PLATFORM_UNSUPPORTED");
+  assert.equal(oauthResponse.status, 200);
+  const oauthBody = (await oauthResponse.json()) as { loginMethod: string; identity: { userId: string; wechatBound?: boolean } };
+  assert.equal(oauthBody.loginMethod, "oauth");
+  assert.equal(oauthBody.identity.userId, "user_oauth_wechat-open-platform_provider-user-1");
+  assert.equal(oauthBody.identity.wechatBound, true);
 });
 
 test("login can return an abnormal-login prompt for suspicious risk context", async () => {
   const app = createApiApp({ store: createMemoryApiStore() });
+  await registerPasswordCredential(app, {
+    account: "minix-demo",
+    password: "minix-demo-pass",
+  });
 
   const response = await app.request("http://localhost/auth/login", {
     method: "POST",
@@ -1268,15 +1337,18 @@ test("login can return an abnormal-login prompt for suspicious risk context", as
   assert.equal(response.status, 200);
   const payload = (await response.json()) as {
     abnormalLoginPrompt?: { title: string; severity: string };
+    riskDecision?: { level: string; reason?: string };
   };
   assert.equal(payload.abnormalLoginPrompt?.title, "Unusual sign-in detected");
   assert.equal(payload.abnormalLoginPrompt?.severity, "warning");
+  assert.equal(payload.riskDecision?.level, "review");
 });
 
 test("guest upgrade can promote a guest session into a formal account and expose workflow state", async () => {
   const store = createMemoryApiStore();
   const app = createApiApp({ store });
   const guestSession = await login(app, "h5");
+  const verificationCode = await requestPhoneCode(app, "13800000022", "guest_upgrade");
 
   const upgradeResponse = await app.request("http://localhost/auth/identity/upgrade", {
     method: "POST",
@@ -1288,7 +1360,7 @@ test("guest upgrade can promote a guest session into a formal account and expose
       credential: {
         method: "phone_code",
         phoneNumber: "13800000022",
-        verificationCode: "123456",
+        verificationCode,
       },
       redirectTarget: {
         path: "/items",
@@ -1329,6 +1401,7 @@ test("guest upgrade can promote a guest session into a formal account and expose
 test("phone binding can surface a merge-required workflow before merge confirmation", async () => {
   const app = createApiApp({ store: createMemoryApiStore() });
   const session = await login(app, "wechat");
+  const verificationCode = await requestPhoneCode(app, "13800000001", "phone_binding");
 
   const bindResponse = await app.request("http://localhost/auth/identity/bind-phone", {
     method: "POST",
@@ -1338,7 +1411,7 @@ test("phone binding can surface a merge-required workflow before merge confirmat
     },
     body: JSON.stringify({
       phoneNumber: "13800000001",
-      verificationCode: "123456",
+      verificationCode,
     }),
   });
 
@@ -1357,6 +1430,7 @@ test("phone binding can surface a merge-required workflow before merge confirmat
 test("account merge can finalize a pending identity merge into the target account", async () => {
   const app = createApiApp({ store: createMemoryApiStore() });
   const session = await login(app, "wechat");
+  const verificationCode = await requestPhoneCode(app, "13800000001", "phone_binding");
 
   const bindResponse = await app.request("http://localhost/auth/identity/bind-phone", {
     method: "POST",
@@ -1366,7 +1440,7 @@ test("account merge can finalize a pending identity merge into the target accoun
     },
     body: JSON.stringify({
       phoneNumber: "13800000001",
-      verificationCode: "123456",
+      verificationCode,
     }),
   });
   const bindPayload = (await bindResponse.json()) as {

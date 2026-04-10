@@ -22,6 +22,35 @@ export const AUTH_IDENTITY_FAILURE_REASONS = [
 export type AuthIdentityFailureReason = (typeof AUTH_IDENTITY_FAILURE_REASONS)[number];
 export const AUTH_MERGE_STRATEGIES = ["prompt", "merge"] as const;
 export type AuthMergeStrategy = (typeof AUTH_MERGE_STRATEGIES)[number];
+export const AUTH_VERIFICATION_PURPOSES = ["login", "guest_upgrade", "phone_binding", "change_phone", "password_reset"] as const;
+export type AuthVerificationPurpose = (typeof AUTH_VERIFICATION_PURPOSES)[number];
+export const AUTH_CREDENTIAL_FAILURE_REASONS = [
+  "credential_missing",
+  "verification_code_invalid",
+  "verification_code_expired",
+  "verification_code_locked",
+  "password_not_configured",
+  "password_invalid",
+  "password_locked",
+  "oauth_state_invalid",
+  "oauth_token_invalid",
+  "provider_unavailable",
+] as const;
+export type AuthCredentialFailureReason = (typeof AUTH_CREDENTIAL_FAILURE_REASONS)[number];
+
+export interface AuthRiskDecision {
+  deviceId?: string;
+  frequencyKey?: string;
+  scene?: string;
+  level: "allow" | "review" | "block";
+  reason?: string;
+}
+
+export interface AuthCredentialProtection {
+  failureReason?: AuthCredentialFailureReason;
+  remainingAttempts?: number;
+  lockedUntil?: number;
+}
 
 export interface AuthSessionPayload {
   accessToken: string;
@@ -86,6 +115,8 @@ export interface LoginRequest {
     password?: string;
     provider?: string;
     providerToken?: string;
+    providerUserId?: string;
+    oauthState?: string;
     deviceId?: string;
   };
   riskContext?: {
@@ -109,6 +140,8 @@ export interface LoginResponse {
   authStatus: AuthStatus;
   loginMethod?: LoginMethod;
   abnormalLoginPrompt?: AuthAbnormalLoginPrompt;
+  riskDecision?: AuthRiskDecision;
+  credentialProtection?: AuthCredentialProtection;
   identityWorkflow?: AuthIdentityWorkflow;
   redirectTarget?: AuthRedirectTarget;
 }
@@ -150,3 +183,66 @@ export interface IdentityMergeRequest {
 export interface IdentityTransitionResponse extends LoginResponse {
   identityWorkflow: AuthIdentityWorkflow;
 }
+
+export interface AuthPhoneVerificationRequest {
+  phoneNumber: string;
+  purpose: AuthVerificationPurpose;
+  deviceId?: string;
+  riskContext?: LoginRequest["riskContext"];
+}
+
+export interface AuthPhoneVerificationResponse {
+  verificationId: string;
+  phoneNumberMasked: string;
+  purpose: AuthVerificationPurpose;
+  expiresAt: number;
+  retryAfterSeconds: number;
+  maxAttempts: number;
+  delivery: {
+    provider: "sms" | "simulated";
+    providerReference: string;
+    maskedTarget: string;
+    debugCode?: string;
+    message: string;
+  };
+  riskDecision?: AuthRiskDecision;
+}
+
+export interface AuthPasswordCredentialRequest {
+  account?: string;
+  phoneNumber?: string;
+  password: string;
+  verificationCode?: string;
+  deviceId?: string;
+}
+
+export interface AuthPasswordCredentialResponse {
+  userId: string;
+  subject: string;
+  passwordConfigured: boolean;
+  credentialProtection: AuthCredentialProtection;
+}
+
+export interface AuthOAuthAuthorizeRequest {
+  provider: string;
+  redirectTarget?: AuthRedirectTarget;
+  deviceId?: string;
+}
+
+export interface AuthOAuthAuthorizeResponse {
+  provider: string;
+  state: string;
+  authorizationUrl: string;
+  expiresAt: number;
+}
+
+export interface AuthOAuthCallbackRequest {
+  provider: string;
+  state: string;
+  providerToken: string;
+  providerUserId: string;
+  platform: LoginPlatformKind;
+  redirectTarget?: AuthRedirectTarget;
+}
+
+export interface AuthOAuthCallbackResponse extends LoginResponse {}

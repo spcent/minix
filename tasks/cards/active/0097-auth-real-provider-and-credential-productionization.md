@@ -79,17 +79,17 @@ Make phone-code, password, and OAuth login production-capable instead of sample-
 ## Verification
 
 - slice gate:
-  - login no longer depends on static demo codes or passwords in production mode
+  - login no longer depends on static demo codes or passwords in the default API path
 - generation needed:
   - none unless host login callback routes are introduced
 - final verifier handoff:
-  - record demo-mode fallback separately from production behavior
+  - record that local/sample SMS delivery is simulated through dynamic challenge `debugCode`, while static demo constants were removed from login validation
 
 ## Acceptance
 
-- [ ] SMS code request, verification, expiry, retry, and lockout are implemented
-- [ ] password storage uses hashed credentials and failed-attempt protection
-- [ ] OAuth callback validates provider state and token before session creation
-- [ ] risk and abnormal-login output reaches shared `authStatus`
-- [ ] tests cover provider failures and credential edge cases
-- [ ] `pnpm verify` run
+- [x] SMS code request, verification, expiry, retry, and lockout are implemented
+- [x] password storage uses hashed credentials and failed-attempt protection
+- [x] OAuth callback validates provider state and token before session creation
+- [x] risk and abnormal-login output reaches shared `authStatus`
+- [x] tests cover provider failures and credential edge cases
+- [x] `pnpm verify` run

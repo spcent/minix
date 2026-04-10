@@ -127,5 +127,8 @@ Implementation notes:
 - CORS preflight and response headers are explicitly enabled for the local H5 sample origins so browser runtime requests can reach the API directly.
 - Extra browser origins can now be provided through the Worker binding `MINIX_CORS_ALLOWED_ORIGINS`, which is required once H5 preview or production hosts move off localhost.
 - Auth throttling uses in-memory counters in local Node development and can switch to Cloudflare KV through the `AUTH_RATE_LIMIT_KV` binding for remote environments.
+- Phone-code auth now uses `/auth/verification-code/request` challenges with expiry and attempt limits. Local/sample runs use a simulated SMS provider and expose `delivery.debugCode` for tests instead of relying on a static global demo code.
+- Password auth now uses stored hashed credentials created through `/auth/password/register` or `/auth/password/reset`, with failed-attempt lockout metadata returned through `credentialProtection`.
+- OAuth auth now uses `/auth/oauth/authorize` state records and `/auth/oauth/callback` validation instead of returning a reserved/unsupported response for every provider.
 - `apps/api/wrangler.jsonc` and `apps/api/migrations/` define the safe Worker + D1 template path for Cloudflare-oriented local development.
 - Local development still uses the top-level `minix-api` binding with a placeholder local-only D1 id.

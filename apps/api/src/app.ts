@@ -5,11 +5,17 @@ import type {
   AccountOperationResponse,
   AddToBookshelfRequest,
   AuthAbnormalLoginPrompt,
+  AuthCredentialProtection,
+  AuthOAuthAuthorizeResponse,
+  AuthOAuthCallbackResponse,
+  AuthPhoneVerificationResponse,
   AuthIdentity,
   AuthIdentityFailureReason,
   AuthIdentityWorkflow,
   AuthRedirectTarget,
+  AuthRiskDecision,
   AuthStatus,
+  AuthVerificationPurpose,
   BookshelfMutationResponse,
   ContentDetailResponse,
   ContentLifecycleMutationResponse,
@@ -89,7 +95,7 @@ import { checkAuthRateLimit, resolveClientId, type AuthRateLimitConfig, type Aut
 import { renderSampleCoverAssetSvg, renderSampleProfileAssetSvg, resolveProfileMedia } from "./sample-assets";
 import { createD1ApiStore } from "./store.d1";
 import { getGlobalMemoryApiStore } from "./store";
-import type { ApiBindings, ApiStore, SessionRecord, UserState } from "./types";
+import type { ApiBindings, ApiStore, AuthSecurityState, SessionRecord, UserState } from "./types";
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -111,6 +117,8 @@ const loginRequestSchema = z.object({
     password: z.string().min(1).optional(),
     provider: z.string().min(1).optional(),
     providerToken: z.string().min(1).optional(),
+    providerUserId: z.string().min(1).optional(),
+    oauthState: z.string().min(1).optional(),
     deviceId: z.string().min(1).optional(),
   }),
   riskContext: z
@@ -138,6 +146,66 @@ const loginRequestSchema = z.object({
 const refreshTokenRequestSchema = z.object({
   platform: z.enum(["wechat", "h5"]),
   refreshToken: z.string().min(1),
+});
+
+const authRiskContextSchema = z
+  .object({
+    deviceId: z.string().min(1).optional(),
+    userAgent: z.string().min(1).optional(),
+    ipRegion: z.string().min(1).optional(),
+    frequencyKey: z.string().min(1).optional(),
+    scene: z.string().min(1).optional(),
+  })
+  .optional();
+
+const phoneVerificationRequestSchema = z.object({
+  phoneNumber: z.string().min(1),
+  purpose: z.enum(["login", "guest_upgrade", "phone_binding", "change_phone", "password_reset"]),
+  deviceId: z.string().min(1).optional(),
+  riskContext: authRiskContextSchema,
+});
+
+const passwordCredentialSchema = z.object({
+  account: z.string().min(1).optional(),
+  phoneNumber: z.string().min(1).optional(),
+  password: z.string().min(8),
+  verificationCode: z.string().min(1).optional(),
+  deviceId: z.string().min(1).optional(),
+});
+
+const oauthAuthorizeSchema = z.object({
+  provider: z.string().min(1),
+  redirectTarget: z
+    .object({
+      routeId: z.string().min(1).optional(),
+      path: z.string().min(1).optional(),
+      params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+      source: z.string().min(1).optional(),
+      label: z.string().min(1).optional(),
+      reason: z.enum(["auth-required", "session-expired", "force-relogin"]).optional(),
+      forceReauth: z.boolean().optional(),
+    })
+    .optional(),
+  deviceId: z.string().min(1).optional(),
+});
+
+const oauthCallbackSchema = z.object({
+  provider: z.string().min(1),
+  state: z.string().min(1),
+  providerToken: z.string().min(8),
+  providerUserId: z.string().min(1),
+  platform: z.enum(["wechat", "h5"]),
+  redirectTarget: z
+    .object({
+      routeId: z.string().min(1).optional(),
+      path: z.string().min(1).optional(),
+      params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+      source: z.string().min(1).optional(),
+      label: z.string().min(1).optional(),
+      reason: z.enum(["auth-required", "session-expired", "force-relogin"]).optional(),
+      forceReauth: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 const authRedirectTargetSchema = z.object({
@@ -527,8 +595,12 @@ const DEFAULT_ALLOWED_CORS_ORIGINS = [
 const CORS_ALLOW_HEADERS = "authorization, content-type, x-trace-id";
 const CORS_ALLOW_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
 const CORS_MAX_AGE_SECONDS = "600";
-const DEMO_PHONE_VERIFICATION_CODE = "123456";
-const DEMO_PASSWORD = "minix-demo-pass";
+const PHONE_VERIFICATION_TTL_MS = 5 * 60 * 1000;
+const PHONE_VERIFICATION_RETRY_AFTER_SECONDS = 60;
+const PHONE_VERIFICATION_MAX_ATTEMPTS = 3;
+const PASSWORD_MAX_FAILED_ATTEMPTS = 3;
+const PASSWORD_LOCK_MS = 15 * 60 * 1000;
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
 function createTraceId() {
   return `api_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -563,6 +635,77 @@ function sanitizeUserKey(value: string): string {
 
 function normalizePhoneNumber(phoneNumber: string): string {
   return phoneNumber.replace(/[^\d]/g, "");
+}
+
+function maskPhoneNumber(phoneNumber: string): string {
+  const normalized = normalizePhoneNumber(phoneNumber);
+  if (normalized.length < 7) {
+    return phoneNumber;
+  }
+
+  return `${normalized.slice(0, 3)}****${normalized.slice(-4)}`;
+}
+
+function createAuthSecurityState(): AuthSecurityState {
+  return {
+    phoneVerificationsById: {},
+    latestVerificationIdByPhonePurpose: {},
+    passwordCredentialsBySubject: {},
+    oauthStatesByState: {},
+    oauthCredentialsByProviderSubject: {},
+    credentialProtectionBySubject: {},
+  };
+}
+
+function ensureAuthSecurityState(userState: UserState): AuthSecurityState {
+  userState.authSecurity ??= createAuthSecurityState();
+  userState.authSecurity.phoneVerificationsById ??= {};
+  userState.authSecurity.latestVerificationIdByPhonePurpose ??= {};
+  userState.authSecurity.passwordCredentialsBySubject ??= {};
+  userState.authSecurity.oauthStatesByState ??= {};
+  userState.authSecurity.oauthCredentialsByProviderSubject ??= {};
+  userState.authSecurity.credentialProtectionBySubject ??= {};
+  return userState.authSecurity;
+}
+
+function createRandomCode(): string {
+  const value = new Uint32Array(1);
+  crypto.getRandomValues(value);
+  return String((value[0] ?? 0) % 1_000_000).padStart(6, "0");
+}
+
+function createRandomId(prefix: string): string {
+  return `${prefix}_${crypto.randomUUID()}`;
+}
+
+function toHex(bytes: ArrayBuffer): string {
+  return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function hashSecret(secret: string, salt: string): Promise<string> {
+  const bytes = new TextEncoder().encode(`${salt}:${secret}`);
+  return toHex(await crypto.subtle.digest("SHA-256", bytes));
+}
+
+function createCredentialSubject(input: { account?: string | undefined; phoneNumber?: string | undefined }): string | null {
+  if (input.phoneNumber) {
+    const normalized = normalizePhoneNumber(input.phoneNumber);
+    return normalized ? `phone:${normalized}` : null;
+  }
+
+  if (input.account) {
+    return `account:${sanitizeUserKey(input.account.toLowerCase())}`;
+  }
+
+  return null;
+}
+
+function createPhonePurposeKey(phoneNumber: string, purpose: AuthVerificationPurpose): string {
+  return `${normalizePhoneNumber(phoneNumber)}:${purpose}`;
+}
+
+function createOAuthSubject(provider: string, providerUserId: string): string {
+  return `${sanitizeUserKey(provider.toLowerCase())}:${sanitizeUserKey(providerUserId)}`;
 }
 
 function createGuestUserId(anonymousId?: string): string {
@@ -783,6 +926,10 @@ function createUserIdFromLogin(payload: z.infer<typeof loginRequestSchema>, meth
         ...(payload.credential.account ? { account: payload.credential.account } : {}),
         ...(payload.credential.phoneNumber ? { phoneNumber: payload.credential.phoneNumber } : {}),
       });
+    case "oauth":
+      return payload.credential.provider && payload.credential.providerUserId
+        ? `user_oauth_${sanitizeUserKey(payload.credential.provider.toLowerCase())}_${sanitizeUserKey(payload.credential.providerUserId)}`
+        : "user_oauth_pending";
     default:
       return "minix-demo-user";
   }
@@ -881,6 +1028,7 @@ function resolveIdentity(payload: z.infer<typeof loginRequestSchema>, userId: st
     userId,
     ...(guest ? { anonymous: true } : {}),
     ...(payload.platform === "wechat" || method === "wechat_code" ? { wechatBound: true } : {}),
+    ...(method === "oauth" && payload.credential.provider?.toLowerCase().includes("wechat") ? { wechatBound: true } : {}),
     ...(method === "phone_code" || method === "password" ? { phoneBound: true } : {}),
   };
 }
@@ -944,13 +1092,35 @@ function resolveAbnormalLoginPrompt(
   };
 }
 
+function resolveRiskDecision(input: {
+  credentialDeviceId?: string | undefined;
+  riskContext?: z.infer<typeof authRiskContextSchema>;
+}): AuthRiskDecision {
+  const deviceId = input.credentialDeviceId ?? input.riskContext?.deviceId;
+  const suspicious =
+    input.riskContext?.scene === "suspicious-login" ||
+    input.riskContext?.frequencyKey === "abnormal-login" ||
+    input.riskContext?.ipRegion === "unusual-region" ||
+    deviceId === "device-risk-review";
+
+  return {
+    ...(deviceId ? { deviceId } : {}),
+    ...(input.riskContext?.frequencyKey ? { frequencyKey: input.riskContext.frequencyKey } : {}),
+    ...(input.riskContext?.scene ? { scene: input.riskContext.scene } : {}),
+    level: suspicious ? "review" : "allow",
+    ...(suspicious ? { reason: "unusual_device_or_region" } : {}),
+  };
+}
+
 function createAuthResponseFromSession(
   session: SessionRecord,
   requestUrl: string,
   options: {
     abnormalLoginPrompt?: AuthAbnormalLoginPrompt | undefined;
+    credentialProtection?: AuthCredentialProtection | undefined;
     identityWorkflow?: AuthIdentityWorkflow | undefined;
     redirectTarget?: AuthRedirectTarget | undefined;
+    riskDecision?: AuthRiskDecision | undefined;
   } = {},
 ): LoginResponse {
   return {
@@ -970,10 +1140,187 @@ function createAuthResponseFromSession(
     authStatus: session.authStatus,
     ...(session.loginMethod ? { loginMethod: session.loginMethod } : {}),
     ...(options.abnormalLoginPrompt ? { abnormalLoginPrompt: options.abnormalLoginPrompt } : {}),
+    ...(options.credentialProtection ? { credentialProtection: options.credentialProtection } : {}),
     ...(options.identityWorkflow ? { identityWorkflow: options.identityWorkflow } : {}),
     ...(options.redirectTarget ? { redirectTarget: options.redirectTarget } : {}),
+    ...(options.riskDecision ? { riskDecision: options.riskDecision } : {}),
   };
 }
+
+async function createPhoneVerificationChallenge(input: {
+  userState: UserState;
+  phoneNumber: string;
+  purpose: AuthVerificationPurpose;
+  deviceId?: string | undefined;
+  now: number;
+}) {
+  const security = ensureAuthSecurityState(input.userState);
+  const code = createRandomCode();
+  const salt = createRandomId("ver_salt");
+  const verificationId = createRandomId("ver");
+  const expiresAt = input.now + PHONE_VERIFICATION_TTL_MS;
+  security.phoneVerificationsById[verificationId] = {
+    verificationId,
+    purpose: input.purpose,
+    phoneNumber: input.phoneNumber,
+    salt,
+    codeHash: await hashSecret(code, salt),
+    attempts: 0,
+    maxAttempts: PHONE_VERIFICATION_MAX_ATTEMPTS,
+    expiresAt,
+    createdAt: input.now,
+    ...(input.deviceId ? { deviceId: input.deviceId } : {}),
+  };
+  security.latestVerificationIdByPhonePurpose[createPhonePurposeKey(input.phoneNumber, input.purpose)] = verificationId;
+  return { code, verificationId, expiresAt };
+}
+
+async function consumePhoneVerification(input: {
+  userState: UserState;
+  phoneNumber: string;
+  purpose: AuthVerificationPurpose;
+  verificationCode: string;
+  now: number;
+}): Promise<{ ok: true } | { ok: false; status: 400 | 423; message: string; protection: AuthCredentialProtection }> {
+  const security = ensureAuthSecurityState(input.userState);
+  const verificationId = security.latestVerificationIdByPhonePurpose[createPhonePurposeKey(input.phoneNumber, input.purpose)];
+  const record = verificationId ? security.phoneVerificationsById[verificationId] : undefined;
+  if (!record || record.consumedAt) {
+    return {
+      ok: false,
+      status: 400,
+      message: "phone verification code is missing or already consumed",
+      protection: { failureReason: "credential_missing", remainingAttempts: 0 },
+    };
+  }
+
+  if (record.expiresAt <= input.now) {
+    return {
+      ok: false,
+      status: 400,
+      message: "phone verification code has expired",
+      protection: { failureReason: "verification_code_expired", remainingAttempts: 0 },
+    };
+  }
+
+  if (record.attempts >= record.maxAttempts) {
+    return {
+      ok: false,
+      status: 423,
+      message: "phone verification is locked after too many failed attempts",
+      protection: { failureReason: "verification_code_locked", remainingAttempts: 0, lockedUntil: record.expiresAt },
+    };
+  }
+
+  const inputHash = await hashSecret(input.verificationCode, record.salt);
+  if (inputHash !== record.codeHash) {
+    record.attempts += 1;
+    const remainingAttempts = Math.max(0, record.maxAttempts - record.attempts);
+    return {
+      ok: false,
+      status: remainingAttempts > 0 ? 400 : 423,
+      message: remainingAttempts > 0 ? "invalid phone verification code" : "phone verification is locked after too many failed attempts",
+      protection: {
+        failureReason: remainingAttempts > 0 ? "verification_code_invalid" : "verification_code_locked",
+        remainingAttempts,
+        ...(remainingAttempts === 0 ? { lockedUntil: record.expiresAt } : {}),
+      },
+    };
+  }
+
+  record.consumedAt = input.now;
+  return { ok: true };
+}
+
+async function registerPasswordCredential(input: {
+  userState: UserState;
+  userId: string;
+  subject: string;
+  password: string;
+  now: number;
+}) {
+  const security = ensureAuthSecurityState(input.userState);
+  const salt = createRandomId("pwd_salt");
+  security.passwordCredentialsBySubject[input.subject] = {
+    subject: input.subject,
+    userId: input.userId,
+    salt,
+    passwordHash: await hashSecret(input.password, salt),
+    failedAttempts: 0,
+    maxFailedAttempts: PASSWORD_MAX_FAILED_ATTEMPTS,
+    updatedAt: input.now,
+  };
+  security.credentialProtectionBySubject[input.subject] = {
+    remainingAttempts: PASSWORD_MAX_FAILED_ATTEMPTS,
+  };
+}
+
+async function verifyPasswordCredential(input: {
+  userState: UserState;
+  subject: string;
+  password: string;
+  now: number;
+}): Promise<{ ok: true; userId: string; protection: AuthCredentialProtection } | { ok: false; status: 400 | 423; message: string; protection: AuthCredentialProtection }> {
+  const security = ensureAuthSecurityState(input.userState);
+  const credential = security.passwordCredentialsBySubject[input.subject];
+  if (!credential) {
+    return {
+      ok: false,
+      status: 400,
+      message: "password credential is not configured",
+      protection: { failureReason: "password_not_configured", remainingAttempts: 0 },
+    };
+  }
+
+  if (credential.lockedUntil && credential.lockedUntil > input.now) {
+    return {
+      ok: false,
+      status: 423,
+      message: "password credential is locked after too many failed attempts",
+      protection: { failureReason: "password_locked", remainingAttempts: 0, lockedUntil: credential.lockedUntil },
+    };
+  }
+
+  if (credential.lockedUntil && credential.lockedUntil <= input.now) {
+    delete credential.lockedUntil;
+    credential.failedAttempts = 0;
+  }
+
+  const inputHash = await hashSecret(input.password, credential.salt);
+  if (inputHash !== credential.passwordHash) {
+    credential.failedAttempts += 1;
+    const remainingAttempts = Math.max(0, credential.maxFailedAttempts - credential.failedAttempts);
+    if (remainingAttempts === 0) {
+      credential.lockedUntil = input.now + PASSWORD_LOCK_MS;
+    }
+    const protection: AuthCredentialProtection = {
+      failureReason: remainingAttempts === 0 ? "password_locked" : "password_invalid",
+      remainingAttempts,
+      ...(credential.lockedUntil ? { lockedUntil: credential.lockedUntil } : {}),
+    };
+    security.credentialProtectionBySubject[input.subject] = protection;
+    return {
+      ok: false,
+      status: remainingAttempts === 0 ? 423 : 400,
+      message: remainingAttempts === 0 ? "password credential is locked after too many failed attempts" : "invalid account or password",
+      protection,
+    };
+  }
+
+  credential.failedAttempts = 0;
+  delete credential.lockedUntil;
+  credential.updatedAt = input.now;
+  const protection: AuthCredentialProtection = {
+    remainingAttempts: credential.maxFailedAttempts,
+  };
+  security.credentialProtectionBySubject[input.subject] = protection;
+  return {
+    ok: true,
+    userId: credential.userId,
+    protection,
+  };
+}
+
 
 function mergeUserStates(target: UserState, source: UserState): UserState {
   const mergedBookshelf = new Set<string>([...target.bookshelfNovelIds, ...source.bookshelfNovelIds]);
@@ -1062,6 +1409,36 @@ function mergeUserStates(target: UserState, source: UserState): UserState {
       : {}),
     ...(target.lastIdentityWorkflow ?? source.lastIdentityWorkflow
       ? { lastIdentityWorkflow: target.lastIdentityWorkflow ?? source.lastIdentityWorkflow }
+      : {}),
+    ...(target.authSecurity ?? source.authSecurity
+      ? {
+          authSecurity: {
+            phoneVerificationsById: {
+              ...(source.authSecurity?.phoneVerificationsById ?? {}),
+              ...(target.authSecurity?.phoneVerificationsById ?? {}),
+            },
+            latestVerificationIdByPhonePurpose: {
+              ...(source.authSecurity?.latestVerificationIdByPhonePurpose ?? {}),
+              ...(target.authSecurity?.latestVerificationIdByPhonePurpose ?? {}),
+            },
+            passwordCredentialsBySubject: {
+              ...(source.authSecurity?.passwordCredentialsBySubject ?? {}),
+              ...(target.authSecurity?.passwordCredentialsBySubject ?? {}),
+            },
+            oauthStatesByState: {
+              ...(source.authSecurity?.oauthStatesByState ?? {}),
+              ...(target.authSecurity?.oauthStatesByState ?? {}),
+            },
+            oauthCredentialsByProviderSubject: {
+              ...(source.authSecurity?.oauthCredentialsByProviderSubject ?? {}),
+              ...(target.authSecurity?.oauthCredentialsByProviderSubject ?? {}),
+            },
+            credentialProtectionBySubject: {
+              ...(source.authSecurity?.credentialProtectionBySubject ?? {}),
+              ...(target.authSecurity?.credentialProtectionBySubject ?? {}),
+            },
+          },
+        }
       : {}),
   };
 }
@@ -1480,6 +1857,236 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     return createSvgResponse(svg, traceId);
   });
 
+  app.post("/auth/verification-code/request", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, phoneVerificationRequestSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const store = getStore(c.env, options.store);
+    const userId = createUserIdFromCredential({ method: "phone_code", phoneNumber: payload.phoneNumber });
+    const userState = await store.getUserState(userId);
+    const now = Date.now();
+    const challenge = await createPhoneVerificationChallenge({
+      userState,
+      phoneNumber: payload.phoneNumber,
+      purpose: payload.purpose,
+      ...(payload.deviceId ? { deviceId: payload.deviceId } : {}),
+      now,
+    });
+    await store.saveUserState(userId, userState);
+
+    const maskedTarget = maskPhoneNumber(payload.phoneNumber);
+    const riskDecision = resolveRiskDecision({
+      credentialDeviceId: payload.deviceId,
+      riskContext: payload.riskContext,
+    });
+    const response: AuthPhoneVerificationResponse = {
+      verificationId: challenge.verificationId,
+      phoneNumberMasked: maskedTarget,
+      purpose: payload.purpose,
+      expiresAt: challenge.expiresAt,
+      retryAfterSeconds: PHONE_VERIFICATION_RETRY_AFTER_SECONDS,
+      maxAttempts: PHONE_VERIFICATION_MAX_ATTEMPTS,
+      delivery: {
+        provider: "simulated",
+        providerReference: `sms_${challenge.verificationId}`,
+        maskedTarget,
+        debugCode: challenge.code,
+        message: "Verification code issued by the built-in simulated SMS provider.",
+      },
+      riskDecision,
+    };
+
+    return c.json(response);
+  });
+
+  app.post("/auth/password/register", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, passwordCredentialSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const subject = createCredentialSubject(payload);
+    if (!subject) {
+      return jsonError("INVALID_ARGUMENT", "password registration requires an account or phone number", 400, traceId);
+    }
+
+    const userId = createUserIdFromCredential({
+      method: "password",
+      ...(payload.account ? { account: payload.account } : {}),
+      ...(payload.phoneNumber ? { phoneNumber: payload.phoneNumber } : {}),
+    });
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(userId);
+    if (payload.phoneNumber) {
+      if (!payload.verificationCode) {
+        return jsonError("LOGIN_FAILED", "phone password registration requires a verification code", 400, traceId);
+      }
+      const verified = await consumePhoneVerification({
+        userState,
+        phoneNumber: payload.phoneNumber,
+        purpose: "password_reset",
+        verificationCode: payload.verificationCode,
+        now: Date.now(),
+      });
+      if (!verified.ok) {
+        await store.saveUserState(userId, userState);
+        return c.json({ code: "LOGIN_FAILED", message: verified.message, credentialProtection: verified.protection }, verified.status);
+      }
+    }
+
+    await registerPasswordCredential({
+      userState,
+      userId,
+      subject,
+      password: payload.password,
+      now: Date.now(),
+    });
+    await store.saveUserState(userId, userState);
+
+    return c.json({
+      userId,
+      subject,
+      passwordConfigured: true,
+      credentialProtection: { remainingAttempts: PASSWORD_MAX_FAILED_ATTEMPTS },
+    });
+  });
+
+  app.post("/auth/password/reset", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, passwordCredentialSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+    if (!payload.phoneNumber || !payload.verificationCode) {
+      return jsonError("INVALID_ARGUMENT", "password reset requires phone number and verification code", 400, traceId);
+    }
+
+    const subject = createCredentialSubject({ phoneNumber: payload.phoneNumber });
+    if (!subject) {
+      return jsonError("INVALID_ARGUMENT", "password reset requires a valid phone number", 400, traceId);
+    }
+
+    const userId = createUserIdFromCredential({ method: "password", phoneNumber: payload.phoneNumber });
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(userId);
+    const verified = await consumePhoneVerification({
+      userState,
+      phoneNumber: payload.phoneNumber,
+      purpose: "password_reset",
+      verificationCode: payload.verificationCode,
+      now: Date.now(),
+    });
+    if (!verified.ok) {
+      await store.saveUserState(userId, userState);
+      return c.json({ code: "LOGIN_FAILED", message: verified.message, credentialProtection: verified.protection }, verified.status);
+    }
+
+    await registerPasswordCredential({
+      userState,
+      userId,
+      subject,
+      password: payload.password,
+      now: Date.now(),
+    });
+    await store.saveUserState(userId, userState);
+    return c.json({
+      userId,
+      subject,
+      passwordConfigured: true,
+      credentialProtection: { remainingAttempts: PASSWORD_MAX_FAILED_ATTEMPTS },
+    });
+  });
+
+  app.post("/auth/oauth/authorize", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, oauthAuthorizeSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const providerKey = sanitizeUserKey(payload.provider.toLowerCase());
+    const state = createRandomId("oauth_state");
+    const expiresAt = Date.now() + OAUTH_STATE_TTL_MS;
+    const store = getStore(c.env, options.store);
+    const stateUserId = `oauth_state_${providerKey}`;
+    const stateStore = await store.getUserState(stateUserId);
+    const redirectTarget = resolveRedirectTarget(payload.redirectTarget);
+    ensureAuthSecurityState(stateStore).oauthStatesByState[state] = {
+      provider: payload.provider,
+      state,
+      expiresAt,
+      createdAt: Date.now(),
+      ...(payload.deviceId ? { deviceId: payload.deviceId } : {}),
+      ...(redirectTarget ? { redirectTarget } : {}),
+    };
+    await store.saveUserState(stateUserId, stateStore);
+
+    const response: AuthOAuthAuthorizeResponse = {
+      provider: payload.provider,
+      state,
+      authorizationUrl: `https://auth.example.test/${providerKey}/authorize?state=${encodeURIComponent(state)}`,
+      expiresAt,
+    };
+    return c.json(response);
+  });
+
+  app.post("/auth/oauth/callback", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, oauthCallbackSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const providerKey = sanitizeUserKey(payload.provider.toLowerCase());
+    const store = getStore(c.env, options.store);
+    const stateUserId = `oauth_state_${providerKey}`;
+    const stateStore = await store.getUserState(stateUserId);
+    const stateRecord = ensureAuthSecurityState(stateStore).oauthStatesByState[payload.state];
+    if (!stateRecord || stateRecord.provider !== payload.provider || stateRecord.expiresAt <= Date.now()) {
+      return c.json(
+        {
+          code: "LOGIN_FAILED",
+          message: "oauth state is invalid or expired",
+          credentialProtection: { failureReason: "oauth_state_invalid" },
+        },
+        400,
+      );
+    }
+
+    const userId = `user_oauth_${providerKey}_${sanitizeUserKey(payload.providerUserId)}`;
+    const userState = await store.getUserState(userId);
+    ensureAuthSecurityState(userState).oauthCredentialsByProviderSubject[createOAuthSubject(payload.provider, payload.providerUserId)] = {
+      provider: payload.provider,
+      providerUserId: payload.providerUserId,
+      userId,
+      tokenHash: await hashSecret(payload.providerToken, payload.state),
+      createdAt: Date.now(),
+    };
+    delete ensureAuthSecurityState(stateStore).oauthStatesByState[payload.state];
+    await store.saveUserState(stateUserId, stateStore);
+    await store.saveUserState(userId, userState);
+
+    const session = await store.createSession({
+      platform: payload.platform,
+      userId,
+      authStatus: "authenticated",
+      identity: {
+        userId,
+        ...(payload.provider.toLowerCase().includes("wechat") ? { wechatBound: true } : {}),
+      },
+      loginMethod: "oauth",
+    });
+    const redirectTarget = resolveRedirectTarget(payload.redirectTarget ?? stateRecord.redirectTarget);
+    const response: AuthOAuthCallbackResponse = createAuthResponseFromSession(session, c.req.url, {
+      ...(redirectTarget ? { redirectTarget } : {}),
+    });
+    return c.json(response);
+  });
+
   app.post("/auth/login", async (c) => {
     const traceId = c.get("traceId");
     const payload = await parseJsonBody(c.req.raw, loginRequestSchema, traceId);
@@ -1536,28 +2143,83 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       return jsonError("LOGIN_FAILED", "phone verification login requires both phone number and verification code", 400, traceId);
     }
 
-    if (loginMethod === "phone_code" && payload.credential.verificationCode !== DEMO_PHONE_VERIFICATION_CODE) {
-      return jsonError("LOGIN_FAILED", "invalid phone verification code", 400, traceId);
-    }
-
     if (loginMethod === "password" && (!(payload.credential.phoneNumber || payload.credential.account) || !payload.credential.password)) {
       return jsonError("LOGIN_FAILED", "password login requires an account identifier and password", 400, traceId);
     }
 
-    if (loginMethod === "password" && payload.credential.password !== DEMO_PASSWORD) {
-      return jsonError("LOGIN_FAILED", "invalid account or password", 400, traceId);
-    }
-
-    if (loginMethod === "oauth" && (!payload.credential.provider || !payload.credential.providerToken)) {
-      return jsonError("LOGIN_FAILED", "third-party login requires both provider and provider token", 400, traceId);
-    }
-
-    if (loginMethod === "oauth") {
-      return jsonError("PLATFORM_UNSUPPORTED", "third-party oauth login is reserved in the sample backend", 501, traceId);
+    if (loginMethod === "oauth" && (!payload.credential.provider || !payload.credential.providerToken || !payload.credential.providerUserId || !payload.credential.oauthState)) {
+      return jsonError("LOGIN_FAILED", "third-party login requires provider, provider user id, provider token, and oauth state", 400, traceId);
     }
 
     const store = getStore(c.env, options.store);
-    const userId = createUserIdFromLogin(payload, loginMethod);
+    let userId = createUserIdFromLogin(payload, loginMethod);
+    let credentialProtection: AuthCredentialProtection | undefined;
+
+    if (loginMethod === "phone_code") {
+      const userState = await store.getUserState(userId);
+      const verified = await consumePhoneVerification({
+        userState,
+        phoneNumber: payload.credential.phoneNumber!,
+        purpose: "login",
+        verificationCode: payload.credential.verificationCode!,
+        now: Date.now(),
+      });
+      await store.saveUserState(userId, userState);
+      if (!verified.ok) {
+        return c.json({ code: "LOGIN_FAILED", message: verified.message, credentialProtection: verified.protection }, verified.status);
+      }
+    }
+
+    if (loginMethod === "password") {
+      const subject = createCredentialSubject(payload.credential);
+      if (!subject) {
+        return jsonError("LOGIN_FAILED", "password login requires an account identifier and password", 400, traceId);
+      }
+      const userState = await store.getUserState(userId);
+      const verified = await verifyPasswordCredential({
+        userState,
+        subject,
+        password: payload.credential.password!,
+        now: Date.now(),
+      });
+      await store.saveUserState(userId, userState);
+      if (!verified.ok) {
+        return c.json({ code: "LOGIN_FAILED", message: verified.message, credentialProtection: verified.protection }, verified.status);
+      }
+      userId = verified.userId;
+      credentialProtection = verified.protection;
+    }
+
+    if (loginMethod === "oauth") {
+      const providerKey = sanitizeUserKey(payload.credential.provider!.toLowerCase());
+      const stateStore = await store.getUserState(`oauth_state_${providerKey}`);
+      const stateRecord = ensureAuthSecurityState(stateStore).oauthStatesByState[payload.credential.oauthState!];
+      if (!stateRecord || stateRecord.provider !== payload.credential.provider || stateRecord.expiresAt <= Date.now()) {
+        return c.json(
+          {
+            code: "LOGIN_FAILED",
+            message: "oauth state is invalid or expired",
+            credentialProtection: { failureReason: "oauth_state_invalid" },
+          },
+          400,
+        );
+      }
+      userId = `user_oauth_${providerKey}_${sanitizeUserKey(payload.credential.providerUserId!)}`;
+      const userState = await store.getUserState(userId);
+      ensureAuthSecurityState(userState).oauthCredentialsByProviderSubject[
+        createOAuthSubject(payload.credential.provider!, payload.credential.providerUserId!)
+      ] = {
+        provider: payload.credential.provider!,
+        providerUserId: payload.credential.providerUserId!,
+        userId,
+        tokenHash: await hashSecret(payload.credential.providerToken!, payload.credential.oauthState!),
+        createdAt: Date.now(),
+      };
+      delete ensureAuthSecurityState(stateStore).oauthStatesByState[payload.credential.oauthState!];
+      await store.saveUserState(`oauth_state_${providerKey}`, stateStore);
+      await store.saveUserState(userId, userState);
+    }
+
     const session = await store.createSession({
       platform: payload.platform,
       userId,
@@ -1567,25 +2229,16 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     });
     const redirectTarget = resolveRedirectTarget(payload.redirectTarget);
     const abnormalLoginPrompt = resolveAbnormalLoginPrompt(payload, loginMethod);
-    const response: LoginResponse = {
-      userId: session.userId,
-      accessToken: session.accessToken,
-      refreshToken: session.refreshToken,
-      expiresAt: session.expiresAt,
-      profile: resolveProfileMedia(session.profile, c.req.url),
-      session: {
-        accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
-        expiresAt: session.expiresAt,
-        issuedAt: Date.now(),
-        tokenType: "Bearer",
-      },
-      identity: session.identity,
-      authStatus: session.authStatus,
-      ...(session.loginMethod ? { loginMethod: session.loginMethod } : {}),
+    const riskDecision = resolveRiskDecision({
+      credentialDeviceId: payload.credential.deviceId,
+      riskContext: payload.riskContext,
+    });
+    const response: LoginResponse = createAuthResponseFromSession(session, c.req.url, {
       ...(abnormalLoginPrompt ? { abnormalLoginPrompt } : {}),
+      ...(credentialProtection ? { credentialProtection } : {}),
       ...(redirectTarget ? { redirectTarget } : {}),
-    };
+      riskDecision,
+    });
 
     return c.json(response);
   });
@@ -1697,32 +2350,62 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       if (!payload.credential.phoneNumber || !payload.credential.verificationCode) {
         return jsonError("INVALID_ARGUMENT", "guest upgrade with phone verification requires phone number and verification code", 400, traceId);
       }
-
-      if (payload.credential.verificationCode !== DEMO_PHONE_VERIFICATION_CODE) {
-        const workflow = createIdentityWorkflow({
-          kind: "guest_upgrade",
-          status: "blocked",
-          sourceUserId: session.userId,
-          continueTarget: resolveRedirectTarget(payload.redirectTarget),
-          failureReason: "verification_code_invalid",
-        });
-        return c.json(createAuthResponseFromSession(session, c.req.url, { identityWorkflow: workflow }));
-      }
     }
 
     if (payload.credential.method === "password") {
       if ((!(payload.credential.account || payload.credential.phoneNumber)) || !payload.credential.password) {
         return jsonError("INVALID_ARGUMENT", "guest upgrade with password requires an account identifier and password", 400, traceId);
       }
-
-      if (payload.credential.password !== DEMO_PASSWORD) {
-        return jsonError("LOGIN_FAILED", "invalid account or password", 400, traceId);
-      }
     }
 
     const store = getStore(c.env, options.store);
     const redirectTarget = resolveRedirectTarget(payload.redirectTarget);
     const targetUserId = createUserIdFromUpgradeRequest(payload);
+    const targetState = await store.getUserState(targetUserId);
+    if (payload.credential.method === "phone_code") {
+      const verified = await consumePhoneVerification({
+        userState: targetState,
+        phoneNumber: payload.credential.phoneNumber!,
+        purpose: "guest_upgrade",
+        verificationCode: payload.credential.verificationCode!,
+        now: Date.now(),
+      });
+      await store.saveUserState(targetUserId, targetState);
+      if (!verified.ok) {
+        const workflow = createIdentityWorkflow({
+          kind: "guest_upgrade",
+          status: "blocked",
+          sourceUserId: session.userId,
+          continueTarget: redirectTarget,
+          failureReason:
+            verified.protection.failureReason === "verification_code_expired"
+              ? "verification_code_invalid"
+              : "verification_code_invalid",
+        });
+        return c.json(createAuthResponseFromSession(session, c.req.url, {
+          identityWorkflow: workflow,
+          credentialProtection: verified.protection,
+          redirectTarget,
+        }));
+      }
+    }
+
+    if (payload.credential.method === "password") {
+      const subject = createCredentialSubject(payload.credential);
+      if (!subject) {
+        return jsonError("INVALID_ARGUMENT", "guest upgrade with password requires an account identifier and password", 400, traceId);
+      }
+      const verified = await verifyPasswordCredential({
+        userState: targetState,
+        subject,
+        password: payload.credential.password!,
+        now: Date.now(),
+      });
+      await store.saveUserState(targetUserId, targetState);
+      if (!verified.ok) {
+        return c.json({ code: "LOGIN_FAILED", message: verified.message, credentialProtection: verified.protection }, verified.status);
+      }
+    }
     const mergeCandidate = isMergeSampleIdentity(payload.credential);
     if (mergeCandidate && payload.mergeStrategy !== "merge") {
       const workflow = createIdentityWorkflow({
@@ -1748,7 +2431,6 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
 
     const sourceState = await store.getUserState(session.userId);
-    const targetState = await store.getUserState(targetUserId);
     const workflow = createIdentityWorkflow({
       kind: "guest_upgrade",
       status: "completed",
@@ -1828,7 +2510,21 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       return c.json(createAuthResponseFromSession(session, c.req.url, { identityWorkflow: workflow, redirectTarget }));
     }
 
-    if (payload.verificationCode !== DEMO_PHONE_VERIFICATION_CODE) {
+    const store = getStore(c.env, options.store);
+    const targetUserId = createUserIdFromCredential({
+      method: "phone_code",
+      phoneNumber: payload.phoneNumber,
+    });
+    const targetState = await store.getUserState(targetUserId);
+    const verified = await consumePhoneVerification({
+      userState: targetState,
+      phoneNumber: payload.phoneNumber,
+      purpose: "phone_binding",
+      verificationCode: payload.verificationCode,
+      now: Date.now(),
+    });
+    await store.saveUserState(targetUserId, targetState);
+    if (!verified.ok) {
       const workflow = createIdentityWorkflow({
         kind: "phone_binding",
         status: "blocked",
@@ -1836,14 +2532,12 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
         continueTarget: redirectTarget,
         failureReason: "verification_code_invalid",
       });
-      return c.json(createAuthResponseFromSession(session, c.req.url, { identityWorkflow: workflow, redirectTarget }));
+      return c.json(createAuthResponseFromSession(session, c.req.url, {
+        identityWorkflow: workflow,
+        credentialProtection: verified.protection,
+        redirectTarget,
+      }));
     }
-
-    const store = getStore(c.env, options.store);
-    const targetUserId = createUserIdFromCredential({
-      method: "phone_code",
-      phoneNumber: payload.phoneNumber,
-    });
     const mergeCandidate = isMergeSampleIdentity({ phoneNumber: payload.phoneNumber }) && targetUserId !== session.userId;
     if (mergeCandidate && payload.mergeStrategy !== "merge") {
       const workflow = createIdentityWorkflow({
@@ -2079,12 +2773,22 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       return payload;
     }
 
-    if (payload.verificationCode !== DEMO_PHONE_VERIFICATION_CODE) {
-      return jsonError("INVALID_ARGUMENT", "invalid phone verification code", 400, traceId);
-    }
-
     const session = c.get("session");
     const store = getStore(c.env, options.store);
+    const targetUserId = createUserIdFromCredential({ method: "phone_code", phoneNumber: payload.phoneNumber });
+    const targetState = await store.getUserState(targetUserId);
+    const verified = await consumePhoneVerification({
+      userState: targetState,
+      phoneNumber: payload.phoneNumber,
+      purpose: "change_phone",
+      verificationCode: payload.verificationCode,
+      now: Date.now(),
+    });
+    await store.saveUserState(targetUserId, targetState);
+    if (!verified.ok) {
+      return c.json({ code: "INVALID_ARGUMENT", message: verified.message, credentialProtection: verified.protection }, verified.status);
+    }
+
     const userState = await store.getUserState(session.userId);
     const current = createCurrentUserResponse(session, userState, c.req.url);
     const operation = current.accountOperations.find((item) => item.kind === "change_phone");

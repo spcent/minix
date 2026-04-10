@@ -10,9 +10,14 @@ import {
 } from "@minix/core";
 import type {
   AppRouteId,
+  AuthOAuthAuthorizeResponse,
+  AuthOAuthCallbackResponse,
+  AuthPasswordCredentialResponse,
+  AuthPhoneVerificationResponse,
   AuthIdentityFailureReason,
   AuthIdentityWorkflow,
   AuthRedirectTarget as ContractAuthRedirectTarget,
+  AuthVerificationPurpose,
   IdentityBindPhoneRequest,
   IdentityMergeRequest,
   IdentityTransitionResponse,
@@ -89,6 +94,8 @@ function createMethodValidation(
       return {
         ...(credentials.provider.trim() ? {} : { provider: "Provider is required." }),
         ...(credentials.providerToken.trim() ? {} : { providerToken: "Provider token is required." }),
+        ...(credentials.providerUserId.trim() ? {} : { providerUserId: "Provider user id is required." }),
+        ...(credentials.oauthState.trim() ? {} : { oauthState: "OAuth state is required." }),
       };
   }
 }
@@ -125,6 +132,8 @@ function createCredentialFromState(
         method,
         provider: credentials.provider.trim(),
         providerToken: credentials.providerToken.trim(),
+        providerUserId: credentials.providerUserId.trim(),
+        oauthState: credentials.oauthState.trim(),
         ...(credentials.deviceId.trim() ? { deviceId: credentials.deviceId.trim() } : {}),
       };
     case "wechat_code":
@@ -274,6 +283,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
       lastLoginMethod: session.identity.loginMethod ?? store.getState().selectedLoginMethod,
       noticeMessage: options?.clearNotice === false ? store.getState().noticeMessage : null,
       abnormalLoginPrompt: session.abnormalLoginPrompt ?? null,
+      credentialProtection: null,
       identityWorkflow: session.identityWorkflow ?? null,
       identityFailureReason: session.identityWorkflow?.failureReason ?? null,
       rateLimitMessage: null,
@@ -319,6 +329,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
       rateLimitMessage: null,
       retryAfterSeconds: null,
       abnormalLoginPrompt: null,
+      credentialProtection: null,
     });
 
     const result = await kernel.request.post<IdentityTransitionResponse>(url, body);
@@ -451,6 +462,193 @@ export function createAuthController(options: CreateAuthControllerOptions) {
     },
 
     validateSelectedMethod,
+
+    async requestPhoneVerification(purpose: AuthVerificationPurpose = "login") {
+      const credentials = store.getState().credentials;
+      if (!credentials.phoneNumber.trim()) {
+        store.setState({
+          fieldErrors: { phoneNumber: "Phone number is required." },
+          errorMessage: "Phone number is required before requesting a verification code.",
+        });
+        return ok(undefined);
+      }
+
+      store.setState({
+        loading: true,
+        errorMessage: null,
+        fieldErrors: {},
+        credentialProtection: null,
+      });
+      const result = await kernel.request.post<AuthPhoneVerificationResponse>("/auth/verification-code/request", {
+        phoneNumber: credentials.phoneNumber.trim(),
+        purpose,
+        ...(credentials.deviceId.trim() ? { deviceId: credentials.deviceId.trim() } : {}),
+      });
+      if (!result.ok) {
+        await handleError(result.error.message, { preserveRedirect: true });
+        return result;
+      }
+
+      store.setState({
+        loading: false,
+        phoneVerification: {
+          verificationId: result.value.verificationId,
+          phoneNumberMasked: result.value.phoneNumberMasked,
+          purpose: result.value.purpose,
+          expiresAt: result.value.expiresAt,
+          retryAfterSeconds: result.value.retryAfterSeconds,
+          debugCode: result.value.delivery.debugCode ?? null,
+        },
+        noticeMessage: `Verification code sent to ${result.value.phoneNumberMasked}.`,
+      });
+      return result;
+    },
+
+    async registerPasswordCredential() {
+      const credentials = store.getState().credentials;
+      const fieldErrors: Partial<Record<keyof AuthCredentialState, string>> = {
+        ...(credentials.account.trim() || credentials.phoneNumber.trim()
+          ? {}
+          : { account: "Account or phone number is required." }),
+        ...(credentials.password.length >= 8 ? {} : { password: "Password must be at least 8 characters." }),
+      };
+      if (Object.keys(fieldErrors).length > 0) {
+        store.setState({
+          fieldErrors,
+          errorMessage: "Please complete the required password fields.",
+        });
+        return ok(undefined);
+      }
+
+      store.setState({ loading: true, errorMessage: null, fieldErrors: {} });
+      const result = await kernel.request.post<AuthPasswordCredentialResponse>("/auth/password/register", {
+        ...(credentials.account.trim() ? { account: credentials.account.trim() } : {}),
+        ...(credentials.phoneNumber.trim() ? { phoneNumber: credentials.phoneNumber.trim() } : {}),
+        password: credentials.password,
+        ...(credentials.verificationCode.trim() ? { verificationCode: credentials.verificationCode.trim() } : {}),
+        ...(credentials.deviceId.trim() ? { deviceId: credentials.deviceId.trim() } : {}),
+      });
+      if (!result.ok) {
+        await handleError(result.error.message, { preserveRedirect: true });
+        return result;
+      }
+
+      store.setState({
+        loading: false,
+        credentialProtection: result.value.credentialProtection,
+        noticeMessage: "Password credential configured.",
+      });
+      return result;
+    },
+
+    async resetPasswordCredential() {
+      const credentials = store.getState().credentials;
+      const fieldErrors: Partial<Record<keyof AuthCredentialState, string>> = {
+        ...(credentials.phoneNumber.trim() ? {} : { phoneNumber: "Phone number is required." }),
+        ...(credentials.verificationCode.trim() ? {} : { verificationCode: "Verification code is required." }),
+        ...(credentials.password.length >= 8 ? {} : { password: "Password must be at least 8 characters." }),
+      };
+      if (Object.keys(fieldErrors).length > 0) {
+        store.setState({
+          fieldErrors,
+          errorMessage: "Please complete the required password reset fields.",
+        });
+        return ok(undefined);
+      }
+
+      store.setState({ loading: true, errorMessage: null, fieldErrors: {} });
+      const result = await kernel.request.post<AuthPasswordCredentialResponse>("/auth/password/reset", {
+        phoneNumber: credentials.phoneNumber.trim(),
+        verificationCode: credentials.verificationCode.trim(),
+        password: credentials.password,
+        ...(credentials.deviceId.trim() ? { deviceId: credentials.deviceId.trim() } : {}),
+      });
+      if (!result.ok) {
+        await handleError(result.error.message, { preserveRedirect: true });
+        return result;
+      }
+
+      store.setState({
+        loading: false,
+        credentialProtection: result.value.credentialProtection,
+        noticeMessage: "Password credential reset.",
+      });
+      return result;
+    },
+
+    async startOauthAuthorization() {
+      const credentials = store.getState().credentials;
+      if (!credentials.provider.trim()) {
+        store.setState({
+          fieldErrors: { provider: "Provider is required." },
+          errorMessage: "Provider is required before starting OAuth.",
+        });
+        return ok(undefined);
+      }
+
+      store.setState({ loading: true, errorMessage: null, fieldErrors: {} });
+      const result = await kernel.request.post<AuthOAuthAuthorizeResponse>("/auth/oauth/authorize", {
+        provider: credentials.provider.trim(),
+        ...(credentials.deviceId.trim() ? { deviceId: credentials.deviceId.trim() } : {}),
+        ...(createWorkflowRedirectTarget(store.getState()) ? { redirectTarget: createWorkflowRedirectTarget(store.getState()) } : {}),
+      });
+      if (!result.ok) {
+        await handleError(result.error.message, { preserveRedirect: true });
+        return result;
+      }
+
+      store.setState({
+        loading: false,
+        oauthAuthorization: result.value,
+        credentials: {
+          ...store.getState().credentials,
+          oauthState: result.value.state,
+        },
+        noticeMessage: "OAuth authorization started.",
+      });
+      return result;
+    },
+
+    async completeOauthCallback() {
+      const credentials = store.getState().credentials;
+      const fieldErrors = createMethodValidation("oauth", credentials);
+      if (Object.keys(fieldErrors).length > 0) {
+        store.setState({
+          fieldErrors,
+          errorMessage: "Please complete the required OAuth callback fields.",
+        });
+        return ok(undefined);
+      }
+
+      store.setState({ loading: true, errorMessage: null, fieldErrors: {} });
+      const result = await kernel.request.post<AuthOAuthCallbackResponse>("/auth/oauth/callback", {
+        provider: credentials.provider.trim(),
+        state: credentials.oauthState.trim(),
+        providerToken: credentials.providerToken.trim(),
+        providerUserId: credentials.providerUserId.trim(),
+        platform: kernel.env.platform,
+        ...(createWorkflowRedirectTarget(store.getState()) ? { redirectTarget: createWorkflowRedirectTarget(store.getState()) } : {}),
+      });
+      if (!result.ok) {
+        await handleError(result.error.message, { preserveRedirect: true });
+        return result;
+      }
+
+      const persisted = await persistAuthSessionResponse(
+        {
+          session: kernel.session,
+          env: kernel.env,
+        },
+        result.value,
+      );
+      if (!persisted.ok) {
+        await handleError(persisted.error.message, { preserveRedirect: true });
+        return persisted;
+      }
+
+      syncSessionState(persisted.value);
+      return routeToSuccess();
+    },
 
     async restoreSession() {
       const redirectState = readRedirectState();

@@ -1,8 +1,11 @@
 import type {
   UserAvailabilityStatus,
+  AuthCredentialProtection,
   AuthIdentityWorkflow,
+  AuthVerificationPurpose,
   AuthIdentity,
   AuthStatus,
+  AuthRedirectTarget,
   ContentLifecycle,
   ContentModel,
   ContentVisibility,
@@ -31,6 +34,58 @@ export interface ApiBindings {
 export interface LoginProfile {
   nickname: string;
   avatarUrl?: string;
+}
+
+export interface AuthPhoneVerificationRecord {
+  verificationId: string;
+  purpose: AuthVerificationPurpose;
+  phoneNumber: string;
+  codeHash: string;
+  salt: string;
+  attempts: number;
+  maxAttempts: number;
+  expiresAt: number;
+  createdAt: number;
+  consumedAt?: number;
+  deviceId?: string;
+}
+
+export interface AuthPasswordCredentialRecord {
+  subject: string;
+  userId: string;
+  salt: string;
+  passwordHash: string;
+  failedAttempts: number;
+  maxFailedAttempts: number;
+  updatedAt: number;
+  lockedUntil?: number;
+}
+
+export interface AuthOAuthStateRecord {
+  provider: string;
+  state: string;
+  expiresAt: number;
+  createdAt: number;
+  deviceId?: string;
+  redirectTarget?: AuthRedirectTarget;
+}
+
+export interface AuthOAuthCredentialRecord {
+  provider: string;
+  providerUserId: string;
+  userId: string;
+  tokenHash: string;
+  createdAt: number;
+  expiresAt?: number;
+}
+
+export interface AuthSecurityState {
+  phoneVerificationsById: Record<string, AuthPhoneVerificationRecord>;
+  latestVerificationIdByPhonePurpose: Record<string, string>;
+  passwordCredentialsBySubject: Record<string, AuthPasswordCredentialRecord>;
+  oauthStatesByState: Record<string, AuthOAuthStateRecord>;
+  oauthCredentialsByProviderSubject: Record<string, AuthOAuthCredentialRecord>;
+  credentialProtectionBySubject: Record<string, AuthCredentialProtection>;
 }
 
 export interface UserState {
@@ -79,6 +134,7 @@ export interface UserState {
   >;
   pendingIdentityWorkflow?: AuthIdentityWorkflow;
   lastIdentityWorkflow?: AuthIdentityWorkflow;
+  authSecurity?: AuthSecurityState;
 }
 
 export interface SessionRecord {
