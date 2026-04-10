@@ -88,12 +88,18 @@ Turn the documented versioning plan into a real release commit so MiniX does not
 - final verifier handoff:
   - record the final list of files touched by the coordinated `1.0.0` bump
 
+## Completion Handoff
+
+- release-cut decision: current HEAD was confirmed as the final `v1.0.0` release cut before this card was executed.
+- version scope: root package, app packages, core/contracts/platform/testkit/tooling packages, feature packages, host bootstrap defaults, API-reported app metadata, version-sensitive tests, scaffold defaults, official integration verification fixtures.
+- documentation scope: README release status, changelog release guidance, release runbook, verification log note, and M001 milestone release-cut guidance.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

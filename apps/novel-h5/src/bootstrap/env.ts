@@ -81,6 +81,6 @@ export function loadNovelH5Env(): RuntimeEnv {
     platform: "h5",
     apiBaseUrl,
     debug: useMock,
-    version: "0.1.0",
+    version: "1.0.0",
   };
 }

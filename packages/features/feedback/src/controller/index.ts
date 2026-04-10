@@ -173,7 +173,7 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         sourceLabel: "Feedback page",
         userId: sessionResult.ok ? sessionResult.value?.identity.userId : undefined,
         platform: kernel.env?.platform ?? "h5",
-        appVersion: kernel.env?.version ?? "0.1.0",
+        appVersion: kernel.env?.version ?? "1.0.0",
         deviceSummary: buildDeviceSummary(deviceInfo?.ok ? deviceInfo.value.value : undefined),
       },
       formValues: {
@@ -183,7 +183,7 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         sourceLabel: "Feedback page",
         userId: sessionResult.ok ? sessionResult.value?.identity.userId : undefined,
         platform: kernel.env?.platform ?? "h5",
-        appVersion: kernel.env?.version ?? "0.1.0",
+        appVersion: kernel.env?.version ?? "1.0.0",
         deviceSummary: buildDeviceSummary(deviceInfo?.ok ? deviceInfo.value.value : undefined),
       },
     });

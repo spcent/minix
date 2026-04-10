@@ -1567,7 +1567,7 @@ function packageJsonSource(names: FeatureNames): string {
   return `${JSON.stringify(
     {
       name: names.packageName,
-      version: "0.1.0",
+      version: "1.0.0",
       private: true,
       main: "src/index.ts",
       types: "src/index.ts",

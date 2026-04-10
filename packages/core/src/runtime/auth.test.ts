@@ -86,7 +86,7 @@ test("ensureLogin returns active stored session without adapter login", async ()
       apiBaseUrl: "https://api.example.com",
       debug: true,
       platform: "wechat",
-      version: "0.1.0",
+      version: "1.0.0",
     },
   });
 
@@ -138,7 +138,7 @@ test("ensureLogin refreshes stale session through wechat login and token exchang
       apiBaseUrl: "https://api.example.com",
       debug: true,
       platform: "wechat",
-      version: "0.1.0",
+      version: "1.0.0",
     },
   });
 
@@ -200,7 +200,7 @@ test("ensureLogin refreshes a stale session through /auth/refresh before falling
       apiBaseUrl: "https://api.example.com",
       debug: true,
       platform: "wechat",
-      version: "0.1.0",
+      version: "1.0.0",
     },
   });
 
@@ -266,7 +266,7 @@ test("login exchange forwards redirect targets to the backend", async () => {
       apiBaseUrl: "https://api.example.com",
       debug: true,
       platform: "h5",
-      version: "0.1.0",
+      version: "1.0.0",
     },
   });
 
@@ -349,7 +349,7 @@ test("ensureLogin falls back to adapter login when refresh returns token expired
       apiBaseUrl: "https://api.example.com",
       debug: true,
       platform: "wechat",
-      version: "0.1.0",
+      version: "1.0.0",
     },
   });
 
@@ -386,7 +386,7 @@ test("logout clears session state", async () => {
       apiBaseUrl: "https://api.example.com",
       debug: true,
       platform: "wechat",
-      version: "0.1.0",
+      version: "1.0.0",
     },
   });
 

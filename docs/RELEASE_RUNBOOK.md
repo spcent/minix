@@ -35,7 +35,7 @@ Use these rules consistently:
 - the final public release tag should be `v1.0.0`
 - [`CHANGELOG.md`](/CHANGELOG.md) is the human-readable release note source of truth
 - [`docs/RELEASE_NOTES_TEMPLATE.md`](/docs/RELEASE_NOTES_TEMPLATE.md) is the required note structure for RC and final announcements
-- tracked package manifests and runtime version stamps may remain on `0.1.0` during RC work, but the final release commit must bump them in one coordinated pass before tagging `v1.0.0`
+- tracked package manifests and runtime version stamps report `1.0.0` in the final release-cut commit
 
 ## Preconditions
 
@@ -217,7 +217,7 @@ Expected production H5 URLs:
    - production H5 URLs
    - verification commands executed
    - manual WeChat validator and date
-7. Update tracked package manifests and runtime version stamps from `0.1.0` to `1.0.0` in one coordinated release commit if that bump has not happened yet.
+7. Confirm tracked package manifests and runtime version stamps still report `1.0.0`.
 8. Update [`CHANGELOG.md`](/CHANGELOG.md) with the final release record and render the announcement from [`docs/RELEASE_NOTES_TEMPLATE.md`](/docs/RELEASE_NOTES_TEMPLATE.md).
 9. Only then create the `v1.0.0` release tag and publish the `v1.0.0` announcement.
 

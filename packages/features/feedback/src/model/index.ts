@@ -61,7 +61,7 @@ export function createDefaultFeedbackValues(values: Partial<FeedbackValues> = {}
     sourceLabel: values.sourceLabel,
     userId: values.userId,
     platform: values.platform ?? "h5",
-    appVersion: values.appVersion ?? "0.1.0",
+    appVersion: values.appVersion ?? "1.0.0",
     deviceSummary: values.deviceSummary,
     screenshotAssets: values.screenshotAssets ? structuredClone(values.screenshotAssets) : [],
     attachmentAssets: values.attachmentAssets ? structuredClone(values.attachmentAssets) : [],

@@ -112,5 +112,5 @@ Each RC or final release record should capture:
 
 ## Notes
 
-- The final coordinated `0.1.0` to `1.0.0` version bump should be recorded alongside the final `v1.0.0` entry.
+- The final coordinated version bump is part of the final `v1.0.0` release-cut commit and should be referenced from the final release entry.
 - If a release is abandoned after an RC is cut, mark that RC section as superseded instead of deleting it.

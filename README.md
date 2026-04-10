@@ -10,13 +10,13 @@ MiniX is not a full cross-platform framework yet. The goal is to keep shared con
 
 ## Release Status
 
-The repository is still moving from `v0.1` into `v1.0`.
+The repository is at the final `v1.0.0` release-cut version surface.
 
 Release naming is now frozen:
 
 - release-candidate notes should use `v1.0.0-rc.N`
 - the final public tag should be `v1.0.0`
-- the coordinated version bump from tracked `0.1.0` manifests and runtime stamps to `1.0.0` should happen only in the final release commit
+- tracked package manifests and runtime stamps now report `1.0.0`
 - [`CHANGELOG.md`](/CHANGELOG.md) is the human-readable release note source of truth
 - [`docs/RELEASE_NOTES_TEMPLATE.md`](/docs/RELEASE_NOTES_TEMPLATE.md) is the required outline for RC and final announcements
 

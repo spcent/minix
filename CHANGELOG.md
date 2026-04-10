@@ -2,7 +2,7 @@
 
 This file is the human-readable release note source of truth for MiniX.
 
-Until the final `v1.0.0` release commit is cut, the repository may still carry `0.1.0` metadata in tracked package manifests and runtime version stamps. Do not read that as a conflicting release promise. During release-candidate work, use the release record in [`docs/RELEASE_RUNBOOK.md`](/docs/RELEASE_RUNBOOK.md) together with this changelog to name RCs and final release notes.
+Tracked package manifests and runtime version stamps now report `1.0.0` for the final `v1.0.0` release cut. Use the release record in [`docs/RELEASE_RUNBOOK.md`](/docs/RELEASE_RUNBOOK.md) together with this changelog to name final release notes.
 
 ## Unreleased
 

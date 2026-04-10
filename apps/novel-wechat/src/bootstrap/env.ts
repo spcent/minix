@@ -63,6 +63,6 @@ export function loadNovelWechatEnv(): RuntimeEnv {
     platform: "wechat",
     apiBaseUrl,
     debug: useMock,
-    version: "0.1.0",
+    version: "1.0.0",
   };
 }
