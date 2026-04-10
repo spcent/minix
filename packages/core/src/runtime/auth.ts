@@ -1,5 +1,6 @@
 import type {
   AuthIdentity,
+  AuthRedirectTarget,
   AuthSessionPayload,
   AuthStatus,
   LoginMethod,
@@ -18,12 +19,13 @@ import type { RuntimeEnv, UserSession } from "../types/index";
 export interface ExchangeTokenInput {
   credential: LoginCredential;
   platform: RuntimeEnv["platform"];
+  redirectTarget?: AuthRedirectTarget;
 }
 
 export interface AuthService {
   ensureLogin(): Promise<Result<UserSession>>;
   recoverSession?(currentSession?: UserSession | null): Promise<Result<UserSession | null>>;
-  login(): Promise<Result<UserSession>>;
+  login(input?: { redirectTarget?: AuthRedirectTarget }): Promise<Result<UserSession>>;
   logout(): Promise<Result<void>>;
   exchangeToken(input: ExchangeTokenInput): Promise<Result<UserSession>>;
   refreshSession?(currentSession?: UserSession | null): Promise<Result<UserSession>>;
@@ -227,7 +229,7 @@ export function createAuthService(options: {
 
     recoverSession,
 
-    async login(): Promise<Result<UserSession>> {
+    async login(input?: { redirectTarget?: AuthRedirectTarget }): Promise<Result<UserSession>> {
       const loginResult = await options.adapter.login();
       if (!loginResult.ok) {
         return fail(
@@ -241,6 +243,7 @@ export function createAuthService(options: {
       return this.exchangeToken({
         credential: loginResult.value.credential,
         platform: loginResult.value.platform,
+        ...(input?.redirectTarget ? { redirectTarget: input.redirectTarget } : {}),
       });
     },
 
@@ -259,6 +262,7 @@ export function createAuthService(options: {
       const response = await options.request.post<LoginResponse>("/auth/login", {
         platform: input.platform,
         credential: input.credential,
+        ...(input.redirectTarget ? { redirectTarget: input.redirectTarget } : {}),
       } satisfies LoginRequest);
 
       if (!response.ok) {

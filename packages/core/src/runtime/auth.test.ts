@@ -216,6 +216,77 @@ test("ensureLogin refreshes a stale session through /auth/refresh before falling
   }
 });
 
+test("login exchange forwards redirect targets to the backend", async () => {
+  const session = createSessionService(createCacheService(createMemoryAdapter(), "auth-test-2d"));
+  const adapter: AuthAdapter = {
+    async login() {
+      return ok({
+        platform: "h5",
+        credential: {
+          method: "guest",
+          anonymousId: "guest_redirect",
+        },
+      });
+    },
+  };
+
+  const auth = createAuthService({
+    adapter,
+    request: createRequestStub((url, body) => {
+      assert.equal(url, "/auth/login");
+      assert.deepEqual(body, {
+        platform: "h5",
+        credential: {
+          method: "guest",
+          anonymousId: "guest_redirect",
+        },
+        redirectTarget: {
+          routeId: "messages.index",
+          path: "/inbox",
+          params: {
+            threadId: "support_1",
+          },
+          source: "messages",
+          label: "Inbox",
+          reason: "force-relogin",
+          forceReauth: true,
+        },
+      });
+
+      return ok({
+        userId: "u_redirect",
+        accessToken: "redirect-token",
+        authStatus: "authenticated",
+      });
+    }),
+    session,
+    env: {
+      appId: "host-h5",
+      appName: "host-h5",
+      apiBaseUrl: "https://api.example.com",
+      debug: true,
+      platform: "h5",
+      version: "0.1.0",
+    },
+  });
+
+  const result = await auth.login({
+    redirectTarget: {
+      routeId: "messages.index",
+      path: "/inbox",
+      params: {
+        threadId: "support_1",
+      },
+      source: "messages",
+      label: "Inbox",
+      reason: "force-relogin",
+      forceReauth: true,
+    },
+  });
+
+  assert.equal(result.ok, true);
+});
+
 test("ensureLogin falls back to adapter login when refresh returns token expired", async () => {
   const session = createSessionService(createCacheService(createMemoryAdapter(), "auth-test-2c"));
   await session.set({

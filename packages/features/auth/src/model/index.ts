@@ -2,6 +2,7 @@ import type {
   AuthAbnormalLoginPrompt,
   AuthIdentityFailureReason,
   AuthIdentityWorkflow,
+  AuthRedirectReason,
   AuthStatus,
   LoginMethod,
 } from "@minix/contracts";
@@ -29,9 +30,13 @@ export interface AuthPageState {
   lastLoginMethod: LoginMethod | null;
   noticeMessage: string | null;
   redirectTarget: AuthRedirectTarget;
+  redirectRouteId: string | null;
+  redirectSource: string | null;
   redirectLabel: string | null;
   redirectPath: string | null;
   redirectParams: AuthRedirectParams;
+  redirectReason: AuthRedirectReason | null;
+  redirectForceReauth: boolean;
   credentials: AuthCredentialState;
   fieldErrors: Partial<Record<keyof AuthCredentialState, string>>;
   rateLimitMessage: string | null;
@@ -51,9 +56,13 @@ export function createInitialAuthPageState(): AuthPageState {
     lastLoginMethod: null,
     noticeMessage: null,
     redirectTarget: null,
+    redirectRouteId: null,
+    redirectSource: null,
     redirectLabel: null,
     redirectPath: null,
     redirectParams: null,
+    redirectReason: null,
+    redirectForceReauth: false,
     credentials: {
       anonymousId: "",
       phoneNumber: "",

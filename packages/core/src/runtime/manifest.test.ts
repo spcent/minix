@@ -3,7 +3,11 @@ import test from "node:test";
 
 import { APP_ROUTE_IDS } from "@minix/contracts";
 
-import { defineHostPageDefinitions, type FeatureManifest, type HostFeatureBehavior } from "./index";
+import { ok } from "../error/index";
+
+import { readAuthRedirectTarget } from "./auth-redirect";
+import type { AppKernel } from "./app";
+import { createManifestPageRegistry, defineHostPageDefinitions, type FeatureManifest, type HostFeatureBehavior } from "./index";
 
 const testFeatureManifest: FeatureManifest<Record<string, never>, Record<string, never>, Record<string, never>> = {
   featureKey: "test",
@@ -111,4 +115,103 @@ test("defineHostPageDefinitions rejects incomplete wechat shell metadata", () =>
       }),
     /registrationModule is required/,
   );
+});
+
+test("manifest guard redirects protected deep links with centralized recovery metadata", async () => {
+  const routeCalls: Array<{ routeId: string; params?: Record<string, string | number | boolean> }> = [];
+  const controller = {
+    async loadInitial() {
+      throw new Error("guarded controller action should not run");
+    },
+  };
+  const protectedFeatureManifest: FeatureManifest<Record<string, never>, Record<string, never>, typeof controller> = {
+    featureKey: "messages",
+    pageKey: "messages",
+    packageName: "@minix/feature-messages",
+    exportName: "messagesFeatureManifest",
+    createController() {
+      return controller;
+    },
+    hosts: {
+      h5: {
+        entryActions: {
+          onShow: "loadInitial",
+        },
+      },
+      wechat: {
+        entryActions: {
+          onShow: "loadInitial",
+        },
+      },
+    },
+  };
+  const definitions = defineHostPageDefinitions({
+    messages: {
+      feature: protectedFeatureManifest,
+      routeId: APP_ROUTE_IDS.messages,
+      routePath: "/inbox",
+      controller: {},
+      pageData: {},
+      navigationBarTitleText: "Inbox",
+      guardPolicy: {
+        name: "force-message-reauth",
+        requirements: {
+          authenticated: true,
+        },
+        onFail: {
+          effect: "redirect",
+          reason: "force-relogin",
+        },
+      },
+    },
+  });
+  const kernel = {
+    features: {
+      enableAutoLogin: false,
+      enableRouteGuard: true,
+    },
+    auth: {
+      async recoverSession() {
+        return ok(null);
+      },
+    },
+    router: {
+      current() {
+        return ok({
+          path: "/inbox",
+          params: {
+            threadId: "support_1",
+          },
+        });
+      },
+      async replaceRoute(routeId: string, params?: Record<string, string | number | boolean>) {
+        routeCalls.push({ routeId, ...(params ? { params } : {}) });
+        return ok(undefined);
+      },
+    },
+  } as unknown as AppKernel;
+
+  const registry = createManifestPageRegistry("h5", kernel, definitions);
+  const entry = registry.messages.createEntry();
+  const onShow = entry.onShow;
+  if (typeof onShow !== "function") {
+    throw new Error("onShow entry action was not registered");
+  }
+  await onShow();
+
+  const routeCall = routeCalls[0];
+  assert.ok(routeCall);
+  assert.ok(routeCall.params);
+  assert.equal(routeCall.routeId, APP_ROUTE_IDS.login);
+  assert.deepEqual(readAuthRedirectTarget({ path: "/", params: routeCall.params }), {
+    routeId: APP_ROUTE_IDS.messages,
+    path: "/inbox",
+    params: {
+      threadId: "support_1",
+    },
+    source: "messages",
+    label: "Inbox",
+    reason: "force-relogin",
+    forceReauth: true,
+  });
 });

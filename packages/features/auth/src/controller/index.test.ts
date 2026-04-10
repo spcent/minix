@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ok, type AppKernel, type Result, type UserSession } from "@minix/core";
+import { createAuthRedirectParams, ok, type AppKernel, type Result, type UserSession } from "@minix/core";
+import type { ExchangeTokenInput } from "@minix/core";
 import type { IdentityTransitionResponse } from "@minix/contracts";
 
 import { createAuthController } from "./index";
@@ -24,7 +25,9 @@ function createSession(
 function createKernelStub() {
   const routeCalls: string[] = [];
   const requestCalls: Array<{ url: string; body: unknown }> = [];
-  let currentParams: Record<string, string> | undefined;
+  const exchangeCalls: ExchangeTokenInput[] = [];
+  const loginCalls: Array<{ redirectTarget?: unknown } | undefined> = [];
+  let currentParams: Record<string, string | number | boolean> | undefined;
   let sessionValue: UserSession | null = createSession();
   let refreshResult: Result<UserSession> = ok(
     createSession({ token: { accessToken: "token_2", refreshToken: "refresh_1" } }),
@@ -74,10 +77,12 @@ function createKernelStub() {
       platform: "h5",
     },
     auth: {
-      async login() {
+      async login(input?: { redirectTarget?: unknown }) {
+        loginCalls.push(input);
         return ok(createSession());
       },
-      async exchangeToken() {
+      async exchangeToken(input: ExchangeTokenInput) {
+        exchangeCalls.push(input);
         return exchangeResult;
       },
       async ensureLogin() {
@@ -121,16 +126,16 @@ function createKernelStub() {
       },
     },
     router: {
-      async toRoute(routeId: string) {
-        routeCalls.push(`to:${routeId}`);
+      async toRoute(routeId: string, params?: Record<string, string | number | boolean>) {
+        routeCalls.push(params ? `to:${routeId}:${JSON.stringify(params)}` : `to:${routeId}`);
         return ok(undefined);
       },
-      async to(path: string) {
-        routeCalls.push(`path:${path}`);
+      async to(path: string, params?: Record<string, string | number | boolean>) {
+        routeCalls.push(params ? `path:${path}:${JSON.stringify(params)}` : `path:${path}`);
         return ok(undefined);
       },
-      async replaceRoute(routeId: string) {
-        routeCalls.push(`replace:${routeId}`);
+      async replaceRoute(routeId: string, params?: Record<string, string | number | boolean>) {
+        routeCalls.push(params ? `replace:${routeId}:${JSON.stringify(params)}` : `replace:${routeId}`);
         return ok(undefined);
       },
       current() {
@@ -142,7 +147,7 @@ function createKernelStub() {
   return {
     kernel,
     routeCalls,
-    setCurrentParams(params?: Record<string, string>) {
+    setCurrentParams(params?: Record<string, string | number | boolean>) {
       currentParams = params;
     },
     setSession(nextSession: ReturnType<typeof createSession> | null) {
@@ -165,6 +170,12 @@ function createKernelStub() {
     },
     get requestCalls() {
       return requestCalls;
+    },
+    get exchangeCalls() {
+      return exchangeCalls;
+    },
+    get loginCalls() {
+      return loginCalls;
     },
   };
 }
@@ -461,6 +472,95 @@ test("auth controller can continue to the protected destination after sign-in", 
   assert.deepEqual(result, { ok: true, value: undefined });
   assert.deepEqual(runtime.routeCalls, ["to:items.list"]);
   assert.equal(controller.store.getState().redirectTarget, null);
+});
+
+test("auth controller preserves generic protected route ids and force-reauth metadata", async () => {
+  const runtime = createKernelStub();
+  runtime.setCurrentParams(
+    createAuthRedirectParams({
+      routeId: "messages.index",
+      path: "/inbox",
+      params: {
+        threadId: "support_1",
+        source: "push",
+      },
+      source: "messages",
+      label: "Inbox",
+      reason: "force-relogin",
+      forceReauth: true,
+    })!,
+  );
+  runtime.setSession(null);
+  runtime.setExchangeResult(
+    ok(
+      createSession({
+        identity: {
+          userId: "user_phone_0001",
+          phoneBound: true,
+          loginMethod: "phone_code",
+        },
+        authStatus: "authenticated",
+      }),
+    ),
+  );
+  const controller = createAuthController({
+    kernel: runtime.kernel,
+    successRouteId: "auth.login",
+    stayOnSuccess: true,
+  });
+
+  await controller.restoreSession();
+  controller.setLoginMethod("phone_code");
+  controller.updateCredentials({
+    phoneNumber: "13800000001",
+    verificationCode: "123456",
+  });
+  await controller.submitSelectedLogin();
+  const result = await controller.goToRedirectTarget();
+
+  assert.deepEqual(result, { ok: true, value: undefined });
+  assert.deepEqual(runtime.exchangeCalls[0]?.redirectTarget, {
+    routeId: "messages.index",
+    path: "/inbox",
+    params: {
+      threadId: "support_1",
+      source: "push",
+    },
+    source: "messages",
+    label: "Inbox",
+    reason: "force-relogin",
+    forceReauth: true,
+  });
+  assert.deepEqual(runtime.routeCalls, ['to:messages.index:{"threadId":"support_1","source":"push"}']);
+  assert.equal(controller.store.getState().redirectTarget, null);
+});
+
+test("auth controller recovers share-entry path returns without a source-specific route map", async () => {
+  const runtime = createKernelStub();
+  runtime.setCurrentParams(
+    createAuthRedirectParams({
+      path: "/media-tools",
+      params: {
+        scenario: "invite",
+        shareToken: "share_1",
+      },
+      source: "media-tools",
+      label: "Media Tools",
+      reason: "auth-required",
+    })!,
+  );
+  runtime.setSession(null);
+  const controller = createAuthController({
+    kernel: runtime.kernel,
+    successRouteId: "auth.login",
+    stayOnSuccess: true,
+  });
+
+  await controller.restoreSession();
+  const result = await controller.goToRedirectTarget();
+
+  assert.deepEqual(result, { ok: true, value: undefined });
+  assert.deepEqual(runtime.routeCalls, ['path:/media-tools:{"scenario":"invite","shareToken":"share_1"}']);
 });
 
 test("auth controller can upgrade a guest session into a formal account", async () => {

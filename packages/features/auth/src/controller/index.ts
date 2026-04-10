@@ -154,15 +154,25 @@ function deriveRateLimitMessage(retryAfterSeconds: number | null): string | null
 }
 
 function createWorkflowRedirectTarget(state: ReturnType<typeof createInitialAuthPageState>): ContractAuthRedirectTarget | undefined {
-  if (!state.redirectPath && !state.redirectTarget && !state.redirectLabel) {
+  if (
+    !state.redirectRouteId &&
+    !state.redirectPath &&
+    !state.redirectSource &&
+    !state.redirectLabel &&
+    !state.redirectReason &&
+    !state.redirectForceReauth
+  ) {
     return undefined;
   }
 
   return {
+    ...(state.redirectRouteId ? { routeId: state.redirectRouteId } : {}),
     ...(state.redirectPath ? { path: state.redirectPath } : {}),
     ...(state.redirectParams ? { params: state.redirectParams } : {}),
-    ...(state.redirectTarget ? { source: state.redirectTarget } : {}),
+    ...(state.redirectSource ? { source: state.redirectSource } : {}),
     ...(state.redirectLabel ? { label: state.redirectLabel } : {}),
+    ...(state.redirectReason ? { reason: state.redirectReason } : {}),
+    ...(state.redirectForceReauth ? { forceReauth: true } : {}),
   };
 }
 
@@ -216,9 +226,13 @@ export function createAuthController(options: CreateAuthControllerOptions) {
     const target = redirect?.source ?? redirect?.routeId ?? redirect?.path ?? null;
 
     store.setState({
+      redirectRouteId: redirect?.routeId ?? null,
+      redirectSource: redirect?.source ?? null,
       redirectLabel: label,
       redirectPath: redirect?.path ?? null,
       redirectParams: redirect?.params ?? null,
+      redirectReason: redirect?.reason ?? null,
+      redirectForceReauth: redirect?.forceReauth ?? false,
     });
 
     return {
@@ -237,9 +251,13 @@ export function createAuthController(options: CreateAuthControllerOptions) {
       authenticated: false,
       authStatus: null,
       redirectTarget: options?.preserveRedirect ? store.getState().redirectTarget : null,
+      redirectRouteId: options?.preserveRedirect ? store.getState().redirectRouteId : null,
+      redirectSource: options?.preserveRedirect ? store.getState().redirectSource : null,
       redirectLabel: options?.preserveRedirect ? store.getState().redirectLabel : null,
       redirectPath: options?.preserveRedirect ? store.getState().redirectPath : null,
       redirectParams: options?.preserveRedirect ? store.getState().redirectParams : null,
+      redirectReason: options?.preserveRedirect ? store.getState().redirectReason : null,
+      redirectForceReauth: options?.preserveRedirect ? store.getState().redirectForceReauth : false,
       rateLimitMessage: options?.retryAfterSeconds !== undefined ? deriveRateLimitMessage(options.retryAfterSeconds) : null,
       retryAfterSeconds: options?.retryAfterSeconds ?? null,
     });
@@ -362,9 +380,11 @@ export function createAuthController(options: CreateAuthControllerOptions) {
     });
 
     const credential = createCredentialFromState(method, current.credentials);
+    const redirectTarget = createWorkflowRedirectTarget(current);
     const result = await kernel.auth.exchangeToken({
       credential,
       platform: kernel.env.platform,
+      ...(redirectTarget ? { redirectTarget } : {}),
     });
     if (!result.ok) {
       await handleError(result.error.message, {
@@ -439,9 +459,13 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         errorMessage: null,
         noticeMessage: redirectState.noticeMessage,
         redirectTarget: redirectState.target,
+        redirectRouteId: store.getState().redirectRouteId,
+        redirectSource: store.getState().redirectSource,
         redirectLabel: store.getState().redirectLabel,
         redirectPath: store.getState().redirectPath,
         redirectParams: store.getState().redirectParams,
+        redirectReason: store.getState().redirectReason,
+        redirectForceReauth: store.getState().redirectForceReauth,
       });
 
       if (kernel.auth.recoverSession) {
@@ -463,9 +487,13 @@ export function createAuthController(options: CreateAuthControllerOptions) {
           authStatus: null,
           noticeMessage: redirectState.noticeMessage,
           redirectTarget: redirectState.target,
+          redirectRouteId: store.getState().redirectRouteId,
+          redirectSource: store.getState().redirectSource,
           redirectLabel: store.getState().redirectLabel,
           redirectPath: store.getState().redirectPath,
           redirectParams: store.getState().redirectParams,
+          redirectReason: store.getState().redirectReason,
+          redirectForceReauth: store.getState().redirectForceReauth,
           abnormalLoginPrompt: null,
         });
         return ok(false);
@@ -506,9 +534,13 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         authStatus: null,
         noticeMessage: redirectState.noticeMessage,
         redirectTarget: redirectState.target,
+        redirectRouteId: store.getState().redirectRouteId,
+        redirectSource: store.getState().redirectSource,
         redirectLabel: store.getState().redirectLabel,
         redirectPath: store.getState().redirectPath,
         redirectParams: store.getState().redirectParams,
+        redirectReason: store.getState().redirectReason,
+        redirectForceReauth: store.getState().redirectForceReauth,
         abnormalLoginPrompt: null,
       });
       return ok(false);
@@ -661,7 +693,10 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         abnormalLoginPrompt: null,
       });
 
-      const result = await kernel.auth.login();
+      const redirectTarget = createWorkflowRedirectTarget(store.getState());
+      const result = await kernel.auth.login({
+        ...(redirectTarget ? { redirectTarget } : {}),
+      });
       if (!result.ok) {
         await handleError(result.error.message, {
           retryAfterSeconds: result.error.code === "RATE_LIMITED" ? readRetryAfterSeconds(result.error.detail) : null,
@@ -701,6 +736,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         return { ok: true, value: undefined } as const;
       }
 
+      const redirectRouteId = store.getState().redirectRouteId;
       const redirectPath = store.getState().redirectPath;
       const redirectParams = store.getState().redirectParams ?? undefined;
       const routeId =
@@ -712,16 +748,22 @@ export function createAuthController(options: CreateAuthControllerOptions) {
               ? settingsRouteId
               : undefined;
 
-      const result = redirectPath
-        ? await kernel.router.to(redirectPath, redirectParams ?? undefined)
-        : await routeToOptional(routeId);
+      const result = redirectRouteId
+        ? await kernel.router.toRoute(redirectRouteId, redirectParams ?? undefined)
+        : redirectPath
+          ? await kernel.router.to(redirectPath, redirectParams ?? undefined)
+          : await routeToOptional(routeId);
       if (result.ok) {
         store.setState({
           redirectTarget: null,
+          redirectRouteId: null,
+          redirectSource: null,
           noticeMessage: null,
           redirectLabel: null,
           redirectPath: null,
           redirectParams: null,
+          redirectReason: null,
+          redirectForceReauth: false,
         });
       }
 

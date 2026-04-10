@@ -85,7 +85,7 @@ Validate and harden deep-link entry, multi-step return-path recovery, source pas
 
 ## Acceptance
 
-- [ ] deep-link and return-path behavior is verified across multiple business flows
-- [ ] forced reauth and interrupted-flow recovery remain centralized
-- [ ] source passthrough semantics stay consistent instead of drifting per feature
-- [ ] `pnpm verify` run
+- [x] deep-link and return-path behavior is verified across multiple business flows
+- [x] forced reauth and interrupted-flow recovery remain centralized
+- [x] source passthrough semantics stay consistent instead of drifting per feature
+- [x] `pnpm verify` run
