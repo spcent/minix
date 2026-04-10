@@ -412,7 +412,11 @@ test("messages controller loads notifications with unread badge state", async ()
   assert.equal(controller.store.getState().ready, true);
   assert.equal(controller.store.getState().items.length, 1);
   assert.equal(controller.store.getState().unreadBadge.totalUnread, 3);
+  assert.equal(controller.store.getState().pagination.page, 1);
+  assert.equal(controller.store.getState().selection.selectedItemIds[0], "notice-1");
   assert.equal(controller.store.getState().selectedThreadId, "thread-1");
+  assert.equal(controller.store.getState().detailStatus.loadState, "ready");
+  assert.equal(controller.store.getState().detailData?.threadId, "thread-1");
   assert.equal(controller.store.getState().messageItems.length, 1);
   assert.equal(controller.store.getState().messageThread?.threadId, "thread-1");
 });
@@ -429,6 +433,8 @@ test("messages controller appends the next page and keeps the current list", asy
 
   assert.equal(controller.store.getState().items.length, 2);
   assert.equal(controller.store.getState().items[1]?.id, "notice-2");
+  assert.equal(controller.store.getState().pagination.page, 2);
+  assert.equal(controller.store.getState().status.loadState, "ready");
 });
 
 test("messages controller syncs type filters into the route and reloads", async () => {
@@ -477,6 +483,7 @@ test("messages controller can mark the current thread read and clear thread unre
 
   assert.equal(controller.store.getState().messageThread?.unreadCount, 0);
   assert.equal(controller.store.getState().detailActions?.canMarkRead, false);
+  assert.equal(controller.store.getState().detailStatus.loadState, "ready");
   assert.equal(controller.store.getState().unreadBadge.threadUnread, 0);
 });
 

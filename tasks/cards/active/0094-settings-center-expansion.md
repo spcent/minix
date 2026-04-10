@@ -88,7 +88,7 @@ Move settings closer to a complete settings center instead of a mostly read-orie
 
 ## Acceptance
 
-- [ ] settings center supports broader operational behavior than the current read-centric shell
-- [ ] account/device/privacy/debug sections remain shared and explicit
-- [ ] existing reader/reading-center preferences keep working
-- [ ] `pnpm verify` run
+- [x] settings center supports broader operational behavior than the current read-centric shell
+- [x] account/device/privacy/debug sections remain shared and explicit
+- [x] existing reader/reading-center preferences keep working
+- [x] `pnpm verify` run

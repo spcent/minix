@@ -15,6 +15,7 @@ import type {
   AppRouteId,
   ChangeBoundPhoneRequest,
   CurrentUserResponse,
+  FormValidationError,
   IdentityBindPhoneRequest,
   IdentityMergeRequest,
   IdentityTransitionResponse,
@@ -26,8 +27,11 @@ import type {
 } from "@minix/contracts";
 
 import {
+  createDefaultAccountOperationValues,
   createDefaultAccountState,
   type AccountAction,
+  type AccountDraftSnapshot,
+  type AccountOperationFormValues,
   type AccountSection,
   type AccountSectionItem,
   type AccountState,
@@ -63,6 +67,21 @@ function hasActiveSession(session: UserSession | null | undefined): session is U
 function cloneState(state: AccountState): AccountState {
   return {
     ...state,
+    formValues: structuredClone(state.formValues),
+    initialFormValues: structuredClone(state.initialFormValues),
+    validationErrors: state.validationErrors.map((error) => ({ ...error })),
+    submitState: { ...state.submitState },
+    workflow: {
+      ...state.workflow,
+      stepKeys: [...state.workflow.stepKeys],
+      visibleFieldKeys: [...state.workflow.visibleFieldKeys],
+      dynamicFieldKeys: [...state.workflow.dynamicFieldKeys],
+      conditionalFieldKeys: [...state.workflow.conditionalFieldKeys],
+    },
+    values: structuredClone(state.values),
+    initialValues: structuredClone(state.initialValues),
+    fieldErrors: state.fieldErrors.map((error) => ({ ...error })),
+    ...(state.lastSubmission ? { lastSubmission: structuredClone(state.lastSubmission) } : {}),
     stats: state.stats.map((stat) => ({ ...stat })),
     sections: state.sections.map((section) => ({
       ...section,
@@ -82,6 +101,8 @@ function cloneState(state: AccountState): AccountState {
       : {}),
   };
 }
+
+const accountFormDraftStorageKey = "@minix/account/operation-form-draft/v1";
 
 function upsertSectionItem(items: AccountSectionItem[], nextItem: AccountSectionItem): AccountSectionItem[] {
   const existingIndex = items.findIndex((item) => item.key === nextItem.key);
@@ -551,6 +572,163 @@ function findAvailableRelationAction(
   return ok({ target, action });
 }
 
+function createAccountOperationValuesFromProfile(
+  profile: Pick<CurrentUserResponse, "userProfile"> | undefined,
+  values: Partial<AccountOperationFormValues> = {},
+): AccountOperationFormValues {
+  return createDefaultAccountOperationValues({
+    nickname: profile?.userProfile.nickname ?? "",
+    region: profile?.userProfile.region ?? "",
+    includeBio: Boolean(profile?.userProfile.bio),
+    bio: profile?.userProfile.bio ?? "",
+    ...values,
+  });
+}
+
+function createAccountWorkflow(values: AccountOperationFormValues, currentStepKey?: string) {
+  if (values.operationKind === "edit_profile") {
+    const stepKeys = ["profile", "preferences", "confirm"];
+    const nextStepKey = stepKeys.includes(currentStepKey ?? "") ? currentStepKey : "profile";
+    return {
+      stepKeys,
+      ...(nextStepKey !== undefined ? { currentStepKey: nextStepKey } : {}),
+      approvalState: "none" as const,
+      visibleFieldKeys: values.includeBio
+        ? ["operationKind", "nickname", "region", "includeBio", "bio"]
+        : ["operationKind", "nickname", "region", "includeBio"],
+      dynamicFieldKeys: ["operationKind", "includeBio", "bio"],
+      conditionalFieldKeys: ["bio"],
+    };
+  }
+
+  if (values.operationKind === "change_phone") {
+    const stepKeys = ["contact", "verify", "confirm"];
+    const nextStepKey = stepKeys.includes(currentStepKey ?? "") ? currentStepKey : "contact";
+    return {
+      stepKeys,
+      ...(nextStepKey !== undefined ? { currentStepKey: nextStepKey } : {}),
+      approvalState: "none" as const,
+      visibleFieldKeys: ["operationKind", "phoneNumber", "verificationCode"],
+      dynamicFieldKeys: ["operationKind", "verificationCode"],
+      conditionalFieldKeys: [],
+    };
+  }
+
+  if (values.operationKind === "request_cancellation") {
+    const stepKeys = ["review", "reason", "confirm"];
+    const nextStepKey = stepKeys.includes(currentStepKey ?? "") ? currentStepKey : "review";
+    return {
+      stepKeys,
+      ...(nextStepKey !== undefined ? { currentStepKey: nextStepKey } : {}),
+      approvalState: "pending" as const,
+      visibleFieldKeys:
+        values.cancellationReason === "other"
+          ? ["operationKind", "cancellationReason", "cancellationDetails", "confirmCancellation"]
+          : ["operationKind", "cancellationReason", "confirmCancellation"],
+      dynamicFieldKeys: ["operationKind", "cancellationReason", "cancellationDetails", "confirmCancellation"],
+      conditionalFieldKeys: ["cancellationDetails"],
+    };
+  }
+
+  return {
+    stepKeys: [],
+    approvalState: "none" as const,
+    visibleFieldKeys: Object.keys(values),
+    dynamicFieldKeys: [],
+    conditionalFieldKeys: [],
+  };
+}
+
+function validateOperationValues(values: AccountOperationFormValues): FormValidationError[] {
+  const errors: FormValidationError[] = [];
+
+  if (!values.operationKind) {
+    errors.push({
+      field: "operationKind",
+      message: "Choose an account operation before submitting.",
+      rule: "required",
+      fieldType: "single_select",
+      blocking: true,
+    });
+    return errors;
+  }
+
+  if (values.operationKind === "edit_profile") {
+    if (!values.nickname.trim()) {
+      errors.push({
+        field: "nickname",
+        message: "Enter a nickname before updating the profile.",
+        rule: "required",
+        fieldType: "text",
+        blocking: true,
+      });
+    }
+
+    if (values.includeBio && !values.bio.trim()) {
+      errors.push({
+        field: "bio",
+        message: "Add a bio or turn off the optional bio field.",
+        rule: "cross_field",
+        fieldType: "text",
+        blocking: true,
+      });
+    }
+  }
+
+  if (values.operationKind === "change_phone") {
+    if (!values.phoneNumber.trim()) {
+      errors.push({
+        field: "phoneNumber",
+        message: "Enter the replacement phone number.",
+        rule: "required",
+        fieldType: "text",
+        blocking: true,
+      });
+    }
+    if (!values.verificationCode.trim()) {
+      errors.push({
+        field: "verificationCode",
+        message: "Enter the verification code.",
+        rule: "required",
+        fieldType: "text",
+        blocking: true,
+      });
+    }
+  }
+
+  if (values.operationKind === "request_cancellation") {
+    if (!values.cancellationReason) {
+      errors.push({
+        field: "cancellationReason",
+        message: "Choose a cancellation reason.",
+        rule: "required",
+        fieldType: "single_select",
+        blocking: true,
+      });
+    }
+    if (values.cancellationReason === "other" && !values.cancellationDetails.trim()) {
+      errors.push({
+        field: "cancellationDetails",
+        message: "Describe the cancellation reason before continuing.",
+        rule: "cross_field",
+        fieldType: "text",
+        blocking: true,
+      });
+    }
+    if (!values.confirmCancellation) {
+      errors.push({
+        field: "confirmCancellation",
+        message: "Confirm the cancellation request before submitting.",
+        rule: "cross_field",
+        fieldType: "single_select",
+        blocking: true,
+      });
+    }
+  }
+
+  return errors;
+}
+
 export function createAccountController(options: CreateAccountControllerOptions) {
   const {
     kernel,
@@ -565,6 +743,35 @@ export function createAccountController(options: CreateAccountControllerOptions)
     ...cloneState(createDefaultAccountState()),
     ...initialState,
   });
+
+  function applyOperationValues(
+    values: AccountOperationFormValues,
+    options: {
+      dirty?: boolean;
+      operationFormOpen?: boolean;
+      draftSavedAt?: number;
+      phase?: AccountState["submitState"]["phase"];
+      preserveResult?: boolean;
+    } = {},
+  ) {
+    const current = store.getState();
+    const workflow = createAccountWorkflow(values, current.workflow.currentStepKey);
+    store.setState({
+      dirty: options.dirty ?? current.dirty,
+      operationFormOpen: options.operationFormOpen ?? current.operationFormOpen,
+      values,
+      formValues: structuredClone(values),
+      workflow,
+      fieldErrors: [],
+      validationErrors: [],
+      submitState: {
+        ...current.submitState,
+        phase: options.phase ?? current.submitState.phase,
+        ...(options.draftSavedAt !== undefined ? { draftSavedAt: options.draftSavedAt } : {}),
+        ...(!options.preserveResult ? { result: undefined } : {}),
+      },
+    });
+  }
 
   async function routeToOptional(routeId?: AppRouteId) {
     if (!routeId) {
@@ -615,6 +822,62 @@ export function createAccountController(options: CreateAccountControllerOptions)
     return ok(persisted.value);
   }
 
+  async function loadOperationDraft(profile: CurrentUserResponse | undefined) {
+    if (!kernel.storage) {
+      const values = createAccountOperationValuesFromProfile(profile);
+      applyOperationValues(values, {
+        dirty: false,
+        operationFormOpen: false,
+        phase: "idle",
+      });
+      store.setState({
+        initialValues: structuredClone(values),
+        initialFormValues: structuredClone(values),
+      });
+      return;
+    }
+
+    const result = await kernel.storage.get<AccountDraftSnapshot>(accountFormDraftStorageKey);
+    if (!result.ok || !result.value) {
+      const values = createAccountOperationValuesFromProfile(profile);
+      applyOperationValues(values, {
+        dirty: false,
+        operationFormOpen: false,
+        phase: "idle",
+      });
+      store.setState({
+        initialValues: structuredClone(values),
+        initialFormValues: structuredClone(values),
+      });
+      return;
+    }
+
+    const values = createAccountOperationValuesFromProfile(profile, result.value.values);
+    applyOperationValues(values, {
+      dirty: true,
+      operationFormOpen: Boolean(values.operationKind),
+      draftSavedAt: result.value.savedAt,
+      phase: "idle",
+    });
+    store.setState({
+      initialValues: createAccountOperationValuesFromProfile(profile),
+      initialFormValues: createAccountOperationValuesFromProfile(profile),
+    });
+  }
+
+  async function clearOperationDraft() {
+    if (!kernel.storage) {
+      return ok(undefined);
+    }
+
+    const removeResult = await kernel.storage.remove(accountFormDraftStorageKey);
+    if (!removeResult.ok) {
+      return removeResult;
+    }
+
+    return ok(undefined);
+  }
+
   return {
     store,
 
@@ -644,7 +907,7 @@ export function createAccountController(options: CreateAccountControllerOptions)
         store.replaceState({
           ...cloneState(createDefaultAccountState({
             title: store.getState().title,
-            subtitle: store.getState().subtitle,
+            ...(store.getState().subtitle ? { subtitle: store.getState().subtitle } : {}),
           })),
           loading: false,
           ready: true,
@@ -680,12 +943,19 @@ export function createAccountController(options: CreateAccountControllerOptions)
       }
 
       nextState = mergeRemoteProfile(nextState, remoteProfile.value);
+      const profileSeedValues = createAccountOperationValuesFromProfile(remoteProfile.value);
       store.replaceState({
         ...nextState,
         loading: false,
         ready: true,
         errorText: undefined,
+        values: profileSeedValues,
+        formValues: structuredClone(profileSeedValues),
+        initialValues: structuredClone(profileSeedValues),
+        initialFormValues: structuredClone(profileSeedValues),
+        workflow: createAccountWorkflow(profileSeedValues),
       });
+      await loadOperationDraft(remoteProfile.value);
       return ok(undefined);
     },
 
@@ -736,6 +1006,202 @@ export function createAccountController(options: CreateAccountControllerOptions)
 
     async goToLogin() {
       return routeToLogin();
+    },
+
+    openOperationForm(operationKind: AccountOperation["kind"]) {
+      const currentProfile = store.getState().userProfile;
+      const nextValues = createAccountOperationValuesFromProfile(
+        currentProfile ? { userProfile: currentProfile } : undefined,
+        {
+          ...store.getState().values,
+          operationKind,
+        },
+      );
+      applyOperationValues(nextValues, {
+        dirty: false,
+        operationFormOpen: true,
+        phase: "idle",
+      });
+      return ok(undefined);
+    },
+
+    setOperationStep(stepKey: string) {
+      const workflow = store.getState().workflow;
+      if (!workflow.stepKeys.includes(stepKey)) {
+        return ok(undefined);
+      }
+
+      store.setState({
+        workflow: {
+          ...workflow,
+          currentStepKey: stepKey,
+        },
+      });
+      return ok(undefined);
+    },
+
+    updateOperationValues(values: Partial<AccountOperationFormValues>) {
+      const nextValues = {
+        ...store.getState().values,
+        ...values,
+      };
+      applyOperationValues(nextValues, {
+        dirty: true,
+        operationFormOpen: true,
+        phase: store.getState().submitState.phase === "submitted" ? "idle" : store.getState().submitState.phase,
+      });
+      return ok(undefined);
+    },
+
+    validateOperationForm() {
+      const errors = validateOperationValues(store.getState().values);
+      store.setState({
+        fieldErrors: errors,
+        validationErrors: errors,
+        errorText: errors.length > 0 ? "Please complete the required account operation fields." : undefined,
+        submitState: {
+          ...store.getState().submitState,
+          phase: errors.length > 0 ? "failed" : "idle",
+        },
+      });
+      return errors;
+    },
+
+    async saveOperationDraft() {
+      if (!kernel.storage) {
+        store.setState({
+          transitionFeedback: "Account operation drafts are unavailable on this host.",
+          submitState: {
+            ...store.getState().submitState,
+            phase: "failed",
+          },
+        });
+        return ok(undefined);
+      }
+
+      const snapshot: AccountDraftSnapshot = {
+        savedAt: Date.now(),
+        values: structuredClone(store.getState().values),
+      };
+      store.setState({
+        submitState: {
+          ...store.getState().submitState,
+          phase: "draft_saving",
+        },
+      });
+      const result = await kernel.storage.set(accountFormDraftStorageKey, snapshot);
+      if (!result.ok) {
+        store.setState({
+          errorText: result.error.message,
+          submitState: {
+            ...store.getState().submitState,
+            phase: "failed",
+          },
+        });
+        return result;
+      }
+
+      store.setState({
+        dirty: true,
+        submitState: {
+          ...store.getState().submitState,
+          phase: "idle",
+          mode: "draft",
+          draftSavedAt: snapshot.savedAt,
+        },
+        transitionFeedback: "Account operation draft saved.",
+      });
+      return ok(undefined);
+    },
+
+    async discardOperationDraft() {
+      await clearOperationDraft();
+      const currentProfile = store.getState().userProfile;
+      const nextValues = createAccountOperationValuesFromProfile(
+        currentProfile ? { userProfile: currentProfile } : undefined,
+      );
+      applyOperationValues(nextValues, {
+        dirty: false,
+        operationFormOpen: false,
+        phase: "idle",
+      });
+      store.setState({
+        initialValues: structuredClone(nextValues),
+        initialFormValues: structuredClone(nextValues),
+        transitionFeedback: "Account operation draft discarded.",
+      });
+      return ok(undefined);
+    },
+
+    async submitOperationForm() {
+      const errors = this.validateOperationForm();
+      if (errors.length > 0) {
+        return ok(undefined);
+      }
+
+      const values = store.getState().values;
+      store.setState({
+        submitState: {
+          ...store.getState().submitState,
+          phase: "submitting",
+          mode: "submit",
+        },
+      });
+
+      let result: Result<unknown>;
+      if (values.operationKind === "edit_profile") {
+        result = await this.updateProfile({
+          nickname: values.nickname,
+          region: values.region,
+          ...(values.includeBio ? { bio: values.bio } : { bio: "" }),
+        });
+      } else if (values.operationKind === "change_phone") {
+        result = await this.changePhone({
+          phoneNumber: values.phoneNumber,
+          verificationCode: values.verificationCode,
+        });
+      } else if (values.operationKind === "request_cancellation") {
+        result = await this.requestCancellation({ confirm: true });
+      } else {
+        result = ok(undefined);
+      }
+
+      if (!result.ok) {
+        store.setState({
+          submitState: {
+            ...store.getState().submitState,
+            phase: "failed",
+          },
+        });
+        return result;
+      }
+
+      await clearOperationDraft();
+      const currentProfile = store.getState().userProfile;
+      const resetValues = createAccountOperationValuesFromProfile(
+        currentProfile ? { userProfile: currentProfile } : undefined,
+      );
+      applyOperationValues(resetValues, {
+        dirty: false,
+        operationFormOpen: false,
+        phase: "submitted",
+      });
+      store.setState({
+        initialValues: structuredClone(resetValues),
+        initialFormValues: structuredClone(resetValues),
+        lastSubmission: {
+          submittedAt: Date.now(),
+          value: result.value,
+        },
+        submitState: {
+          ...store.getState().submitState,
+          phase: "submitted",
+          mode: "submit",
+          submittedAt: Date.now(),
+          result: result.value,
+        },
+      });
+      return result;
     },
 
     async submitGuestUpgrade(input: IdentityUpgradeRequest) {

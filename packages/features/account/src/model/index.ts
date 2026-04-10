@@ -1,11 +1,13 @@
 import type {
   AccountOperation,
+  AccountOperationKind,
   AccountSummary,
   IdentityWorkflowSummary,
   UserProfile,
   UserRelationTarget,
   UserStatus,
 } from "@minix/contracts";
+import { createDefaultFormPageState, type FormPageState } from "@minix/core";
 
 export interface AccountSummaryStat {
   key: string;
@@ -33,11 +35,27 @@ export interface AccountAction {
   emphasis?: "primary" | "secondary";
 }
 
-export interface AccountState {
+export interface AccountOperationFormValues extends Record<string, unknown> {
+  operationKind: AccountOperationKind | "";
+  nickname: string;
+  region: string;
+  includeBio: boolean;
+  bio: string;
+  phoneNumber: string;
+  verificationCode: string;
+  cancellationReason: "privacy" | "switching" | "other" | "";
+  cancellationDetails: string;
+  confirmCancellation: boolean;
+}
+
+export interface AccountDraftSnapshot {
+  savedAt: number;
+  values: AccountOperationFormValues;
+}
+
+export type AccountState = FormPageState<AccountOperationFormValues, unknown> & {
   title: string;
   subtitle: string;
-  ready: boolean;
-  loading: boolean;
   authenticated: boolean;
   errorText: string | undefined;
   copyFeedback: string | undefined;
@@ -54,10 +72,11 @@ export interface AccountState {
   authStatusLabel: string | undefined;
   transitionFeedback: string | undefined;
   selectedActionKey: string | undefined;
+  operationFormOpen: boolean;
   stats: AccountSummaryStat[];
   sections: AccountSection[];
   actions: AccountAction[];
-}
+};
 
 export interface CreateAccountStateOptions {
   title: string;
@@ -87,14 +106,36 @@ function cloneActions(actions: AccountAction[]): AccountAction[] {
   return actions.map((action) => ({ ...action }));
 }
 
+export function createDefaultAccountOperationValues(
+  values: Partial<AccountOperationFormValues> = {},
+): AccountOperationFormValues {
+  return {
+    operationKind: values.operationKind ?? "",
+    nickname: values.nickname ?? "",
+    region: values.region ?? "",
+    includeBio: values.includeBio ?? false,
+    bio: values.bio ?? "",
+    phoneNumber: values.phoneNumber ?? "",
+    verificationCode: values.verificationCode ?? "",
+    cancellationReason: values.cancellationReason ?? "",
+    cancellationDetails: values.cancellationDetails ?? "",
+    confirmCancellation: values.confirmCancellation ?? false,
+  };
+}
+
 export function createAccountState(options: CreateAccountStateOptions): AccountState {
   return {
+    ...createDefaultFormPageState<AccountOperationFormValues>({
+      title: options.title,
+      subtitle: options.subtitle,
+      values: createDefaultAccountOperationValues(),
+      submitState: {
+        draftCapable: true,
+      },
+    }),
     title: options.title,
     subtitle: options.subtitle,
-    ready: false,
-    loading: false,
     authenticated: false,
-    errorText: undefined,
     copyFeedback: undefined,
     userId: undefined,
     nickname: undefined,
@@ -103,6 +144,7 @@ export function createAccountState(options: CreateAccountStateOptions): AccountS
     authStatusLabel: undefined,
     transitionFeedback: undefined,
     selectedActionKey: undefined,
+    operationFormOpen: false,
     stats: cloneStats(options.stats ?? []),
     sections: cloneSections(options.sections ?? []),
     actions: cloneActions(

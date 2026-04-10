@@ -44,6 +44,8 @@ function cloneState(state: MessagesState): MessagesState {
     groups: state.groups.map((group) => ({ ...group })),
     unreadBadge: structuredClone(state.unreadBadge),
     reservedThreads: state.reservedThreads.map((thread) => structuredClone(thread)),
+    ...(state.detailData ? { detailData: structuredClone(state.detailData) } : {}),
+    detailStatus: { ...state.detailStatus },
     ...(state.messageThread ? { messageThread: structuredClone(state.messageThread) } : {}),
     messageItems: state.messageItems.map((item) => structuredClone(item)),
     ...(state.detailActions ? { detailActions: { ...state.detailActions } } : {}),
@@ -77,6 +79,24 @@ function createLastActionMessage(updatedCount: number): string | undefined {
   }
 
   return updatedCount === 1 ? "1 notification marked read." : `${updatedCount} notifications marked read.`;
+}
+
+function createSelection(selectedItemId: string | undefined): MessagesState["selection"] {
+  return {
+    ...(selectedItemId !== undefined ? { selectedItemId } : {}),
+    selectedItemIds: selectedItemId ? [selectedItemId] : [],
+    batchSelectable: false,
+  };
+}
+
+function createListStatus(loadState: MessagesState["status"]["loadState"], hasItems: boolean): MessagesState["status"] {
+  return {
+    loadState,
+    firstLoaded: hasItems,
+    retryable: true,
+    partialData: false,
+    stickyHeaderEnabled: false,
+  };
 }
 
 export function createMessagesController(options: CreateMessagesControllerOptions) {
@@ -169,6 +189,13 @@ export function createMessagesController(options: CreateMessagesControllerOption
       refreshing: false,
       errorText: undefined,
       errorCode: undefined,
+      detailData: response.messageThread,
+      detailStatus: {
+        ...store.getState().detailStatus,
+        loadState: "ready",
+        entryContext: "list",
+        refreshable: true,
+      },
       messageThread: response.messageThread,
       messageItems: response.messageItems,
       detailActions: response.detailActions,
@@ -187,6 +214,10 @@ export function createMessagesController(options: CreateMessagesControllerOption
       current.selectedThreadId && response.reservedThreads.some((thread) => thread.threadId === current.selectedThreadId)
         ? current.selectedThreadId
         : response.messageThread?.threadId ?? response.reservedThreads[0]?.threadId;
+    const selectedItemId =
+      nextItems.find((item) => item.id === current.selectedItemId)?.id ??
+      response.notificationList.selectedNotificationId ??
+      nextItems[0]?.id;
 
     store.setState({
       ready: true,
@@ -197,6 +228,12 @@ export function createMessagesController(options: CreateMessagesControllerOption
       items: nextItems,
       total: response.notificationList.total,
       hasMore: response.notificationList.hasMore,
+      pagination: {
+        page: response.notificationList.page,
+        pageSize: response.notificationList.pageSize,
+        hasMore: response.notificationList.hasMore,
+        ...(response.notificationList.total !== undefined ? { total: response.notificationList.total } : {}),
+      },
       filters: response.notificationList.filters,
       groups: response.notificationList.groups,
       unreadBadge: response.unreadBadge,
@@ -210,16 +247,15 @@ export function createMessagesController(options: CreateMessagesControllerOption
         current.messageThread && current.messageThread.threadId === selectedThreadId ? current.messageItems : [],
       detailActions:
         current.messageThread && current.messageThread.threadId === selectedThreadId ? current.detailActions : undefined,
-      selectedItemId:
-        nextItems.find((item) => item.id === current.selectedItemId)?.id ??
-        response.notificationList.selectedNotificationId ??
-        nextItems[0]?.id,
+      selectedItemId,
+      selection: createSelection(selectedItemId),
       query: {
         ...current.query,
         page: response.notificationList.page,
         pageSize: response.notificationList.pageSize,
       },
       lastActionMessage: current.lastActionMessage,
+      status: createListStatus(nextItems.length > 0 ? "ready" : "empty", nextItems.length > 0),
     });
   }
 
@@ -230,6 +266,11 @@ export function createMessagesController(options: CreateMessagesControllerOption
       errorText: result.error.message,
       errorCode: result.error.code,
       ready: true,
+      status: createListStatus("error", store.getState().items.length > 0),
+      detailStatus: {
+        ...store.getState().detailStatus,
+        loadState: "error",
+      },
     });
 
     if (result.error.code === "UNAUTHORIZED") {
@@ -306,16 +347,24 @@ export function createMessagesController(options: CreateMessagesControllerOption
       items: result.value.notificationList.items,
       total: result.value.notificationList.total,
       hasMore: result.value.notificationList.hasMore,
+      pagination: {
+        page: result.value.notificationList.page,
+        pageSize: result.value.notificationList.pageSize,
+        hasMore: result.value.notificationList.hasMore,
+        ...(result.value.notificationList.total !== undefined ? { total: result.value.notificationList.total } : {}),
+      },
       filters: result.value.notificationList.filters,
       groups: result.value.notificationList.groups,
       unreadBadge: result.value.unreadBadge,
       selectedItemId,
+      selection: createSelection(selectedItemId),
       lastActionMessage: createLastActionMessage(result.value.updatedIds.length),
       query: {
         ...current.query,
         page: result.value.notificationList.page,
         pageSize: result.value.notificationList.pageSize,
       },
+      status: createListStatus(result.value.notificationList.items.length > 0 ? "ready" : "empty", result.value.notificationList.items.length > 0),
     });
 
     return result;
@@ -331,6 +380,7 @@ export function createMessagesController(options: CreateMessagesControllerOption
         errorText: undefined,
         errorCode: undefined,
         lastActionMessage: undefined,
+        status: createListStatus("loading", store.getState().items.length > 0),
         query: {
           ...store.getState().query,
           page: 1,
@@ -345,6 +395,7 @@ export function createMessagesController(options: CreateMessagesControllerOption
         errorText: undefined,
         errorCode: undefined,
         lastActionMessage: undefined,
+        status: createListStatus("refreshing", store.getState().items.length > 0),
         query: {
           ...store.getState().query,
           page: 1,
@@ -362,6 +413,7 @@ export function createMessagesController(options: CreateMessagesControllerOption
       store.setState({
         loading: true,
         lastActionMessage: undefined,
+        status: createListStatus("appending", current.items.length > 0),
       });
       return loadPage("append", current.query.page + 1);
     },
@@ -369,12 +421,18 @@ export function createMessagesController(options: CreateMessagesControllerOption
     selectItem(itemId: string) {
       store.setState({
         selectedItemId: itemId,
+        selection: createSelection(itemId),
       });
     },
 
     selectThread(threadId: string) {
       store.setState({
         selectedThreadId: threadId,
+        detailStatus: {
+          ...store.getState().detailStatus,
+          loadState: "loading",
+          entryContext: "list",
+        },
       });
       return loadThread(threadId);
     },

@@ -1,4 +1,5 @@
 import type {
+  DetailStatus,
   MessageBodyItem,
   MessageThreadActions,
   MessageThread,
@@ -16,6 +17,8 @@ export type MessagesState = Omit<ListPageState<NotificationItem>, "filters"> & {
   unreadBadge: UnreadBadge;
   reservedThreads: MessageThread[];
   selectedThreadId: string | undefined;
+  detailData: MessageThread | undefined;
+  detailStatus: DetailStatus;
   messageThread: MessageThread | undefined;
   messageItems: MessageBodyItem[];
   detailActions: MessageThreadActions | undefined;
@@ -57,6 +60,17 @@ export function createDefaultMessagesState(
     unreadBadge: createEmptyUnreadBadge(),
     reservedThreads: [],
     selectedThreadId: undefined,
+    detailData: undefined,
+    detailStatus: {
+      loadState: "idle",
+      entryContext: "unknown",
+      refreshable: true,
+      invalidated: false,
+      deleted: false,
+      permissionDenied: false,
+      offline: false,
+      unpublished: false,
+    },
     messageThread: undefined,
     messageItems: [],
     detailActions: undefined,

@@ -611,3 +611,85 @@ test("settings controller hydrates and updates reading-center preferences", asyn
     reminders: "paused",
   });
 });
+
+test("settings controller can exercise device privacy and debug operations beyond passive display", async () => {
+  const runtime = createKernelStub();
+  runtime.storageValues.set("reader.display", {
+    theme: "night",
+    mode: "page",
+    fontScale: 1.2,
+    nightModeDefault: "after-dusk",
+  });
+  runtime.storageValues.set("novel.reading-center", {
+    resume: "detail-first",
+    shelfOrder: "pinned",
+    digest: "important",
+    sync: "device-first",
+    reminders: "chapter-moves",
+  });
+
+  const controller = createSettingsController({
+    kernel: runtime.kernel,
+    loginRouteId: APP_ROUTE_IDS.login,
+    model: createSettingsPageModel({
+      title: "Settings",
+      sectionKey: "account",
+      logoutLabel: "Logout",
+      logoutValue: "Sign out",
+    }),
+  });
+
+  await controller.ensureAuthenticated();
+  await controller.toggleNotificationsEnabled();
+  await controller.cycleNetworkStrategy();
+  await controller.toggleAutoplay();
+  await controller.toggleWeakNetworkMode();
+  await controller.togglePersonalizedRecommendations();
+  await controller.toggleAnalyticsEnabled();
+  await controller.toggleLogsEnabled();
+  await controller.toggleExperimentsEnabled();
+  await controller.clearLocalCache();
+
+  assert.equal(controller.store.getState().preferences?.notificationsEnabled, false);
+  assert.equal(controller.store.getState().preferences?.device.networkStrategy, "wifi-first");
+  assert.equal(controller.store.getState().preferences?.device.autoplay, false);
+  assert.equal(controller.store.getState().preferences?.device.weakNetworkMode, true);
+  assert.equal(controller.store.getState().privacyOptions?.personalizedRecommendations, false);
+  assert.equal(controller.store.getState().privacyOptions?.analyticsEnabled, false);
+  assert.equal(controller.store.getState().preferences?.developerOptions.logsEnabled, false);
+  assert.equal(controller.store.getState().preferences?.developerOptions.experimentsEnabled, false);
+  assert.equal(runtime.storageValues.has("reader.display"), false);
+  assert.equal(runtime.storageValues.has("novel.reading-center"), false);
+});
+
+test("settings controller can route bounded account entries into the shared account center", async () => {
+  const runtime = createKernelStub();
+  runtime.kernel.router.toRoute = async (routeId: string, params?: Record<string, string | number | boolean>) => {
+    runtime.routerCalls.push(`to:${routeId}:${JSON.stringify(params ?? null)}`);
+    return ok(undefined);
+  };
+
+  const controller = createSettingsController({
+    kernel: runtime.kernel,
+    loginRouteId: APP_ROUTE_IDS.login,
+    accountRouteId: APP_ROUTE_IDS.account,
+    model: createSettingsPageModel({
+      title: "Settings",
+      sectionKey: "account",
+      logoutLabel: "Logout",
+      logoutValue: "Sign out",
+    }),
+  });
+
+  await controller.openProfileEntry();
+  await controller.openPhoneEntry();
+  await controller.openUnbindEntry();
+  await controller.openCancellationEntry();
+
+  assert.deepEqual(runtime.routerCalls, [
+    'to:account.index:{"operation":"edit_profile"}',
+    'to:account.index:{"operation":"change_phone"}',
+    'to:account.index:{"operation":"unbind_wechat"}',
+    'to:account.index:{"operation":"request_cancellation"}',
+  ]);
+});

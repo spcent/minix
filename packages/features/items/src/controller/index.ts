@@ -27,6 +27,14 @@ function cloneInitialModel(initialModel: ItemsPageModel): ItemsPageModel {
     ...initialModel,
     items: [...initialModel.items],
     query: { ...initialModel.query },
+    pagination: { ...initialModel.pagination },
+    selection: {
+      ...initialModel.selection,
+      selectedItemIds: [...initialModel.selection.selectedItemIds],
+    },
+    status: { ...initialModel.status },
+    filters: initialModel.filters.map((group) => structuredClone(group)),
+    searchFilters: initialModel.searchFilters.map((group) => structuredClone(group)),
     completedItemIds: [...initialModel.completedItemIds],
     selectedItemId: initialModel.selectedItemId,
   };
@@ -82,6 +90,24 @@ function createProgressSnapshot(model: ItemsPageModel): ItemsProgressSnapshot {
     completedItemIds: [...model.completedItemIds],
     activeFilter: model.activeFilter,
     ...(model.lastProgressAt ? { lastProgressAt: model.lastProgressAt } : {}),
+  };
+}
+
+function createSelectionState(selectedItemId: string | undefined) {
+  return {
+    ...(selectedItemId !== undefined ? { selectedItemId } : {}),
+    selectedItemIds: selectedItemId ? [selectedItemId] : [],
+    batchSelectable: false,
+  };
+}
+
+function createListStatus(loadState: ItemsPageModel["status"]["loadState"], hasItems: boolean) {
+  return {
+    loadState,
+    firstLoaded: hasItems,
+    retryable: true,
+    partialData: false,
+    stickyHeaderEnabled: false,
   };
 }
 
@@ -152,10 +178,12 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
 
       const nextCompletedItemIds = [...progress.completedItemIds];
       const nextItems = applyCompletionState(current.items, nextCompletedItemIds);
+      const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
       store.setState({
         items: nextItems,
         completedItemIds: nextCompletedItemIds,
-        selectedItemId: deriveSelectedItemId(nextItems, current.selectedItemId),
+        selectedItemId,
+        selection: createSelectionState(selectedItemId),
         activeFilter: progress.activeFilter,
         progressHydrated: true,
         lastProgressAt: progress.lastProgressAt,
@@ -173,9 +201,11 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
 
   function handleLoadFailure(result: FailedItemsResult<TItem>) {
     store.setState({
+      ready: true,
       loading: false,
       refreshing: false,
       errorText: result.error.message,
+      status: createListStatus(store.getState().items.length > 0 ? "error" : "error", store.getState().items.length > 0),
     });
 
     if (result.error.code === "UNAUTHORIZED") {
@@ -199,6 +229,7 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
         loading: true,
         refreshing: false,
         errorText: undefined,
+        status: createListStatus("loading", current.items.length > 0),
       });
 
       const result = await kernel.request.get<ItemsListResponse<TItem>>(
@@ -210,26 +241,30 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
         return handleLoadFailure(result);
       }
 
+      const nextItems = applyCompletionState(result.value.items, current.completedItemIds);
+      const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
       store.setState({
         loading: false,
         refreshing: false,
-        items: applyCompletionState(result.value.items, current.completedItemIds),
-        selectedItemId: deriveSelectedItemId(
-          applyCompletionState(result.value.items, current.completedItemIds),
-          current.selectedItemId,
-        ),
+        ready: true,
+        items: nextItems,
+        selectedItemId,
+        selection: createSelectionState(selectedItemId),
         hasMore: result.value.hasMore,
+        pagination: {
+          page: result.value.page ?? current.query.page ?? 1,
+          pageSize: result.value.pageSize ?? current.query.pageSize ?? 20,
+          hasMore: result.value.hasMore,
+        },
         query: {
           ...current.query,
           page: result.value.page ?? current.query.page ?? 1,
           pageSize: result.value.pageSize ?? current.query.pageSize ?? 20,
         },
         errorText: undefined,
-        featuredReason: deriveFeaturedReason(
-          applyCompletionState(result.value.items, current.completedItemIds),
-          current.featuredReason,
-        ),
+        featuredReason: deriveFeaturedReason(nextItems, current.featuredReason),
         recentlyCompletedItemId: undefined,
+        status: createListStatus(nextItems.length > 0 ? "ready" : "empty", nextItems.length > 0),
       });
       return result;
     },
@@ -240,6 +275,7 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
       store.setState({
         refreshing: true,
         errorText: undefined,
+        status: createListStatus("refreshing", current.items.length > 0),
       });
 
       const result = await kernel.request.get<ItemsListResponse<TItem>>(
@@ -251,26 +287,30 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
         return handleLoadFailure(result);
       }
 
+      const nextItems = applyCompletionState(result.value.items, current.completedItemIds);
+      const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
       store.setState({
         loading: false,
         refreshing: false,
-        items: applyCompletionState(result.value.items, current.completedItemIds),
-        selectedItemId: deriveSelectedItemId(
-          applyCompletionState(result.value.items, current.completedItemIds),
-          current.selectedItemId,
-        ),
+        ready: true,
+        items: nextItems,
+        selectedItemId,
+        selection: createSelectionState(selectedItemId),
         hasMore: result.value.hasMore,
+        pagination: {
+          page: result.value.page ?? 1,
+          pageSize: result.value.pageSize ?? current.query.pageSize ?? 20,
+          hasMore: result.value.hasMore,
+        },
         query: {
           ...current.query,
           page: result.value.page ?? 1,
           pageSize: result.value.pageSize ?? current.query.pageSize ?? 20,
         },
         errorText: undefined,
-        featuredReason: deriveFeaturedReason(
-          applyCompletionState(result.value.items, current.completedItemIds),
-          current.featuredReason,
-        ),
+        featuredReason: deriveFeaturedReason(nextItems, current.featuredReason),
         recentlyCompletedItemId: undefined,
+        status: createListStatus(nextItems.length > 0 ? "ready" : "empty", nextItems.length > 0),
       });
       return result;
     },
@@ -286,6 +326,7 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
       store.setState({
         loading: true,
         errorText: undefined,
+        status: createListStatus("appending", current.items.length > 0),
       });
 
       const result = await kernel.request.get<ItemsListResponse<TItem>>(
@@ -297,24 +338,28 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
         return handleLoadFailure(result);
       }
 
+      const nextItems = applyCompletionState([...current.items, ...result.value.items], current.completedItemIds);
+      const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
       store.setState({
         loading: false,
-        items: applyCompletionState([...current.items, ...result.value.items], current.completedItemIds),
-        selectedItemId: deriveSelectedItemId(
-          applyCompletionState([...current.items, ...result.value.items], current.completedItemIds),
-          current.selectedItemId,
-        ),
+        ready: true,
+        items: nextItems,
+        selectedItemId,
+        selection: createSelectionState(selectedItemId),
         hasMore: result.value.hasMore,
+        pagination: {
+          page: result.value.page ?? nextPage,
+          pageSize: result.value.pageSize ?? current.query.pageSize ?? 20,
+          hasMore: result.value.hasMore,
+        },
         query: {
           ...current.query,
           page: result.value.page ?? nextPage,
           pageSize: result.value.pageSize ?? current.query.pageSize ?? 20,
         },
         errorText: undefined,
-        featuredReason: deriveFeaturedReason(
-          applyCompletionState([...current.items, ...result.value.items], current.completedItemIds),
-          current.featuredReason,
-        ),
+        featuredReason: deriveFeaturedReason(nextItems, current.featuredReason),
+        status: createListStatus("ready", nextItems.length > 0),
       });
       return result;
     },
@@ -347,10 +392,12 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
 
       const nextCompletedItemIds = [...completedIds];
       const nextItems = applyCompletionState(current.items, nextCompletedItemIds);
+      const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
       store.setState({
         items: nextItems,
         completedItemIds: nextCompletedItemIds,
-        selectedItemId: deriveSelectedItemId(nextItems, current.selectedItemId),
+        selectedItemId,
+        selection: createSelectionState(selectedItemId),
         lastProgressAt: new Date().toISOString(),
         featuredReason: deriveFeaturedReason(nextItems, current.featuredReason),
         recentlyCompletedItemId: nextCompleted ? itemId : undefined,
@@ -365,10 +412,12 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
       itemIds.forEach((itemId) => completedIds.add(itemId));
       const nextCompletedItemIds = [...completedIds];
       const nextItems = applyCompletionState(current.items, nextCompletedItemIds);
+      const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
       store.setState({
         items: nextItems,
         completedItemIds: nextCompletedItemIds,
-        selectedItemId: deriveSelectedItemId(nextItems, current.selectedItemId),
+        selectedItemId,
+        selection: createSelectionState(selectedItemId),
         lastProgressAt: new Date().toISOString(),
         featuredReason: deriveFeaturedReason(nextItems, current.featuredReason),
         recentlyCompletedItemId: undefined,
@@ -380,10 +429,12 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
       await hydrateProgress();
       const current = store.getState();
       const nextItems = applyCompletionState(current.items, []);
+      const selectedItemId = deriveSelectedItemId(nextItems);
       store.setState({
         items: nextItems,
         completedItemIds: [],
-        selectedItemId: deriveSelectedItemId(nextItems),
+        selectedItemId,
+        selection: createSelectionState(selectedItemId),
         activeFilter: "all",
         lastProgressAt: undefined,
         featuredReason: deriveFeaturedReason(nextItems, current.featuredReason),
@@ -400,6 +451,7 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
 
       store.setState({
         selectedItemId: itemId,
+        selection: createSelectionState(itemId),
       });
       return ok(undefined);
     },
@@ -422,6 +474,7 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
         items: nextItems,
         completedItemIds: nextCompletedItemIds,
         selectedItemId: nextSelectedItemId,
+        selection: createSelectionState(nextSelectedItemId),
         ...(wasCompleted ? {} : { lastProgressAt: new Date().toISOString() }),
         featuredReason: deriveFeaturedReason(nextItems, current.featuredReason),
         recentlyCompletedItemId: wasCompleted ? undefined : itemId,

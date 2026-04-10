@@ -13,6 +13,7 @@ export interface SettingsFeatureControllerOptions {
   loginRouteId: AppRouteId;
   itemsRouteId?: AppRouteId;
   overviewRouteId?: AppRouteId;
+  accountRouteId?: AppRouteId;
   readerRouteId?: AppRouteId;
   authRedirectSource?: "preferences";
   requestPath?: string;
@@ -41,6 +42,7 @@ export const settingsFeatureManifest = defineFeatureManifest<
       loginRouteId: options.loginRouteId,
       ...(options.itemsRouteId ? { itemsRouteId: options.itemsRouteId } : {}),
       ...(options.overviewRouteId ? { overviewRouteId: options.overviewRouteId } : {}),
+      ...(options.accountRouteId ? { accountRouteId: options.accountRouteId } : {}),
       ...(options.readerRouteId ? { readerRouteId: options.readerRouteId } : {}),
       ...(options.authRedirectSource ? { authRedirectSource: options.authRedirectSource } : {}),
       ...(options.requestPath ? { requestPath: options.requestPath } : {}),

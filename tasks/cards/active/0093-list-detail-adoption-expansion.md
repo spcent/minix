@@ -84,7 +84,7 @@ Make the shared list/detail semantics a practical default across more business s
 
 ## Acceptance
 
-- [ ] stronger list/detail outputs are adopted beyond current proof points
-- [ ] repeated pagination/selection/status/action boilerplate is reduced
-- [ ] feature-package boundaries remain intact
-- [ ] `pnpm verify` run
+- [x] stronger list/detail outputs are adopted beyond current proof points
+- [x] repeated pagination/selection/status/action boilerplate is reduced
+- [x] feature-package boundaries remain intact
+- [x] `pnpm verify` run

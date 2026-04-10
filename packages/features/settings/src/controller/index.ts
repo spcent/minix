@@ -16,13 +16,14 @@ import {
   type ToastOptions,
   type UserSession,
 } from "@minix/core";
-import { type AppRouteId, type SettingsResponse } from "@minix/contracts";
+import { SETTINGS_NETWORK_STRATEGIES, type AppRouteId, type SettingsResponse } from "@minix/contracts";
 
 export interface CreateSettingsControllerOptions {
   kernel: AppKernel;
   loginRouteId: AppRouteId;
   itemsRouteId?: AppRouteId;
   overviewRouteId?: AppRouteId;
+  accountRouteId?: AppRouteId;
   readerRouteId?: AppRouteId;
   authRedirectSource?: "preferences";
   model: SettingsPageModel;
@@ -176,6 +177,32 @@ function createTextItem(key: string, label: string, value: string | boolean): Se
     type: typeof value === "boolean" ? "switch" : "text",
     value,
   };
+}
+
+function updateSectionItemValue(
+  model: SettingsPageModel,
+  sectionKey: string,
+  itemKey: string,
+  value: string | boolean,
+): SettingsPageModel {
+  const nextModel = cloneModel(model);
+  nextModel.sections = nextModel.sections.map((section) =>
+    section.key !== sectionKey
+      ? section
+      : {
+          ...section,
+          items: section.items.map((item) =>
+            item.key === itemKey
+              ? {
+                  ...item,
+                  type: typeof value === "boolean" ? "switch" : item.type,
+                  value,
+                }
+              : item,
+          ),
+        },
+  );
+  return nextModel;
 }
 
 function createSettingsSections(response: SettingsResponse): SettingsSection[] {
@@ -399,6 +426,7 @@ export function createSettingsController(options: CreateSettingsControllerOption
     loginRouteId,
     itemsRouteId,
     overviewRouteId,
+    accountRouteId,
     readerRouteId,
     authRedirectSource,
     model,
@@ -484,6 +512,91 @@ export function createSettingsController(options: CreateSettingsControllerOption
     readingCenterPreferences = nextPreferences;
     store.setState(applyReadingCenterPreferences(store.getState(), readingCenterPreferences));
     return ok(undefined);
+  }
+
+  function setNotificationsEnabled(nextValue: boolean) {
+    const current = store.getState();
+    if (!current.preferences) {
+      return ok(undefined);
+    }
+    const nextModel = cloneModel(current);
+    nextModel.preferences = {
+      ...current.preferences,
+      notificationsEnabled: nextValue,
+    };
+    store.replaceState(updateSectionItemValue(nextModel, "common-preferences", "notifications", nextValue));
+    return ok(undefined);
+  }
+
+  function setDevicePreference<T extends keyof NonNullable<SettingsResponse["preferences"]>["device"]>(
+    key: T,
+    itemKey: string,
+    value: NonNullable<SettingsResponse["preferences"]>["device"][T],
+  ) {
+    const current = store.getState();
+    if (!current.preferences) {
+      return ok(undefined);
+    }
+
+    const nextModel = cloneModel(current);
+    nextModel.preferences = {
+      ...current.preferences,
+      device: {
+        ...current.preferences.device,
+        [key]: value,
+      },
+    };
+    store.replaceState(updateSectionItemValue(nextModel, "device-settings", itemKey, value));
+    return ok(undefined);
+  }
+
+  function setPrivacyPreference<T extends keyof SettingsResponse["privacyOptions"]>(
+    key: T,
+    itemKey: string,
+    value: SettingsResponse["privacyOptions"][T],
+  ) {
+    const current = store.getState();
+    if (!current.privacyOptions) {
+      return ok(undefined);
+    }
+
+    const nextModel = cloneModel(current);
+    nextModel.privacyOptions = {
+      ...current.privacyOptions,
+      [key]: value,
+    };
+    store.replaceState(updateSectionItemValue(nextModel, "privacy-options", itemKey, value));
+    return ok(undefined);
+  }
+
+  function setDeveloperPreference<T extends keyof NonNullable<SettingsResponse["preferences"]>["developerOptions"]>(
+    key: T,
+    itemKey: string,
+    value: NonNullable<SettingsResponse["preferences"]>["developerOptions"][T],
+  ) {
+    const current = store.getState();
+    if (!current.preferences) {
+      return ok(undefined);
+    }
+
+    const nextModel = cloneModel(current);
+    nextModel.preferences = {
+      ...current.preferences,
+      developerOptions: {
+        ...current.preferences.developerOptions,
+        [key]: value,
+      },
+    };
+    store.replaceState(updateSectionItemValue(nextModel, "debug-settings", itemKey, value));
+    return ok(undefined);
+  }
+
+  async function routeToOptional(routeId?: AppRouteId, params?: Record<string, string | number | boolean>) {
+    if (!routeId) {
+      return ok(undefined);
+    }
+
+    return kernel.router.toRoute(routeId, params);
   }
 
   function createNextTheme(currentTheme: ReaderTheme): ReaderTheme {
@@ -652,6 +765,151 @@ export function createSettingsController(options: CreateSettingsControllerOption
         ...readingCenterPreferences,
         reminders: createNextValue(REMINDER_MODES, readingCenterPreferences.reminders),
       });
+    },
+
+    async toggleNotificationsEnabled() {
+      return setNotificationsEnabled(!(store.getState().preferences?.notificationsEnabled ?? true));
+    },
+
+    async cycleNetworkStrategy() {
+      const current = store.getState().preferences?.device.networkStrategy ?? "balanced";
+      return setDevicePreference(
+        "networkStrategy",
+        "network-strategy",
+        createNextValue(SETTINGS_NETWORK_STRATEGIES, current),
+      );
+    },
+
+    async toggleAutoplay() {
+      return setDevicePreference("autoplay", "autoplay", !(store.getState().preferences?.device.autoplay ?? true));
+    },
+
+    async toggleWeakNetworkMode() {
+      return setDevicePreference(
+        "weakNetworkMode",
+        "weak-network-mode",
+        !(store.getState().preferences?.device.weakNetworkMode ?? false),
+      );
+    },
+
+    async clearLocalCache() {
+      const removeDisplayResult = await kernel.storage.remove(displaySettingsStorageKey);
+      if (!removeDisplayResult.ok) {
+        return removeDisplayResult;
+      }
+      const removeReadingCenterResult = await kernel.storage.remove(readingCenterStorageKey);
+      if (!removeReadingCenterResult.ok) {
+        return removeReadingCenterResult;
+      }
+
+      displayPreferences = {
+        theme: "paper",
+        mode: "scroll",
+        fontScale: 1,
+        nightModeDefault: "manual-only",
+      };
+      readingCenterPreferences = {
+        resume: "latest-chapter",
+        shelfOrder: "recent",
+        digest: "weekly",
+        sync: "cross-host",
+        reminders: "nightly",
+      };
+
+      const nextModel = updateSectionItemValue(
+        applyReadingCenterPreferences(applyDisplayPreferences(store.getState(), displayPreferences), readingCenterPreferences),
+        "device-settings",
+        "cache-label",
+        "Local cache cleared for reader and reading-center preferences",
+      );
+      if (nextModel.preferences) {
+        nextModel.preferences = {
+          ...nextModel.preferences,
+          device: {
+            ...nextModel.preferences.device,
+            cacheLabel: "Local cache cleared for reader and reading-center preferences",
+          },
+        };
+      }
+      store.replaceState(nextModel);
+      return ok(undefined);
+    },
+
+    async togglePersonalizedRecommendations() {
+      return setPrivacyPreference(
+        "personalizedRecommendations",
+        "personalized-recommendations",
+        !(store.getState().privacyOptions?.personalizedRecommendations ?? true),
+      );
+    },
+
+    async toggleSearchHistoryEnabled() {
+      return setPrivacyPreference(
+        "searchHistoryEnabled",
+        "search-history",
+        !(store.getState().privacyOptions?.searchHistoryEnabled ?? true),
+      );
+    },
+
+    async toggleAnalyticsEnabled() {
+      return setPrivacyPreference(
+        "analyticsEnabled",
+        "analytics",
+        !(store.getState().privacyOptions?.analyticsEnabled ?? true),
+      );
+    },
+
+    async toggleScreenshotFeedbackEnabled() {
+      return setPrivacyPreference(
+        "screenshotFeedbackEnabled",
+        "screenshot-feedback",
+        !(store.getState().privacyOptions?.screenshotFeedbackEnabled ?? true),
+      );
+    },
+
+    async toggleLogsEnabled() {
+      return setDeveloperPreference(
+        "logsEnabled",
+        "logs-enabled",
+        !(store.getState().preferences?.developerOptions.logsEnabled ?? true),
+      );
+    },
+
+    async toggleExperimentsEnabled() {
+      const nextValue = !(store.getState().preferences?.developerOptions.experimentsEnabled ?? true);
+      const developerResult = setDeveloperPreference("experimentsEnabled", "experiments-enabled", nextValue);
+      if (!developerResult.ok) {
+        return developerResult;
+      }
+
+      const current = store.getState();
+      if (!current.featureToggles) {
+        return ok(undefined);
+      }
+      store.replaceState({
+        ...current,
+        featureToggles: {
+          ...current.featureToggles,
+          experimentsEnabled: nextValue,
+        },
+      });
+      return ok(undefined);
+    },
+
+    async openProfileEntry() {
+      return routeToOptional(accountRouteId, { operation: "edit_profile" });
+    },
+
+    async openPhoneEntry() {
+      return routeToOptional(accountRouteId, { operation: "change_phone" });
+    },
+
+    async openUnbindEntry() {
+      return routeToOptional(accountRouteId, { operation: "unbind_wechat" });
+    },
+
+    async openCancellationEntry() {
+      return routeToOptional(accountRouteId, { operation: "request_cancellation" });
     },
 
     async goToItems() {

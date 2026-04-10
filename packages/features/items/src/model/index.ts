@@ -1,4 +1,4 @@
-import type { ListPageModel } from "@minix/core";
+import { createDefaultListPageState, type ListPageState } from "@minix/core";
 import type { ItemsListItem } from "@minix/contracts";
 
 export type ItemsFilterValue = "all" | "remaining" | "completed";
@@ -13,15 +13,14 @@ export interface ItemsProgressSnapshot {
   lastProgressAt?: string;
 }
 
-export interface ItemsPageModel extends ListPageModel<ItemsPageItem> {
+export type ItemsPageModel = ListPageState<ItemsPageItem> & {
   activeFilter: ItemsFilterValue;
   completedItemIds: string[];
-  selectedItemId: string | undefined;
-  progressHydrated: boolean;
-  lastProgressAt: string | undefined;
-  featuredReason: string | undefined;
-  recentlyCompletedItemId: string | undefined;
-}
+    progressHydrated: boolean;
+    lastProgressAt: string | undefined;
+    featuredReason: string | undefined;
+    recentlyCompletedItemId: string | undefined;
+};
 
 export interface CreateItemsPageModelOptions {
   title: string;
@@ -49,20 +48,16 @@ function normalizeItems(items: ItemsListItem[] | undefined): ItemsPageItem[] {
 }
 
 export function createItemsPageModel(options: CreateItemsPageModelOptions): ItemsPageModel {
-  return {
+  const base = createDefaultListPageState<ItemsPageItem>({
     title: options.title,
-    items: normalizeItems(options.items),
-    query: {
-      page: 1,
-      pageSize: options.pageSize,
-    },
-    loading: false,
-    refreshing: false,
-    hasMore: false,
+    pageSize: options.pageSize,
     emptyText: options.emptyText,
+    items: normalizeItems(options.items),
+  });
+  return {
+    ...base,
     activeFilter: options.activeFilter ?? "all",
     completedItemIds: [],
-    selectedItemId: undefined,
     progressHydrated: false,
     lastProgressAt: undefined,
     featuredReason: options.featuredReason,

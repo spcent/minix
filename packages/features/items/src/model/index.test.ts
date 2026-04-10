@@ -12,5 +12,8 @@ test("createDefaultItemsPageModel provides canonical feature defaults", () => {
   assert.equal(model.activeFilter, "all");
   assert.deepEqual(model.completedItemIds, []);
   assert.equal(model.selectedItemId, undefined);
+  assert.equal(model.pagination.pageSize, 20);
+  assert.deepEqual(model.selection.selectedItemIds, []);
+  assert.equal(model.status.loadState, "idle");
   assert.equal(model.progressHydrated, false);
 });

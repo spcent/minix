@@ -86,8 +86,8 @@ Turn `formValues`, `validationErrors`, `submitState`, and workflow metadata from
 
 ## Acceptance
 
-- [ ] shared form workflow is adopted beyond feedback
-- [ ] step, conditional, and dynamic-field semantics are proven in a real feature
-- [ ] draft-save or equivalent non-trivial submit phases are exercised where relevant
-- [ ] host-local one-off form state does not reappear where a shared form exists
-- [ ] `pnpm verify` run
+- [x] shared form workflow is adopted beyond feedback
+- [x] step, conditional, and dynamic-field semantics are proven in a real feature
+- [x] draft-save or equivalent non-trivial submit phases are exercised where relevant
+- [x] host-local one-off form state does not reappear where a shared form exists
+- [x] `pnpm verify` run

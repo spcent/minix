@@ -143,6 +143,9 @@ test("items controller loads protected items into the model", async () => {
   assert.deepEqual(receivedQuery, { page: 1, pageSize: 20 });
   assert.deepEqual(controller.store.getState().items, [{ id: "item_1", title: "First item", completed: false }]);
   assert.equal(controller.store.getState().hasMore, true);
+  assert.equal(controller.store.getState().pagination.hasMore, true);
+  assert.equal(controller.store.getState().selection.selectedItemIds[0], "item_1");
+  assert.equal(controller.store.getState().status.loadState, "ready");
   assert.equal(controller.store.getState().progressHydrated, true);
 });
 

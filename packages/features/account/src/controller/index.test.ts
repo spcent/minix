@@ -10,6 +10,7 @@ import { createDefaultAccountState } from "../model";
 function createKernelStub() {
   const routeCalls: Array<{ routeId: string; params?: Record<string, string | number | boolean> }> = [];
   const clipboardWrites: string[] = [];
+  const storageValues = new Map<string, unknown>();
   let requestMode: "success" | "unauthorized" = "success";
   const postCalls: Array<{ path: string; body: unknown }> = [];
   let sessionValue: UserSession | null = {
@@ -178,7 +179,23 @@ function createKernelStub() {
       enableAutoLogin: false,
       enableRouteGuard: false,
     },
-    storage: {} as AppKernel["storage"],
+    storage: {
+      async get<T>(key: string) {
+        return ok((storageValues.get(key) as T | undefined) ?? null);
+      },
+      async set<T>(key: string, value: T) {
+        storageValues.set(key, value);
+        return ok(undefined);
+      },
+      async remove(key: string) {
+        storageValues.delete(key);
+        return ok(undefined);
+      },
+      async clear() {
+        storageValues.clear();
+        return ok(undefined);
+      },
+    },
     session: {
       async get() {
         return ok(sessionValue);
@@ -302,6 +319,7 @@ function createKernelStub() {
     kernel,
     routeCalls,
     clipboardWrites,
+    storageValues,
     postCalls,
     setRequestMode(mode: "success" | "unauthorized") {
       requestMode = mode;
@@ -374,6 +392,32 @@ test("account controller can copy the current user id through the clipboard capa
   assert.equal(result.ok, true);
   assert.deepEqual(clipboardWrites, ["user-12345"]);
   assert.equal(controller.store.getState().copyFeedback, "User ID copied for support and recovery.");
+});
+
+test("account controller exposes a step-based draftable profile form workflow", async () => {
+  const { kernel, storageValues } = createKernelStub();
+  const controller = createAccountController({
+    kernel,
+    loginRouteId: APP_ROUTE_IDS.login,
+  });
+
+  await controller.loadInitial();
+  controller.openOperationForm("edit_profile");
+  controller.updateOperationValues({
+    nickname: "Draft Casey",
+    includeBio: true,
+  });
+
+  assert.deepEqual(controller.store.getState().workflow.stepKeys, ["profile", "preferences", "confirm"]);
+  assert.equal(controller.store.getState().workflow.currentStepKey, "profile");
+  assert.equal(controller.store.getState().workflow.visibleFieldKeys.includes("bio"), true);
+  assert.equal(controller.store.getState().workflow.conditionalFieldKeys.includes("bio"), true);
+
+  await controller.saveOperationDraft();
+
+  assert.equal(controller.store.getState().submitState.mode, "draft");
+  assert.equal(controller.store.getState().submitState.phase, "idle");
+  assert.equal(storageValues.has("@minix/account/operation-form-draft/v1"), true);
 });
 
 test("account controller can route into settings and overview when configured", async () => {
@@ -548,6 +592,48 @@ test("account controller can update profile through the shared account endpoint"
 
   assert.equal(postCalls.at(-1)?.path, "/account/profile");
   assert.equal(controller.store.getState().transitionFeedback, "Profile updated.");
+});
+
+test("account controller validates conditional cancellation fields through the shared form workflow", async () => {
+  const { kernel } = createKernelStub();
+  const controller = createAccountController({
+    kernel,
+    loginRouteId: APP_ROUTE_IDS.login,
+  });
+
+  await controller.loadInitial();
+  controller.openOperationForm("request_cancellation");
+  controller.updateOperationValues({
+    cancellationReason: "other",
+    confirmCancellation: false,
+  });
+
+  const result = await controller.submitOperationForm();
+
+  assert.equal(result.ok, true);
+  assert.equal(controller.store.getState().submitState.phase, "failed");
+  assert.equal(controller.store.getState().validationErrors.some((error) => error.field === "cancellationDetails"), true);
+  assert.equal(controller.store.getState().validationErrors.some((error) => error.field === "confirmCancellation"), true);
+});
+
+test("account controller can submit phone changes through the shared operation form", async () => {
+  const { kernel, postCalls } = createKernelStub();
+  const controller = createAccountController({
+    kernel,
+    loginRouteId: APP_ROUTE_IDS.login,
+  });
+
+  await controller.loadInitial();
+  controller.openOperationForm("change_phone");
+  controller.updateOperationValues({
+    phoneNumber: "13800000022",
+    verificationCode: "123456",
+  });
+  await controller.submitOperationForm();
+
+  assert.equal(postCalls.at(-1)?.path, "/account/change-phone");
+  assert.equal(controller.store.getState().operationFormOpen, false);
+  assert.equal(controller.store.getState().submitState.phase, "submitted");
 });
 
 test("account controller can request cancellation and refresh status", async () => {
