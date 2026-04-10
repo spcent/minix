@@ -1,4 +1,5 @@
 import type { AccountState } from "@minix/feature-account";
+import type { AuthPageState } from "@minix/feature-auth";
 import type { FeedbackState } from "@minix/feature-feedback";
 import type { FeedState } from "@minix/feature-feed";
 import type { ItemsFilterValue, ItemsPageItem } from "@minix/feature-items";
@@ -1171,6 +1172,12 @@ function resolvePageLabel(pageKey: HostH5PageKey): string {
   switch (pageKey) {
     case "login":
       return "Home";
+    case "identityUpgrade":
+      return "Upgrade Account";
+    case "identityBindPhone":
+      return "Bind Phone";
+    case "identityMerge":
+      return "Merge Accounts";
     case "overview":
       return "Overview";
     case "items":
@@ -1697,6 +1704,191 @@ function createGenericRenderer(pageKey: HostH5PageKey): HostH5PageRenderer {
       });
     },
   };
+}
+
+interface AuthIdentityPageEntry {
+  store: Store<AuthPageState>;
+  updateCredentials(values: Partial<AuthPageState["credentials"]>): void;
+  setLoginMethod(method: "phone_code" | "password"): void;
+  requestPhoneVerification(purpose: "guest_upgrade" | "phone_binding"): Promise<unknown>;
+  submitIdentityUpgrade(): Promise<unknown>;
+  submitPhoneBinding(): Promise<unknown>;
+  confirmIdentityMerge(targetUserId?: string): Promise<unknown>;
+  cancelIdentityMerge(targetUserId?: string): Promise<unknown>;
+}
+
+function renderIdentityImpacts(state: AuthPageState): string {
+  const impacts = state.identityWorkflow?.mergePreview?.impacts ?? [];
+  if (impacts.length === 0) {
+    return `<p class="me-empty">No merge impact preview is available yet. Start the flow to generate a source and target account comparison.</p>`;
+  }
+
+  return impacts
+    .map(
+      (impact) => `
+        <article class="me-task-card">
+          <p class="me-task-meta">${escapeHtml(impact.label)}</p>
+          <h3 class="me-task-title">${escapeHtml(`${impact.sourceCount} + ${impact.targetCount} -> ${impact.mergedCount}`)}</h3>
+          <p class="me-task-copy">${escapeHtml(impact.message)}</p>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderIdentityAudit(state: AuthPageState): string {
+  const audit = state.identityWorkflow?.audit ?? [];
+  if (audit.length === 0) {
+    return `<p class="me-empty">Audit records will appear after preview, confirmation, cancellation, or rollback-safe failure.</p>`;
+  }
+
+  return audit
+    .map(
+      (record) => `
+        <div class="me-empty-state">
+          <strong>${escapeHtml(record.action)}</strong>
+          <p class="me-copy-muted">${escapeHtml(record.message)}</p>
+          <p class="me-copy-muted">${escapeHtml(record.createdAt)}</p>
+        </div>
+      `,
+    )
+    .join("");
+}
+
+function renderIdentityWorkflowPage(
+  context: HostH5PageRenderContext,
+  config: {
+    pageKey: "identityUpgrade" | "identityBindPhone" | "identityMerge";
+    title: string;
+    eyebrow: string;
+    subtitle: string;
+    primaryButtonId: string;
+    primaryButtonLabel: string;
+    phonePurpose: "guest_upgrade" | "phone_binding";
+  },
+) {
+  const { root, runtime, sync } = context;
+  const page = runtime.pages[config.pageKey] as unknown as AuthIdentityPageEntry;
+  const state = page.store.getState();
+  const workflow = state.identityWorkflow;
+  const preview = workflow?.mergePreview;
+  const targetLabel = workflow?.targetLabel ?? preview?.targetLabel ?? "No target selected";
+
+  const syncCredentialFields = () => {
+    page.updateCredentials({
+      phoneNumber: root.querySelector<HTMLInputElement>("#identity-phone")?.value ?? state.credentials.phoneNumber,
+      verificationCode: root.querySelector<HTMLInputElement>("#identity-code")?.value ?? state.credentials.verificationCode,
+      account: root.querySelector<HTMLInputElement>("#identity-account")?.value ?? state.credentials.account,
+      password: root.querySelector<HTMLInputElement>("#identity-password")?.value ?? state.credentials.password,
+    });
+  };
+
+  renderApp(
+    root,
+    config.title,
+    runtime,
+    config.pageKey,
+    `
+      <section class="me-screen">
+        <section class="me-surface me-hero">
+          <div class="me-hero-copy">
+            <p class="me-eyebrow">${escapeHtml(config.eyebrow)}</p>
+            <h1 class="me-title">${escapeHtml(config.title)}</h1>
+            <p class="me-subtitle">${escapeHtml(config.subtitle)}</p>
+            <div class="me-chip-row">
+              <span class="me-chip">${escapeHtml(workflow?.status ?? "start")}</span>
+              <span class="me-chip me-chip-accent">${escapeHtml(workflow?.stage ?? "start")}</span>
+              <span class="me-chip">${escapeHtml(targetLabel)}</span>
+            </div>
+          </div>
+          <aside class="me-panel">
+            <p class="me-panel-kicker">Recovery</p>
+            <h2 class="me-panel-title">${escapeHtml(preview?.recoveryMessage ?? "Every merge path keeps a rollback-safe failure state until explicit confirmation succeeds.")}</h2>
+            <ul class="me-panel-list">
+              <li>${escapeHtml(`Workflow: ${workflow?.workflowId ?? "not started"}`)}</li>
+              <li>${escapeHtml(`Confirmation: ${preview?.requiresConfirmation ? "required" : "not required yet"}`)}</li>
+              <li>${escapeHtml(`Rollback safe: ${preview?.canRollback === false ? "no" : "yes"}`)}</li>
+            </ul>
+          </aside>
+        </section>
+
+        <section class="me-grid me-grid-columns">
+          <section class="me-surface me-card">
+            <p class="me-section-kicker">Start</p>
+            <h2 class="me-card-title">Verification inputs</h2>
+            <p class="me-card-subtitle">Use a real requested code from the sample API. Demo merge phone numbers still produce explicit preview before merging.</p>
+            <div class="me-settings-group">
+              <input id="identity-phone" class="me-input" placeholder="Phone number" value="${escapeHtml(state.credentials.phoneNumber)}" />
+              <input id="identity-code" class="me-input" placeholder="Verification code" value="${escapeHtml(state.credentials.verificationCode)}" />
+              ${
+                config.pageKey === "identityUpgrade"
+                  ? `<input id="identity-account" class="me-input" placeholder="Password account" value="${escapeHtml(state.credentials.account)}" />
+                     <input id="identity-password" class="me-input" placeholder="Password" type="password" value="${escapeHtml(state.credentials.password)}" />`
+                  : ""
+              }
+            </div>
+            <div class="me-action-group">
+              ${renderButton("identity-request-code", "Request Code", "secondary", state.loading)}
+              ${config.pageKey === "identityUpgrade" ? renderButton("identity-method-phone", "Use Phone", state.selectedLoginMethod === "phone_code" ? "primary" : "ghost", state.loading) : ""}
+              ${config.pageKey === "identityUpgrade" ? renderButton("identity-method-password", "Use Password", state.selectedLoginMethod === "password" ? "primary" : "ghost", state.loading) : ""}
+              ${renderButton(config.primaryButtonId, config.primaryButtonLabel, "primary", state.loading)}
+            </div>
+            ${state.phoneVerification?.debugCode ? `<p class="me-message">Debug code: ${escapeHtml(state.phoneVerification.debugCode)}</p>` : ""}
+            ${state.noticeMessage ? `<p class="me-message">${escapeHtml(state.noticeMessage)}</p>` : ""}
+            ${state.errorMessage ? `<p class="me-message me-message-error">${escapeHtml(state.errorMessage)}</p>` : ""}
+          </section>
+
+          <section class="me-surface me-card">
+            <p class="me-section-kicker">Preview</p>
+            <h2 class="me-card-title">Merge impact summary</h2>
+            <div class="me-lesson-list">
+              ${renderIdentityImpacts(state)}
+            </div>
+            <div class="me-action-group">
+              ${workflow?.targetUserId ? renderButton("identity-confirm-merge", "Confirm Merge", "primary", state.loading) : ""}
+              ${workflow?.targetUserId ? renderButton("identity-cancel-merge", "Cancel Without Changes", "secondary", state.loading) : ""}
+            </div>
+          </section>
+        </section>
+
+        <section class="me-surface me-card">
+          <p class="me-section-kicker">Audit</p>
+          <h2 class="me-card-title">Operation records</h2>
+          <div class="me-settings-group">
+            ${renderIdentityAudit(state)}
+          </div>
+        </section>
+      </section>
+    `,
+  );
+
+  bindRouteButtons(root, runtime, sync);
+  bindButton(root, "identity-method-phone", () => {
+    page.setLoginMethod("phone_code");
+    sync();
+  });
+  bindButton(root, "identity-method-password", () => {
+    page.setLoginMethod("password");
+    sync();
+  });
+  bindButton(root, "identity-request-code", () => {
+    syncCredentialFields();
+    void page.requestPhoneVerification(config.phonePurpose).then(sync);
+  });
+  bindButton(root, config.primaryButtonId, () => {
+    syncCredentialFields();
+    void (config.pageKey === "identityUpgrade"
+      ? page.submitIdentityUpgrade()
+      : config.pageKey === "identityBindPhone"
+        ? page.submitPhoneBinding()
+        : page.confirmIdentityMerge()).then(sync);
+  });
+  bindButton(root, "identity-confirm-merge", () => {
+    void page.confirmIdentityMerge().then(sync);
+  });
+  bindButton(root, "identity-cancel-merge", () => {
+    void page.cancelIdentityMerge().then(sync);
+  });
 }
 
 function renderLoginPage({ root, runtime, sync }: HostH5PageRenderContext) {
@@ -3359,6 +3551,9 @@ function renderAccountPage({ root, runtime, sync }: HostH5PageRenderContext) {
               <button id="account-copy" class="me-button me-button-secondary">Copy User ID</button>
               <button id="account-settings" class="me-button me-button-secondary">Open Preferences</button>
               <button id="account-overview" class="me-button me-button-ghost">Open Overview</button>
+              ${state.identityWorkflows?.canUpgradeGuest ? renderButton("account-identity-upgrade", "Upgrade Guest", "primary") : ""}
+              ${state.identityWorkflows?.canBindPhone ? renderButton("account-bind-phone", "Bind Phone", "primary") : ""}
+              ${state.identityWorkflows?.mergePending ? renderButton("account-identity-merge", "Review Merge", "primary") : ""}
             </div>
           </section>
 
@@ -3402,12 +3597,60 @@ function renderAccountPage({ root, runtime, sync }: HostH5PageRenderContext) {
   bindButton(root, "account-overview", () => {
     void runtime.pages.account.goToOverview().then(sync);
   });
+  bindButton(root, "account-identity-upgrade", () => {
+    void runtime.pages.account.goToIdentityUpgrade().then(sync);
+  });
+  bindButton(root, "account-bind-phone", () => {
+    void runtime.pages.account.goToPhoneBinding().then(sync);
+  });
+  bindButton(root, "account-identity-merge", () => {
+    void runtime.pages.account.goToIdentityMerge().then(sync);
+  });
 }
 
 export const hostH5PageRenderers: Partial<Record<HostH5PageKey, HostH5PageRenderer>> = {
   login: {
     render(context) {
       renderLoginPage(context);
+    },
+  },
+  identityUpgrade: {
+    render(context) {
+      renderIdentityWorkflowPage(context, {
+        pageKey: "identityUpgrade",
+        title: "Upgrade Account",
+        eyebrow: "Identity Upgrade",
+        subtitle: "Promote a guest session into a formal account with explicit merge preview when the verified identity already belongs elsewhere.",
+        primaryButtonId: "identity-submit-upgrade",
+        primaryButtonLabel: "Start Upgrade",
+        phonePurpose: "guest_upgrade",
+      });
+    },
+  },
+  identityBindPhone: {
+    render(context) {
+      renderIdentityWorkflowPage(context, {
+        pageKey: "identityBindPhone",
+        title: "Bind Phone",
+        eyebrow: "Phone Binding",
+        subtitle: "Attach a verified phone to the WeChat account and require confirmation before cross-account data moves.",
+        primaryButtonId: "identity-submit-bind-phone",
+        primaryButtonLabel: "Bind Phone",
+        phonePurpose: "phone_binding",
+      });
+    },
+  },
+  identityMerge: {
+    render(context) {
+      renderIdentityWorkflowPage(context, {
+        pageKey: "identityMerge",
+        title: "Merge Accounts",
+        eyebrow: "Merge Preview",
+        subtitle: "Review assets, sessions, messages, content, and feedback impact before confirming or cancelling safely.",
+        primaryButtonId: "identity-submit-merge",
+        primaryButtonLabel: "Confirm Pending Merge",
+        phonePurpose: "phone_binding",
+      });
     },
   },
   overview: {

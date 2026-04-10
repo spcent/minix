@@ -44,6 +44,9 @@ export interface CreateAccountControllerOptions {
   loginRouteId?: AppRouteId;
   settingsRouteId?: AppRouteId;
   overviewRouteId?: AppRouteId;
+  identityUpgradeRouteId?: AppRouteId;
+  identityBindPhoneRouteId?: AppRouteId;
+  identityMergeRouteId?: AppRouteId;
   requestPath?: string;
   authRedirectSource?: string;
 }
@@ -735,6 +738,9 @@ export function createAccountController(options: CreateAccountControllerOptions)
     loginRouteId,
     settingsRouteId,
     overviewRouteId,
+    identityUpgradeRouteId,
+    identityBindPhoneRouteId,
+    identityMergeRouteId,
     requestPath = "/me",
     authRedirectSource = "account",
     initialState,
@@ -1006,6 +1012,18 @@ export function createAccountController(options: CreateAccountControllerOptions)
 
     async goToLogin() {
       return routeToLogin();
+    },
+
+    async goToIdentityUpgrade() {
+      return routeToOptional(identityUpgradeRouteId);
+    },
+
+    async goToPhoneBinding() {
+      return routeToOptional(identityBindPhoneRouteId);
+    },
+
+    async goToIdentityMerge() {
+      return routeToOptional(identityMergeRouteId);
     },
 
     openOperationForm(operationKind: AccountOperation["kind"]) {

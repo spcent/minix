@@ -689,3 +689,32 @@ test("auth controller can confirm an identity merge from pending workflow state"
 
   assert.equal(runtime.requestCalls.at(-1)?.url, "/auth/identity/merge");
 });
+
+test("auth controller can cancel an identity merge from pending workflow state", async () => {
+  const runtime = createKernelStub();
+  const controller = createAuthController({
+    kernel: runtime.kernel,
+    successRouteId: "items.list",
+    stayOnSuccess: true,
+  });
+
+  controller.store.setState({
+    identityWorkflow: {
+      kind: "phone_binding",
+      status: "merge_required",
+      sourceUserId: "minix-demo-user",
+      targetUserId: "user_phone_0001",
+      failureReason: "merge_confirmation_required",
+      message: "This identity is already linked to account user_phone_0001. Confirm the merge to continue.",
+    },
+  });
+
+  await controller.cancelIdentityMerge();
+
+  assert.equal(runtime.requestCalls.at(-1)?.url, "/auth/identity/merge");
+  assert.deepEqual(runtime.requestCalls.at(-1)?.body, {
+    targetUserId: "user_phone_0001",
+    confirm: false,
+    workflowKind: "phone_binding",
+  });
+});

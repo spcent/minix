@@ -92,9 +92,9 @@ Provide dedicated route-backed workflows for guest upgrade, WeChat phone binding
 
 ## Acceptance
 
-- [ ] guest upgrade has a dedicated guided flow
-- [ ] phone binding handles merge-required and already-bound cases
-- [ ] account merge shows preview and requires explicit confirmation
-- [ ] merge result includes asset/session/message/content impact summary
-- [ ] host manifests expose the flows without generated-source edits
-- [ ] `pnpm verify` run
+- [x] guest upgrade has a dedicated guided flow
+- [x] phone binding handles merge-required and already-bound cases
+- [x] account merge shows preview and requires explicit confirmation
+- [x] merge result includes asset/session/message/content impact summary
+- [x] host manifests expose the flows without generated-source edits
+- [x] `pnpm verify` run

@@ -89,12 +89,46 @@ export interface AuthAbnormalLoginPrompt {
 export interface AuthIdentityWorkflow {
   kind: AuthIdentityWorkflowKind;
   status: AuthIdentityWorkflowStatus;
+  workflowId?: string;
+  stage?: "start" | "verify" | "preview" | "confirm" | "completed" | "failed";
   sourceUserId: string;
   targetUserId?: string;
   targetLabel?: string;
   message: string;
   continueTarget?: AuthRedirectTarget;
   failureReason?: AuthIdentityFailureReason;
+  mergePreview?: AuthIdentityMergePreview;
+  audit?: AuthIdentityAuditRecord[];
+}
+
+export interface AuthIdentityMergeImpact {
+  key: string;
+  label: string;
+  sourceCount: number;
+  targetCount: number;
+  mergedCount: number;
+  message: string;
+}
+
+export interface AuthIdentityMergePreview {
+  sourceUserId: string;
+  targetUserId: string;
+  targetLabel: string;
+  impacts: AuthIdentityMergeImpact[];
+  requiresConfirmation: boolean;
+  canRollback: boolean;
+  recoveryMessage: string;
+}
+
+export interface AuthIdentityAuditRecord {
+  eventId: string;
+  action: "preview_created" | "merge_required" | "merge_confirmed" | "merge_completed" | "merge_blocked" | "rollback_safe_failure";
+  workflowId: string;
+  actorUserId: string;
+  sourceUserId: string;
+  targetUserId?: string;
+  message: string;
+  createdAt: string;
 }
 
 export interface LoginUserProfile {

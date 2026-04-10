@@ -427,14 +427,23 @@ test("account controller can route into settings and overview when configured", 
     loginRouteId: APP_ROUTE_IDS.login,
     settingsRouteId: APP_ROUTE_IDS.settings,
     overviewRouteId: APP_ROUTE_IDS.overview,
+    identityUpgradeRouteId: APP_ROUTE_IDS.identityUpgrade,
+    identityBindPhoneRouteId: APP_ROUTE_IDS.identityBindPhone,
+    identityMergeRouteId: APP_ROUTE_IDS.identityMerge,
   });
 
   await controller.goToSettings();
   await controller.goToOverview();
+  await controller.goToIdentityUpgrade();
+  await controller.goToPhoneBinding();
+  await controller.goToIdentityMerge();
 
   assert.deepEqual(routeCalls, [
     { routeId: APP_ROUTE_IDS.settings },
     { routeId: APP_ROUTE_IDS.overview },
+    { routeId: APP_ROUTE_IDS.identityUpgrade },
+    { routeId: APP_ROUTE_IDS.identityBindPhone },
+    { routeId: APP_ROUTE_IDS.identityMerge },
   ]);
 });
 

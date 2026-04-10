@@ -11,6 +11,8 @@ import type {
   AuthPhoneVerificationResponse,
   AuthIdentity,
   AuthIdentityFailureReason,
+  AuthIdentityAuditRecord,
+  AuthIdentityMergePreview,
   AuthIdentityWorkflow,
   AuthRedirectTarget,
   AuthRiskDecision,
@@ -990,24 +992,126 @@ function createWorkflowMessage(
   return "The current session has been merged into the target account.";
 }
 
+function countRecordValues(record: Record<string, unknown> | undefined): number {
+  return record ? Object.keys(record).length : 0;
+}
+
+function createMergePreview(input: {
+  sourceUserId: string;
+  targetUserId: string;
+  targetLabel: string;
+  sourceState: UserState;
+  targetState: UserState;
+  requiresConfirmation?: boolean | undefined;
+  recoveryMessage?: string | undefined;
+}): AuthIdentityMergePreview {
+  const sourceMessageCount = Object.values(input.sourceState.threadMessagesByThreadId).reduce((sum, items) => sum + items.length, 0);
+  const targetMessageCount = Object.values(input.targetState.threadMessagesByThreadId).reduce((sum, items) => sum + items.length, 0);
+  const sourceFeedbackCount = countRecordValues(input.sourceState.feedbackDetailsById);
+  const targetFeedbackCount = countRecordValues(input.targetState.feedbackDetailsById);
+  const sourceContentCount = countRecordValues(input.sourceState.managedContentById);
+  const targetContentCount = countRecordValues(input.targetState.managedContentById);
+  const sourceAssetCount = countRecordValues(input.sourceState.uploadsByTaskId);
+  const targetAssetCount = countRecordValues(input.targetState.uploadsByTaskId);
+
+  return {
+    sourceUserId: input.sourceUserId,
+    targetUserId: input.targetUserId,
+    targetLabel: input.targetLabel,
+    requiresConfirmation: input.requiresConfirmation ?? true,
+    canRollback: true,
+    recoveryMessage: input.recoveryMessage ?? "If confirmation fails, the source session remains unchanged and can retry the merge preview.",
+    impacts: [
+      {
+        key: "assets",
+        label: "Uploaded assets",
+        sourceCount: sourceAssetCount,
+        targetCount: targetAssetCount,
+        mergedCount: sourceAssetCount + targetAssetCount,
+        message: "Uploaded assets are combined and keep their existing task ids.",
+      },
+      {
+        key: "messages",
+        label: "Message threads",
+        sourceCount: sourceMessageCount,
+        targetCount: targetMessageCount,
+        mergedCount: sourceMessageCount + targetMessageCount,
+        message: "Thread read state and outbound message history are merged into the target account.",
+      },
+      {
+        key: "feedback",
+        label: "Feedback tickets",
+        sourceCount: sourceFeedbackCount,
+        targetCount: targetFeedbackCount,
+        mergedCount: sourceFeedbackCount + targetFeedbackCount,
+        message: "Feedback tickets and latest support context are preserved.",
+      },
+      {
+        key: "content",
+        label: "Managed content",
+        sourceCount: sourceContentCount,
+        targetCount: targetContentCount,
+        mergedCount: sourceContentCount + targetContentCount,
+        message: "Managed content lifecycle state follows the target account after merge.",
+      },
+      {
+        key: "relationships",
+        label: "Relationships",
+        sourceCount: input.sourceState.relationTarget ? 1 : 0,
+        targetCount: input.targetState.relationTarget ? 1 : 0,
+        mergedCount: input.targetState.relationTarget || input.sourceState.relationTarget ? 1 : 0,
+        message: "Relationship summary prefers the target account and backfills missing source state.",
+      },
+    ],
+  };
+}
+
+function createIdentityAuditRecord(input: {
+  action: AuthIdentityAuditRecord["action"];
+  workflowId: string;
+  actorUserId: string;
+  sourceUserId: string;
+  targetUserId?: string | undefined;
+  message: string;
+}): AuthIdentityAuditRecord {
+  return {
+    eventId: createRandomId("identity_audit"),
+    action: input.action,
+    workflowId: input.workflowId,
+    actorUserId: input.actorUserId,
+    sourceUserId: input.sourceUserId,
+    ...(input.targetUserId ? { targetUserId: input.targetUserId } : {}),
+    message: input.message,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 function createIdentityWorkflow(input: {
   kind: AuthIdentityWorkflow["kind"];
   status: AuthIdentityWorkflow["status"];
+  workflowId?: string | undefined;
+  stage?: AuthIdentityWorkflow["stage"];
   sourceUserId: string;
   continueTarget?: AuthRedirectTarget | undefined;
   targetUserId?: string | undefined;
   targetLabel?: string | undefined;
   failureReason?: AuthIdentityFailureReason | undefined;
+  mergePreview?: AuthIdentityMergePreview | undefined;
+  audit?: AuthIdentityAuditRecord[] | undefined;
 }): AuthIdentityWorkflow {
   return {
     kind: input.kind,
     status: input.status,
+    ...(input.workflowId ? { workflowId: input.workflowId } : {}),
+    ...(input.stage ? { stage: input.stage } : {}),
     sourceUserId: input.sourceUserId,
     message: createWorkflowMessage(input.kind, input.status, input.targetLabel),
     ...(input.continueTarget ? { continueTarget: input.continueTarget } : {}),
     ...(input.targetUserId ? { targetUserId: input.targetUserId } : {}),
     ...(input.targetLabel ? { targetLabel: input.targetLabel } : {}),
     ...(input.failureReason ? { failureReason: input.failureReason } : {}),
+    ...(input.mergePreview ? { mergePreview: input.mergePreview } : {}),
+    ...(input.audit ? { audit: input.audit } : {}),
   };
 }
 
@@ -2408,16 +2512,47 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
     const mergeCandidate = isMergeSampleIdentity(payload.credential);
     if (mergeCandidate && payload.mergeStrategy !== "merge") {
+      const sourceState = await store.getUserState(session.userId);
+      const workflowId = createRandomId("identity_workflow");
+      const targetLabel = `account ${targetUserId}`;
+      const mergePreview = createMergePreview({
+        sourceUserId: session.userId,
+        targetUserId,
+        targetLabel,
+        sourceState,
+        targetState,
+      });
+      const audit = [
+        createIdentityAuditRecord({
+          action: "preview_created",
+          workflowId,
+          actorUserId: session.userId,
+          sourceUserId: session.userId,
+          targetUserId,
+          message: "Guest upgrade merge preview created.",
+        }),
+        createIdentityAuditRecord({
+          action: "merge_required",
+          workflowId,
+          actorUserId: session.userId,
+          sourceUserId: session.userId,
+          targetUserId,
+          message: "Guest upgrade requires explicit merge confirmation.",
+        }),
+      ];
       const workflow = createIdentityWorkflow({
         kind: "guest_upgrade",
         status: "merge_required",
+        workflowId,
+        stage: "preview",
         sourceUserId: session.userId,
         continueTarget: redirectTarget,
         targetUserId,
-        targetLabel: `account ${targetUserId}`,
+        targetLabel,
         failureReason: "merge_confirmation_required",
+        mergePreview,
+        audit,
       });
-      const sourceState = await store.getUserState(session.userId);
       sourceState.pendingIdentityWorkflow = workflow;
       sourceState.lastIdentityWorkflow = workflow;
       if (payload.credential.phoneNumber) {
@@ -2431,13 +2566,36 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
 
     const sourceState = await store.getUserState(session.userId);
+    const workflowId = sourceState.pendingIdentityWorkflow?.workflowId ?? createRandomId("identity_workflow");
+    const targetLabel = `account ${targetUserId}`;
+    const mergePreview = createMergePreview({
+      sourceUserId: session.userId,
+      targetUserId,
+      targetLabel,
+      sourceState,
+      targetState,
+    });
     const workflow = createIdentityWorkflow({
       kind: "guest_upgrade",
       status: "completed",
+      workflowId,
+      stage: "completed",
       sourceUserId: session.userId,
       continueTarget: redirectTarget,
       targetUserId,
-      targetLabel: `account ${targetUserId}`,
+      targetLabel,
+      mergePreview,
+      audit: [
+        ...(sourceState.pendingIdentityWorkflow?.audit ?? []),
+        createIdentityAuditRecord({
+          action: "merge_completed",
+          workflowId,
+          actorUserId: session.userId,
+          sourceUserId: session.userId,
+          targetUserId,
+          message: "Guest upgrade completed with rollback-safe state merge.",
+        }),
+      ],
     });
     const nextState = mergeUserStates(targetState, {
       ...sourceState,
@@ -2540,16 +2698,47 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
     const mergeCandidate = isMergeSampleIdentity({ phoneNumber: payload.phoneNumber }) && targetUserId !== session.userId;
     if (mergeCandidate && payload.mergeStrategy !== "merge") {
+      const sourceState = await store.getUserState(session.userId);
+      const workflowId = createRandomId("identity_workflow");
+      const targetLabel = `account ${targetUserId}`;
+      const mergePreview = createMergePreview({
+        sourceUserId: session.userId,
+        targetUserId,
+        targetLabel,
+        sourceState,
+        targetState,
+      });
+      const audit = [
+        createIdentityAuditRecord({
+          action: "preview_created",
+          workflowId,
+          actorUserId: session.userId,
+          sourceUserId: session.userId,
+          targetUserId,
+          message: "Phone binding merge preview created.",
+        }),
+        createIdentityAuditRecord({
+          action: "merge_required",
+          workflowId,
+          actorUserId: session.userId,
+          sourceUserId: session.userId,
+          targetUserId,
+          message: "Phone binding requires explicit merge confirmation.",
+        }),
+      ];
       const workflow = createIdentityWorkflow({
         kind: "phone_binding",
         status: "merge_required",
+        workflowId,
+        stage: "preview",
         sourceUserId: session.userId,
         continueTarget: redirectTarget,
         targetUserId,
-        targetLabel: `account ${targetUserId}`,
+        targetLabel,
         failureReason: "merge_confirmation_required",
+        mergePreview,
+        audit,
       });
-      const sourceState = await store.getUserState(session.userId);
       sourceState.pendingIdentityWorkflow = workflow;
       sourceState.lastIdentityWorkflow = workflow;
       sourceState.boundPhoneNumber = payload.phoneNumber;
@@ -2561,14 +2750,38 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
 
     const sourceState = await store.getUserState(session.userId);
+    const workflowId = sourceState.pendingIdentityWorkflow?.workflowId ?? createRandomId("identity_workflow");
+    const targetLabel = `account ${session.userId}`;
+    const mergePreview = createMergePreview({
+      sourceUserId: session.userId,
+      targetUserId: session.userId,
+      targetLabel,
+      sourceState,
+      targetState: sourceState,
+      requiresConfirmation: false,
+      recoveryMessage: "Phone binding completed on the current account; no cross-account merge was required.",
+    });
     delete sourceState.pendingIdentityWorkflow;
     sourceState.lastIdentityWorkflow = createIdentityWorkflow({
       kind: "phone_binding",
       status: "completed",
+      workflowId,
+      stage: "completed",
       sourceUserId: session.userId,
       continueTarget: redirectTarget,
       targetUserId: session.userId,
-      targetLabel: `account ${session.userId}`,
+      targetLabel,
+      mergePreview,
+      audit: [
+        createIdentityAuditRecord({
+          action: "merge_completed",
+          workflowId,
+          actorUserId: session.userId,
+          sourceUserId: session.userId,
+          targetUserId: session.userId,
+          message: "Phone binding completed without cross-account merge.",
+        }),
+      ],
     });
     sourceState.boundPhoneNumber = payload.phoneNumber;
     await store.saveUserState(session.userId, sourceState);
@@ -2609,34 +2822,134 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
 
     const session = c.get("session");
     const redirectTarget = resolveRedirectTarget(payload.redirectTarget);
-    if (!payload.confirm) {
-      return jsonError("INVALID_ARGUMENT", "account merge requires explicit confirmation", 400, traceId);
-    }
-
     const store = getStore(c.env, options.store);
     const sourceState = await store.getUserState(session.userId);
     const pendingWorkflow = sourceState.pendingIdentityWorkflow;
+
+    if (!payload.confirm) {
+      const workflowId = pendingWorkflow?.workflowId ?? createRandomId("identity_workflow");
+      const workflow = createIdentityWorkflow({
+        kind: payload.workflowKind ?? pendingWorkflow?.kind ?? "account_merge",
+        status: "blocked",
+        workflowId,
+        stage: "failed",
+        sourceUserId: session.userId,
+        continueTarget: redirectTarget ?? pendingWorkflow?.continueTarget,
+        targetUserId: payload.targetUserId,
+        targetLabel: `account ${payload.targetUserId}`,
+        failureReason: "merge_confirmation_required",
+        ...(pendingWorkflow?.mergePreview ? { mergePreview: pendingWorkflow.mergePreview } : {}),
+        audit: [
+          ...(pendingWorkflow?.audit ?? []),
+          createIdentityAuditRecord({
+            action: "merge_blocked",
+            workflowId,
+            actorUserId: session.userId,
+            sourceUserId: session.userId,
+            targetUserId: payload.targetUserId,
+            message: "Account merge was cancelled before explicit confirmation.",
+          }),
+          createIdentityAuditRecord({
+            action: "rollback_safe_failure",
+            workflowId,
+            actorUserId: session.userId,
+            sourceUserId: session.userId,
+            targetUserId: payload.targetUserId,
+            message: "No account data was changed because the merge was not confirmed.",
+          }),
+        ],
+      });
+      sourceState.lastIdentityWorkflow = workflow;
+      await store.saveUserState(session.userId, sourceState);
+      return c.json(createAuthResponseFromSession(session, c.req.url, { identityWorkflow: workflow, redirectTarget }));
+    }
+
     if (!pendingWorkflow || pendingWorkflow.targetUserId !== payload.targetUserId) {
+      const targetState = await store.getUserState(payload.targetUserId);
+      const workflowId = pendingWorkflow?.workflowId ?? createRandomId("identity_workflow");
+      const targetLabel = `account ${payload.targetUserId}`;
+      const mergePreview = createMergePreview({
+        sourceUserId: session.userId,
+        targetUserId: payload.targetUserId,
+        targetLabel,
+        sourceState,
+        targetState,
+      });
       const workflow = createIdentityWorkflow({
         kind: payload.workflowKind ?? "account_merge",
         status: "blocked",
+        workflowId,
+        stage: "failed",
         sourceUserId: session.userId,
         continueTarget: redirectTarget,
         targetUserId: payload.targetUserId,
-        targetLabel: `account ${payload.targetUserId}`,
+        targetLabel,
         failureReason: "merge_target_mismatch",
+        mergePreview,
+        audit: [
+          ...(pendingWorkflow?.audit ?? []),
+          createIdentityAuditRecord({
+            action: "merge_blocked",
+            workflowId,
+            actorUserId: session.userId,
+            sourceUserId: session.userId,
+            targetUserId: payload.targetUserId,
+            message: "Account merge target did not match the pending identity workflow.",
+          }),
+          createIdentityAuditRecord({
+            action: "rollback_safe_failure",
+            workflowId,
+            actorUserId: session.userId,
+            sourceUserId: session.userId,
+            targetUserId: payload.targetUserId,
+            message: "No account data was changed because the pending workflow target did not match.",
+          }),
+        ],
       });
+      sourceState.lastIdentityWorkflow = workflow;
+      await store.saveUserState(session.userId, sourceState);
       return c.json(createAuthResponseFromSession(session, c.req.url, { identityWorkflow: workflow, redirectTarget }));
     }
 
     const targetState = await store.getUserState(payload.targetUserId);
+    const workflowId = pendingWorkflow.workflowId ?? createRandomId("identity_workflow");
+    const targetLabel = `account ${payload.targetUserId}`;
+    const mergePreview = pendingWorkflow.mergePreview ?? createMergePreview({
+      sourceUserId: session.userId,
+      targetUserId: payload.targetUserId,
+      targetLabel,
+      sourceState,
+      targetState,
+    });
     const workflow = createIdentityWorkflow({
       kind: "account_merge",
       status: "completed",
+      workflowId,
+      stage: "completed",
       sourceUserId: session.userId,
       continueTarget: redirectTarget ?? pendingWorkflow.continueTarget,
       targetUserId: payload.targetUserId,
-      targetLabel: `account ${payload.targetUserId}`,
+      targetLabel,
+      mergePreview,
+      audit: [
+        ...(pendingWorkflow.audit ?? []),
+        createIdentityAuditRecord({
+          action: "merge_confirmed",
+          workflowId,
+          actorUserId: session.userId,
+          sourceUserId: session.userId,
+          targetUserId: payload.targetUserId,
+          message: "Account merge was explicitly confirmed by the source session.",
+        }),
+        createIdentityAuditRecord({
+          action: "merge_completed",
+          workflowId,
+          actorUserId: session.userId,
+          sourceUserId: session.userId,
+          targetUserId: payload.targetUserId,
+          message: "Account merge completed with rollback-safe target state persistence.",
+        }),
+      ],
     });
     const nextState = mergeUserStates(targetState, {
       ...sourceState,

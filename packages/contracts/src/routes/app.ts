@@ -1,6 +1,9 @@
 export const APP_ROUTE_IDS = {
   home: "home.index",
   login: "auth.login",
+  identityUpgrade: "auth.identity.upgrade",
+  identityBindPhone: "auth.identity.bind-phone",
+  identityMerge: "auth.identity.merge",
   overview: "overview.index",
   items: "items.list",
   account: "account.index",

@@ -145,14 +145,21 @@ Response semantics:
 - returns a normal authenticated session with `identityWorkflow.status = "completed"` when the guest upgrade succeeds
 - returns the current guest session with `identityWorkflow.status = "merge_required"` when the verified identity already belongs to another account
 - returns the current session with `identityWorkflow.status = "blocked"` for explicit workflow failures such as invalid verification code
+- `identityWorkflow.workflowId`, `stage`, `mergePreview`, and `audit` are present when a workflow needs preview, confirmation, completion, or rollback-safe recovery evidence
 
 ### `POST /auth/identity/bind-phone`
 
 Binds a verified phone number to the current WeChat-backed session.
 
+The merge-required branch returns a preview of source and target uploaded assets, message history, feedback tickets, managed content, and relationship impact before account data is moved.
+
 ### `POST /auth/identity/merge`
 
-Confirms a pending merge and returns the merged target session.
+Confirms or cancels a pending merge and returns a user-visible identity workflow state.
+
+- `confirm: true` completes the merge, revokes the source session, issues a target account session, and appends `merge_confirmed` and `merge_completed` audit records.
+- `confirm: false` leaves source and target account data unchanged, returns `identityWorkflow.status = "blocked"`, and appends `merge_blocked` plus `rollback_safe_failure` audit records.
+- target mismatches return a blocked workflow with `failureReason = "merge_target_mismatch"` instead of mutating either account.
 
 ### `POST /orders/cancel`
 

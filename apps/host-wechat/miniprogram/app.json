@@ -1,6 +1,9 @@
 {
   "pages": [
     "pages/login/index",
+    "pages/identityUpgrade/index",
+    "pages/identityBindPhone/index",
+    "pages/identityMerge/index",
     "pages/overview/index",
     "pages/items/index",
     "pages/settings/index"

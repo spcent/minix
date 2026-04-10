@@ -8,6 +8,9 @@ export interface AccountFeatureControllerOptions {
   loginRouteId?: AppRouteId;
   settingsRouteId?: AppRouteId;
   overviewRouteId?: AppRouteId;
+  identityUpgradeRouteId?: AppRouteId;
+  identityBindPhoneRouteId?: AppRouteId;
+  identityMergeRouteId?: AppRouteId;
   requestPath?: string;
   authRedirectSource?: string;
   initialState?: Partial<AccountState>;
@@ -46,6 +49,9 @@ export const accountFeatureManifest = defineFeatureManifest<
       ...(options.loginRouteId ? { loginRouteId: options.loginRouteId } : {}),
       ...(options.settingsRouteId ? { settingsRouteId: options.settingsRouteId } : {}),
       ...(options.overviewRouteId ? { overviewRouteId: options.overviewRouteId } : {}),
+      ...(options.identityUpgradeRouteId ? { identityUpgradeRouteId: options.identityUpgradeRouteId } : {}),
+      ...(options.identityBindPhoneRouteId ? { identityBindPhoneRouteId: options.identityBindPhoneRouteId } : {}),
+      ...(options.identityMergeRouteId ? { identityMergeRouteId: options.identityMergeRouteId } : {}),
       ...(options.requestPath ? { requestPath: options.requestPath } : {}),
       ...(options.authRedirectSource ? { authRedirectSource: options.authRedirectSource } : {}),
       initialState: {

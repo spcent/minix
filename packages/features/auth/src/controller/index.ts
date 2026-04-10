@@ -875,6 +875,30 @@ export function createAuthController(options: CreateAuthControllerOptions) {
       return submitIdentityTransition("/auth/identity/merge", body);
     },
 
+    async cancelIdentityMerge(targetUserId?: string) {
+      const workflow = store.getState().identityWorkflow;
+      const nextTargetUserId = targetUserId ?? workflow?.targetUserId;
+      if (!nextTargetUserId) {
+        store.setState({
+          errorMessage: "A merge target is required before cancelling the identity merge.",
+        });
+        return ok(undefined);
+      }
+
+      const redirectTarget = createWorkflowRedirectTarget(store.getState());
+      const body: IdentityMergeRequest = {
+        targetUserId: nextTargetUserId,
+        confirm: false,
+      };
+      if (workflow?.kind === "guest_upgrade" || workflow?.kind === "phone_binding") {
+        body.workflowKind = workflow.kind;
+      }
+      if (redirectTarget) {
+        body.redirectTarget = redirectTarget;
+      }
+      return submitIdentityTransition("/auth/identity/merge", body);
+    },
+
     async submitLogin() {
       const method = store.getState().selectedLoginMethod;
       if (method !== "wechat_code") {

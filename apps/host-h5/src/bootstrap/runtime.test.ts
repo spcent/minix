@@ -427,10 +427,24 @@ function createKernelStub(): AppKernel {
 test("host h5 runtime creates page controllers on a shared kernel", () => {
   const kernel = createKernelStub();
   const runtime = createHostH5Runtime(kernel);
+  const expectedPages = [
+    "login",
+    "identityUpgrade",
+    "identityBindPhone",
+    "identityMerge",
+    "overview",
+    "items",
+    "feed",
+    "feedback",
+    "messages",
+    "mediaTools",
+    "settings",
+    "account",
+  ];
 
   assert.equal(runtime.kernel, kernel);
-  assert.deepEqual(Object.keys(runtime.registry), ["login", "overview", "items", "feed", "feedback", "messages", "mediaTools", "settings", "account"]);
-  assert.deepEqual(Object.keys(runtime.pages), ["login", "overview", "items", "feed", "feedback", "messages", "mediaTools", "settings", "account"]);
+  assert.deepEqual(Object.keys(runtime.registry), expectedPages);
+  assert.deepEqual(Object.keys(runtime.pages), expectedPages);
 });
 
 test("host h5 page entries delegate to runtime controllers", async () => {

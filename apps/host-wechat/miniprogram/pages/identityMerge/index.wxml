@@ -1,0 +1,17 @@
+<view class="page">
+  <view class="hero">
+    <view class="eyebrow">MiniX Runtime Host</view>
+    <view class="title">Merge Accounts</view>
+    <view class="subtitle">Placeholder host page scaffolded for Merge Accounts.</view>
+  </view>
+
+  <view class="card">
+    <view class="title">Merge Accounts</view>
+    <view class="subtitle">Use this scaffold as the first host wrapper for the feature package.</view>
+    <view class="status-chip">{{ready ? 'Ready' : 'Not ready yet'}}</view>
+
+    <button class="button" type="primary" bindtap="onTapReady">
+      Mark Ready
+    </button>
+  </view>
+</view>

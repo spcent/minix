@@ -86,6 +86,86 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     },
     renderMode: "custom",
   },
+  identityUpgrade: {
+    feature: authFeatureManifest,
+    routeId: APP_ROUTE_IDS.identityUpgrade,
+    routePath: "/auth/identity/upgrade",
+    pageData: {
+      ...createInitialAuthPageState(),
+      selectedLoginMethod: "phone_code",
+      noticeMessage: "Upgrade a guest session with phone verification or password credentials.",
+    },
+    controller: {
+      successRouteId: APP_ROUTE_IDS.account,
+      stayOnSuccess: true,
+      overviewRouteId: APP_ROUTE_IDS.overview,
+      planRouteId: APP_ROUTE_IDS.items,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+    },
+    guardPolicy: {
+      name: "authenticated-identity-upgrade",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    featureConfig: {
+      surface: "identity-upgrade",
+    },
+    renderMode: "custom",
+  },
+  identityBindPhone: {
+    feature: authFeatureManifest,
+    routeId: APP_ROUTE_IDS.identityBindPhone,
+    routePath: "/auth/identity/bind-phone",
+    pageData: {
+      ...createInitialAuthPageState(),
+      selectedLoginMethod: "phone_code",
+      noticeMessage: "Bind a verified phone to the current WeChat account and resolve merge conflicts before completion.",
+    },
+    controller: {
+      successRouteId: APP_ROUTE_IDS.account,
+      stayOnSuccess: true,
+      overviewRouteId: APP_ROUTE_IDS.overview,
+      planRouteId: APP_ROUTE_IDS.items,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+    },
+    guardPolicy: {
+      name: "authenticated-identity-bind-phone",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    featureConfig: {
+      surface: "identity-bind-phone",
+    },
+    renderMode: "custom",
+  },
+  identityMerge: {
+    feature: authFeatureManifest,
+    routeId: APP_ROUTE_IDS.identityMerge,
+    routePath: "/auth/identity/merge",
+    pageData: {
+      ...createInitialAuthPageState(),
+      noticeMessage: "Review account merge impact, confirm explicitly, or cancel without changing account data.",
+    },
+    controller: {
+      successRouteId: APP_ROUTE_IDS.account,
+      stayOnSuccess: true,
+      overviewRouteId: APP_ROUTE_IDS.overview,
+      planRouteId: APP_ROUTE_IDS.items,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+    },
+    guardPolicy: {
+      name: "authenticated-identity-merge",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    featureConfig: {
+      surface: "identity-merge",
+    },
+    renderMode: "custom",
+  },
   overview: {
     feature: itemsFeatureManifest,
     routeId: APP_ROUTE_IDS.overview,
@@ -291,6 +371,9 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       loginRouteId: APP_ROUTE_IDS.login,
       settingsRouteId: APP_ROUTE_IDS.settings,
       overviewRouteId: APP_ROUTE_IDS.overview,
+      identityUpgradeRouteId: APP_ROUTE_IDS.identityUpgrade,
+      identityBindPhoneRouteId: APP_ROUTE_IDS.identityBindPhone,
+      identityMergeRouteId: APP_ROUTE_IDS.identityMerge,
       authRedirectSource: "account",
     },
     guardPolicy: {

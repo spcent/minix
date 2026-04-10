@@ -1418,13 +1418,33 @@ test("phone binding can surface a merge-required workflow before merge confirmat
   assert.equal(bindResponse.status, 200);
   const bindPayload = (await bindResponse.json()) as {
     identity: { userId: string };
-    identityWorkflow: { kind: string; status: string; targetUserId?: string; failureReason?: string };
+    identityWorkflow: {
+      kind: string;
+      status: string;
+      stage?: string;
+      workflowId?: string;
+      targetUserId?: string;
+      failureReason?: string;
+      mergePreview?: { requiresConfirmation: boolean; impacts: Array<{ key: string }> };
+      audit?: Array<{ action: string }>;
+    };
   };
   assert.equal(bindPayload.identity.userId, "minix-demo-user");
   assert.equal(bindPayload.identityWorkflow.kind, "phone_binding");
   assert.equal(bindPayload.identityWorkflow.status, "merge_required");
+  assert.equal(bindPayload.identityWorkflow.stage, "preview");
+  assert.ok(bindPayload.identityWorkflow.workflowId);
   assert.equal(bindPayload.identityWorkflow.targetUserId, "user_phone_0001");
   assert.equal(bindPayload.identityWorkflow.failureReason, "merge_confirmation_required");
+  assert.equal(bindPayload.identityWorkflow.mergePreview?.requiresConfirmation, true);
+  assert.deepEqual(
+    bindPayload.identityWorkflow.mergePreview?.impacts.map((impact) => impact.key),
+    ["assets", "messages", "feedback", "content", "relationships"],
+  );
+  assert.deepEqual(
+    bindPayload.identityWorkflow.audit?.map((record) => record.action),
+    ["preview_created", "merge_required"],
+  );
 });
 
 test("account merge can finalize a pending identity merge into the target account", async () => {
@@ -1444,7 +1464,7 @@ test("account merge can finalize a pending identity merge into the target accoun
     }),
   });
   const bindPayload = (await bindResponse.json()) as {
-    identityWorkflow: { targetUserId?: string };
+    identityWorkflow: { workflowId?: string; targetUserId?: string };
   };
 
   const mergeResponse = await app.request("http://localhost/auth/identity/merge", {
@@ -1463,14 +1483,33 @@ test("account merge can finalize a pending identity merge into the target accoun
   assert.equal(mergeResponse.status, 200);
   const mergePayload = (await mergeResponse.json()) as {
     identity: { userId: string; mergedUserId?: string };
-    identityWorkflow: { kind: string; status: string; targetUserId?: string };
+    identityWorkflow: {
+      kind: string;
+      status: string;
+      stage?: string;
+      workflowId?: string;
+      targetUserId?: string;
+      mergePreview?: { targetUserId: string; impacts: Array<{ key: string }> };
+      audit?: Array<{ action: string }>;
+    };
     accessToken: string;
   };
   assert.equal(mergePayload.identity.userId, "user_phone_0001");
   assert.equal(mergePayload.identity.mergedUserId, "minix-demo-user");
   assert.equal(mergePayload.identityWorkflow.kind, "account_merge");
   assert.equal(mergePayload.identityWorkflow.status, "completed");
+  assert.equal(mergePayload.identityWorkflow.stage, "completed");
+  assert.equal(mergePayload.identityWorkflow.workflowId, bindPayload.identityWorkflow.workflowId);
   assert.equal(mergePayload.identityWorkflow.targetUserId, "user_phone_0001");
+  assert.equal(mergePayload.identityWorkflow.mergePreview?.targetUserId, "user_phone_0001");
+  assert.deepEqual(
+    mergePayload.identityWorkflow.mergePreview?.impacts.map((impact) => impact.key),
+    ["assets", "messages", "feedback", "content", "relationships"],
+  );
+  assert.deepEqual(
+    mergePayload.identityWorkflow.audit?.map((record) => record.action),
+    ["preview_created", "merge_required", "merge_confirmed", "merge_completed"],
+  );
 
   const meResponse = await app.request("http://localhost/me", {
     headers: { authorization: `Bearer ${mergePayload.accessToken}` },
@@ -1485,6 +1524,61 @@ test("account merge can finalize a pending identity merge into the target accoun
   assert.equal(mePayload.identityWorkflows.mergePending, false);
   assert.equal(mePayload.identityWorkflows.lastWorkflow?.kind, "account_merge");
   assert.equal(mePayload.identityWorkflows.lastWorkflow?.status, "completed");
+});
+
+test("account merge cancellation keeps the source session recoverable and records rollback-safe audit", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "wechat");
+  const verificationCode = await requestPhoneCode(app, "13800000001", "phone_binding");
+
+  const bindResponse = await app.request("http://localhost/auth/identity/bind-phone", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${session.accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      phoneNumber: "13800000001",
+      verificationCode,
+    }),
+  });
+  const bindPayload = (await bindResponse.json()) as {
+    identityWorkflow: { targetUserId?: string };
+  };
+
+  const cancelResponse = await app.request("http://localhost/auth/identity/merge", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${session.accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      targetUserId: bindPayload.identityWorkflow.targetUserId,
+      workflowKind: "phone_binding",
+      confirm: false,
+    }),
+  });
+
+  assert.equal(cancelResponse.status, 200);
+  const cancelPayload = (await cancelResponse.json()) as {
+    identity: { userId: string };
+    identityWorkflow: {
+      kind: string;
+      status: string;
+      stage?: string;
+      failureReason?: string;
+      audit?: Array<{ action: string }>;
+    };
+  };
+  assert.equal(cancelPayload.identity.userId, "minix-demo-user");
+  assert.equal(cancelPayload.identityWorkflow.kind, "phone_binding");
+  assert.equal(cancelPayload.identityWorkflow.status, "blocked");
+  assert.equal(cancelPayload.identityWorkflow.stage, "failed");
+  assert.equal(cancelPayload.identityWorkflow.failureReason, "merge_confirmation_required");
+  assert.deepEqual(
+    cancelPayload.identityWorkflow.audit?.map((record) => record.action),
+    ["preview_created", "merge_required", "merge_blocked", "rollback_safe_failure"],
+  );
 });
 
 test("refresh attempts are rate limited per forwarded client ip", async () => {

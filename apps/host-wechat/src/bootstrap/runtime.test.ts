@@ -137,10 +137,19 @@ function createKernelStub(): AppKernel {
 test("host runtime creates page controllers on a shared kernel", () => {
   const kernel = createKernelStub();
   const runtime = createHostWechatRuntime(kernel);
+  const expectedPages = [
+    "login",
+    "identityUpgrade",
+    "identityBindPhone",
+    "identityMerge",
+    "overview",
+    "items",
+    "settings",
+  ];
 
   assert.equal(runtime.kernel, kernel);
-  assert.deepEqual(Object.keys(runtime.registry), ["login", "overview", "items", "settings"]);
-  assert.deepEqual(Object.keys(runtime.pages), ["login", "overview", "items", "settings"]);
+  assert.deepEqual(Object.keys(runtime.registry), expectedPages);
+  assert.deepEqual(Object.keys(runtime.pages), expectedPages);
 });
 
 test("page entries delegate to page controllers", async () => {
