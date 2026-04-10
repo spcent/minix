@@ -54,9 +54,15 @@ import type {
   OrderDetailResponse,
   PaymentCallbackVerification,
   PaymentChannel,
+  PaymentGatewayExecutionRequest,
+  PaymentGatewayExecutionResponse,
+  PaymentGatewayProvider,
   PaymentIntent,
+  PaymentLedgerEntry,
   PaymentOperationResult,
+  PaymentProviderMode,
   PaymentReconciliation,
+  PaymentReconciliationLedgerEntry,
   PaymentResult,
   PurchaseMembershipRequest,
   PurchaseMembershipResponse,
@@ -795,6 +801,75 @@ function createPendingReconciliation(): PaymentReconciliation {
   };
 }
 
+function createPaymentProviderMode(payload: PurchaseMembershipRequest): PaymentProviderMode {
+  return payload.providerMode ?? "sample";
+}
+
+function createPaymentGatewayProvider(channel: PaymentChannel, providerMode: PaymentProviderMode): PaymentGatewayProvider {
+  if (providerMode === "sample") {
+    return "sample";
+  }
+
+  return channel === "wechat_pay" ? "wechat_pay" : "h5_gateway";
+}
+
+function createGatewayExecution(input: {
+  order: Order;
+  providerMode: PaymentProviderMode;
+  now: string;
+}): {
+  request: PaymentGatewayExecutionRequest;
+  response: PaymentGatewayExecutionResponse;
+} {
+  const provider = createPaymentGatewayProvider(input.order.channel, input.providerMode);
+  const timestamp = Date.parse(input.now);
+  const nonce = crypto.randomUUID().replace(/-/g, "");
+  const gatewayOrderId = `${provider}_${input.order.orderId}`;
+  const request: PaymentGatewayExecutionRequest = {
+    provider,
+    providerMode: input.providerMode,
+    orderId: input.order.orderId,
+    amountCents: input.order.totalAmountCents,
+    currency: input.order.currency,
+    notifyUrl: "/payments/callback",
+    ...(input.order.source ? { returnUrl: `/${input.order.source}` } : {}),
+  };
+  const response: PaymentGatewayExecutionResponse = {
+    provider,
+    providerMode: input.providerMode,
+    gatewayOrderId,
+    ...(provider === "wechat_pay" ? { prepayId: `prepay_${input.order.orderId}` } : {}),
+    ...(provider === "h5_gateway" ? { paymentUrl: `https://pay.minix.local/orders/${input.order.orderId}` } : {}),
+    nonce,
+    timestamp,
+    signature: `sig_${provider}_${input.order.orderId}_${nonce.slice(0, 8)}`,
+    expiresAt: new Date(timestamp + 15 * 60_000).toISOString(),
+  };
+
+  return { request, response };
+}
+
+function createPaymentLedgerEntry(input: {
+  kind: PaymentLedgerEntry["kind"];
+  order: Order;
+  status: string;
+  message: string;
+  createdAt: string;
+  gatewayReference?: PaymentLedgerEntry["gatewayReference"];
+}): PaymentLedgerEntry {
+  return {
+    ledgerId: `ledger_${crypto.randomUUID()}`,
+    kind: input.kind,
+    orderId: input.order.orderId,
+    amountCents: input.order.totalAmountCents,
+    currency: input.order.currency,
+    status: input.status,
+    ...(input.gatewayReference ? { gatewayReference: input.gatewayReference } : {}),
+    message: input.message,
+    createdAt: input.createdAt,
+  };
+}
+
 export function createPaymentOperationResult(input: {
   operation: PaymentOperationResult["operation"];
   applied: boolean;
@@ -823,6 +898,7 @@ export function createMembershipOrderDetail(
   const amountCents = createMembershipAmountCents(payload.planId);
   const title = createMembershipProductLabel(payload.planId);
   const channel = createPaymentChannel(payload.channel, session.platform);
+  const providerMode = createPaymentProviderMode(payload);
   const pending = payload.paymentScenario === "pending";
   const order: Order = {
     orderId,
@@ -850,6 +926,12 @@ export function createMembershipOrderDetail(
       },
     ],
   };
+  const gatewayExecution = createGatewayExecution({ order, providerMode, now });
+  const gatewayReference = {
+    provider: gatewayExecution.response.provider,
+    providerMode,
+    gatewayOrderId: gatewayExecution.response.gatewayOrderId,
+  };
   const paymentIntent: PaymentIntent = {
     intentId: `pi_${orderId}`,
     orderId,
@@ -859,8 +941,18 @@ export function createMembershipOrderDetail(
     clientPayload: {
       orderId,
       channel,
-      mode: "sample",
+      provider: gatewayExecution.response.provider,
+      providerMode,
+      gatewayOrderId: gatewayExecution.response.gatewayOrderId,
+      nonce: gatewayExecution.response.nonce,
+      timestamp: gatewayExecution.response.timestamp,
+      signature: gatewayExecution.response.signature,
+      ...(gatewayExecution.response.prepayId ? { prepayId: gatewayExecution.response.prepayId } : {}),
+      ...(gatewayExecution.response.paymentUrl ? { paymentUrl: gatewayExecution.response.paymentUrl } : {}),
     },
+    gatewayReference,
+    gatewayRequest: gatewayExecution.request,
+    gatewayResponse: gatewayExecution.response,
     expiresAt: now,
   };
   const paymentResult: PaymentResult = {
@@ -897,6 +989,28 @@ export function createMembershipOrderDetail(
     paymentResult,
     callbackVerification: createPendingCallbackVerification(),
     reconciliation: createPendingReconciliation(),
+    paymentLedger: [
+      createPaymentLedgerEntry({
+        kind: "payment",
+        order,
+        status: paymentResult.status,
+        message: paymentResult.message,
+        createdAt: now,
+        gatewayReference,
+      }),
+    ],
+    operationLedger: [],
+    callbackLedger: [],
+    reconciliationLedger: [
+      {
+        reconciliationId: `recon_${crypto.randomUUID()}`,
+        orderId,
+        status: "pending",
+        gatewayReference,
+        message: "Initial reconciliation is pending gateway callback or explicit reconciliation.",
+        checkedAt: now,
+      } satisfies PaymentReconciliationLedgerEntry,
+    ],
     entitlement,
   };
 }

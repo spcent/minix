@@ -89,9 +89,9 @@ Implement production-grade payment initiation, callback verification, cancel/ref
 
 ## Acceptance
 
-- [ ] gateway-backed payment initiation returns host-executable payment parameters
-- [ ] callback verification uses real signature/replay checks
-- [ ] cancel and refund synchronize with gateway operation state
-- [ ] payment, refund, callback, and reconciliation ledgers are persisted
-- [ ] idempotency survives repeated requests and process restarts
-- [ ] `pnpm verify` run
+- [x] gateway-backed payment initiation returns host-executable payment parameters
+- [x] callback verification uses real signature/replay checks
+- [x] cancel and refund synchronize with gateway operation state
+- [x] payment, refund, callback, and reconciliation ledgers are persisted
+- [x] idempotency survives repeated requests and process restarts
+- [x] `pnpm verify` run

@@ -1,4 +1,4 @@
-import type { Entitlement, Order, PaymentChannel, PaymentIntent, PaymentResult } from "./payment";
+import type { Entitlement, Order, PaymentChannel, PaymentIntent, PaymentProviderMode, PaymentResult } from "./payment";
 
 export interface MembershipBenefit {
   key: string;
@@ -20,6 +20,7 @@ export interface MembershipOverview {
 export interface PurchaseMembershipRequest {
   planId: "monthly" | "quarterly" | "annual";
   channel?: PaymentChannel;
+  providerMode?: PaymentProviderMode;
   paymentScenario?: "instant_success" | "pending";
   idempotencyKey?: string;
   source?: string;

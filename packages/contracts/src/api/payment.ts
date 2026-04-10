@@ -34,6 +34,80 @@ export type PaymentReconciliationStatus = (typeof PAYMENT_RECONCILIATION_STATUSE
 export const PAYMENT_OPERATION_KINDS = ["cancel", "refund", "verify_callback", "reconcile"] as const;
 export type PaymentOperationKind = (typeof PAYMENT_OPERATION_KINDS)[number];
 
+export const PAYMENT_PROVIDER_MODES = ["sample", "production"] as const;
+export type PaymentProviderMode = (typeof PAYMENT_PROVIDER_MODES)[number];
+
+export const PAYMENT_GATEWAY_PROVIDERS = ["sample", "wechat_pay", "h5_gateway"] as const;
+export type PaymentGatewayProvider = (typeof PAYMENT_GATEWAY_PROVIDERS)[number];
+
+export const PAYMENT_LEDGER_ENTRY_KINDS = ["payment", "refund", "callback", "operation", "reconciliation"] as const;
+export type PaymentLedgerEntryKind = (typeof PAYMENT_LEDGER_ENTRY_KINDS)[number];
+
+export interface PaymentGatewayReference {
+  provider: PaymentGatewayProvider;
+  providerMode: PaymentProviderMode;
+  gatewayOrderId: string;
+  gatewayTransactionId?: string;
+  gatewayRefundId?: string;
+  merchantId?: string;
+}
+
+export interface PaymentGatewayExecutionRequest {
+  provider: PaymentGatewayProvider;
+  providerMode: PaymentProviderMode;
+  orderId: string;
+  amountCents: number;
+  currency: string;
+  notifyUrl: string;
+  returnUrl?: string;
+}
+
+export interface PaymentGatewayExecutionResponse {
+  provider: PaymentGatewayProvider;
+  providerMode: PaymentProviderMode;
+  gatewayOrderId: string;
+  prepayId?: string;
+  paymentUrl?: string;
+  nonce: string;
+  timestamp: number;
+  signature: string;
+  expiresAt: string;
+}
+
+export interface PaymentLedgerEntry {
+  ledgerId: string;
+  kind: PaymentLedgerEntryKind;
+  orderId: string;
+  amountCents: number;
+  currency: string;
+  status: string;
+  gatewayReference?: PaymentGatewayReference;
+  message: string;
+  createdAt: string;
+}
+
+export interface PaymentCallbackLedgerEntry {
+  callbackReference: string;
+  orderId: string;
+  outcome: Extract<PaymentResultStatus, "success" | "failure" | "cancelled">;
+  verificationStatus: PaymentCallbackVerificationStatus;
+  nonce?: string;
+  timestamp?: number;
+  signatureDigest?: string;
+  replayProtected: boolean;
+  message: string;
+  receivedAt: string;
+}
+
+export interface PaymentReconciliationLedgerEntry {
+  reconciliationId: string;
+  orderId: string;
+  status: PaymentReconciliationStatus;
+  gatewayReference?: PaymentGatewayReference;
+  message: string;
+  checkedAt: string;
+}
+
 export interface OrderLineItem {
   productId: string;
   productType: ProductType;
@@ -68,6 +142,9 @@ export interface PaymentIntent {
   status: PaymentIntentStatus;
   clientAction: PaymentClientAction;
   clientPayload?: Record<string, string | number | boolean>;
+  gatewayReference?: PaymentGatewayReference;
+  gatewayRequest?: PaymentGatewayExecutionRequest;
+  gatewayResponse?: PaymentGatewayExecutionResponse;
   expiresAt?: string;
 }
 
@@ -118,6 +195,10 @@ export interface OrderDetailResponse {
   paymentResult: PaymentResult;
   callbackVerification: PaymentCallbackVerification;
   reconciliation: PaymentReconciliation;
+  paymentLedger?: PaymentLedgerEntry[];
+  operationLedger?: PaymentLedgerEntry[];
+  callbackLedger?: PaymentCallbackLedgerEntry[];
+  reconciliationLedger?: PaymentReconciliationLedgerEntry[];
   operationResult?: PaymentOperationResult;
   entitlement?: Entitlement;
 }
@@ -132,4 +213,9 @@ export interface PaymentCallbackRequest {
   outcome: Extract<PaymentResultStatus, "success" | "failure" | "cancelled">;
   verified?: boolean;
   callbackReference?: string;
+  provider?: PaymentGatewayProvider;
+  gatewayTransactionId?: string;
+  nonce?: string;
+  timestamp?: number;
+  signature?: string;
 }

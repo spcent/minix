@@ -171,7 +171,12 @@ Moves a paid order into the refund flow and returns the updated order detail.
 
 ### `POST /payments/callback`
 
-Applies a sample callback outcome to an order and records callback verification metadata.
+Applies a payment provider callback outcome to an order and records callback verification metadata.
+
+- `providerMode = "sample"` keeps the local mock behavior explicit and accepts the legacy `verified` field for tests and demos.
+- `providerMode = "production"` requires `callbackReference`, `nonce`, `timestamp`, and an HMAC-SHA256 `signature` over order id, outcome, callback reference, nonce, timestamp, and gateway transaction id.
+- stale callbacks, missing signatures, signature mismatches, and replayed callback references or nonces are rejected and recorded in `callbackLedger`.
+- successful callbacks append `paymentLedger`, `operationLedger`, and callback verification records with gateway references.
 
 ### `POST /payments/reconcile`
 
@@ -594,7 +599,9 @@ Relevant fields:
 
 ### `POST /membership/purchase`
 
-Performs a mock purchase and returns unlock context for the blocked route.
+Creates a membership order and returns unlock context plus host-executable payment parameters.
+
+Use `providerMode = "sample"` for local mock payment behavior. Use `providerMode = "production"` with `wechat_pay` or `h5_pay` to receive gateway references, signed client parameters, and durable payment ledger records.
 
 Suggested request:
 

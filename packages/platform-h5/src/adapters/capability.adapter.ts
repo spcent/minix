@@ -133,7 +133,7 @@ export function createH5CapabilityAdapter(options: H5CapabilityAdapterOptions = 
               capability: input.capability,
               action: input.action,
               ...(value ? { value: value as TResult } : {}),
-              detail: "payment execution reserved through h5 capability adapter",
+              detail: "h5 payment execution dispatched with gateway client parameters",
             });
           } catch (error) {
             return fail(createError("CAPABILITY_UNAVAILABLE", "h5 payment execution failed", {

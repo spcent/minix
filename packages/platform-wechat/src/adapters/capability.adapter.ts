@@ -192,7 +192,7 @@ export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime)
                   capability: input.capability,
                   action: input.action,
                   ...(result ? { value: result as TResult } : {}),
-                  detail: "payment execution reserved through wechat capability adapter",
+                  detail: "wechat payment execution dispatched with gateway client parameters",
                 }));
               },
               fail(error) {

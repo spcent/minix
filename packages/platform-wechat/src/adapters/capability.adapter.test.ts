@@ -129,7 +129,7 @@ test("wechat capability adapter delegates clipboard writes, device info lookup, 
       value: {
         accepted: true,
       },
-      detail: "payment execution reserved through wechat capability adapter",
+      detail: "wechat payment execution dispatched with gateway client parameters",
     },
   });
   assert.deepEqual(uploadMediaResult, {

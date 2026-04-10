@@ -27,6 +27,7 @@ export interface ApiBindings {
   MINIX_AUTH_RATE_LIMIT_WINDOW_SECONDS?: string;
   MINIX_AUTH_LOGIN_MAX_ATTEMPTS?: string;
   MINIX_AUTH_REFRESH_MAX_ATTEMPTS?: string;
+  MINIX_PAYMENT_WEBHOOK_SECRET?: string;
   AUTH_RATE_LIMIT_KV?: KVNamespaceLike;
   DB?: D1DatabaseLike;
 }

@@ -158,7 +158,7 @@ test("h5 capability adapter can write clipboard text, read device info, and rese
         accepted: true,
         orderId: "ord_1",
       },
-      detail: "payment execution reserved through h5 capability adapter",
+      detail: "h5 payment execution dispatched with gateway client parameters",
     },
   });
   assert.deepEqual(uploadResult, {

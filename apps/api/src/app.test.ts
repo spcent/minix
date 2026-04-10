@@ -1,9 +1,31 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import test from "node:test";
 
 import { createApiApp } from "./app";
 import { createMemoryRateLimitCounterStore } from "./rate-limit";
 import { createMemoryApiStore } from "./store";
+
+function signPaymentCallback(input: {
+  secret?: string;
+  orderId: string;
+  outcome: string;
+  callbackReference: string;
+  nonce: string;
+  timestamp: number;
+  gatewayTransactionId?: string;
+}) {
+  return createHmac("sha256", input.secret ?? "minix-local-payment-secret")
+    .update([
+      input.orderId,
+      input.outcome,
+      input.callbackReference,
+      input.nonce,
+      String(input.timestamp),
+      input.gatewayTransactionId ?? "",
+    ].join("\n"))
+    .digest("hex");
+}
 
 async function login(app: ReturnType<typeof createApiApp>, platform: "h5" | "wechat") {
   const response = await app.request("http://localhost/auth/login", {
@@ -947,6 +969,136 @@ test("pending membership orders can be confirmed by callback and reconciled", as
   assert.equal(reconciled.reconciliation.status, "reconciled");
   assert.equal(reconciled.operationResult.operation, "reconcile");
   assert.equal(reconciled.operationResult.applied, true);
+});
+
+test("production payment callbacks require signatures, reject replay, and persist ledgers", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "h5");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+
+  const purchaseResponse = await app.request("http://localhost/membership/purchase", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      planId: "annual",
+      channel: "h5_pay",
+      providerMode: "production",
+      paymentScenario: "pending",
+      idempotencyKey: "prod-ledger-annual",
+      source: "reader",
+    }),
+  });
+  assert.equal(purchaseResponse.status, 200);
+  const purchase = (await purchaseResponse.json()) as {
+    order: { orderId: string };
+    paymentIntent: {
+      gatewayReference?: { providerMode: string; provider: string; gatewayOrderId: string };
+      gatewayResponse?: { paymentUrl?: string; signature: string };
+    };
+  };
+  assert.equal(purchase.paymentIntent.gatewayReference?.providerMode, "production");
+  assert.equal(purchase.paymentIntent.gatewayReference?.provider, "h5_gateway");
+  assert.ok(purchase.paymentIntent.gatewayResponse?.paymentUrl);
+  assert.ok(purchase.paymentIntent.gatewayResponse?.signature);
+
+  const duplicatePurchaseResponse = await app.request("http://localhost/membership/purchase", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      planId: "annual",
+      channel: "h5_pay",
+      providerMode: "production",
+      paymentScenario: "pending",
+      idempotencyKey: "prod-ledger-annual",
+      source: "reader",
+    }),
+  });
+  assert.equal(duplicatePurchaseResponse.status, 200);
+  const duplicatePurchase = (await duplicatePurchaseResponse.json()) as {
+    order: { orderId: string; duplicateProtected: boolean };
+    paymentResult: { duplicateProtected: boolean };
+  };
+  assert.equal(duplicatePurchase.order.orderId, purchase.order.orderId);
+  assert.equal(duplicatePurchase.order.duplicateProtected, true);
+  assert.equal(duplicatePurchase.paymentResult.duplicateProtected, true);
+
+  const unsignedResponse = await app.request("http://localhost/payments/callback", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      orderId: purchase.order.orderId,
+      outcome: "success",
+      callbackReference: "cb_unsigned",
+    }),
+  });
+  assert.equal(unsignedResponse.status, 400);
+
+  const timestamp = Date.now();
+  const nonce = "nonce-prod-ledger-1";
+  const callbackReference = "cb_prod_success";
+  const gatewayTransactionId = "gw_txn_prod_1";
+  const signature = signPaymentCallback({
+    orderId: purchase.order.orderId,
+    outcome: "success",
+    callbackReference,
+    nonce,
+    timestamp,
+    gatewayTransactionId,
+  });
+  const signedResponse = await app.request("http://localhost/payments/callback", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      orderId: purchase.order.orderId,
+      outcome: "success",
+      callbackReference,
+      gatewayTransactionId,
+      nonce,
+      timestamp,
+      signature,
+    }),
+  });
+  assert.equal(signedResponse.status, 200);
+  const signed = (await signedResponse.json()) as {
+    order: { status: string };
+    paymentIntent: { gatewayReference?: { gatewayTransactionId?: string } };
+    paymentLedger?: Array<{ kind: string; status: string }>;
+    operationLedger?: Array<{ kind: string }>;
+    callbackLedger?: Array<{ verificationStatus: string; replayProtected: boolean }>;
+  };
+  assert.equal(signed.order.status, "paid");
+  assert.equal(signed.paymentIntent.gatewayReference?.gatewayTransactionId, gatewayTransactionId);
+  assert.equal(signed.callbackLedger?.at(-1)?.verificationStatus, "verified");
+  assert.equal(signed.callbackLedger?.at(-1)?.replayProtected, true);
+  assert.equal(signed.paymentLedger?.some((entry) => entry.kind === "callback" && entry.status === "success"), true);
+  assert.equal(signed.operationLedger?.some((entry) => entry.kind === "operation"), true);
+
+  const replayResponse = await app.request("http://localhost/payments/callback", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      orderId: purchase.order.orderId,
+      outcome: "success",
+      callbackReference,
+      gatewayTransactionId,
+      nonce,
+      timestamp,
+      signature,
+    }),
+  });
+  assert.equal(replayResponse.status, 400);
+
+  const detailResponse = await app.request(`http://localhost/orders/detail?orderId=${purchase.order.orderId}`, {
+    headers,
+  });
+  assert.equal(detailResponse.status, 200);
+  const detail = (await detailResponse.json()) as {
+    callbackLedger?: Array<{ verificationStatus: string }>;
+  };
+  assert.equal(detail.callbackLedger?.at(-1)?.verificationStatus, "rejected");
 });
 
 test("paid membership orders can enter the refund flow", async () => {

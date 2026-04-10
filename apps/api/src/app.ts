@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 
@@ -35,7 +37,11 @@ import type {
   MarkThreadReadRequest,
   MembershipEntitlement,
   OrderOperationRequest,
+  PaymentCallbackLedgerEntry,
   PaymentCallbackRequest,
+  PaymentGatewayReference,
+  PaymentLedgerEntry,
+  PaymentReconciliationLedgerEntry,
   PaymentResult,
   PurchaseMembershipRequest,
   PurchaseMembershipResponse,
@@ -318,6 +324,7 @@ const bookshelfMutationSchema = z.object({
 const purchaseMembershipSchema = z.object({
   planId: z.enum(["monthly", "quarterly", "annual"]),
   channel: z.enum(["wechat_pay", "h5_pay", "membership_purchase", "virtual_entitlement"]).optional(),
+  providerMode: z.enum(["sample", "production"]).optional(),
   paymentScenario: z.enum(["instant_success", "pending"]).optional(),
   idempotencyKey: z.string().min(1).optional(),
   source: z.string().min(1).optional(),
@@ -335,6 +342,11 @@ const paymentCallbackSchema = z.object({
   outcome: z.enum(["success", "failure", "cancelled"]),
   verified: z.boolean().optional(),
   callbackReference: z.string().min(1).optional(),
+  provider: z.enum(["sample", "wechat_pay", "h5_gateway"]).optional(),
+  gatewayTransactionId: z.string().min(1).optional(),
+  nonce: z.string().min(1).optional(),
+  timestamp: z.number().int().positive().optional(),
+  signature: z.string().min(1).optional(),
 });
 
 const orderIdQuerySchema = z.object({
@@ -1551,6 +1563,135 @@ function cloneOrderDetail(detail: OrderDetailResponse): OrderDetailResponse {
   return structuredClone(detail);
 }
 
+function createPaymentWebhookSignature(input: {
+  secret: string;
+  orderId: string;
+  outcome: string;
+  callbackReference: string;
+  nonce: string;
+  timestamp: number;
+  gatewayTransactionId?: string | undefined;
+}): string {
+  return createHmac("sha256", input.secret)
+    .update([
+      input.orderId,
+      input.outcome,
+      input.callbackReference,
+      input.nonce,
+      String(input.timestamp),
+      input.gatewayTransactionId ?? "",
+    ].join("\n"))
+    .digest("hex");
+}
+
+function createLedgerId(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function createPaymentLedgerEntry(input: {
+  kind: PaymentLedgerEntry["kind"];
+  order: OrderDetailResponse["order"];
+  status: string;
+  message: string;
+  createdAt: string;
+  gatewayReference?: PaymentGatewayReference | undefined;
+}): PaymentLedgerEntry {
+  return {
+    ledgerId: createLedgerId("ledger"),
+    kind: input.kind,
+    orderId: input.order.orderId,
+    amountCents: input.order.totalAmountCents,
+    currency: input.order.currency,
+    status: input.status,
+    ...(input.gatewayReference ? { gatewayReference: input.gatewayReference } : {}),
+    message: input.message,
+    createdAt: input.createdAt,
+  };
+}
+
+function appendOperationLedger(detail: OrderDetailResponse, entry: PaymentLedgerEntry) {
+  detail.operationLedger = [...(detail.operationLedger ?? []), entry];
+}
+
+function appendPaymentLedger(detail: OrderDetailResponse, entry: PaymentLedgerEntry) {
+  detail.paymentLedger = [...(detail.paymentLedger ?? []), entry];
+}
+
+function appendReconciliationLedger(detail: OrderDetailResponse, entry: PaymentReconciliationLedgerEntry) {
+  detail.reconciliationLedger = [...(detail.reconciliationLedger ?? []), entry];
+}
+
+function appendCallbackLedger(detail: OrderDetailResponse, entry: PaymentCallbackLedgerEntry) {
+  detail.callbackLedger = [...(detail.callbackLedger ?? []), entry];
+}
+
+function verifyPaymentCallback(input: {
+  detail: OrderDetailResponse;
+  payload: PaymentCallbackRequest;
+  secret: string;
+  now: number;
+}): {
+  ok: boolean;
+  callbackReference: string;
+  message: string;
+  signatureDigest?: string | undefined;
+} {
+  const providerMode = input.detail.paymentIntent.gatewayReference?.providerMode ?? "sample";
+  const callbackReference = input.payload.callbackReference ?? `cb_${input.payload.orderId}`;
+  if (providerMode === "sample") {
+    return {
+      ok: input.payload.verified !== false,
+      callbackReference,
+      message: input.payload.verified === false ? "Sample callback was explicitly rejected." : "Sample callback verification succeeded.",
+    };
+  }
+
+  if (!input.payload.nonce || !input.payload.timestamp || !input.payload.signature) {
+    return {
+      ok: false,
+      callbackReference,
+      message: "Production payment callback is missing nonce, timestamp, or signature.",
+    };
+  }
+
+  const ageMs = Math.abs(input.now - input.payload.timestamp);
+  if (ageMs > 5 * 60_000) {
+    return {
+      ok: false,
+      callbackReference,
+      message: "Production payment callback timestamp is outside the accepted replay window.",
+    };
+  }
+
+  const replayed = (input.detail.callbackLedger ?? []).some((entry) => {
+    return entry.callbackReference === callbackReference || (input.payload.nonce ? entry.nonce === input.payload.nonce : false);
+  });
+  if (replayed) {
+    return {
+      ok: false,
+      callbackReference,
+      message: "Production payment callback was rejected by replay protection.",
+    };
+  }
+
+  const expected = createPaymentWebhookSignature({
+    secret: input.secret,
+    orderId: input.payload.orderId,
+    outcome: input.payload.outcome,
+    callbackReference,
+    nonce: input.payload.nonce,
+    timestamp: input.payload.timestamp,
+    ...(input.payload.gatewayTransactionId ? { gatewayTransactionId: input.payload.gatewayTransactionId } : {}),
+  });
+  const matches = expected === input.payload.signature;
+  return {
+    ok: matches,
+    callbackReference,
+    message: matches ? "Production payment callback signature verified." : "Production payment callback signature mismatch.",
+    signatureDigest: expected,
+  };
+}
+
 function applyOrderCancellation(detail: OrderDetailResponse, reason?: string): OrderDetailResponse {
   const next = cloneOrderDetail(detail);
   const processedAt = new Date().toISOString();
@@ -1585,6 +1726,22 @@ function applyOrderCancellation(detail: OrderDetailResponse, reason?: string): O
       ? next.paymentResult.message
       : "The current order can no longer be cancelled.",
     processedAt,
+  });
+  appendOperationLedger(next, createPaymentLedgerEntry({
+    kind: "operation",
+    order: next.order,
+    status: next.order.status,
+    message: next.operationResult.message,
+    createdAt: processedAt,
+    ...(next.paymentIntent.gatewayReference ? { gatewayReference: next.paymentIntent.gatewayReference } : {}),
+  }));
+  appendReconciliationLedger(next, {
+    reconciliationId: createLedgerId("recon"),
+    orderId: next.order.orderId,
+    status: next.reconciliation.status,
+    ...(next.paymentIntent.gatewayReference ? { gatewayReference: next.paymentIntent.gatewayReference } : {}),
+    message: next.reconciliation.message,
+    checkedAt: processedAt,
   });
   return next;
 }
@@ -1629,6 +1786,37 @@ function applyOrderRefund(detail: OrderDetailResponse, reason?: string): OrderDe
       ? next.paymentResult.message
       : "Only paid orders can enter the refund flow.",
     processedAt,
+  });
+  appendOperationLedger(next, createPaymentLedgerEntry({
+    kind: "refund",
+    order: next.order,
+    status: next.order.status,
+    message: next.operationResult.message,
+    createdAt: processedAt,
+    ...(next.paymentIntent.gatewayReference ? { gatewayReference: next.paymentIntent.gatewayReference } : {}),
+  }));
+  appendPaymentLedger(next, createPaymentLedgerEntry({
+    kind: "refund",
+    order: next.order,
+    status: next.paymentResult.status,
+    message: next.operationResult.message,
+    createdAt: processedAt,
+    ...(next.paymentIntent.gatewayReference
+      ? {
+          gatewayReference: {
+            ...next.paymentIntent.gatewayReference,
+            gatewayRefundId: `refund_${next.order.orderId}`,
+          },
+        }
+      : {}),
+  }));
+  appendReconciliationLedger(next, {
+    reconciliationId: createLedgerId("recon"),
+    orderId: next.order.orderId,
+    status: next.reconciliation.status,
+    ...(next.paymentIntent.gatewayReference ? { gatewayReference: next.paymentIntent.gatewayReference } : {}),
+    message: next.reconciliation.message,
+    checkedAt: processedAt,
   });
   return next;
 }
@@ -1700,6 +1888,28 @@ function applyPaymentCallback(detail: OrderDetailResponse, payload: PaymentCallb
     message: next.paymentResult.message,
     processedAt,
   });
+  if (payload.gatewayTransactionId && next.paymentIntent.gatewayReference) {
+    next.paymentIntent.gatewayReference = {
+      ...next.paymentIntent.gatewayReference,
+      gatewayTransactionId: payload.gatewayTransactionId,
+    };
+  }
+  appendPaymentLedger(next, createPaymentLedgerEntry({
+    kind: "callback",
+    order: next.order,
+    status: next.paymentResult.status,
+    message: next.paymentResult.message,
+    createdAt: processedAt,
+    ...(next.paymentIntent.gatewayReference ? { gatewayReference: next.paymentIntent.gatewayReference } : {}),
+  }));
+  appendOperationLedger(next, createPaymentLedgerEntry({
+    kind: "operation",
+    order: next.order,
+    status: next.order.status,
+    message: next.operationResult.message,
+    createdAt: processedAt,
+    ...(next.paymentIntent.gatewayReference ? { gatewayReference: next.paymentIntent.gatewayReference } : {}),
+  }));
   return next;
 }
 
@@ -1731,6 +1941,22 @@ function applyPaymentReconciliation(detail: OrderDetailResponse): OrderDetailRes
     paymentStatus: next.paymentResult.status,
     message: next.reconciliation.message,
     processedAt,
+  });
+  appendOperationLedger(next, createPaymentLedgerEntry({
+    kind: "reconciliation",
+    order: next.order,
+    status: next.reconciliation.status,
+    message: next.reconciliation.message,
+    createdAt: processedAt,
+    ...(next.paymentIntent.gatewayReference ? { gatewayReference: next.paymentIntent.gatewayReference } : {}),
+  }));
+  appendReconciliationLedger(next, {
+    reconciliationId: createLedgerId("recon"),
+    orderId: next.order.orderId,
+    status: next.reconciliation.status,
+    ...(next.paymentIntent.gatewayReference ? { gatewayReference: next.paymentIntent.gatewayReference } : {}),
+    message: next.reconciliation.message,
+    checkedAt: processedAt,
   });
   return next;
 }
@@ -3759,6 +3985,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const purchasePayload: PurchaseMembershipRequest = {
       planId: payload.planId,
       ...(payload.channel ? { channel: payload.channel } : {}),
+      ...(payload.providerMode ? { providerMode: payload.providerMode } : {}),
       ...(payload.paymentScenario ? { paymentScenario: payload.paymentScenario } : {}),
       ...(payload.idempotencyKey ? { idempotencyKey: payload.idempotencyKey } : {}),
       ...(payload.source ? { source: payload.source } : {}),
@@ -3772,26 +3999,35 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
 
     const existingOrderId = purchasePayload.idempotencyKey ? userState.orderIdByIdempotencyKey[purchasePayload.idempotencyKey] : undefined;
     const existingOrder = existingOrderId ? userState.ordersById[existingOrderId] : undefined;
-    if (existingOrder?.entitlement && "overview" in existingOrder.entitlement && existingOrder.order.status === "paid") {
+    if (existingOrder?.entitlement && "overview" in existingOrder.entitlement) {
+      const message = existingOrder.order.status === "paid"
+        ? "Idempotency key matched an existing paid order. Returning the stored result without another charge."
+        : "Idempotency key matched an existing order. Returning the stored gateway intent without creating another charge.";
       return c.json(
         createMembershipPurchaseResponse(
           {
-            order: existingOrder.order,
+            order: {
+              ...existingOrder.order,
+              duplicateProtected: true,
+            },
             paymentIntent: existingOrder.paymentIntent,
             paymentResult: {
               ...existingOrder.paymentResult,
               duplicateProtected: true,
-              message: "Idempotency key matched an existing paid order. Returning the stored result without another charge.",
+              message,
             },
             callbackVerification: existingOrder.callbackVerification,
             reconciliation: existingOrder.reconciliation,
+            ...(existingOrder.paymentLedger ? { paymentLedger: existingOrder.paymentLedger } : {}),
+            ...(existingOrder.operationLedger ? { operationLedger: existingOrder.operationLedger } : {}),
+            ...(existingOrder.callbackLedger ? { callbackLedger: existingOrder.callbackLedger } : {}),
+            ...(existingOrder.reconciliationLedger ? { reconciliationLedger: existingOrder.reconciliationLedger } : {}),
             entitlement: existingOrder.entitlement as MembershipEntitlement,
           },
           purchasePayload,
         ) satisfies PurchaseMembershipResponse,
       );
     }
-
     const duplicateProtected = Boolean(userState.latestPaidOrderId);
     const orderDetail = createMembershipOrderDetail(session, purchasePayload, duplicateProtected);
     userState.ordersById[orderDetail.order.orderId] = orderDetail;
@@ -3913,13 +4149,74 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       return jsonError("NOT_FOUND", "Order not found.", 404, traceId);
     }
 
+    const now = Date.now();
+    const verification = verifyPaymentCallback({
+      detail: existing,
+      payload: {
+        orderId: payload.orderId,
+        outcome: payload.outcome,
+        ...(payload.verified !== undefined ? { verified: payload.verified } : {}),
+        ...(payload.callbackReference ? { callbackReference: payload.callbackReference } : {}),
+        ...(payload.provider ? { provider: payload.provider } : {}),
+        ...(payload.gatewayTransactionId ? { gatewayTransactionId: payload.gatewayTransactionId } : {}),
+        ...(payload.nonce ? { nonce: payload.nonce } : {}),
+        ...(payload.timestamp ? { timestamp: payload.timestamp } : {}),
+        ...(payload.signature ? { signature: payload.signature } : {}),
+      },
+      secret: typeof c.env?.MINIX_PAYMENT_WEBHOOK_SECRET === "string"
+        ? c.env.MINIX_PAYMENT_WEBHOOK_SECRET
+        : "minix-local-payment-secret",
+      now,
+    });
+    if (!verification.ok) {
+      const rejected = cloneOrderDetail(existing);
+      const receivedAt = new Date(now).toISOString();
+      rejected.callbackVerification = {
+        status: "rejected",
+        message: verification.message,
+        callbackReference: verification.callbackReference,
+      };
+      appendCallbackLedger(rejected, {
+        callbackReference: verification.callbackReference,
+        orderId: payload.orderId,
+        outcome: payload.outcome,
+        verificationStatus: "rejected",
+        ...(payload.nonce ? { nonce: payload.nonce } : {}),
+        ...(payload.timestamp ? { timestamp: payload.timestamp } : {}),
+        ...(verification.signatureDigest ? { signatureDigest: verification.signatureDigest } : {}),
+        replayProtected: true,
+        message: verification.message,
+        receivedAt,
+      });
+      userState.ordersById[payload.orderId] = rejected;
+      await store.saveUserState(session.userId, userState);
+      return jsonError("PAYMENT_CALLBACK_REJECTED", verification.message, 400, traceId);
+    }
+
     const callbackPayload: PaymentCallbackRequest = {
       orderId: payload.orderId,
       outcome: payload.outcome,
-      ...(payload.verified !== undefined ? { verified: payload.verified } : {}),
-      ...(payload.callbackReference ? { callbackReference: payload.callbackReference } : {}),
+      verified: true,
+      callbackReference: verification.callbackReference,
+      ...(payload.provider ? { provider: payload.provider } : {}),
+      ...(payload.gatewayTransactionId ? { gatewayTransactionId: payload.gatewayTransactionId } : {}),
+      ...(payload.nonce ? { nonce: payload.nonce } : {}),
+      ...(payload.timestamp ? { timestamp: payload.timestamp } : {}),
+      ...(payload.signature ? { signature: payload.signature } : {}),
     };
     const nextOrder = applyPaymentCallback(existing, callbackPayload);
+    appendCallbackLedger(nextOrder, {
+      callbackReference: verification.callbackReference,
+      orderId: payload.orderId,
+      outcome: payload.outcome,
+      verificationStatus: "verified",
+      ...(payload.nonce ? { nonce: payload.nonce } : {}),
+      ...(payload.timestamp ? { timestamp: payload.timestamp } : {}),
+      ...(verification.signatureDigest ? { signatureDigest: verification.signatureDigest } : {}),
+      replayProtected: true,
+      message: verification.message,
+      receivedAt: new Date(now).toISOString(),
+    });
     userState.ordersById[payload.orderId] = nextOrder;
     if (nextOrder.order.status === "paid" && nextOrder.entitlement && "overview" in nextOrder.entitlement) {
       const membershipProductId = nextOrder.order.lineItems.find((item) => item.productType === "membership")?.productId ?? "";
