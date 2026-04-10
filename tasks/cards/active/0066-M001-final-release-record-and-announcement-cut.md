@@ -84,6 +84,29 @@ Replace placeholder release language with the real final release record so the c
 - final verifier handoff:
   - record the exact release note source and any tracked final announcement file path
 
+## Current Release-Cut Facts
+
+- release-cut commit SHA: `d1c5232f0a6d63cfa585943ddd87353557c1c369`
+- release-cut date: `2026-04-10`
+- local operator from git config: `spcent <spcent@foxmail.com>`
+- local gate already run after the version bump: `pnpm verify`
+- expected preview `host-h5` URL from deploy script: `https://preview.minix-host-h5.pages.dev`
+- expected preview `novel-h5` URL from deploy script: `https://preview.minix-novel-h5.pages.dev`
+- expected production `host-h5` URL from deploy script: `https://minix-host-h5.pages.dev`
+- expected production `novel-h5` URL from deploy script: `https://minix-novel-h5.pages.dev`
+
+## Blocked Inputs
+
+This card cannot be completed without the final release facts that are not derivable from the local repository:
+
+- preview Worker URL
+- production Worker URL
+- confirmation that both preview H5 URLs were deployed and verified
+- confirmation that both production H5 URLs were deployed and verified
+- remote API verification result for the final production Worker URL
+- manual WeChat validator, date, API target, and results for `host-wechat` and `novel-wechat`
+- accepted deferred issues, or explicit confirmation that there are none
+
 ## Acceptance
 
 - [ ] change is local and reversible
