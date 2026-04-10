@@ -104,9 +104,16 @@ Provide one ordered source of truth for the productionization slices that remain
   - confirm `P1` contains messaging, account actions, content lifecycle, search center, and feedback service loop
   - confirm `P2` contains form/list-detail/settings/route hardening work
 
+## Completion Handoff
+
+- `P0` execution cards: `0082`, `0083`, `0084`, `0085`, `0086`
+- `P1` execution cards: `0087`, `0088`, `0089`, `0090`, `0091`
+- `P2` execution cards: `0092`, `0093`, `0094`, `0095`
+- completion note: all listed phase2 implementation cards have their acceptance checklists completed; no host-generated files were edited as source.
+
 ## Acceptance
 
-- [ ] all remaining post-foundation gaps are represented by explicit cards
-- [ ] `P0` production blockers are separated from `P1` and `P2`
-- [ ] cards remain architecture-aligned and manifest-driven
-- [ ] sequencing does not bypass shared contracts in favor of host-only shortcuts
+- [x] all remaining post-foundation gaps are represented by explicit cards
+- [x] `P0` production blockers are separated from `P1` and `P2`
+- [x] cards remain architecture-aligned and manifest-driven
+- [x] sequencing does not bypass shared contracts in favor of host-only shortcuts
