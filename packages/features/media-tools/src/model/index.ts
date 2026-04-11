@@ -66,7 +66,7 @@ export function createDefaultUploadTask(): UploadTask {
       totalBytes: 0,
       percentage: 0,
     },
-    chunkingReserved: true,
+    chunkingReserved: false,
     governance: createDefaultUploadGovernance(),
     reviewStatus: "not_required",
     lifecycle: {
@@ -136,12 +136,12 @@ export function createDefaultMediaToolsState(
     ready: false,
     loading: false,
     title: options.title ?? "Media Tools",
-    subtitle: options.subtitle ?? "Reserved upload and share orchestration workspace for cross-host contract proof.",
+    subtitle: options.subtitle ?? "Shared upload and share orchestration workspace for cross-host contract proof.",
     primaryActionLabel: options.primaryActionLabel ?? "Select Upload Asset",
     secondaryActionLabel: options.secondaryActionLabel ?? "Dispatch Share Payload",
     capabilityHint:
       options.capabilityHint ??
-      "This workspace proves upload and share contracts through platform capability adapters without leaking file-picker or share APIs into shared code.",
+      "This workspace proves upload transfer, review governance, and share contracts through platform capability adapters without leaking host APIs into shared code.",
     resultLabel: options.resultLabel ?? "Latest capability result",
     usageExamples: options.usageExamples ?? ["upload", "share", "attribution"],
     uploadAvailable: false,

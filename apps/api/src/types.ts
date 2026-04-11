@@ -17,7 +17,14 @@ import type {
   PurchaseMembershipRequest,
   ReadingProgress,
   SharePrepareResponse,
+  UploadChunkReceipt,
+  UploadCleanupRecord,
   UploadPipelineResponse,
+  UploadReference,
+  UploadReviewRecord,
+  UploadSelectionResult,
+  UploadSession,
+  UploadTransferPayload,
 } from "@minix/contracts";
 
 export interface ApiBindings {
@@ -89,6 +96,18 @@ export interface AuthSecurityState {
   credentialProtectionBySubject: Record<string, AuthCredentialProtection>;
 }
 
+export interface StoredUploadRecord extends UploadPipelineResponse {
+  selection: UploadSelectionResult;
+  transfer?: UploadTransferPayload;
+  session?: UploadSession;
+  chunksByIndex: Record<string, UploadChunkReceipt>;
+  binaryByChunkIndex: Record<string, string>;
+  binaryObjectKey?: string;
+  reviewRecord?: UploadReviewRecord;
+  cleanupRecord?: UploadCleanupRecord;
+  references: UploadReference[];
+}
+
 export interface UserState {
   membershipPlanId?: PurchaseMembershipRequest["planId"];
   bookshelfNovelIds: Set<string>;
@@ -102,13 +121,14 @@ export interface UserState {
   ordersById: Record<string, OrderDetailResponse>;
   orderIdByIdempotencyKey: Record<string, string>;
   sharePreparesById: Record<string, SharePrepareResponse>;
-  uploadsByTaskId: Record<string, UploadPipelineResponse>;
+  uploadsByTaskId: Record<string, StoredUploadRecord>;
   boundPhoneNumber?: string;
   wechatBoundOverride?: boolean;
   profileOverrides?: {
     nickname?: string;
     region?: string;
     bio?: string;
+    avatarAssetId?: string;
   };
   availabilityStatus?: UserAvailabilityStatus;
   relationTarget?: {

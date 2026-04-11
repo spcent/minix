@@ -10,6 +10,31 @@ import { createDefaultFeedbackState } from "../model";
 function createKernelStub() {
   const routeCalls: Array<{ routeId: string; params?: Record<string, string | number | boolean> }> = [];
   let requestMode: "success" | "unauthorized" = "success";
+  const uploadTransfer = {
+    mode: "chunked" as const,
+    checksumAlgorithm: "sha256" as const,
+    fileChecksum: "feedback_checksum_file",
+    totalBytes: 245760,
+    chunkSizeBytes: 122880,
+    chunks: [
+      {
+        chunkIndex: 0,
+        byteOffset: 0,
+        byteLength: 122880,
+        checksum: "feedback_checksum_chunk_0",
+        checksumAlgorithm: "sha256" as const,
+        dataBase64: "ZmVlZGJhY2stY2h1bmstMA==",
+      },
+      {
+        chunkIndex: 1,
+        byteOffset: 122880,
+        byteLength: 122880,
+        checksum: "feedback_checksum_chunk_1",
+        checksumAlgorithm: "sha256" as const,
+        dataBase64: "ZmVlZGJhY2stY2h1bmstMQ==",
+      },
+    ],
+  };
 
   const kernel = {
     env: {
@@ -41,7 +66,7 @@ function createKernelStub() {
                   totalBytes: 245760,
                   percentage: 100,
                 },
-                chunkingReserved: true,
+                chunkingReserved: false,
                 governance: {
                   maxSizeBytes: 10_000_000,
                   acceptedFileTypes: ["image"],
@@ -68,6 +93,7 @@ function createKernelStub() {
                   height: 900,
                 },
               },
+              transfer: uploadTransfer,
             },
           });
         }
@@ -234,29 +260,38 @@ function createKernelStub() {
         return ok(response as T);
       },
       async post<T>(_path: string, payload?: unknown) {
-      if (_path === "/uploads") {
+      if (_path === "/uploads/session") {
         return ok({
-            source: "adapter_selection",
+            source: "backend_session",
             uploadTask: {
               taskId: "task_feedback_1",
               scenario: "content",
               fileType: "image",
-              stage: "reviewing",
+              stage: "uploading",
               fileName: "feedback-screenshot.png",
               progress: {
-                completedBytes: 245760,
+                completedBytes: 0,
                 totalBytes: 245760,
-                percentage: 100,
+                percentage: 0,
               },
-              chunkingReserved: true,
+              chunkingReserved: false,
+              transferMode: "chunked",
+              sessionId: "feedback_session_1",
+              chunkCount: 2,
+              uploadedChunkCount: 0,
+              integrity: {
+                checksumAlgorithm: "sha256",
+                fileChecksum: uploadTransfer.fileChecksum,
+                expectedSizeBytes: 245760,
+              },
               governance: {
                 maxSizeBytes: 10_000_000,
                 acceptedFileTypes: ["image"],
                 sensitiveReviewRequired: true,
                 expiresInDays: 30,
               },
-              reviewStatus: "pending",
-              reviewMessage: "Sensitive review is pending in the sample upload pipeline.",
+              reviewStatus: "not_required",
+              reviewMessage: "Upload session created. Transfer chunks to continue.",
               lifecycle: {
                 backendBacked: true,
                 retentionStatus: "active",
@@ -279,6 +314,153 @@ function createKernelStub() {
                 height: 900,
               },
             },
+            transfer: uploadTransfer,
+            session: {
+              sessionId: "feedback_session_1",
+              uploadToken: "feedback_upload_token_1",
+              objectKey: "object/asset_uploaded_1/feedback_session_1",
+              mode: "chunked",
+              checksumAlgorithm: "sha256",
+              chunkSizeBytes: 122880,
+              chunkCount: 2,
+              receivedChunkCount: 0,
+              nextChunkIndex: 0,
+              resumeSupported: true,
+              createdAt: "2026-04-08T10:00:00.000Z",
+              expiresAt: "2026-04-08T11:00:00.000Z",
+            },
+        } as T);
+      }
+
+      if (_path === "/uploads/chunk") {
+        const chunkIndex = Number(((payload as { chunk?: { chunkIndex?: number } })?.chunk?.chunkIndex) ?? 0);
+        return ok({
+          source: "backend_chunk",
+          uploadTask: {
+            taskId: "task_feedback_1",
+            scenario: "content",
+            fileType: "image",
+            stage: "uploading",
+            fileName: "feedback-screenshot.png",
+            progress: {
+              completedBytes: chunkIndex === 0 ? 122880 : 245760,
+              totalBytes: 245760,
+              percentage: chunkIndex === 0 ? 50 : 100,
+            },
+            chunkingReserved: false,
+            transferMode: "chunked",
+            sessionId: "feedback_session_1",
+            chunkCount: 2,
+            uploadedChunkCount: chunkIndex + 1,
+            integrity: {
+              checksumAlgorithm: "sha256",
+              fileChecksum: uploadTransfer.fileChecksum,
+              expectedSizeBytes: 245760,
+            },
+            governance: {
+              maxSizeBytes: 10_000_000,
+              acceptedFileTypes: ["image"],
+              sensitiveReviewRequired: true,
+              expiresInDays: 30,
+            },
+            reviewStatus: "not_required",
+            reviewMessage: `Chunk ${chunkIndex + 1} uploaded.`,
+            lifecycle: {
+              backendBacked: true,
+              retentionStatus: "active",
+              retryCount: 0,
+              canRetry: false,
+              canCancel: true,
+              lastTransitionAt: "2026-04-08T10:02:00.000Z",
+              expiresAt: "2026-05-08T10:00:00.000Z",
+            },
+          },
+          uploadAsset: {
+            assetId: "asset_uploaded_1",
+            fileType: "image",
+            fileName: "feedback-screenshot.png",
+            url: "https://example.test/uploads/asset_uploaded_1",
+            thumbnailUrl: "https://example.test/uploads/asset_uploaded_1/thumb",
+            metadata: {
+              sizeBytes: 245760,
+              width: 1440,
+              height: 900,
+            },
+          },
+          transfer: uploadTransfer,
+          session: {
+            sessionId: "feedback_session_1",
+            uploadToken: "feedback_upload_token_1",
+            objectKey: "object/asset_uploaded_1/feedback_session_1",
+            mode: "chunked",
+            checksumAlgorithm: "sha256",
+            chunkSizeBytes: 122880,
+            chunkCount: 2,
+            receivedChunkCount: chunkIndex + 1,
+            nextChunkIndex: chunkIndex + 1,
+            resumeSupported: true,
+            createdAt: "2026-04-08T10:00:00.000Z",
+            expiresAt: "2026-04-08T11:00:00.000Z",
+          },
+        } as T);
+      }
+
+      if (_path === "/uploads/complete") {
+        return ok({
+          source: "backend_complete",
+          uploadTask: {
+            taskId: "task_feedback_1",
+            scenario: "content",
+            fileType: "image",
+            stage: "reviewing",
+            fileName: "feedback-screenshot.png",
+            progress: {
+              completedBytes: 245760,
+              totalBytes: 245760,
+              percentage: 100,
+            },
+            chunkingReserved: false,
+            transferMode: "chunked",
+            sessionId: "feedback_session_1",
+            chunkCount: 2,
+            uploadedChunkCount: 2,
+            integrity: {
+              checksumAlgorithm: "sha256",
+              fileChecksum: uploadTransfer.fileChecksum,
+              expectedSizeBytes: 245760,
+            },
+            governance: {
+              maxSizeBytes: 10_000_000,
+              acceptedFileTypes: ["image"],
+              sensitiveReviewRequired: true,
+              expiresInDays: 30,
+            },
+            reviewStatus: "pending",
+            reviewMessage: "Sensitive review is pending in the upload pipeline.",
+            lifecycle: {
+              backendBacked: true,
+              retentionStatus: "active",
+              retryCount: 0,
+              canRetry: false,
+              canCancel: true,
+              lastTransitionAt: "2026-04-08T10:03:00.000Z",
+              expiresAt: "2026-05-08T10:00:00.000Z",
+            },
+          },
+          uploadAsset: {
+            assetId: "asset_uploaded_1",
+            fileType: "image",
+            fileName: "feedback-screenshot.png",
+            url: "https://example.test/uploads/asset_uploaded_1",
+            thumbnailUrl: "https://example.test/uploads/asset_uploaded_1/thumb",
+            metadata: {
+              sizeBytes: 245760,
+              width: 1440,
+              height: 900,
+              checksum: uploadTransfer.fileChecksum,
+              checksumAlgorithm: "sha256",
+            },
+          },
         } as T);
       }
 

@@ -184,16 +184,32 @@ Reconciles stored order state against stored payment state and returns reconcili
 
 ### `POST /uploads`
 
-Accepts a platform-selected upload reservation and returns the backend-backed upload task plus any finalized `uploadAsset`.
+Compatibility endpoint that accepts a platform-selected upload payload and runs the full sample session, chunk, and completion flow in one request.
+
+### `POST /uploads/session`
+
+Creates a durable upload session, object key, checksum contract, and resumable chunk manifest from the selected asset metadata plus transfer payload.
+
+### `POST /uploads/chunk`
+
+Transfers one chunk into the sample object-storage lane, verifies checksum and byte-range metadata, and updates durable progress state.
+
+### `POST /uploads/complete`
+
+Verifies the assembled file checksum, finalizes the durable asset reference, and returns review plus cleanup metadata.
+
+### `POST /uploads/attach`
+
+Backfills the finalized asset into a business owner reference such as `feedback`, `content`, or `avatar`.
 
 The current sample pipeline intentionally splits responsibility:
 
-- platform adapters only choose media or files
-- the backend normalizes governance, review status, expiry, retry, and cancellation semantics
+- platform adapters only choose media or files and may supply transfer payloads
+- the backend owns session creation, chunk verification, checksum validation, review status, cleanup state, and resource binding
 
 ### `POST /uploads/retry`
 
-Retries a previously failed or cancelled upload task and returns the refreshed upload task state.
+Retries a previously failed or cancelled upload task and returns a refreshed resumable upload session state.
 
 ### `POST /uploads/cancel`
 
@@ -384,7 +400,7 @@ Response semantics:
 - OAuth login/callback rejects missing, expired, or mismatched state with `credentialProtection.failureReason = "oauth_state_invalid"`
 - identity workflow endpoints should use `identityWorkflow.status` for merge-required or blocked business outcomes instead of forcing every branch through transport errors
 - payment endpoints should return `callbackVerification`, `reconciliation`, and optional `operationResult` as part of the order detail surface when transaction operations mutate state
-- upload endpoints should return backend-backed lifecycle fields so consuming features do not invent their own moderation, retry, or expiry state
+- upload endpoints should return backend-backed lifecycle, checksum, review, cleanup, and reference-binding fields so consuming features do not invent their own moderation or storage semantics
 - share endpoints should preserve attribution ids, landing targets, and auth-aligned return targets so growth flows do not invent a parallel redirect model
 - message endpoints should keep notification lists, thread summaries, and thread bodies as distinct but aligned outputs
 - throttled auth responses should include `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset`
@@ -432,7 +448,7 @@ Future content products should reuse the generic layer instead of treating the n
   - `MINIX_AUTH_REFRESH_MAX_ATTEMPTS`
 - official sample media is served by the API itself under `/sample-assets/covers/:assetId.svg` and `/sample-assets/profiles/:assetId.svg`
 - sample responses may return those media URLs as absolute URLs resolved against the current API origin
-- upload selection remains adapter-only, but upload lifecycle state is now sample-backed through `/uploads`, `/uploads/retry`, and `/uploads/cancel`
+- upload selection remains adapter-only, but upload lifecycle state is now sample-backed through `/uploads/session`, `/uploads/chunk`, `/uploads/complete`, `/uploads/attach`, `/uploads/retry`, and `/uploads/cancel`
 - share dispatch remains adapter-backed, but landing-target normalization and attribution persistence are now sample-backed through `/share/prepare` and `/share/return`
 - notification browsing remains sample-backed through `/notifications`, while conversation-capable message flows now extend through `/messages/thread`, `/messages/thread/read`, and `/messages/thread/send`
 

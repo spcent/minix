@@ -5,11 +5,10 @@ import type {
   PurchaseMembershipRequest,
   ReadingProgress,
   SharePrepareResponse,
-  UploadPipelineResponse,
 } from "@minix/contracts";
 
 import { createDefaultUserState } from "./data";
-import type { UserState } from "./types";
+import type { StoredUploadRecord, UserState } from "./types";
 
 interface PersistedUserState {
   membershipPlanId?: PurchaseMembershipRequest["planId"];
@@ -24,7 +23,7 @@ interface PersistedUserState {
   ordersById?: Record<string, OrderDetailResponse>;
   orderIdByIdempotencyKey?: Record<string, string>;
   sharePreparesById?: Record<string, SharePrepareResponse>;
-  uploadsByTaskId?: Record<string, UploadPipelineResponse>;
+  uploadsByTaskId?: Record<string, StoredUploadRecord>;
   boundPhoneNumber?: string;
   wechatBoundOverride?: boolean;
   profileOverrides?: UserState["profileOverrides"];

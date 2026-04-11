@@ -12,6 +12,31 @@ function createKernelStub() {
   const clipboardWrites: string[] = [];
   const shareDispatches: string[] = [];
   let uploadRetryCount = 0;
+  const uploadTransfer = {
+    mode: "chunked" as const,
+    checksumAlgorithm: "sha256" as const,
+    fileChecksum: "checksum_file_cover",
+    totalBytes: 100,
+    chunkSizeBytes: 50,
+    chunks: [
+      {
+        chunkIndex: 0,
+        byteOffset: 0,
+        byteLength: 50,
+        checksum: "checksum_chunk_0",
+        checksumAlgorithm: "sha256" as const,
+        dataBase64: "Y2h1bmsw",
+      },
+      {
+        chunkIndex: 1,
+        byteOffset: 50,
+        byteLength: 50,
+        checksum: "checksum_chunk_1",
+        checksumAlgorithm: "sha256" as const,
+        dataBase64: "Y2h1bmsx",
+      },
+    ],
+  };
 
   const kernel = {
     capability: {
@@ -35,7 +60,7 @@ function createKernelStub() {
                   totalBytes: 100,
                   percentage: 100,
               },
-                chunkingReserved: true,
+                chunkingReserved: false,
                 governance: {
                   maxSizeBytes: 10_000_000,
                   acceptedFileTypes: ["image", "pdf", "attachment"],
@@ -60,8 +85,9 @@ function createKernelStub() {
                   sizeBytes: 100,
                 },
               },
+              transfer: uploadTransfer,
             },
-            detail: "upload reservation selected through h5 capability adapter",
+            detail: "upload selection prepared through h5 capability adapter",
           });
         }
 
@@ -215,29 +241,38 @@ function createKernelStub() {
           } as T);
         }
 
-        if (path === "/uploads") {
+        if (path === "/uploads/session") {
           return ok({
-            source: "adapter_selection",
+            source: "backend_session",
             uploadTask: {
               taskId: "task_1",
               scenario: "content",
               fileType: "image",
-              stage: "reviewing",
+              stage: "uploading",
               fileName: "cover.png",
               progress: {
-                completedBytes: 100,
+                completedBytes: 0,
                 totalBytes: 100,
-                percentage: 100,
+                percentage: 0,
               },
-              chunkingReserved: true,
+              chunkingReserved: false,
+              transferMode: "chunked",
+              sessionId: "session_1",
+              chunkCount: 2,
+              uploadedChunkCount: 0,
+              integrity: {
+                checksumAlgorithm: "sha256",
+                fileChecksum: uploadTransfer.fileChecksum,
+                expectedSizeBytes: 100,
+              },
               governance: {
                 maxSizeBytes: 10_000_000,
                 acceptedFileTypes: ["image", "pdf", "attachment"],
                 sensitiveReviewRequired: true,
                 expiresInDays: 30,
               },
-              reviewStatus: "pending",
-              reviewMessage: "Sensitive review is pending in the sample upload pipeline.",
+              reviewStatus: "not_required",
+              reviewMessage: "Upload session created. Transfer chunks to continue.",
               lifecycle: {
                 backendBacked: true,
                 retentionStatus: "active",
@@ -258,6 +293,157 @@ function createKernelStub() {
                 sizeBytes: 100,
               },
             },
+            transfer: uploadTransfer,
+            session: {
+              sessionId: "session_1",
+              uploadToken: "token_1",
+              objectKey: "object/asset_backend_1/session_1",
+              mode: "chunked",
+              checksumAlgorithm: "sha256",
+              chunkSizeBytes: 50,
+              chunkCount: 2,
+              receivedChunkCount: 0,
+              nextChunkIndex: 0,
+              resumeSupported: true,
+              createdAt: "2026-04-08T10:00:00.000Z",
+              expiresAt: "2026-04-08T11:00:00.000Z",
+            },
+          } as T);
+        }
+
+        if (path === "/uploads/chunk") {
+          const chunkIndex = Number((body?.chunk as { chunkIndex?: number } | undefined)?.chunkIndex ?? 0);
+          return ok({
+            source: "backend_chunk",
+            uploadTask: {
+              taskId: "task_1",
+              scenario: "content",
+              fileType: "image",
+              stage: "uploading",
+              fileName: "cover.png",
+              progress: {
+                completedBytes: chunkIndex === 0 ? 50 : 100,
+                totalBytes: 100,
+                percentage: chunkIndex === 0 ? 50 : 100,
+              },
+              chunkingReserved: false,
+              transferMode: "chunked",
+              sessionId: "session_1",
+              chunkCount: 2,
+              uploadedChunkCount: chunkIndex + 1,
+              integrity: {
+                checksumAlgorithm: "sha256",
+                fileChecksum: uploadTransfer.fileChecksum,
+                expectedSizeBytes: 100,
+              },
+              governance: {
+                maxSizeBytes: 10_000_000,
+                acceptedFileTypes: ["image", "pdf", "attachment"],
+                sensitiveReviewRequired: true,
+                expiresInDays: 30,
+              },
+              reviewStatus: "not_required",
+              reviewMessage: `Chunk ${chunkIndex + 1} uploaded.`,
+              lifecycle: {
+                backendBacked: true,
+                retentionStatus: "active",
+                retryCount: uploadRetryCount,
+                canRetry: false,
+                canCancel: true,
+                lastTransitionAt: "2026-04-08T10:02:00.000Z",
+                expiresAt: "2026-05-08T10:00:00.000Z",
+              },
+            },
+            uploadAsset: {
+              assetId: "asset_backend_1",
+              fileType: "image",
+              fileName: "cover.png",
+              url: "https://example.test/uploads/asset_backend_1",
+              thumbnailUrl: "https://example.test/uploads/asset_backend_1/thumb",
+              metadata: {
+                sizeBytes: 100,
+              },
+            },
+            transfer: uploadTransfer,
+            session: {
+              sessionId: "session_1",
+              uploadToken: "token_1",
+              objectKey: "object/asset_backend_1/session_1",
+              mode: "chunked",
+              checksumAlgorithm: "sha256",
+              chunkSizeBytes: 50,
+              chunkCount: 2,
+              receivedChunkCount: chunkIndex + 1,
+              nextChunkIndex: chunkIndex + 1,
+              resumeSupported: true,
+              createdAt: "2026-04-08T10:00:00.000Z",
+              expiresAt: "2026-04-08T11:00:00.000Z",
+            },
+            receivedChunk: {
+              chunkIndex,
+              byteOffset: chunkIndex * 50,
+              byteLength: 50,
+              checksum: `checksum_chunk_${chunkIndex}`,
+              checksumAlgorithm: "sha256",
+              receivedAt: "2026-04-08T10:02:00.000Z",
+            },
+          } as T);
+        }
+
+        if (path === "/uploads/complete") {
+          return ok({
+            source: "backend_complete",
+            uploadTask: {
+              taskId: "task_1",
+              scenario: "content",
+              fileType: "image",
+              stage: "reviewing",
+              fileName: "cover.png",
+              progress: {
+                completedBytes: 100,
+                totalBytes: 100,
+                percentage: 100,
+              },
+              chunkingReserved: false,
+              transferMode: "chunked",
+              sessionId: "session_1",
+              chunkCount: 2,
+              uploadedChunkCount: 2,
+              integrity: {
+                checksumAlgorithm: "sha256",
+                fileChecksum: uploadTransfer.fileChecksum,
+                expectedSizeBytes: 100,
+              },
+              governance: {
+                maxSizeBytes: 10_000_000,
+                acceptedFileTypes: ["image", "pdf", "attachment"],
+                sensitiveReviewRequired: true,
+                expiresInDays: 30,
+              },
+              reviewStatus: "pending",
+              reviewMessage: "Sensitive review is pending in the upload pipeline.",
+              lifecycle: {
+                backendBacked: true,
+                retentionStatus: "active",
+                retryCount: uploadRetryCount,
+                canRetry: false,
+                canCancel: true,
+                lastTransitionAt: "2026-04-08T10:03:00.000Z",
+                expiresAt: "2026-05-08T10:00:00.000Z",
+              },
+            },
+            uploadAsset: {
+              assetId: "asset_backend_1",
+              fileType: "image",
+              fileName: "cover.png",
+              url: "https://example.test/uploads/asset_backend_1",
+              thumbnailUrl: "https://example.test/uploads/asset_backend_1/thumb",
+              metadata: {
+                sizeBytes: 100,
+                checksum: uploadTransfer.fileChecksum,
+                checksumAlgorithm: "sha256",
+              },
+            },
           } as T);
         }
 
@@ -269,22 +455,31 @@ function createKernelStub() {
               taskId: body?.taskId,
               scenario: "content",
               fileType: "image",
-              stage: "reviewing",
+              stage: "uploading",
               fileName: "cover.png",
               progress: {
-                completedBytes: 100,
+                completedBytes: 0,
                 totalBytes: 100,
-                percentage: 100,
+                percentage: 0,
               },
-              chunkingReserved: true,
+              chunkingReserved: false,
+              transferMode: "chunked",
+              sessionId: "session_retry_1",
+              chunkCount: 2,
+              uploadedChunkCount: 0,
+              integrity: {
+                checksumAlgorithm: "sha256",
+                fileChecksum: uploadTransfer.fileChecksum,
+                expectedSizeBytes: 100,
+              },
               governance: {
                 maxSizeBytes: 10_000_000,
                 acceptedFileTypes: ["image", "pdf", "attachment"],
                 sensitiveReviewRequired: true,
                 expiresInDays: 30,
               },
-              reviewStatus: "pending",
-              reviewMessage: "Upload retry succeeded and the asset is pending sample review.",
+              reviewStatus: "not_required",
+              reviewMessage: "Upload retry prepared. Resume remaining chunks.",
               lifecycle: {
                 backendBacked: true,
                 retentionStatus: "active",
@@ -305,6 +500,21 @@ function createKernelStub() {
                 sizeBytes: 100,
               },
             },
+            transfer: uploadTransfer,
+            session: {
+              sessionId: "session_retry_1",
+              uploadToken: "token_retry_1",
+              objectKey: "object/asset_backend_1/session_retry_1",
+              mode: "chunked",
+              checksumAlgorithm: "sha256",
+              chunkSizeBytes: 50,
+              chunkCount: 2,
+              receivedChunkCount: 0,
+              nextChunkIndex: 0,
+              resumeSupported: true,
+              createdAt: "2026-04-08T10:05:00.000Z",
+              expiresAt: "2026-04-08T11:05:00.000Z",
+            },
           } as T);
         }
 
@@ -322,7 +532,7 @@ function createKernelStub() {
                 totalBytes: 100,
                 percentage: 100,
               },
-              chunkingReserved: true,
+              chunkingReserved: false,
               governance: {
                 maxSizeBytes: 10_000_000,
                 acceptedFileTypes: ["image", "pdf", "attachment"],
@@ -330,7 +540,7 @@ function createKernelStub() {
                 expiresInDays: 30,
               },
               reviewStatus: "pending",
-              reviewMessage: "Upload cancelled in sample pipeline: user_cancelled.",
+              reviewMessage: "Upload cancelled: user_cancelled.",
               lifecycle: {
                 backendBacked: true,
                 retentionStatus: "scheduled_cleanup",
@@ -353,7 +563,7 @@ function createKernelStub() {
             },
             uploadError: {
               code: "UPLOAD_CANCELLED",
-              message: "Upload cancelled in sample pipeline: user_cancelled.",
+              message: "Upload cancelled: user_cancelled.",
               recoverable: true,
               retryable: true,
               stage: "canceled",

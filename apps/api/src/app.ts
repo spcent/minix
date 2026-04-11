@@ -56,9 +56,13 @@ import type {
   ShareReturnRecognitionResponse,
   SubmitFeedbackRequest,
   UploadAsset,
+  UploadAttachRequest,
   UploadCancelRequest,
+  UploadChunkRequest,
+  UploadCompleteRequest,
   UploadPipelineRequest,
   UploadPipelineResponse,
+  UploadSessionRequest,
   UploadRetryRequest,
   UserRelationMutationResponse,
 } from "@minix/contracts";
@@ -76,13 +80,20 @@ import {
   createPaymentOperationResult,
   createSettingsResponse,
   createSharePrepareResponse,
+  createUploadResponse,
+  createUploadSessionRecord,
   createUploadPipelineResponse,
+  attachUploadRecord,
+  appendUploadChunkRecord,
+  bindUploadAssetsToOwner,
   cancelUploadPipeline,
   deriveReturnTarget,
+  findUploadRecordByAssetId,
   getManagedContentDetail,
   getMessageThread,
   getUnreadBadge,
   getFeedbackTicket,
+  readUploadedAssetBinary,
   revisitFeedbackTicket,
   applyManagedContentLifecycle,
   listFeed,
@@ -93,7 +104,9 @@ import {
   submitFeedbackTicket,
   markNotificationsRead,
   recognizeShareReturn,
+  resolveUploadAssetForUser,
   retryUploadPipeline,
+  completeUploadRecord,
   resolveChapterContent,
   resolveChapterList,
   resolveNovelDetail,
@@ -361,6 +374,7 @@ const updateAccountProfileSchema = z.object({
   nickname: z.string().min(1).max(32).optional(),
   region: z.string().min(1).max(64).optional(),
   bio: z.string().min(1).max(160).optional(),
+  avatarAssetId: z.string().min(1).optional(),
 });
 
 const changeAccountPhoneSchema = z.object({
@@ -405,6 +419,8 @@ const uploadAssetSchema = z.object({
   metadata: z.object({
     mimeType: z.string().min(1).optional(),
     sizeBytes: z.number().int().nonnegative(),
+    checksum: z.string().min(1).optional(),
+    checksumAlgorithm: z.enum(["sha256"]).optional(),
     width: z.number().int().positive().optional(),
     height: z.number().int().positive().optional(),
     durationSeconds: z.number().nonnegative().optional(),
@@ -443,6 +459,17 @@ const uploadTaskSchema = z.object({
   fileName: z.string().min(1).optional(),
   progress: uploadProgressSchema,
   chunkingReserved: z.boolean(),
+  transferMode: z.enum(["single_part", "chunked"]).optional(),
+  sessionId: z.string().min(1).optional(),
+  chunkCount: z.number().int().nonnegative().optional(),
+  uploadedChunkCount: z.number().int().nonnegative().optional(),
+  integrity: z
+    .object({
+      checksumAlgorithm: z.enum(["sha256"]),
+      fileChecksum: z.string().min(1),
+      expectedSizeBytes: z.number().int().nonnegative(),
+    })
+    .optional(),
   governance: uploadGovernanceSchema,
   reviewStatus: z.enum(["not_required", "pending", "approved", "rejected"]),
   reviewMessage: z.string().min(1).optional(),
@@ -461,12 +488,66 @@ const uploadSelectionResultSchema = z.object({
   uploadTask: uploadTaskSchema,
   uploadAsset: uploadAssetSchema.optional(),
   uploadError: uploadErrorSchema.optional(),
+  transfer: z
+    .object({
+      mode: z.enum(["single_part", "chunked"]),
+      checksumAlgorithm: z.enum(["sha256"]),
+      fileChecksum: z.string().min(1),
+      totalBytes: z.number().int().nonnegative(),
+      chunkSizeBytes: z.number().int().positive(),
+      chunks: z.array(
+        z.object({
+          chunkIndex: z.number().int().nonnegative(),
+          byteOffset: z.number().int().nonnegative(),
+          byteLength: z.number().int().nonnegative(),
+          checksum: z.string().min(1),
+          checksumAlgorithm: z.enum(["sha256"]),
+          dataBase64: z.string().min(1),
+        }),
+      ),
+    })
+    .optional(),
 });
 
-const uploadPipelineRequestSchema = z.object({
+const uploadSessionRequestSchema = z.object({
   scenario: z.enum(["content", "avatar", "attachment"]),
   selection: uploadSelectionResultSchema,
 });
+
+const uploadChunkRequestSchema = z.object({
+  taskId: z.string().min(1),
+  sessionId: z.string().min(1),
+  chunk: z.object({
+    chunkIndex: z.number().int().nonnegative(),
+    byteOffset: z.number().int().nonnegative(),
+    byteLength: z.number().int().nonnegative(),
+    checksum: z.string().min(1),
+    checksumAlgorithm: z.enum(["sha256"]),
+    dataBase64: z.string().min(1),
+  }),
+});
+
+const uploadCompleteSchema = z.object({
+  taskId: z.string().min(1),
+  sessionId: z.string().min(1),
+  fileChecksum: z.string().min(1),
+  checksumAlgorithm: z.enum(["sha256"]),
+});
+
+const uploadAttachSchema = z
+  .object({
+    taskId: z.string().min(1).optional(),
+    assetId: z.string().min(1).optional(),
+    reference: z.object({
+      ownerType: z.enum(["feedback", "content", "avatar"]),
+      ownerId: z.string().min(1),
+      role: z.string().min(1),
+    }),
+  })
+  .refine((value) => Boolean(value.taskId || value.assetId), {
+    message: "Either taskId or assetId is required.",
+    path: ["taskId"],
+  });
 
 const uploadRetrySchema = z.object({
   taskId: z.string().min(1),
@@ -736,6 +817,8 @@ function normalizeUploadAsset(asset: z.infer<typeof uploadAssetSchema>): UploadA
     ...(asset.coverImageUrl !== undefined ? { coverImageUrl: asset.coverImageUrl } : {}),
     metadata: {
       sizeBytes: asset.metadata.sizeBytes,
+      ...(asset.metadata.checksum !== undefined ? { checksum: asset.metadata.checksum } : {}),
+      ...(asset.metadata.checksumAlgorithm !== undefined ? { checksumAlgorithm: asset.metadata.checksumAlgorithm } : {}),
       ...(asset.metadata.mimeType !== undefined ? { mimeType: asset.metadata.mimeType } : {}),
       ...(asset.metadata.width !== undefined ? { width: asset.metadata.width } : {}),
       ...(asset.metadata.height !== undefined ? { height: asset.metadata.height } : {}),
@@ -747,66 +830,113 @@ function normalizeUploadAsset(asset: z.infer<typeof uploadAssetSchema>): UploadA
   };
 }
 
-function normalizeUploadPipelineRequest(
-  payload: z.infer<typeof uploadPipelineRequestSchema>,
-): UploadPipelineRequest {
+function normalizeUploadSelectionResult(payload: z.infer<typeof uploadSelectionResultSchema>) {
   return {
-    scenario: payload.scenario,
-    selection: {
-      uploadTask: {
-        taskId: payload.selection.uploadTask.taskId,
-        scenario: payload.selection.uploadTask.scenario,
-        fileType: payload.selection.uploadTask.fileType,
-        stage: payload.selection.uploadTask.stage,
-        ...(payload.selection.uploadTask.fileName !== undefined
-          ? { fileName: payload.selection.uploadTask.fileName }
-          : {}),
-        progress: {
-          completedBytes: payload.selection.uploadTask.progress.completedBytes,
-          totalBytes: payload.selection.uploadTask.progress.totalBytes,
-          percentage: payload.selection.uploadTask.progress.percentage,
-        },
-        chunkingReserved: payload.selection.uploadTask.chunkingReserved,
-        governance: {
-          maxSizeBytes: payload.selection.uploadTask.governance.maxSizeBytes,
-          acceptedFileTypes: [...payload.selection.uploadTask.governance.acceptedFileTypes],
-          sensitiveReviewRequired: payload.selection.uploadTask.governance.sensitiveReviewRequired,
-          ...(payload.selection.uploadTask.governance.expiresInDays !== undefined
-            ? { expiresInDays: payload.selection.uploadTask.governance.expiresInDays }
-            : {}),
-        },
-        reviewStatus: payload.selection.uploadTask.reviewStatus,
-        ...(payload.selection.uploadTask.reviewMessage !== undefined
-          ? { reviewMessage: payload.selection.uploadTask.reviewMessage }
-          : {}),
-        lifecycle: {
-          backendBacked: payload.selection.uploadTask.lifecycle.backendBacked,
-          retentionStatus: payload.selection.uploadTask.lifecycle.retentionStatus,
-          retryCount: payload.selection.uploadTask.lifecycle.retryCount,
-          canRetry: payload.selection.uploadTask.lifecycle.canRetry,
-          canCancel: payload.selection.uploadTask.lifecycle.canCancel,
-          ...(payload.selection.uploadTask.lifecycle.lastTransitionAt !== undefined
-            ? { lastTransitionAt: payload.selection.uploadTask.lifecycle.lastTransitionAt }
-            : {}),
-          ...(payload.selection.uploadTask.lifecycle.expiresAt !== undefined
-            ? { expiresAt: payload.selection.uploadTask.lifecycle.expiresAt }
-            : {}),
-        },
+    uploadTask: {
+      taskId: payload.uploadTask.taskId,
+      scenario: payload.uploadTask.scenario,
+      fileType: payload.uploadTask.fileType,
+      stage: payload.uploadTask.stage,
+      ...(payload.uploadTask.fileName !== undefined ? { fileName: payload.uploadTask.fileName } : {}),
+      progress: {
+        completedBytes: payload.uploadTask.progress.completedBytes,
+        totalBytes: payload.uploadTask.progress.totalBytes,
+        percentage: payload.uploadTask.progress.percentage,
       },
-      ...(payload.selection.uploadAsset !== undefined
-        ? { uploadAsset: normalizeUploadAsset(payload.selection.uploadAsset) }
+      chunkingReserved: payload.uploadTask.chunkingReserved,
+      ...(payload.uploadTask.transferMode !== undefined ? { transferMode: payload.uploadTask.transferMode } : {}),
+      ...(payload.uploadTask.sessionId !== undefined ? { sessionId: payload.uploadTask.sessionId } : {}),
+      ...(payload.uploadTask.chunkCount !== undefined ? { chunkCount: payload.uploadTask.chunkCount } : {}),
+      ...(payload.uploadTask.uploadedChunkCount !== undefined
+        ? { uploadedChunkCount: payload.uploadTask.uploadedChunkCount }
         : {}),
-      ...(payload.selection.uploadError !== undefined
+      ...(payload.uploadTask.integrity !== undefined
         ? {
-            uploadError: {
-              code: payload.selection.uploadError.code,
-              message: payload.selection.uploadError.message,
-              recoverable: payload.selection.uploadError.recoverable,
-              retryable: payload.selection.uploadError.retryable,
-              stage: payload.selection.uploadError.stage,
+            integrity: {
+              checksumAlgorithm: payload.uploadTask.integrity.checksumAlgorithm,
+              fileChecksum: payload.uploadTask.integrity.fileChecksum,
+              expectedSizeBytes: payload.uploadTask.integrity.expectedSizeBytes,
             },
           }
         : {}),
+      governance: {
+        maxSizeBytes: payload.uploadTask.governance.maxSizeBytes,
+        acceptedFileTypes: [...payload.uploadTask.governance.acceptedFileTypes],
+        sensitiveReviewRequired: payload.uploadTask.governance.sensitiveReviewRequired,
+        ...(payload.uploadTask.governance.expiresInDays !== undefined
+          ? { expiresInDays: payload.uploadTask.governance.expiresInDays }
+          : {}),
+      },
+      reviewStatus: payload.uploadTask.reviewStatus,
+      ...(payload.uploadTask.reviewMessage !== undefined ? { reviewMessage: payload.uploadTask.reviewMessage } : {}),
+      lifecycle: {
+        backendBacked: payload.uploadTask.lifecycle.backendBacked,
+        retentionStatus: payload.uploadTask.lifecycle.retentionStatus,
+        retryCount: payload.uploadTask.lifecycle.retryCount,
+        canRetry: payload.uploadTask.lifecycle.canRetry,
+        canCancel: payload.uploadTask.lifecycle.canCancel,
+        ...(payload.uploadTask.lifecycle.lastTransitionAt !== undefined
+          ? { lastTransitionAt: payload.uploadTask.lifecycle.lastTransitionAt }
+          : {}),
+        ...(payload.uploadTask.lifecycle.expiresAt !== undefined
+          ? { expiresAt: payload.uploadTask.lifecycle.expiresAt }
+          : {}),
+      },
+    },
+    ...(payload.uploadAsset !== undefined ? { uploadAsset: normalizeUploadAsset(payload.uploadAsset) } : {}),
+    ...(payload.uploadError !== undefined
+      ? {
+          uploadError: {
+            code: payload.uploadError.code,
+            message: payload.uploadError.message,
+            recoverable: payload.uploadError.recoverable,
+            retryable: payload.uploadError.retryable,
+            stage: payload.uploadError.stage,
+          },
+        }
+      : {}),
+    ...(payload.transfer !== undefined
+      ? {
+          transfer: {
+            mode: payload.transfer.mode,
+            checksumAlgorithm: payload.transfer.checksumAlgorithm,
+            fileChecksum: payload.transfer.fileChecksum,
+            totalBytes: payload.transfer.totalBytes,
+            chunkSizeBytes: payload.transfer.chunkSizeBytes,
+            chunks: payload.transfer.chunks.map((chunk) => ({
+              chunkIndex: chunk.chunkIndex,
+              byteOffset: chunk.byteOffset,
+              byteLength: chunk.byteLength,
+              checksum: chunk.checksum,
+              checksumAlgorithm: chunk.checksumAlgorithm,
+              dataBase64: chunk.dataBase64,
+            })),
+          },
+        }
+      : {}),
+  };
+}
+
+function normalizeUploadSessionRequest(
+  payload: z.infer<typeof uploadSessionRequestSchema>,
+): UploadPipelineRequest {
+  return {
+    scenario: payload.scenario,
+    selection: normalizeUploadSelectionResult(payload.selection),
+  };
+}
+
+function normalizeUploadChunkRequest(payload: z.infer<typeof uploadChunkRequestSchema>) {
+  return {
+    taskId: payload.taskId,
+    sessionId: payload.sessionId,
+    chunk: {
+      chunkIndex: payload.chunk.chunkIndex,
+      byteOffset: payload.chunk.byteOffset,
+      byteLength: payload.chunk.byteLength,
+      checksum: payload.chunk.checksum,
+      checksumAlgorithm: payload.chunk.checksumAlgorithm,
+      dataBase64: payload.chunk.dataBase64,
     },
   };
 }
@@ -3291,7 +3421,16 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       ...(payload.nickname ? { nickname: payload.nickname } : {}),
       ...(payload.region ? { region: payload.region } : {}),
       ...(payload.bio ? { bio: payload.bio } : {}),
+      ...(payload.avatarAssetId ? { avatarAssetId: payload.avatarAssetId } : {}),
     };
+    if (payload.avatarAssetId) {
+      bindUploadAssetsToOwner(userState, {
+        assetIds: [payload.avatarAssetId],
+        ownerType: "avatar",
+        ownerId: session.userId,
+        role: "avatar",
+      });
+    }
     await store.saveUserState(session.userId, userState);
 
     const next = createCurrentUserResponse(session, userState, c.req.url);
@@ -3693,7 +3832,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
 
   app.post("/uploads", async (c) => {
     const traceId = c.get("traceId");
-    const payload = await parseJsonBody(c.req.raw, uploadPipelineRequestSchema, traceId);
+    const payload = await parseJsonBody(c.req.raw, uploadSessionRequestSchema, traceId);
     if (payload instanceof Response) {
       return payload;
     }
@@ -3701,10 +3840,141 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const session = c.get("session");
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
-    const response = createUploadPipelineResponse(normalizeUploadPipelineRequest(payload), c.req.url);
-    userState.uploadsByTaskId[response.uploadTask.taskId] = response;
+    let record = createUploadSessionRecord(normalizeUploadSessionRequest(payload), c.req.url);
+    const initialTransfer = record.transfer;
+    const initialSession = record.session;
+    if (initialTransfer && !record.uploadError && initialSession) {
+      for (const chunk of initialTransfer.chunks) {
+        record = appendUploadChunkRecord(record, {
+          taskId: record.uploadTask.taskId,
+          sessionId: initialSession.sessionId,
+          chunk,
+        });
+        if (record.uploadError) {
+          break;
+        }
+      }
+      if (!record.uploadError) {
+        record = completeUploadRecord(
+          record,
+          {
+            taskId: record.uploadTask.taskId,
+            sessionId: initialSession.sessionId,
+            fileChecksum: initialTransfer.fileChecksum,
+            checksumAlgorithm: initialTransfer.checksumAlgorithm,
+          },
+          c.req.url,
+        );
+      }
+    }
+    userState.uploadsByTaskId[record.uploadTask.taskId] = record;
     await store.saveUserState(session.userId, userState);
-    return c.json(response);
+    return c.json(createUploadResponse(record));
+  });
+
+  app.post("/uploads/session", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, uploadSessionRequestSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const record = createUploadSessionRecord(normalizeUploadSessionRequest(payload), c.req.url);
+    userState.uploadsByTaskId[record.uploadTask.taskId] = record;
+    await store.saveUserState(session.userId, userState);
+    return c.json(createUploadResponse(record));
+  });
+
+  app.post("/uploads/chunk", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, uploadChunkRequestSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const existing = userState.uploadsByTaskId[payload.taskId];
+    if (!existing) {
+      return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
+    }
+
+    const request: UploadChunkRequest = normalizeUploadChunkRequest(payload);
+    const record = appendUploadChunkRecord(existing, request);
+    userState.uploadsByTaskId[payload.taskId] = record;
+    await store.saveUserState(session.userId, userState);
+    return c.json(createUploadResponse(record));
+  });
+
+  app.post("/uploads/complete", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, uploadCompleteSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const existing = userState.uploadsByTaskId[payload.taskId];
+    if (!existing) {
+      return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
+    }
+
+    const request: UploadCompleteRequest = {
+      taskId: payload.taskId,
+      sessionId: payload.sessionId,
+      fileChecksum: payload.fileChecksum,
+      checksumAlgorithm: payload.checksumAlgorithm,
+    };
+    const record = completeUploadRecord(existing, request, c.req.url);
+    userState.uploadsByTaskId[payload.taskId] = record;
+    await store.saveUserState(session.userId, userState);
+    return c.json(createUploadResponse(record));
+  });
+
+  app.post("/uploads/attach", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, uploadAttachSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const existing = payload.taskId
+      ? userState.uploadsByTaskId[payload.taskId]
+      : payload.assetId
+        ? findUploadRecordByAssetId(userState, payload.assetId)
+        : undefined;
+    if (!existing) {
+      return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
+    }
+
+    const request: UploadAttachRequest = {
+      ...(payload.taskId ? { taskId: payload.taskId } : {}),
+      ...(payload.assetId ? { assetId: payload.assetId } : {}),
+      reference: {
+        ownerType: payload.reference.ownerType,
+        ownerId: payload.reference.ownerId,
+        role: payload.reference.role,
+      },
+    };
+    const record = attachUploadRecord(existing, request);
+    userState.uploadsByTaskId[record.uploadTask.taskId] = record;
+    if (request.reference.ownerType === "avatar" && record.uploadAsset?.assetId) {
+      userState.profileOverrides = {
+        ...(userState.profileOverrides ?? {}),
+        avatarAssetId: record.uploadAsset.assetId,
+      };
+    }
+    await store.saveUserState(session.userId, userState);
+    return c.json(createUploadResponse(record));
   });
 
   app.post("/uploads/retry", async (c) => {
@@ -3723,10 +3993,10 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
 
     const request: UploadRetryRequest = { taskId: payload.taskId };
-    const response = retryUploadPipeline(existing, request);
-    userState.uploadsByTaskId[payload.taskId] = response;
+    const record = retryUploadPipeline(existing, request);
+    userState.uploadsByTaskId[payload.taskId] = record;
     await store.saveUserState(session.userId, userState);
-    return c.json(response);
+    return c.json(createUploadResponse(record));
   });
 
   app.post("/uploads/cancel", async (c) => {
@@ -3748,10 +4018,48 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       taskId: payload.taskId,
       ...(payload.reason !== undefined ? { reason: payload.reason } : {}),
     };
-    const response = cancelUploadPipeline(existing, request);
-    userState.uploadsByTaskId[payload.taskId] = response;
+    const record = cancelUploadPipeline(existing, request);
+    userState.uploadsByTaskId[payload.taskId] = record;
     await store.saveUserState(session.userId, userState);
-    return c.json(response);
+    return c.json(createUploadResponse(record));
+  });
+
+  app.get("/uploads/assets/:assetId", async (c) => {
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const assetId = c.req.param("assetId");
+    const binary = readUploadedAssetBinary(userState, assetId);
+    if (!binary) {
+      return jsonError("NOT_FOUND", "Upload asset not found.", 404, c.get("traceId"));
+    }
+    return new Response(Buffer.from(binary.body), {
+      headers: {
+        "content-type": binary.contentType,
+        "cache-control": "private, max-age=60",
+      },
+    });
+  });
+
+  app.get("/uploads/assets/:assetId/thumb", async (c) => {
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const assetId = c.req.param("assetId");
+    const asset = resolveUploadAssetForUser(userState, assetId);
+    if (!asset) {
+      return jsonError("NOT_FOUND", "Upload asset not found.", 404, c.get("traceId"));
+    }
+    const title = encodeURIComponent(asset.fileName);
+    return new Response(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180"><rect width="320" height="180" fill="#0f172a"/><text x="24" y="84" fill="#f8fafc" font-size="22" font-family="sans-serif">Preview</text><text x="24" y="116" fill="#cbd5e1" font-size="14" font-family="sans-serif">${title}</text></svg>`,
+      {
+        headers: {
+          "content-type": "image/svg+xml; charset=utf-8",
+          "cache-control": "private, max-age=60",
+        },
+      },
+    );
   });
 
   app.get("/feedback/bootstrap", async (c) => {

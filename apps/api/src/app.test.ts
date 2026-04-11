@@ -612,7 +612,7 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
   assert.equal(refreshedBootstrapPayload.latestCategory?.key, "product_issue");
 });
 
-test("upload endpoints back the shared media pipeline with retry and cancel flows", async () => {
+test("upload endpoints support session, chunk, complete, attach, retry, and cancel flows", async () => {
   const app = createApiApp({ store: createMemoryApiStore() });
   const session = await login(app, "h5");
   const headers = {
@@ -620,7 +620,7 @@ test("upload endpoints back the shared media pipeline with retry and cancel flow
     "content-type": "application/json",
   };
 
-  const createResponse = await app.request("http://localhost/uploads", {
+  const sessionResponse = await app.request("http://localhost/uploads/session", {
     method: "POST",
     headers,
     body: JSON.stringify({
@@ -667,17 +667,119 @@ test("upload endpoints back the shared media pipeline with retry and cancel flow
       },
     }),
   });
-  assert.equal(createResponse.status, 200);
-  const created = (await createResponse.json()) as {
+  assert.equal(sessionResponse.status, 200);
+  const created = (await sessionResponse.json()) as {
     source: string;
-    uploadTask: { taskId: string; stage: string; lifecycle: { backendBacked: boolean; canCancel: boolean } };
+    session?: { sessionId: string; nextChunkIndex: number };
+    transfer?: {
+      fileChecksum: string;
+      checksumAlgorithm: "sha256";
+      chunks: Array<{
+        chunkIndex: number;
+        byteOffset: number;
+        byteLength: number;
+        checksum: string;
+        checksumAlgorithm: "sha256";
+        dataBase64: string;
+      }>;
+    };
+    uploadTask: {
+      taskId: string;
+      stage: string;
+      chunkingReserved: boolean;
+      uploadedChunkCount?: number;
+      lifecycle: { backendBacked: boolean; canCancel: boolean };
+    };
     uploadAsset?: { assetId: string; url: string };
   };
-  assert.equal(created.source, "adapter_selection");
-  assert.equal(created.uploadTask.stage, "reviewing");
+  assert.equal(created.source, "backend_session");
+  assert.equal(created.uploadTask.stage, "uploading");
   assert.equal(created.uploadTask.lifecycle.backendBacked, true);
   assert.equal(created.uploadTask.lifecycle.canCancel, true);
+  assert.equal(created.uploadTask.chunkingReserved, false);
+  assert.equal(created.session?.nextChunkIndex, 0);
+  assert.equal(created.transfer?.chunks.length, 4);
   assert.equal(Boolean(created.uploadAsset?.assetId), true);
+
+  const firstChunkResponse = await app.request("http://localhost/uploads/chunk", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      taskId: created.uploadTask.taskId,
+      sessionId: created.session?.sessionId,
+      chunk: created.transfer?.chunks[0],
+    }),
+  });
+  assert.equal(firstChunkResponse.status, 200);
+  const firstChunk = (await firstChunkResponse.json()) as {
+    source: string;
+    uploadTask: { stage: string; uploadedChunkCount?: number; progress: { completedBytes: number } };
+  };
+  assert.equal(firstChunk.source, "backend_chunk");
+  assert.equal(firstChunk.uploadTask.stage, "uploading");
+  assert.equal(firstChunk.uploadTask.uploadedChunkCount, 1);
+  assert.equal(firstChunk.uploadTask.progress.completedBytes > 0, true);
+
+  for (const chunk of created.transfer?.chunks.slice(1) ?? []) {
+    const chunkResponse = await app.request("http://localhost/uploads/chunk", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        taskId: created.uploadTask.taskId,
+        sessionId: created.session?.sessionId,
+        chunk,
+      }),
+    });
+    assert.equal(chunkResponse.status, 200);
+  }
+
+  const completeResponse = await app.request("http://localhost/uploads/complete", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      taskId: created.uploadTask.taskId,
+      sessionId: created.session?.sessionId,
+      fileChecksum: created.transfer?.fileChecksum,
+      checksumAlgorithm: created.transfer?.checksumAlgorithm,
+    }),
+  });
+  assert.equal(completeResponse.status, 200);
+  const completed = (await completeResponse.json()) as {
+    source: string;
+    uploadTask: { stage: string; reviewStatus: string; lifecycle: { canCancel: boolean } };
+    uploadAsset?: { assetId: string; metadata?: { checksum?: string } };
+  };
+  assert.equal(completed.source, "backend_complete");
+  assert.equal(completed.uploadTask.stage, "reviewing");
+  assert.equal(completed.uploadTask.reviewStatus, "pending");
+  assert.equal(completed.uploadTask.lifecycle.canCancel, true);
+  assert.equal(completed.uploadAsset?.metadata?.checksum, created.transfer?.fileChecksum);
+
+  const attachResponse = await app.request("http://localhost/uploads/attach", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      taskId: created.uploadTask.taskId,
+      reference: {
+        ownerType: "content",
+        ownerId: "lesson_1",
+        role: "cover",
+      },
+    }),
+  });
+  assert.equal(attachResponse.status, 200);
+  const attached = (await attachResponse.json()) as {
+    source: string;
+    references?: Array<{ ownerType: string; ownerId: string; role: string }>;
+  };
+  assert.equal(attached.source, "backend_attach");
+  assert.equal(attached.references?.[0]?.ownerType, "content");
+  assert.equal(attached.references?.[0]?.ownerId, "lesson_1");
+
+  const assetResponse = await app.request(`http://localhost/uploads/assets/${completed.uploadAsset?.assetId}`, {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(assetResponse.status, 200);
 
   const cancelResponse = await app.request("http://localhost/uploads/cancel", {
     method: "POST",
@@ -709,12 +811,16 @@ test("upload endpoints back the shared media pipeline with retry and cancel flow
   assert.equal(retryResponse.status, 200);
   const retried = (await retryResponse.json()) as {
     source: string;
+    session?: { nextChunkIndex: number };
+    transfer?: { chunks: unknown[] };
     uploadTask: { stage: string; lifecycle: { retryCount: number; canCancel: boolean } };
   };
   assert.equal(retried.source, "backend_retry");
-  assert.equal(retried.uploadTask.stage, "reviewing");
+  assert.equal(retried.uploadTask.stage, "uploading");
   assert.equal(retried.uploadTask.lifecycle.retryCount, 1);
   assert.equal(retried.uploadTask.lifecycle.canCancel, true);
+  assert.equal(retried.session?.nextChunkIndex, 4);
+  assert.equal(retried.transfer?.chunks.length, 4);
 });
 
 test("share endpoints preserve attribution through prepare and return recognition", async () => {

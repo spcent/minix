@@ -6,6 +6,8 @@ import type {
   ShareReturnRecognitionRequest,
   ShareReturnRecognitionResponse,
   UploadCancelRequest,
+  UploadChunkRequest,
+  UploadCompleteRequest,
   UploadPipelineRequest,
   UploadPipelineResponse,
   UploadRetryRequest,
@@ -25,6 +27,9 @@ export interface CreateMediaToolsControllerOptions {
   loginRouteId?: AppRouteId;
   settingsRouteId?: AppRouteId;
   uploadRequestPath?: string;
+  uploadSessionPath?: string;
+  uploadChunkPath?: string;
+  uploadCompletePath?: string;
   retryUploadPath?: string;
   cancelUploadPath?: string;
   sharePreparePath?: string;
@@ -52,6 +57,9 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
     loginRouteId,
     settingsRouteId,
     uploadRequestPath = "/uploads",
+    uploadSessionPath = "/uploads/session",
+    uploadChunkPath = "/uploads/chunk",
+    uploadCompletePath = "/uploads/complete",
     retryUploadPath = "/uploads/retry",
     cancelUploadPath = "/uploads/cancel",
     sharePreparePath = "/share/prepare",
@@ -142,6 +150,47 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
     });
   }
 
+  async function continueUpload(response: UploadPipelineResponse, detail?: string) {
+    applyUploadResponse(response, detail);
+    if (!response.session || !response.transfer) {
+      return ok(response);
+    }
+
+    const activeSession = response.session;
+    const activeTransfer = response.transfer;
+    const nextChunkIndex = activeSession.nextChunkIndex ?? response.uploadTask.uploadedChunkCount ?? 0;
+    let current = response;
+    for (const chunk of activeTransfer.chunks.slice(nextChunkIndex)) {
+      const chunkPayload: UploadChunkRequest = {
+        taskId: current.uploadTask.taskId,
+        sessionId: current.session?.sessionId ?? activeSession.sessionId,
+        chunk,
+      };
+      const chunkResult = await kernel.request.post<UploadPipelineResponse>(uploadChunkPath, chunkPayload);
+      if (!chunkResult.ok) {
+        createUploadFailure(chunkResult.error.message);
+        return chunkResult;
+      }
+      current = chunkResult.value;
+      applyUploadResponse(current, detail);
+    }
+
+    const completionPayload: UploadCompleteRequest = {
+      taskId: current.uploadTask.taskId,
+      sessionId: current.session?.sessionId ?? activeSession.sessionId,
+      fileChecksum: activeTransfer.fileChecksum,
+      checksumAlgorithm: activeTransfer.checksumAlgorithm,
+    };
+    const completion = await kernel.request.post<UploadPipelineResponse>(uploadCompletePath, completionPayload);
+    if (!completion.ok) {
+      createUploadFailure(completion.error.message);
+      return completion;
+    }
+
+    applyUploadResponse(completion.value, detail);
+    return completion;
+  }
+
   return {
     store,
 
@@ -201,14 +250,23 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
         scenario: current.uploadTask.scenario,
         selection: value,
       };
-      const pipeline = await kernel.request.post<UploadPipelineResponse>(uploadRequestPath, pipelineRequest);
-      if (!pipeline.ok) {
-        createUploadFailure(pipeline.error.message);
-        return pipeline;
+      if (uploadRequestPath === uploadSessionPath) {
+        createUploadFailure("Upload session path cannot be the same as the legacy upload path.");
+        return ok(undefined);
       }
 
-      applyUploadResponse(pipeline.value, result.value.detail);
-      return pipeline;
+      const sessionResponse = await kernel.request.post<UploadPipelineResponse>(uploadSessionPath, pipelineRequest);
+      if (!sessionResponse.ok) {
+        const legacyPipeline = await kernel.request.post<UploadPipelineResponse>(uploadRequestPath, pipelineRequest);
+        if (!legacyPipeline.ok) {
+          createUploadFailure(sessionResponse.error.message);
+          return sessionResponse;
+        }
+        applyUploadResponse(legacyPipeline.value, result.value.detail);
+        return legacyPipeline;
+      }
+
+      return continueUpload(sessionResponse.value, result.value.detail);
     },
 
     async retryUpload() {
@@ -227,6 +285,10 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
       if (!result.ok) {
         createUploadFailure(result.error.message);
         return result;
+      }
+
+      if (result.value.uploadTask.stage === "uploading" && result.value.session && result.value.transfer) {
+        return continueUpload(result.value);
       }
 
       applyUploadResponse(result.value);

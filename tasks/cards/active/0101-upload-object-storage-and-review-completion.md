@@ -91,9 +91,9 @@ Implement complete file lifecycle from selection through upload, validation, sto
 
 ## Acceptance
 
-- [ ] object-storage upload session is implemented
-- [ ] binary transfer and checksum validation are implemented
-- [ ] chunk/resume is no longer only reserved semantics
-- [ ] review and cleanup states are durable
-- [ ] feedback/content/avatar attachment backfill is supported
-- [ ] `pnpm verify` run
+- [x] object-storage upload session is implemented
+- [x] binary transfer and checksum validation are implemented
+- [x] chunk/resume is no longer only reserved semantics
+- [x] review and cleanup states are durable
+- [x] feedback/content/avatar attachment backfill is supported
+- [x] `pnpm verify` run

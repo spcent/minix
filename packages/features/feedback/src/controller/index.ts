@@ -8,6 +8,8 @@ import type {
   FormValidationError,
   SubmitFeedbackRequest,
   UploadAsset,
+  UploadChunkRequest,
+  UploadCompleteRequest,
   UploadPipelineRequest,
   UploadPipelineResponse,
   UploadSelectionResult,
@@ -33,6 +35,9 @@ export interface CreateFeedbackControllerOptions {
   detailPath?: string;
   revisitPath?: string;
   uploadRequestPath?: string;
+  uploadSessionPath?: string;
+  uploadChunkPath?: string;
+  uploadCompletePath?: string;
   authRedirectSource?: string;
   initialState?: Partial<FeedbackState>;
 }
@@ -120,6 +125,9 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
     detailPath = "/feedback/ticket",
     revisitPath = "/feedback/ticket/revisit",
     uploadRequestPath = "/uploads",
+    uploadSessionPath = "/uploads/session",
+    uploadChunkPath = "/uploads/chunk",
+    uploadCompletePath = "/uploads/complete",
     authRedirectSource = "feedback",
     initialState,
   } = options;
@@ -286,22 +294,57 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
       scenario: kind === "screenshot" ? "content" : "attachment",
       selection: value,
     };
-    const pipeline = await kernel.request.post<UploadPipelineResponse>(uploadRequestPath, request);
-    if (!pipeline.ok) {
+    const sessionResponse = await kernel.request.post<UploadPipelineResponse>(uploadSessionPath, request);
+    let finalResponse: Result<UploadPipelineResponse> | undefined;
+    if (!sessionResponse.ok) {
+      finalResponse = await kernel.request.post<UploadPipelineResponse>(uploadRequestPath, request);
+    } else {
+      let current = sessionResponse.value;
+      if (current.session && current.transfer) {
+        const activeSession = current.session;
+        const activeTransfer = current.transfer;
+        const nextChunkIndex = activeSession.nextChunkIndex ?? current.uploadTask.uploadedChunkCount ?? 0;
+        for (const chunk of activeTransfer.chunks.slice(nextChunkIndex)) {
+          const chunkRequest: UploadChunkRequest = {
+            taskId: current.uploadTask.taskId,
+            sessionId: activeSession.sessionId,
+            chunk,
+          };
+          const chunkResult = await kernel.request.post<UploadPipelineResponse>(uploadChunkPath, chunkRequest);
+          if (!chunkResult.ok) {
+            finalResponse = chunkResult;
+            break;
+          }
+          current = chunkResult.value;
+        }
+        if (!finalResponse) {
+          const completionRequest: UploadCompleteRequest = {
+            taskId: current.uploadTask.taskId,
+            sessionId: activeSession.sessionId,
+            fileChecksum: activeTransfer.fileChecksum,
+            checksumAlgorithm: activeTransfer.checksumAlgorithm,
+          };
+          finalResponse = await kernel.request.post<UploadPipelineResponse>(uploadCompletePath, completionRequest);
+        }
+      } else {
+        finalResponse = sessionResponse;
+      }
+    }
+    if (!finalResponse || !finalResponse.ok) {
       store.setState({
         loading: false,
-        errorCode: pipeline.error.code,
-        errorText: pipeline.error.message,
+        errorCode: finalResponse?.ok === false ? finalResponse.error.code : "UPLOAD_INCOMPLETE",
+        errorText: finalResponse?.ok === false ? finalResponse.error.message : "Upload completion did not return a response.",
       });
-      return pipeline;
+      return finalResponse ?? ok(undefined);
     }
 
-    const uploadedAsset = pipeline.value.uploadAsset;
+    const uploadedAsset = finalResponse.value.uploadAsset;
     if (!uploadedAsset) {
       store.setState({
         loading: false,
-        errorCode: pipeline.value.uploadError?.code,
-        errorText: pipeline.value.uploadError?.message ?? "The upload pipeline did not return a finalized asset.",
+        errorCode: finalResponse.value.uploadError?.code,
+        errorText: finalResponse.value.uploadError?.message ?? "The upload pipeline did not return a finalized asset.",
       });
       return ok(undefined);
     }
@@ -330,7 +373,7 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
       },
     });
 
-    return pipeline;
+    return finalResponse;
   }
 
   async function handleFailure(result: FailedFeedbackResult) {

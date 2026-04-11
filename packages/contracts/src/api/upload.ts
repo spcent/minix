@@ -23,8 +23,25 @@ export type UploadScenario = (typeof UPLOAD_SCENARIOS)[number];
 export const UPLOAD_RETENTION_STATUSES = ["active", "scheduled_cleanup", "expired"] as const;
 export type UploadRetentionStatus = (typeof UPLOAD_RETENTION_STATUSES)[number];
 
-export const UPLOAD_PIPELINE_SOURCES = ["adapter_selection", "backend_retry", "backend_cancel"] as const;
+export const UPLOAD_PIPELINE_SOURCES = [
+  "adapter_selection",
+  "backend_session",
+  "backend_chunk",
+  "backend_complete",
+  "backend_retry",
+  "backend_cancel",
+  "backend_attach",
+] as const;
 export type UploadPipelineSource = (typeof UPLOAD_PIPELINE_SOURCES)[number];
+
+export const UPLOAD_CHECKSUM_ALGORITHMS = ["sha256"] as const;
+export type UploadChecksumAlgorithm = (typeof UPLOAD_CHECKSUM_ALGORITHMS)[number];
+
+export const UPLOAD_TRANSFER_MODES = ["single_part", "chunked"] as const;
+export type UploadTransferMode = (typeof UPLOAD_TRANSFER_MODES)[number];
+
+export const UPLOAD_REFERENCE_OWNER_TYPES = ["feedback", "content", "avatar"] as const;
+export type UploadReferenceOwnerType = (typeof UPLOAD_REFERENCE_OWNER_TYPES)[number];
 
 export interface UploadGovernance {
   maxSizeBytes: number;
@@ -52,6 +69,8 @@ export interface UploadLifecycle {
 export interface UploadAssetMetadata {
   mimeType?: string;
   sizeBytes: number;
+  checksum?: string;
+  checksumAlgorithm?: UploadChecksumAlgorithm;
   width?: number;
   height?: number;
   durationSeconds?: number;
@@ -76,6 +95,76 @@ export interface UploadError {
   stage: UploadStage;
 }
 
+export interface UploadIntegrity {
+  checksumAlgorithm: UploadChecksumAlgorithm;
+  fileChecksum: string;
+  expectedSizeBytes: number;
+}
+
+export interface UploadChunkTransfer {
+  chunkIndex: number;
+  byteOffset: number;
+  byteLength: number;
+  checksum: string;
+  checksumAlgorithm: UploadChecksumAlgorithm;
+  dataBase64: string;
+}
+
+export interface UploadTransferPayload {
+  mode: UploadTransferMode;
+  checksumAlgorithm: UploadChecksumAlgorithm;
+  fileChecksum: string;
+  totalBytes: number;
+  chunkSizeBytes: number;
+  chunks: UploadChunkTransfer[];
+}
+
+export interface UploadChunkReceipt {
+  chunkIndex: number;
+  byteOffset: number;
+  byteLength: number;
+  checksum: string;
+  checksumAlgorithm: UploadChecksumAlgorithm;
+  receivedAt: string;
+}
+
+export interface UploadSession {
+  sessionId: string;
+  uploadToken: string;
+  objectKey: string;
+  mode: UploadTransferMode;
+  checksumAlgorithm: UploadChecksumAlgorithm;
+  chunkSizeBytes: number;
+  chunkCount: number;
+  receivedChunkCount: number;
+  nextChunkIndex: number;
+  resumeSupported: boolean;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface UploadReviewRecord {
+  status: UploadReviewStatus;
+  provider: string;
+  reviewedAt?: string;
+  message?: string;
+  reasonCodes?: string[];
+}
+
+export interface UploadCleanupRecord {
+  retentionStatus: UploadRetentionStatus;
+  cleanupScheduledAt?: string;
+  cleanupReason?: string;
+  referenced: boolean;
+}
+
+export interface UploadReference {
+  ownerType: UploadReferenceOwnerType;
+  ownerId: string;
+  role: string;
+  attachedAt: string;
+}
+
 export interface UploadTask {
   taskId: string;
   scenario: UploadScenario;
@@ -84,6 +173,11 @@ export interface UploadTask {
   fileName?: string;
   progress: UploadProgress;
   chunkingReserved: boolean;
+  transferMode?: UploadTransferMode;
+  sessionId?: string;
+  chunkCount?: number;
+  uploadedChunkCount?: number;
+  integrity?: UploadIntegrity;
   governance: UploadGovernance;
   reviewStatus: UploadReviewStatus;
   reviewMessage?: string;
@@ -102,6 +196,35 @@ export interface UploadSelectionResult {
   uploadTask: UploadTask;
   uploadAsset?: UploadAsset;
   uploadError?: UploadError;
+  transfer?: UploadTransferPayload;
+}
+
+export interface UploadSessionRequest {
+  scenario: UploadScenario;
+  selection: UploadSelectionResult;
+}
+
+export interface UploadChunkRequest {
+  taskId: string;
+  sessionId: string;
+  chunk: UploadChunkTransfer;
+}
+
+export interface UploadCompleteRequest {
+  taskId: string;
+  sessionId: string;
+  fileChecksum: string;
+  checksumAlgorithm: UploadChecksumAlgorithm;
+}
+
+export interface UploadAttachRequest {
+  taskId?: string;
+  assetId?: string;
+  reference: {
+    ownerType: UploadReferenceOwnerType;
+    ownerId: string;
+    role: string;
+  };
 }
 
 export interface UploadPipelineRequest {
@@ -111,6 +234,11 @@ export interface UploadPipelineRequest {
 
 export interface UploadPipelineResponse extends UploadSelectionResult {
   source: UploadPipelineSource;
+  session?: UploadSession;
+  receivedChunk?: UploadChunkReceipt;
+  reviewRecord?: UploadReviewRecord;
+  cleanupRecord?: UploadCleanupRecord;
+  references?: UploadReference[];
 }
 
 export interface UploadRetryRequest {
