@@ -30,21 +30,25 @@ Status labels:
 | 12 | Share | `partial`, `host-missing`, `sample-provider` | `packages/contracts/src/api/share.ts`, `packages/features/media-tools/src/controller/index.ts`, `apps/api/src/domains/share/routes.ts`, `apps/api/src/domains/share/attribution.ts` | `apps/host-h5:/media-tools`, `apps/host-wechat:/pages/mediaTools/index` | `novel-h5` and `novel-wechat` do not expose shared attribution/report entry; poster generation remains sample-backed, but the official media-tools hosts now label the current provider/channel posture explicitly | `0222-share-host-and-provider-closure.md` |
 | 13 | Feedback | `partial`, `host-missing` | `packages/contracts/src/api/feedback.ts`, `packages/features/feedback/src/controller/index.ts`, `apps/api/src/domains/feedback/routes.ts`, `apps/api/src/domains/feedback/support.ts` | `apps/host-h5:/feedback`, `apps/host-wechat:/pages/feedback/index` | `novel-h5` and `novel-wechat` feedback/support entry missing | `0223-feedback-host-support-surface-closure.md` |
 
-## Suggested Execution Order
+## Completed Closure Batch
 
-1. `0211` login
-2. `0212` user
-3. `0213` settings
-4. `0214` messages
-5. `0221` upload
-6. `0222` share
-7. `0223` feedback
-8. `0217` search
-9. `0216` content
-10. `0215` payment
-11. `0218` list
-12. `0219` detail
-13. `0220` form
+The host-surface and protocol-adoption closure batch for `0211` through `0223` is complete and has been archived under [`tasks/cards/done`](/Users/bingrong.yan/projects/birdor/minix/tasks/cards/done).
+
+Completion order:
+
+1. `0212` user host surfaces
+2. `0213` settings parity
+3. `0214` messages host adoption and polling posture hardening
+4. `0215` payment host entry closure
+5. `0211` login host and provider closure
+6. `0216` content surface and CMS entry closure
+7. `0217` search center host adoption
+8. `0218` list protocol adoption audit
+9. `0219` detail protocol adoption audit
+10. `0220` form protocol adoption audit
+11. `0221` upload host and provider closure
+12. `0222` share host and provider closure
+13. `0223` feedback host support surface closure
 
 ## Notes
 
