@@ -92,7 +92,7 @@ Expose the shared upload workflow intentionally on the remaining official hosts 
 
 - [x] upload is not effectively `host-h5`-only by accident
 - [x] upload-dependent flows continue to use shared pipeline outputs
-- [ ] sample-backed provider behavior is labeled clearly where it remains
+- [x] sample-backed provider behavior is labeled clearly where it remains
 - [x] boundaries still match specs
 - [x] generated files were regenerated, not manually authored as source
 - [x] docs updated if behavior or workflow changed
@@ -102,4 +102,4 @@ Expose the shared upload workflow intentionally on the remaining official hosts 
 
 - 2026-04-12: added shared `mediaTools` route wiring to `apps/host-wechat/src/manifest/page-definitions.ts` so upload/share workspace is reachable on the official WeChat host
 - 2026-04-12: exposed upload/share/report/clear actions through the shared media-tools feature manifest for both hosts
-- 2026-04-12: remaining gap is provider posture clarification, not host entry adoption
+- 2026-04-12: media-tools state and host rendering now expose upload review/storage posture explicitly, including `sample-upload-policy` when the sample backend remains active

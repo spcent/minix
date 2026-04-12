@@ -613,6 +613,8 @@ function buildHostWechatIndexWxml(entry: HostWechatPageShellConfig): string {
     <view class="subtitle">Upload: {{uploadCapabilityStatus ? (uploadCapabilityStatus.mode + ' · ' + (uploadCapabilityStatus.detail || 'available')) : 'unknown'}}</view>
     <view class="subtitle">Share: {{shareCapabilityStatus ? (shareCapabilityStatus.mode + ' · ' + (shareCapabilityStatus.detail || 'available')) : 'unknown'}}</view>
     <view class="subtitle" wx:if="{{clipboardCapabilityStatus}}">Clipboard: {{clipboardCapabilityStatus.mode}} · {{clipboardCapabilityStatus.detail || 'available'}}</view>
+    <view class="subtitle">{{uploadProviderSummary}}</view>
+    <view class="subtitle">{{shareProviderSummary}}</view>
   </view>
 
   <view class="card">

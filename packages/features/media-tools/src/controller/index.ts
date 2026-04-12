@@ -19,7 +19,9 @@ import { createStore, ok, type AppKernel } from "@minix/core";
 
 import {
   createDefaultMediaToolsState,
+  createDefaultShareProviderSummary,
   createDefaultShareAttribution,
+  createDefaultUploadProviderSummary,
   type MediaToolsResult,
   type MediaToolsState,
 } from "../model";
@@ -56,6 +58,40 @@ function cloneState(state: MediaToolsState): MediaToolsState {
     usageExamples: [...state.usageExamples],
     ...(state.lastResult ? { lastResult: { ...state.lastResult } } : {}),
   };
+}
+
+function deriveUploadProviderSummary(response: UploadPipelineResponse): string {
+  const provider = response.reviewRecord?.provider;
+  if (!provider) {
+    return createDefaultUploadProviderSummary();
+  }
+
+  return provider.includes("sample")
+    ? `Upload review and storage posture remains sample-backed through ${provider} for this workspace.`
+    : `Upload review and storage posture is backed by ${provider} for this workspace.`;
+}
+
+function deriveShareProviderSummary(
+  response:
+    | SharePrepareResponse
+    | ShareReturnRecognitionResponse
+    | ShareShortLinkResolveResponse
+    | ShareAttributionReportResponse,
+): string {
+  const posterProvider = response.posterAsset?.provider ?? response.attributionReport.posterAsset?.provider;
+  if (posterProvider === "sample") {
+    return "Share poster generation remains sample-backed in this workspace, while landing-target normalization and attribution reporting stay backend-backed.";
+  }
+
+  if (posterProvider === "provider") {
+    return "Share poster generation is provider-backed in this workspace, while landing-target normalization and attribution reporting stay backend-backed.";
+  }
+
+  if (response.shortLinkRecord ?? response.attributionReport.shortLinkRecord ?? response.sharePayload.shortLink) {
+    return "Share short-link attribution is active through the shared backend flow, and poster generation remains sample-backed until a provider-backed poster asset is returned.";
+  }
+
+  return createDefaultShareProviderSummary();
 }
 
 export function createMediaToolsController(options: CreateMediaToolsControllerOptions) {
@@ -151,6 +187,7 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
     store.setState({
       loading: false,
       errorText: response.uploadError?.message,
+      uploadProviderSummary: deriveUploadProviderSummary(response),
       uploadTask: response.uploadTask,
       uploadAsset: response.uploadAsset,
       uploadError: response.uploadError,
@@ -443,6 +480,7 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
             sharePayload: resolved.value.sharePayload,
             shareChannel: resolved.value.shareChannel,
             shareAttribution: resolved.value.shareAttribution,
+            shareProviderSummary: deriveShareProviderSummary(resolved.value),
           });
         }
       }
@@ -474,6 +512,7 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
         sharePayload: recognized.value.sharePayload,
         shareChannel: recognized.value.shareChannel,
         shareAttribution: recognized.value.shareAttribution,
+        shareProviderSummary: deriveShareProviderSummary(recognized.value),
         lastResult: {
           status: "succeeded",
           message:
@@ -510,6 +549,7 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
         sharePayload: result.value.sharePayload,
         shareChannel: result.value.shareChannel,
         shareAttribution: result.value.shareAttribution,
+        shareProviderSummary: deriveShareProviderSummary(result.value),
         lastResult: {
           status: "succeeded",
           message: "Share attribution report loaded.",

@@ -90,7 +90,7 @@ Expose shared share-preparation and attribution behavior intentionally on the se
 
 - [x] shared share flow is intentionally reachable on selected official hosts
 - [x] return recognition and attribution reporting remain intact
-- [ ] sample-backed poster/short-link/channel behavior is labeled clearly where it remains
+- [x] sample-backed poster/short-link/channel behavior is labeled clearly where it remains
 - [x] boundaries still match specs
 - [x] generated files were regenerated, not manually authored as source
 - [x] docs updated if behavior or workflow changed
@@ -100,4 +100,4 @@ Expose shared share-preparation and attribution behavior intentionally on the se
 
 - 2026-04-12: reused the shared `mediaTools` workspace as the official WeChat host entry for share preparation and attribution reporting
 - 2026-04-12: exposed share/report actions through the shared media-tools feature manifest instead of host-local handlers
-- 2026-04-12: remaining gap is provider/channel hardening, not host entry adoption
+- 2026-04-12: media-tools state and host rendering now expose share provider/channel posture explicitly, including sample-backed poster generation and host-native dispatch fallback wording

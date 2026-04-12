@@ -271,6 +271,8 @@ Creates a durable upload session, object key, checksum contract, and resumable c
 
 The sample implementation also appends upload-scope security audit events and upload rate-limit state into the authenticated account security center.
 
+Official media-tools hosts surface the current review/storage posture directly from returned upload metadata so `sample-upload-policy` remains explicit in UX until a production backend is configured.
+
 ### `POST /uploads/chunk`
 
 Transfers one chunk into the sample object-storage lane, verifies checksum and byte-range metadata, and updates durable progress state.
@@ -301,6 +303,8 @@ Cancels a backend-backed upload task and moves it into scheduled cleanup semanti
 Normalizes a share payload into a landing target, durable short-link record, optional poster asset url, and backend-backed attribution record before dispatch.
 
 The sample implementation also appends share-scope security audit events and share rate-limit state into the authenticated account security center.
+
+Official media-tools hosts surface the current share-provider posture directly from returned report metadata so sample-backed poster generation and host-native channel fallback remain explicit in UX.
 
 Returned share-specific additions:
 

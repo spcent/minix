@@ -1059,6 +1059,8 @@ test("media-tools controller loads capability availability", () => {
   assert.equal(controller.store.getState().shareAvailable, true);
   assert.equal(controller.store.getState().uploadCapabilityStatus?.mode, "native");
   assert.equal(controller.store.getState().shareCapabilityStatus?.mode, "native");
+  assert.equal(controller.store.getState().uploadProviderSummary.includes("sample-upload-policy"), true);
+  assert.equal(controller.store.getState().shareProviderSummary.includes("sample-backed"), true);
 });
 
 test("media-tools controller surfaces degraded fallback capability metadata", () => {
@@ -1102,6 +1104,7 @@ test("media-tools controller stores upload contract output after the primary act
   assert.equal(controller.store.getState().uploadTask.lifecycle.backendBacked, true);
   assert.equal(controller.store.getState().uploadAsset?.assetId, "asset_backend_1");
   assert.equal(controller.store.getState().lastResult?.status, "succeeded");
+  assert.equal(controller.store.getState().uploadProviderSummary.includes("sample-upload-policy"), true);
 });
 
 test("media-tools controller can cancel and retry the backend-backed upload task", async () => {
@@ -1140,6 +1143,7 @@ test("media-tools controller stores share contract output after the secondary ac
   assert.equal(controller.store.getState().shareAttribution.returnCount, 1);
   assert.equal(controller.store.getState().shareAttribution.conversionCount, 1);
   assert.equal(controller.store.getState().lastResult?.message.includes("Share link copied"), true);
+  assert.equal(controller.store.getState().shareProviderSummary.includes("sample-backed"), true);
 });
 
 test("media-tools controller supports native share channels through the same prepared attribution flow", async () => {
@@ -1178,6 +1182,7 @@ test("media-tools controller can load the attribution report after share resolut
   assert.equal(controller.store.getState().shareAttribution.conversionCount, 1);
   assert.equal(controller.store.getState().sharePayload.posterImageUrl, "https://example.test/posters/share1.svg");
   assert.equal(controller.store.getState().lastResult?.message, "Share attribution report loaded.");
+  assert.equal(controller.store.getState().shareProviderSummary.includes("sample-backed"), true);
 });
 
 test("media-tools controller can route into settings when configured", async () => {

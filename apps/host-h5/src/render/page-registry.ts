@@ -3029,6 +3029,10 @@ function renderMediaToolsPage({ root, runtime, sync }: HostH5PageRenderContext) 
                 <p class="me-settings-value">${escapeHtml(`${state.uploadTask.governance.acceptedFileTypes.join(", ")} · max ${String(state.uploadTask.governance.maxSizeBytes)} bytes`)}</p>
               </div>
               <div class="me-settings-item">
+                <p class="me-settings-label">Provider posture</p>
+                <p class="me-settings-value">${escapeHtml(state.uploadProviderSummary)}</p>
+              </div>
+              <div class="me-settings-item">
                 <p class="me-settings-label">Asset</p>
                 <p class="me-settings-value">${escapeHtml(state.uploadAsset ? `${state.uploadAsset.fileName} -> ${state.uploadAsset.url}` : "No asset selected yet.")}</p>
               </div>
@@ -3054,6 +3058,10 @@ function renderMediaToolsPage({ root, runtime, sync }: HostH5PageRenderContext) 
               <div class="me-settings-item">
                 <p class="me-settings-label">Attribution</p>
                 <p class="me-settings-value">${escapeHtml(`shares ${state.shareAttribution.shareCount} · clicks ${state.shareAttribution.clickCount} · conversions ${state.shareAttribution.conversionCount}`)}</p>
+              </div>
+              <div class="me-settings-item">
+                <p class="me-settings-label">Provider posture</p>
+                <p class="me-settings-value">${escapeHtml(state.shareProviderSummary)}</p>
               </div>
             </section>
           </section>

@@ -30,6 +30,8 @@ export interface MediaToolsState {
   uploadCapabilityStatus: CapabilityStatus | undefined;
   shareCapabilityStatus: CapabilityStatus | undefined;
   clipboardCapabilityStatus: CapabilityStatus | undefined;
+  uploadProviderSummary: string;
+  shareProviderSummary: string;
   uploadTask: UploadTask;
   uploadAsset: UploadAsset | undefined;
   uploadError: UploadError | undefined;
@@ -83,6 +85,10 @@ export function createDefaultUploadTask(): UploadTask {
   };
 }
 
+export function createDefaultUploadProviderSummary(): string {
+  return "Upload review and storage posture remains sample-backed through sample-upload-policy until a production object-storage and review provider is configured.";
+}
+
 export function createDefaultSharePayload(): SharePayload {
   return {
     scenario: "invite",
@@ -134,6 +140,10 @@ export function createDefaultShareAttribution(): ShareAttribution {
   };
 }
 
+export function createDefaultShareProviderSummary(): string {
+  return "Share landing-target normalization is backend-backed, while poster generation remains sample-backed and channel dispatch still depends on the host native share or clipboard fallback path.";
+}
+
 export function createDefaultMediaToolsState(
   options: CreateDefaultMediaToolsStateOptions = {},
 ): MediaToolsState {
@@ -154,6 +164,8 @@ export function createDefaultMediaToolsState(
     uploadCapabilityStatus: undefined,
     shareCapabilityStatus: undefined,
     clipboardCapabilityStatus: undefined,
+    uploadProviderSummary: createDefaultUploadProviderSummary(),
+    shareProviderSummary: createDefaultShareProviderSummary(),
     uploadTask: createDefaultUploadTask(),
     uploadAsset: undefined,
     uploadError: undefined,
