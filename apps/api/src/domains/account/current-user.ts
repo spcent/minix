@@ -1,0 +1,199 @@
+import type {
+  CurrentUserResponse,
+  ListUserAssetHistoryRequest,
+  UserAssetHistoryResponse,
+} from "@minix/contracts";
+
+import { DEFAULT_MEMBERSHIP_OVERVIEW } from "../../content";
+import { canExposeRemarkName } from "../content/search";
+import {
+  bindUploadAssetsToOwner,
+  resolveUploadAssetForUser,
+} from "../uploads/pipeline";
+import { resolveSampleMediaUrl } from "../../sample-assets";
+import type { SessionRecord, UserState } from "../../types";
+import {
+  deriveUserAssetSummary,
+  listUserAssetLedgerEntries,
+} from "./assets";
+import {
+  createAccountOperations,
+  createProviderIdentities,
+  createSecurityCenter,
+  resolveAccountSecurityPhoneNumber,
+  resolveMaskedPhoneNumber,
+  resolveUserAvailability,
+} from "./operations";
+import { createPrimaryRelationTargets, ensureRelationRecords } from "./relations";
+
+export function createCurrentUserResponse(
+  session: SessionRecord,
+  userState: UserState,
+  requestUrl?: string,
+): CurrentUserResponse {
+  const assetState = deriveUserAssetSummary(userState);
+  if (assetState.membershipPlanId) {
+    userState.membershipPlanId = assetState.membershipPlanId;
+  }
+  const uploadedAvatarUrl = userState.profileOverrides?.avatarAssetId
+    ? resolveUploadAssetForUser(userState, userState.profileOverrides.avatarAssetId)?.url
+    : undefined;
+  const avatarUrl =
+    uploadedAvatarUrl ??
+    (session.profile.avatarUrl && requestUrl
+      ? resolveSampleMediaUrl(session.profile.avatarUrl, requestUrl)
+      : session.profile.avatarUrl);
+  const availability = resolveUserAvailability(session, userState);
+  const relationTargets = createPrimaryRelationTargets(userState, availability);
+  const relation = relationTargets[0];
+  const relationRecords = Object.values(ensureRelationRecords(userState));
+  const followingCount = relationRecords.filter(
+    (record) => record.following && !record.blocked,
+  ).length;
+  const followerCount = relationRecords.filter(
+    (record) => record.followedBy && !record.blocked,
+  ).length;
+  const friendCount = relationRecords.filter(
+    (record) => record.friend || record.friendState === "mutual",
+  ).length;
+  const blockedCount = relationRecords.filter((record) => record.blocked).length;
+  const displayNickname = userState.profileOverrides?.nickname ?? session.profile.nickname;
+  const region =
+    userState.profileOverrides?.region ??
+    (session.platform === "wechat" ? "Shanghai, CN" : "Web session");
+  const bio =
+    userState.profileOverrides?.bio ??
+    "Sample user profile for shared account-domain integration.";
+  const phoneBound = Boolean(userState.boundPhoneNumber || session.identity.phoneBound);
+  const wechatBound = userState.wechatBoundOverride ?? Boolean(session.identity.wechatBound);
+  const providerIdentities = createProviderIdentities(session, userState);
+
+  return {
+    userProfile: {
+      nickname: displayNickname,
+      ...(avatarUrl ? { avatarUrl } : {}),
+      gender: "unknown",
+      region,
+      bio,
+      tags: session.authStatus === "guest" ? ["guest", "trial"] : ["member-ready", "cross-host"],
+    },
+    accountSummary: {
+      userId: session.userId,
+      phoneBound,
+      ...(phoneBound
+        ? { phoneNumberMasked: resolveMaskedPhoneNumber(userState.boundPhoneNumber) ?? "138****0001" }
+        : {}),
+      wechatBound,
+      providerIdentities,
+      realNameStatus: session.identity.realNameVerified ? "verified" : "unverified",
+      assets:
+        session.authStatus === "guest"
+          ? {
+              points: 0,
+              level: 1,
+              membership: DEFAULT_MEMBERSHIP_OVERVIEW,
+              entitlementLabels: ["basic-access"],
+              balanceCents: 0,
+              availableBalanceCents: 0,
+              frozenBalanceCents: 0,
+              activeEntitlements: [],
+            }
+          : assetState.summary,
+      relations: {
+        followingCount,
+        followerCount,
+        friendCount,
+        blockedCount,
+        ...(canExposeRemarkName(userState, relation) && relation?.remarkName
+          ? { remarkName: relation.remarkName }
+          : session.authStatus === "guest"
+            ? { remarkName: "Guest session" }
+            : {}),
+      },
+    },
+    userStatus: {
+      availability,
+      enabled: availability === "enabled",
+      frozen: availability === "frozen",
+      cancellationInProgress: availability === "cancellation_pending",
+      blacklisted: availability === "blacklisted",
+      guest: session.authStatus === "guest",
+      ...(userState.pendingCancellation
+        ? { cancellationRequestedAt: userState.pendingCancellation.requestedAt }
+        : {}),
+      ...(userState.pendingCancellation
+        ? { cancellationEffectiveAt: userState.pendingCancellation.effectiveAt }
+        : {}),
+      ...(userState.pendingCancellation
+        ? { cancellationRevocableUntil: userState.pendingCancellation.revokeUntil }
+        : {}),
+    },
+    identityWorkflows: {
+      canUpgradeGuest: session.authStatus === "guest" || Boolean(session.identity.anonymous),
+      canBindPhone:
+        session.authStatus === "authenticated" &&
+        Boolean(session.identity.wechatBound || session.platform === "wechat") &&
+        !phoneBound,
+      mergePending: Boolean(userState.pendingIdentityWorkflow),
+      ...(userState.pendingIdentityWorkflow
+        ? { pendingWorkflow: userState.pendingIdentityWorkflow }
+        : {}),
+      ...(userState.lastIdentityWorkflow ? { lastWorkflow: userState.lastIdentityWorkflow } : {}),
+    },
+    securityCenter: createSecurityCenter(userState),
+    accountOperations: createAccountOperations(session, userState, availability),
+    operationRecords: userState.operationRecords,
+    relationTargets,
+  };
+}
+
+export function createAccountOperationResponse(
+  session: SessionRecord,
+  userState: UserState,
+  requestUrl: string | undefined,
+  transitionMessage: string,
+  operationRecord?: CurrentUserResponse["operationRecords"][number],
+) {
+  const next = createCurrentUserResponse(session, userState, requestUrl);
+  return {
+    userProfile: next.userProfile,
+    accountSummary: next.accountSummary,
+    userStatus: next.userStatus,
+    securityCenter: next.securityCenter,
+    accountOperations: next.accountOperations,
+    operationRecords: next.operationRecords,
+    ...(operationRecord ? { operationRecord } : {}),
+    transitionMessage,
+  };
+}
+
+export function listUserAssetHistory(
+  session: SessionRecord,
+  userState: UserState,
+  request: ListUserAssetHistoryRequest,
+): UserAssetHistoryResponse {
+  const current = createCurrentUserResponse(session, userState);
+  const history = listUserAssetLedgerEntries(userState, request);
+  return {
+    accountSummary: current.accountSummary,
+    ledgerEntries: history.ledgerEntries,
+    pagination: history.pagination,
+  };
+}
+
+export function applyAccountAvatarBinding(
+  session: SessionRecord,
+  userState: UserState,
+  avatarAssetId: string | undefined,
+): void {
+  if (!avatarAssetId) {
+    return;
+  }
+
+  bindUploadAssetsToOwner(userState, {
+    assetIds: [avatarAssetId],
+    ownerType: "avatar",
+    ownerId: session.userId,
+    role: "avatar",
+  });
+}

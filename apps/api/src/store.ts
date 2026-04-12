@@ -1,4 +1,5 @@
-import { createDefaultOperationalState, createDefaultUserState } from "./data";
+import { createDefaultUserState } from "./data";
+import { createDefaultOperationalState } from "./domains/ops/jobs";
 import { buildSampleProfileAssetPath } from "./sample-assets";
 import type { ApiStore, CreateSessionInput, LoginProfile, OperationalState, SessionRecord, UserState } from "./types";
 import type { AuthIdentity, AuthStatus, LoginPlatformKind, LoginMethod } from "@minix/contracts";

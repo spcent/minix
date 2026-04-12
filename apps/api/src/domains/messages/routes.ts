@@ -1,0 +1,325 @@
+import type {
+  AuthRateLimitState,
+  CreateMessageThreadRequest,
+  CreateMessageThreadResponse,
+  ListMessageThreadsRequest,
+  MarkThreadReadRequest,
+  RetryMessageRequest,
+  RetryMessageResponse,
+  SendMessageRequest,
+  SendMessageResponse,
+  SyncMessageThreadRequest,
+} from "@minix/contracts";
+import type { Context, Hono, MiddlewareHandler } from "hono";
+
+import { loadRouteUserState, parseRouteBody, parseRouteQuery } from "../../http/route-context";
+import { jsonError } from "../../http/response";
+import type { ApiBindings, ApiStore, UserState } from "../../types";
+import { getUnreadBadge, listNotifications, markNotificationsRead } from "./notifications";
+import {
+  createMessageThread,
+  getMessageThread,
+  listMessageThreadResponse,
+  markThreadRead,
+  retryThreadMessage,
+  sendThreadMessage,
+  syncMessageThread,
+} from "./threads";
+import {
+  createMessageThreadSchema,
+  markNotificationsReadSchema,
+  markThreadReadSchema,
+  messageThreadListQuerySchema,
+  notificationsQuerySchema,
+  retryMessageSchema,
+  sendMessageSchema,
+  threadIdQuerySchema,
+} from "./schemas";
+
+export interface RegisterMessageRoutesOptions {
+  app: Hono<{ Bindings: ApiBindings }>;
+  requireSession: MiddlewareHandler<any>;
+  resolveStore: (env: ApiBindings | undefined) => ApiStore;
+  resolveClientId: (request: Request) => string;
+  resolveRequestDeviceId: (c: Context<any>) => string | undefined;
+  guardMessageRateLimit: (input: {
+    c: Context<any>;
+    store: ApiStore;
+    userId: string;
+    userState: UserState;
+    action: "thread_create" | "thread_send";
+    platform: string;
+    clientId: string;
+    deviceId?: string;
+    traceId: string;
+  }) => Promise<
+    | {
+        allowed: true;
+        clientId: string;
+        nowIso: string;
+        rateLimitState: AuthRateLimitState;
+      }
+    | {
+        allowed: false;
+        clientId: string;
+        nowIso: string;
+        rateLimitState: AuthRateLimitState;
+        response: Response;
+      }
+  >;
+  appendMessageAudit: (input: {
+    userState: UserState;
+    actorUserId: string;
+    clientId: string;
+    deviceId?: string;
+    platform: string;
+    traceId: string;
+    action: "thread_create" | "thread_send";
+  }) => void;
+  scheduleMessageRetryJob: (input: {
+    store: ApiStore;
+    userId: string;
+    userState: UserState;
+    messageId: string;
+  }) => Promise<void>;
+}
+
+export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
+  const {
+    app,
+    requireSession,
+    resolveStore,
+    resolveClientId,
+    resolveRequestDeviceId,
+    guardMessageRateLimit,
+    appendMessageAudit,
+    scheduleMessageRetryJob,
+  } = options;
+
+  app.use("/notifications", requireSession);
+  app.use("/notifications/*", requireSession);
+  app.use("/messages", requireSession);
+  app.use("/messages/*", requireSession);
+
+  app.get("/notifications", async (c) => {
+    const query = parseRouteQuery(c, notificationsQuerySchema);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const { userState } = await loadRouteUserState(c, resolveStore);
+    return c.json(listNotifications(userState, query));
+  });
+
+  app.post("/notifications/mark-read", async (c) => {
+    const payload = await parseRouteBody(c, markNotificationsReadSchema);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const { session, store, userState } = await loadRouteUserState(c, resolveStore);
+    const response = markNotificationsRead(userState, payload);
+    await store.saveUserState(session.userId, userState);
+    return c.json(response);
+  });
+
+  app.get("/messages/unread-badge", async (c) => {
+    const { userState } = await loadRouteUserState(c, resolveStore);
+    return c.json(getUnreadBadge(userState));
+  });
+
+  app.get("/messages/threads", async (c) => {
+    const query = parseRouteQuery(c, messageThreadListQuerySchema);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const { userState } = await loadRouteUserState(c, resolveStore);
+    const request: ListMessageThreadsRequest = {
+      ...(query.page !== undefined ? { page: query.page } : {}),
+      ...(query.pageSize !== undefined ? { pageSize: query.pageSize } : {}),
+      ...(query.type !== undefined ? { type: query.type } : {}),
+      ...(query.onlyUnread !== undefined ? { onlyUnread: query.onlyUnread } : {}),
+      ...(query.sort !== undefined ? { sort: query.sort } : {}),
+      ...(query.sourceTicketId !== undefined ? { sourceTicketId: query.sourceTicketId } : {}),
+    };
+    const response = listMessageThreadResponse(userState, request);
+    response.unreadBadge = getUnreadBadge(userState);
+    return c.json(response);
+  });
+
+  app.get("/messages/thread", async (c) => {
+    const query = parseRouteQuery(c, threadIdQuerySchema);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const { traceId, userState } = await loadRouteUserState(c, resolveStore);
+    const response = getMessageThread(userState, {
+      threadId: query.threadId,
+      ...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
+    });
+    if (!response) {
+      return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
+    }
+    response.unreadBadge = getUnreadBadge(userState);
+    return c.json(response);
+  });
+
+  app.post("/messages/thread/create", async (c) => {
+    const payload = await parseRouteBody(c, createMessageThreadSchema);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
+    const clientId = resolveClientId(c.req.raw);
+    const deviceId = resolveRequestDeviceId(c);
+    const rateLimitGuard = await guardMessageRateLimit({
+      c,
+      store,
+      userId: session.userId,
+      userState,
+      action: "thread_create",
+      platform: session.platform,
+      clientId,
+      ...(deviceId ? { deviceId } : {}),
+      traceId,
+    });
+    if (!rateLimitGuard.allowed) {
+      return rateLimitGuard.response;
+    }
+    const request: CreateMessageThreadRequest = {
+      type: payload.type,
+      ...(payload.title !== undefined ? { title: payload.title } : {}),
+      ...(payload.participantUserIds !== undefined
+        ? { participantUserIds: payload.participantUserIds }
+        : {}),
+      ...(payload.sourceTicketId !== undefined ? { sourceTicketId: payload.sourceTicketId } : {}),
+      ...(payload.replyPolicy !== undefined ? { replyPolicy: payload.replyPolicy } : {}),
+    };
+    const response = createMessageThread(userState, request);
+    response.unreadBadge = getUnreadBadge(userState);
+    appendMessageAudit({
+      userState,
+      actorUserId: session.userId,
+      clientId,
+      ...(deviceId ? { deviceId } : {}),
+      platform: session.platform,
+      traceId,
+      action: "thread_create",
+    });
+    await store.saveUserState(session.userId, userState);
+    return c.json(response satisfies CreateMessageThreadResponse);
+  });
+
+  app.post("/messages/thread/read", async (c) => {
+    const payload = await parseRouteBody(c, markThreadReadSchema);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
+    const request: MarkThreadReadRequest = { threadId: payload.threadId };
+    const response = markThreadRead(userState, request);
+    if (!response) {
+      return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
+    }
+    response.unreadBadge = getUnreadBadge(userState);
+    await store.saveUserState(session.userId, userState);
+    return c.json(response);
+  });
+
+  app.post("/messages/thread/send", async (c) => {
+    const payload = await parseRouteBody(c, sendMessageSchema);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
+    const clientId = resolveClientId(c.req.raw);
+    const deviceId = resolveRequestDeviceId(c);
+    const rateLimitGuard = await guardMessageRateLimit({
+      c,
+      store,
+      userId: session.userId,
+      userState,
+      action: "thread_send",
+      platform: session.platform,
+      clientId,
+      ...(deviceId ? { deviceId } : {}),
+      traceId,
+    });
+    if (!rateLimitGuard.allowed) {
+      return rateLimitGuard.response;
+    }
+    const request: SendMessageRequest = {
+      threadId: payload.threadId,
+      body: payload.body,
+    };
+    const response = sendThreadMessage(userState, request);
+    if (!response) {
+      return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
+    }
+    response.unreadBadge = getUnreadBadge(userState);
+    if (response.messageItem.deliveryStatus === "failed") {
+      await scheduleMessageRetryJob({
+        store,
+        userId: session.userId,
+        userState,
+        messageId: response.messageItem.messageId,
+      });
+    }
+    appendMessageAudit({
+      userState,
+      actorUserId: session.userId,
+      clientId,
+      ...(deviceId ? { deviceId } : {}),
+      platform: session.platform,
+      traceId,
+      action: "thread_send",
+    });
+    await store.saveUserState(session.userId, userState);
+    return c.json(response satisfies SendMessageResponse);
+  });
+
+  app.post("/messages/thread/retry", async (c) => {
+    const payload = await parseRouteBody(c, retryMessageSchema);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
+    const request: RetryMessageRequest = {
+      threadId: payload.threadId,
+      messageId: payload.messageId,
+    };
+    const response = retryThreadMessage(userState, request);
+    if (!response) {
+      return jsonError("NOT_FOUND", "Retryable message not found.", 404, traceId);
+    }
+    response.unreadBadge = getUnreadBadge(userState);
+    await store.saveUserState(session.userId, userState);
+    return c.json(response satisfies RetryMessageResponse);
+  });
+
+  app.get("/messages/thread/sync", async (c) => {
+    const query = parseRouteQuery(c, threadIdQuerySchema);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
+    const request: SyncMessageThreadRequest = {
+      threadId: query.threadId,
+      ...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
+    };
+    const response = syncMessageThread(userState, request);
+    if (!response) {
+      return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
+    }
+    response.unreadBadge = getUnreadBadge(userState);
+    await store.saveUserState(session.userId, userState);
+    return c.json(response);
+  });
+}

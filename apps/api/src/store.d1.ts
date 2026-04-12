@@ -1,4 +1,5 @@
-import { createDefaultOperationalState, createDefaultUserState } from "./data";
+import { createDefaultUserState } from "./data";
+import { createDefaultOperationalState } from "./domains/ops/jobs";
 import { buildSampleProfileAssetPath } from "./sample-assets";
 import { deserializeOperationalState, deserializeUserState, serializeOperationalState, serializeUserState } from "./state";
 import type { ApiStore, CreateSessionInput, D1DatabaseLike, LoginProfile, OperationalState, SessionRecord } from "./types";

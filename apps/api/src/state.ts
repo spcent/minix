@@ -9,7 +9,8 @@ import type {
   SharePrepareResponse,
 } from "@minix/contracts";
 
-import { createDefaultOperationalState, createDefaultUserState } from "./data";
+import { createDefaultUserState } from "./data";
+import { createDefaultOperationalState } from "./domains/ops/jobs";
 import type { OperationalState, StoredMessageThreadRecord, StoredUploadRecord, UserState } from "./types";
 
 interface PersistedUserState {
