@@ -71,6 +71,49 @@ function createKernelStub() {
       message: "The guest session has been upgraded to a formal account.",
     },
   });
+  let phoneVerificationResult: Result<{
+    verificationId: string;
+    phoneNumberMasked: string;
+    purpose: "login";
+    expiresAt: number;
+    retryAfterSeconds: number;
+    maxAttempts: number;
+    delivery: { provider: "simulated"; providerReference: string; maskedTarget: string; debugCode: string; message: string };
+    riskDecision?: { deviceId?: string; level: "allow" | "review" | "block"; reason?: string };
+    deviceIdentity?: { deviceId: string; platform: "h5"; trusted: boolean; firstSeenAt: string; lastSeenAt: string };
+    rateLimitState?: {
+      scope: "verification";
+      key: string;
+      limited: boolean;
+      limit: number;
+      remaining: number;
+      resetAt: number;
+      retryAfterSeconds: number;
+      updatedAt: string;
+    };
+    securityAuditEvents?: Array<{
+      eventId: string;
+      scope: "verification";
+      action: string;
+      result: "allowed" | "review" | "blocked";
+      message: string;
+      createdAt: string;
+    }>;
+  }> = ok({
+    verificationId: "ver_1",
+    phoneNumberMasked: "138****0001",
+    purpose: "login",
+    expiresAt: Date.now() + 60_000,
+    retryAfterSeconds: 60,
+    maxAttempts: 3,
+    delivery: {
+      provider: "simulated",
+      providerReference: "sms_ver_1",
+      maskedTarget: "138****0001",
+      debugCode: "123456",
+      message: "Verification code issued by the built-in simulated SMS provider.",
+    },
+  });
 
   const kernel = {
     env: {
@@ -113,6 +156,9 @@ function createKernelStub() {
       },
       async post<T>(url: string, body: unknown) {
         requestCalls.push({ url, body });
+        if (url === "/auth/verification-code/request") {
+          return phoneVerificationResult as Result<T>;
+        }
         return transitionResult as Result<T>;
       },
       async put<T>() {
@@ -161,6 +207,9 @@ function createKernelStub() {
     },
     setTransitionResult(nextResult: Result<IdentityTransitionResponse>) {
       transitionResult = nextResult;
+    },
+    setPhoneVerificationResult(nextResult: typeof phoneVerificationResult) {
+      phoneVerificationResult = nextResult;
     },
     get refreshCalls() {
       return refreshCalls;
@@ -387,6 +436,28 @@ test("auth controller keeps abnormal-login prompts from successful credential lo
           severity: "warning",
           acknowledgeRequired: true,
         },
+        riskDecision: {
+          deviceId: "device-risk-review",
+          level: "review",
+          reason: "unusual_device_or_region",
+        },
+        deviceIdentity: {
+          deviceId: "device-risk-review",
+          platform: "h5",
+          trusted: false,
+          firstSeenAt: "2026-04-10T08:00:00.000Z",
+          lastSeenAt: "2026-04-10T08:00:00.000Z",
+        },
+        securityAuditEvents: [
+          {
+            eventId: "security_login_1",
+            scope: "auth",
+            action: "password_login",
+            result: "review",
+            message: "Login completed through password.",
+            createdAt: "2026-04-10T08:00:00.000Z",
+          },
+        ],
       }),
     ),
   );
@@ -404,8 +475,82 @@ test("auth controller keeps abnormal-login prompts from successful credential lo
   await controller.submitSelectedLogin();
 
   assert.equal(controller.store.getState().abnormalLoginPrompt?.title, "Unusual sign-in detected");
+  assert.equal(controller.store.getState().riskDecision?.level, "review");
+  assert.equal(controller.store.getState().deviceIdentity?.deviceId, "device-risk-review");
+  assert.equal(controller.store.getState().securityAuditEvents.length, 1);
   controller.clearAbnormalLoginPrompt();
   assert.equal(controller.store.getState().abnormalLoginPrompt, null);
+});
+
+test("auth controller stores verification security context after requesting a phone code", async () => {
+  const runtime = createKernelStub();
+  runtime.setPhoneVerificationResult(
+    ok({
+      verificationId: "ver_secure_1",
+      phoneNumberMasked: "138****0001",
+      purpose: "login",
+      expiresAt: Date.now() + 60_000,
+      retryAfterSeconds: 60,
+      maxAttempts: 3,
+      delivery: {
+        provider: "simulated",
+        providerReference: "sms_ver_secure_1",
+        maskedTarget: "138****0001",
+        debugCode: "654321",
+        message: "Verification code issued by the built-in simulated SMS provider.",
+      },
+      riskDecision: {
+        deviceId: "device-login-1",
+        level: "review",
+        reason: "new_device",
+      },
+      deviceIdentity: {
+        deviceId: "device-login-1",
+        platform: "h5",
+        trusted: false,
+        firstSeenAt: "2026-04-10T09:00:00.000Z",
+        lastSeenAt: "2026-04-10T09:00:00.000Z",
+      },
+      rateLimitState: {
+        scope: "verification",
+        key: "verification:198.51.100.10",
+        limited: false,
+        limit: 6,
+        remaining: 5,
+        resetAt: Date.now() + 60_000,
+        retryAfterSeconds: 60,
+        updatedAt: "2026-04-10T09:00:00.000Z",
+      },
+      securityAuditEvents: [
+        {
+          eventId: "security_verification_1",
+          scope: "verification",
+          action: "verification_code_issued",
+          result: "review",
+          message: "Verification code issued for login.",
+          createdAt: "2026-04-10T09:00:00.000Z",
+        },
+      ],
+    }),
+  );
+  const controller = createAuthController({
+    kernel: runtime.kernel,
+    successRouteId: "auth.login",
+    stayOnSuccess: true,
+  });
+
+  controller.updateCredentials({
+    phoneNumber: "13800000001",
+    deviceId: "device-login-1",
+  });
+  const result = await controller.requestPhoneVerification("login");
+
+  assert.equal(result.ok, true);
+  assert.equal(controller.store.getState().phoneVerification?.debugCode, "654321");
+  assert.equal(controller.store.getState().riskDecision?.reason, "new_device");
+  assert.equal(controller.store.getState().deviceIdentity?.deviceId, "device-login-1");
+  assert.equal(controller.store.getState().rateLimitState?.scope, "verification");
+  assert.equal(controller.store.getState().securityAuditEvents[0]?.action, "verification_code_issued");
 });
 
 test("auth controller treats oauth as a credential-driven flow with callback state", async () => {
@@ -435,6 +580,43 @@ test("auth controller treats oauth as a credential-driven flow with callback sta
 
   assert.equal(result.ok, false);
   assert.equal(controller.store.getState().errorMessage, "oauth state is invalid or expired");
+});
+
+test("auth controller can start oauth binding and submit the bind transition", async () => {
+  const runtime = createKernelStub();
+  const controller = createAuthController({
+    kernel: runtime.kernel,
+    successRouteId: "auth.login",
+    stayOnSuccess: true,
+  });
+
+  controller.updateCredentials({
+    provider: "wechat-open-platform",
+    providerToken: "oauth-token-valid",
+    providerUserId: "provider-user-1",
+  });
+  const authorizeResult = await controller.startOauthAuthorization("bind");
+  assert.equal(authorizeResult.ok, true);
+  assert.deepEqual(runtime.requestCalls[0], {
+    url: "/auth/oauth/authorize",
+    body: {
+      provider: "wechat-open-platform",
+      purpose: "bind",
+    },
+  });
+
+  controller.updateCredentials({
+    oauthState: "oauth_state_1",
+  });
+  const bindResult = await controller.submitOauthBinding();
+  assert.equal(bindResult.ok, true);
+  assert.equal(runtime.requestCalls.at(-1)?.url, "/auth/identity/bind-oauth");
+  assert.deepEqual(runtime.requestCalls.at(-1)?.body, {
+    provider: "wechat-open-platform",
+    state: "oauth_state_1",
+    providerToken: "oauth-token-valid",
+    providerUserId: "provider-user-1",
+  });
 });
 
 test("auth controller can route from home to overview, plan, and settings after login", async () => {

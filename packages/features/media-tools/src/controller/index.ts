@@ -1,8 +1,10 @@
 import type {
   AppRouteId,
+  ShareAttributionReportResponse,
   SharePrepareRequest,
   SharePrepareResponse,
   ShareDispatchResult,
+  ShareShortLinkResolveResponse,
   ShareReturnRecognitionRequest,
   ShareReturnRecognitionResponse,
   UploadCancelRequest,
@@ -33,7 +35,9 @@ export interface CreateMediaToolsControllerOptions {
   retryUploadPath?: string;
   cancelUploadPath?: string;
   sharePreparePath?: string;
+  shareResolvePath?: string;
   shareReturnPath?: string;
+  shareReportPath?: string;
   initialState?: Partial<MediaToolsState>;
 }
 
@@ -41,6 +45,9 @@ function cloneState(state: MediaToolsState): MediaToolsState {
   return {
     ...state,
     uploadTask: structuredClone(state.uploadTask),
+    ...(state.uploadCapabilityStatus ? { uploadCapabilityStatus: structuredClone(state.uploadCapabilityStatus) } : {}),
+    ...(state.shareCapabilityStatus ? { shareCapabilityStatus: structuredClone(state.shareCapabilityStatus) } : {}),
+    ...(state.clipboardCapabilityStatus ? { clipboardCapabilityStatus: structuredClone(state.clipboardCapabilityStatus) } : {}),
     ...(state.uploadAsset ? { uploadAsset: structuredClone(state.uploadAsset) } : {}),
     ...(state.uploadError ? { uploadError: structuredClone(state.uploadError) } : {}),
     sharePayload: structuredClone(state.sharePayload),
@@ -63,7 +70,9 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
     retryUploadPath = "/uploads/retry",
     cancelUploadPath = "/uploads/cancel",
     sharePreparePath = "/share/prepare",
+    shareResolvePath = "/share/resolve",
     shareReturnPath = "/share/return",
+    shareReportPath = "/share/report",
     initialState,
   } = options;
   const store = createStore<MediaToolsState>({
@@ -92,8 +101,14 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
     const shareStatus = kernel.capability?.status("share");
     const clipboardStatus = kernel.capability?.status("clipboard");
     store.setState({
-      uploadAvailable: uploadStatus?.ok ? uploadStatus.value : false,
-      shareAvailable: shareStatus?.ok ? shareStatus.value : Boolean(clipboardStatus?.ok && clipboardStatus.value),
+      uploadAvailable: Boolean(uploadStatus?.ok && uploadStatus.value.available),
+      shareAvailable: Boolean(
+        (shareStatus?.ok && shareStatus.value.available) ||
+          (clipboardStatus?.ok && clipboardStatus.value.available),
+      ),
+      uploadCapabilityStatus: uploadStatus?.ok ? uploadStatus.value : undefined,
+      shareCapabilityStatus: shareStatus?.ok ? shareStatus.value : undefined,
+      clipboardCapabilityStatus: clipboardStatus?.ok ? clipboardStatus.value : undefined,
     });
   }
 
@@ -208,7 +223,10 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
     async startUpload() {
       setCapabilityAvailability();
       if (!kernel.capability || !store.getState().uploadAvailable) {
-        createUploadFailure("Upload capability is unavailable on this host.");
+        createUploadFailure(
+          store.getState().uploadCapabilityStatus?.detail ?? "Upload capability is unavailable on this host.",
+          store.getState().uploadCapabilityStatus?.fallbackActionLabel,
+        );
         return ok(undefined);
       }
 
@@ -243,6 +261,15 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
       const value = result.value.value;
       if (!value) {
         createUploadFailure("Upload reservation did not return a task.", result.value.detail);
+        if (result.value.degraded) {
+          store.setState({
+            lastResult: {
+              status: "failed",
+              message: "Upload selection returned no transferable payload.",
+              ...(result.value.detail ? { detail: result.value.detail } : {}),
+            },
+          });
+        }
         return ok(undefined);
       }
 
@@ -324,7 +351,12 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
     async startShare() {
       setCapabilityAvailability();
       if (!kernel.capability || !store.getState().shareAvailable) {
-        createShareFailure("Share capability is unavailable on this host.");
+        createShareFailure(
+          store.getState().shareCapabilityStatus?.detail ??
+            store.getState().clipboardCapabilityStatus?.detail ??
+            "Share capability is unavailable on this host.",
+          store.getState().shareCapabilityStatus?.fallbackActionLabel ?? store.getState().clipboardCapabilityStatus?.fallbackActionLabel,
+        );
         return ok(undefined);
       }
 
@@ -357,13 +389,19 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
         return prepared;
       }
 
-      const dispatchCapability = prepared.value.shareChannel.kind === "copy_link" ? "clipboard" : "share";
+      const dispatchCapability =
+        prepared.value.shareChannel.kind === "copy_link" || prepared.value.shareChannel.kind === "short_link"
+          ? "clipboard"
+          : "share";
       const dispatchAvailable = kernel.capability.status(dispatchCapability);
-      if (!dispatchAvailable.ok || !dispatchAvailable.value) {
+      if (!dispatchAvailable.ok || !dispatchAvailable.value.available) {
         createShareFailure(
-          dispatchCapability === "clipboard"
-            ? "Clipboard capability is unavailable for the copy-link share flow."
-            : "Native share capability is unavailable on this host.",
+          dispatchAvailable.ok
+            ? dispatchAvailable.value.detail ?? "Share capability is unavailable on this host."
+            : dispatchCapability === "clipboard"
+              ? "Clipboard capability is unavailable for the copy-link share flow."
+              : "Native share capability is unavailable on this host.",
+          dispatchAvailable.ok ? dispatchAvailable.value.fallbackActionLabel : undefined,
         );
         return ok(undefined);
       }
@@ -371,8 +409,10 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
         dispatchCapability === "clipboard"
           ? {
               text:
+                prepared.value.posterAsset?.url ??
                 prepared.value.sharePayload.shortLink ??
                 prepared.value.landingTarget.shortLink ??
+                prepared.value.sharePayload.posterImageUrl ??
                 prepared.value.sharePayload.landingUrl ??
                 prepared.value.landingTarget.url ??
                 "",
@@ -394,6 +434,18 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
       }
 
       const shareOutcome = prepared.value.sharePayload.scenario === "invite" ? "conversion" : "return";
+      if (prepared.value.shortLinkRecord?.shortCode) {
+        const resolved = await kernel.request.get<ShareShortLinkResolveResponse>(shareResolvePath, {
+          shortCode: prepared.value.shortLinkRecord.shortCode,
+        });
+        if (resolved.ok) {
+          store.setState({
+            sharePayload: resolved.value.sharePayload,
+            shareChannel: resolved.value.shareChannel,
+            shareAttribution: resolved.value.shareAttribution,
+          });
+        }
+      }
       const recognizedPath =
         prepared.value.landingTarget.path ??
         prepared.value.sharePayload.landingPath ??
@@ -425,7 +477,9 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
         lastResult: {
           status: "succeeded",
           message:
-            dispatchCapability === "clipboard"
+            result.value.degraded
+              ? "Native share was unavailable. Fallback dispatch completed and attribution returned through the shared backend flow."
+              : dispatchCapability === "clipboard"
               ? "Share link copied and attribution returned through the shared backend flow."
               : "Native share dispatched and attribution returned through the shared backend flow.",
           ...(result.value.detail ? { detail: result.value.detail } : {}),
@@ -433,6 +487,35 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
       });
 
       return recognized;
+    },
+
+    async loadShareReport(attributionId?: string) {
+      const targetAttributionId = attributionId ?? store.getState().shareAttribution.attributionId;
+      if (!targetAttributionId) {
+        createShareFailure("Share attribution report requires an attribution id.");
+        return ok(undefined);
+      }
+
+      const result = await kernel.request.get<ShareAttributionReportResponse>(shareReportPath, {
+        attributionId: targetAttributionId,
+      });
+      if (!result.ok) {
+        createShareFailure(result.error.message);
+        return result;
+      }
+
+      store.setState({
+        loading: false,
+        errorText: undefined,
+        sharePayload: result.value.sharePayload,
+        shareChannel: result.value.shareChannel,
+        shareAttribution: result.value.shareAttribution,
+        lastResult: {
+          status: "succeeded",
+          message: "Share attribution report loaded.",
+        },
+      });
+      return result;
     },
 
     retryPrimaryAction() {

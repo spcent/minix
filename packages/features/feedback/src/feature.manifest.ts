@@ -13,6 +13,8 @@ export interface FeedbackFeatureControllerOptions {
   bootstrapPath?: string;
   submitPath?: string;
   detailPath?: string;
+  listPath?: string;
+  actionPath?: string;
   authRedirectSource?: string;
   initialState?: Partial<FeedbackState>;
 }
@@ -54,6 +56,8 @@ export const feedbackFeatureManifest = defineFeatureManifest<
       ...(options.bootstrapPath ? { bootstrapPath: options.bootstrapPath } : {}),
       ...(options.submitPath ? { submitPath: options.submitPath } : {}),
       ...(options.detailPath ? { detailPath: options.detailPath } : {}),
+      ...(options.listPath ? { listPath: options.listPath } : {}),
+      ...(options.actionPath ? { actionPath: options.actionPath } : {}),
       ...(options.authRedirectSource ? { authRedirectSource: options.authRedirectSource } : {}),
       initialState: {
         ...createDefaultFeedbackState(),

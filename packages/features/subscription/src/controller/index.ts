@@ -1,5 +1,7 @@
 import {
   createAuthRedirectParams,
+  createDetailStatus,
+  createListStatus,
   ok,
   createStore,
   deriveLatestMilestoneHistory,
@@ -11,12 +13,20 @@ import {
   type LatestReadingMilestoneSnapshot,
 } from "@minix/core";
 import type {
+  AfterSalesDetailResponse,
+  AfterSalesListResponse,
   AppRouteId,
   MembershipOverview,
+  OrderListResponse,
   OrderDetailResponse,
   OrderOperationRequest,
+  PaymentCatalogResponse,
+  PurchaseOrderRequest,
+  PurchaseOrderResponse,
   PurchaseMembershipRequest,
   PurchaseMembershipResponse,
+  SubscriptionListResponse,
+  SubscriptionOperationRequest,
 } from "@minix/contracts";
 import { createInitialSubscriptionState, type SubscriptionState } from "../model";
 
@@ -30,11 +40,19 @@ export interface CreateSubscriptionControllerOptions {
   bookshelfRouteId?: AppRouteId;
   requestPath?: string;
   purchaseRequestPath?: string;
+  purchaseOrderRequestPath?: string;
+  catalogRequestPath?: string;
+  orderListRequestPath?: string;
   orderDetailRequestPath?: string;
   cancelRequestPath?: string;
   refundRequestPath?: string;
   reconcileRequestPath?: string;
   paymentResultRequestPath?: string;
+  subscriptionsRequestPath?: string;
+  cancelSubscriptionRequestPath?: string;
+  renewSubscriptionRequestPath?: string;
+  afterSalesListRequestPath?: string;
+  afterSalesDetailRequestPath?: string;
   latestMilestoneStorageKey?: string;
   latestMilestoneHistoryStorageKey?: string;
   initialState?: Partial<SubscriptionState>;
@@ -51,11 +69,19 @@ export function createSubscriptionController(options: CreateSubscriptionControll
     bookshelfRouteId,
     requestPath = "/membership",
     purchaseRequestPath = "/membership/purchase",
+    purchaseOrderRequestPath = "/orders/purchase",
+    catalogRequestPath = "/orders/catalog",
+    orderListRequestPath = "/orders/list",
     orderDetailRequestPath = "/orders/detail",
     cancelRequestPath = "/orders/cancel",
     refundRequestPath = "/orders/refund",
     reconcileRequestPath = "/payments/reconcile",
     paymentResultRequestPath = "/payments/result",
+    subscriptionsRequestPath = "/subscriptions",
+    cancelSubscriptionRequestPath = "/subscriptions/cancel",
+    renewSubscriptionRequestPath = "/subscriptions/renew",
+    afterSalesListRequestPath = "/after-sales/list",
+    afterSalesDetailRequestPath = "/after-sales/detail",
     latestMilestoneStorageKey = LATEST_READING_MILESTONE_STORAGE_KEY,
     latestMilestoneHistoryStorageKey = LATEST_READING_MILESTONE_HISTORY_STORAGE_KEY,
     initialState,
@@ -138,15 +164,23 @@ export function createSubscriptionController(options: CreateSubscriptionControll
   function applyOrderDetailToState(current: SubscriptionState, detail: OrderDetailResponse): Partial<SubscriptionState> {
     const entitlement = detail.entitlement as SubscriptionState["entitlement"];
     return {
+      selectedOrderId: detail.order.orderId,
       order: detail.order,
       paymentIntent: detail.paymentIntent,
       paymentResult: detail.paymentResult,
       callbackVerification: detail.callbackVerification,
       reconciliation: detail.reconciliation,
+      commerceDetailStatus: createDetailStatus("ready", {
+        entryContext: "list",
+        requestedDetailId: detail.order.orderId,
+      }),
       entitlement,
+      ...(detail.afterSalesCases ? { afterSalesCases: detail.afterSalesCases } : {}),
       transactionMessage: detail.operationResult?.message ?? detail.paymentResult.message,
       canCancelOrder: detail.order.status === "created" || detail.order.status === "pending_payment",
       canRefundOrder: detail.order.status === "paid",
+      canCancelSubscription: detail.subscription?.status === "active" || detail.subscription?.status === "renewal_due",
+      canRenewSubscription: detail.subscription?.status === "cancelled" || detail.subscription?.status === "grace" || detail.subscription?.status === "expired",
       ...(entitlement?.productType === "membership"
         ? {
             overview: entitlement.overview,
@@ -155,6 +189,121 @@ export function createSubscriptionController(options: CreateSubscriptionControll
             recommendedPlanId: deriveRecommendedPlanId(current.source, entitlement.overview),
           }
         : {}),
+    };
+  }
+
+  function applyCommerceSnapshot(input: {
+    catalog?: PaymentCatalogResponse;
+    orderList?: OrderListResponse;
+    subscriptions?: SubscriptionListResponse;
+    afterSales?: AfterSalesListResponse;
+  }): Partial<SubscriptionState> {
+    const nextState: Partial<SubscriptionState> = {};
+    if (input.catalog && Array.isArray(input.catalog.products) && Array.isArray(input.catalog.skus)) {
+      nextState.catalogProducts = input.catalog.products;
+      nextState.catalogSkus = input.catalog.skus;
+      nextState.selectedSkuId = store.getState().selectedSkuId ?? input.catalog.products[0]?.defaultSkuId ?? input.catalog.skus[0]?.skuId;
+    }
+    if (input.orderList?.orderList && Array.isArray(input.orderList.orderList.items)) {
+      const currentSelectedOrderId = store.getState().selectedOrderId;
+      const selectedOrderId =
+        currentSelectedOrderId && input.orderList.orderList.items.some((item) => item.orderId === currentSelectedOrderId)
+          ? currentSelectedOrderId
+          : input.orderList.orderList.items[0]?.orderId;
+      nextState.orderList = input.orderList.orderList;
+      nextState.orderListStatus = createListStatus(
+        input.orderList.orderList.items.length > 0 ? "ready" : "empty",
+        {
+          firstLoaded: true,
+          ...(selectedOrderId ? { restoredSelectionId: selectedOrderId } : {}),
+        },
+      );
+      nextState.selectedOrderId = selectedOrderId;
+    }
+    if (input.subscriptions && Array.isArray(input.subscriptions.subscriptions)) {
+      nextState.subscriptions = input.subscriptions.subscriptions;
+      nextState.canCancelSubscription = input.subscriptions.subscriptions.some((item) => item.status === "active" || item.status === "renewal_due");
+      nextState.canRenewSubscription = input.subscriptions.subscriptions.some(
+        (item) => item.status === "cancelled" || item.status === "grace" || item.status === "expired",
+      );
+    }
+    if (input.afterSales && Array.isArray(input.afterSales.cases)) {
+      nextState.afterSalesCases = input.afterSales.cases;
+      nextState.selectedAfterSalesCase = input.afterSales.cases[0];
+    }
+    return nextState;
+  }
+
+  async function refreshCommerceData() {
+    const current = store.getState();
+    store.setState({
+      orderListStatus: createListStatus(
+        current.orderList && current.orderList.items.length > 0 ? "refreshing" : "loading",
+        {
+          firstLoaded: Boolean(current.orderList),
+          partialData: Boolean(current.orderList?.items.length),
+          staleData: Boolean(current.orderList?.items.length),
+          ...(current.selectedOrderId ? { restoredSelectionId: current.selectedOrderId } : {}),
+        },
+      ),
+    });
+
+    const [catalog, orderList, subscriptions, afterSales] = await Promise.all([
+      kernel.request.get<PaymentCatalogResponse>(catalogRequestPath),
+      kernel.request.get<OrderListResponse>(orderListRequestPath),
+      kernel.request.get<SubscriptionListResponse>(subscriptionsRequestPath),
+      kernel.request.get<AfterSalesListResponse>(afterSalesListRequestPath),
+    ]);
+
+    const nextState: Partial<SubscriptionState> = {};
+    if (catalog.ok) {
+      Object.assign(nextState, applyCommerceSnapshot({ catalog: catalog.value }));
+    }
+    if (orderList.ok) {
+      Object.assign(nextState, applyCommerceSnapshot({ orderList: orderList.value }));
+    } else {
+      nextState.orderListStatus = createListStatus(current.orderList?.items.length ? "partial" : "error", {
+        firstLoaded: Boolean(current.orderList),
+        partialData: Boolean(current.orderList?.items.length),
+        staleData: Boolean(current.orderList?.items.length),
+        ...(current.selectedOrderId ? { restoredSelectionId: current.selectedOrderId } : {}),
+      });
+    }
+    if (subscriptions.ok) {
+      Object.assign(nextState, applyCommerceSnapshot({ subscriptions: subscriptions.value }));
+    }
+    if (afterSales.ok) {
+      Object.assign(nextState, applyCommerceSnapshot({ afterSales: afterSales.value }));
+    }
+    store.setState(nextState);
+  }
+
+  function handleCommerceDetailFailure(
+    code: string | undefined,
+    message: string,
+    requestedDetailId?: string,
+  ): Partial<SubscriptionState> {
+    const current = store.getState();
+    const hasDetail = Boolean(current.order || current.selectedAfterSalesCase);
+    const loadState =
+      code === "NOT_FOUND"
+        ? "unavailable"
+        : code === "FORBIDDEN"
+          ? "forbidden"
+          : code === "OFFLINE"
+            ? "offline"
+            : hasDetail
+              ? "stale"
+              : "error";
+
+    return {
+      errorText: message,
+      commerceDetailStatus: createDetailStatus(loadState, {
+        entryContext: current.commerceDetailStatus.entryContext,
+        recoveredFromLink: current.commerceDetailStatus.recoveredFromLink,
+        stale: loadState === "stale",
+        ...(requestedDetailId ? { requestedDetailId } : {}),
+      }),
     };
   }
 
@@ -225,7 +374,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
     }
 
     const capabilityStatus = kernel.capability.status("payment");
-    if (!capabilityStatus.ok || !capabilityStatus.value) {
+    if (!capabilityStatus.ok || !capabilityStatus.value.available) {
       return;
     }
 
@@ -268,6 +417,8 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         loading: true,
         purchasing: false,
         errorText: undefined,
+        orderListStatus: createListStatus("loading"),
+        commerceDetailStatus: createDetailStatus("idle"),
         source,
         novelId,
         chapterId,
@@ -326,6 +477,8 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         transactionMessage: undefined,
         canCancelOrder: false,
         canRefundOrder: false,
+        selectedOrderId: undefined,
+        commerceDetailStatus: createDetailStatus("idle"),
         entitlementSummary: deriveEntitlementSummary(result.value),
         recommendedPlanId: deriveRecommendedPlanId(source, result.value),
         unlockOutcomeLabel: deriveUnlockOutcomeLabel(source),
@@ -333,6 +486,8 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         benefits: result.value.benefits,
         errorText: undefined,
       });
+
+      await refreshCommerceData();
 
       return result;
     },
@@ -405,6 +560,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
           order: result.value.order,
           paymentIntent: result.value.paymentIntent,
           paymentResult: result.value.paymentResult,
+          ...(result.value.operationResult ? { operationResult: result.value.operationResult } : {}),
           callbackVerification: {
             status: "pending",
             message: "Callback verification is pending until the sample gateway confirms the order.",
@@ -420,6 +576,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         }),
       });
 
+      await refreshCommerceData();
       await reservePlatformPayment(result.value);
 
       return result;
@@ -433,12 +590,16 @@ export function createSubscriptionController(options: CreateSubscriptionControll
 
       const detail = await kernel.request.get<OrderDetailResponse>(orderDetailRequestPath, { orderId });
       if (!detail.ok) {
-        store.setState({
-          errorText: detail.error.message,
-        });
+        store.setState(handleCommerceDetailFailure(detail.error.code, detail.error.message, orderId));
         return detail;
       }
 
+      store.setState({
+        commerceDetailStatus: createDetailStatus("refreshing", {
+          entryContext: "list",
+          requestedDetailId: orderId,
+        }),
+      });
       const paymentResult = await kernel.request.get<typeof detail.value.paymentResult>(paymentResultRequestPath, { orderId });
       store.setState({
         errorText: undefined,
@@ -447,6 +608,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
           ...(paymentResult.ok ? { paymentResult: paymentResult.value } : {}),
         }),
       });
+      await refreshCommerceData();
       return ok(undefined);
     },
 
@@ -468,7 +630,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
       if (!result.ok) {
         store.setState({
           purchasing: false,
-          errorText: result.error.message,
+          ...handleCommerceDetailFailure(result.error.code, result.error.message, orderId),
         });
         return result;
       }
@@ -477,6 +639,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         purchasing: false,
         ...applyOrderDetailToState(store.getState(), result.value),
       });
+      await refreshCommerceData();
       return ok(undefined);
     },
 
@@ -498,7 +661,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
       if (!result.ok) {
         store.setState({
           purchasing: false,
-          errorText: result.error.message,
+          ...handleCommerceDetailFailure(result.error.code, result.error.message, orderId),
         });
         return result;
       }
@@ -507,6 +670,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         purchasing: false,
         ...applyOrderDetailToState(store.getState(), result.value),
       });
+      await refreshCommerceData();
       return ok(undefined);
     },
 
@@ -520,9 +684,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         orderId,
       } satisfies OrderOperationRequest);
       if (!result.ok) {
-        store.setState({
-          errorText: result.error.message,
-        });
+        store.setState(handleCommerceDetailFailure(result.error.code, result.error.message, orderId));
         return result;
       }
 
@@ -530,7 +692,164 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         errorText: undefined,
         ...applyOrderDetailToState(store.getState(), result.value),
       });
+      await refreshCommerceData();
       return ok(undefined);
+    },
+
+    selectSku(skuId: string) {
+      store.setState({ selectedSkuId: skuId });
+      return ok(undefined);
+    },
+
+    async purchaseSku(skuId?: string) {
+      const selectedSkuId = skuId ?? store.getState().selectedSkuId;
+      if (!selectedSkuId) {
+        return ok(undefined);
+      }
+
+      const current = store.getState();
+      store.setState({
+        purchasing: true,
+        errorText: undefined,
+      });
+
+      const result = await kernel.request.post<PurchaseOrderResponse>(purchaseOrderRequestPath, {
+        skuId: selectedSkuId,
+        ...(current.source ? { source: current.source } : {}),
+        ...(current.novelId ? { novelId: current.novelId } : {}),
+        ...(current.chapterId ? { chapterId: current.chapterId } : {}),
+      } satisfies PurchaseOrderRequest);
+      if (!result.ok) {
+        store.setState({
+          purchasing: false,
+          ...handleCommerceDetailFailure(result.error.code, result.error.message),
+        });
+        return result;
+      }
+
+      store.setState({
+        purchasing: false,
+        transactionMessage: result.value.operationResult?.message ?? result.value.paymentResult.message,
+        ...applyOrderDetailToState(store.getState(), {
+          order: result.value.order,
+          product: result.value.product,
+          sku: result.value.sku,
+          paymentIntent: result.value.paymentIntent,
+          paymentResult: result.value.paymentResult,
+          callbackVerification: result.value.callbackVerification,
+          reconciliation: result.value.reconciliation,
+          ...(result.value.operationResult ? { operationResult: result.value.operationResult } : {}),
+          ...(result.value.entitlement ? { entitlement: result.value.entitlement } : {}),
+          ...(result.value.subscription ? { subscription: result.value.subscription } : {}),
+        }),
+      });
+      await refreshCommerceData();
+      return result;
+    },
+
+    async loadOrderDetail(orderId: string) {
+      store.setState({
+        commerceDetailStatus: createDetailStatus("loading", {
+          entryContext: "list",
+          requestedDetailId: orderId,
+        }),
+        selectedOrderId: orderId,
+      });
+      const result = await kernel.request.get<OrderDetailResponse>(orderDetailRequestPath, { orderId });
+      if (!result.ok) {
+        store.setState(handleCommerceDetailFailure(result.error.code, result.error.message, orderId));
+        return result;
+      }
+      store.setState({
+        errorText: undefined,
+        ...applyOrderDetailToState(store.getState(), result.value),
+      });
+      await refreshCommerceData();
+      return result;
+    },
+
+    async cancelSubscription(subscriptionId?: string, reason?: string) {
+      const targetId = subscriptionId ?? store.getState().subscriptions[0]?.subscriptionId;
+      if (!targetId) {
+        return ok(undefined);
+      }
+
+      const result = await kernel.request.post<OrderDetailResponse>(cancelSubscriptionRequestPath, {
+        subscriptionId: targetId,
+        ...(reason ? { reason } : {}),
+      } satisfies SubscriptionOperationRequest);
+      if (!result.ok) {
+        store.setState(handleCommerceDetailFailure(result.error.code, result.error.message, targetId));
+        return result;
+      }
+      store.setState({
+        errorText: undefined,
+        ...applyOrderDetailToState(store.getState(), result.value),
+      });
+      await refreshCommerceData();
+      return ok(undefined);
+    },
+
+    async renewSubscription(subscriptionId?: string, skuId?: string) {
+      const targetId = subscriptionId ?? store.getState().subscriptions[0]?.subscriptionId;
+      if (!targetId) {
+        return ok(undefined);
+      }
+      const result = await kernel.request.post<PurchaseOrderResponse>(renewSubscriptionRequestPath, {
+        subscriptionId: targetId,
+        ...(skuId ? { skuId } : {}),
+      } satisfies SubscriptionOperationRequest);
+      if (!result.ok) {
+        store.setState(handleCommerceDetailFailure(result.error.code, result.error.message, targetId));
+        return result;
+      }
+      store.setState({
+        errorText: undefined,
+        transactionMessage: result.value.operationResult?.message ?? result.value.paymentResult.message,
+        ...applyOrderDetailToState(store.getState(), {
+          order: result.value.order,
+          product: result.value.product,
+          sku: result.value.sku,
+          paymentIntent: result.value.paymentIntent,
+          paymentResult: result.value.paymentResult,
+          callbackVerification: result.value.callbackVerification,
+          reconciliation: result.value.reconciliation,
+          ...(result.value.operationResult ? { operationResult: result.value.operationResult } : {}),
+          ...(result.value.entitlement ? { entitlement: result.value.entitlement } : {}),
+          ...(result.value.subscription ? { subscription: result.value.subscription } : {}),
+        }),
+      });
+      await refreshCommerceData();
+      return result;
+    },
+
+    async loadAfterSalesDetail(caseId?: string) {
+      const targetId = caseId ?? store.getState().afterSalesCases[0]?.caseId;
+      if (!targetId) {
+        return ok(undefined);
+      }
+      store.setState({
+        commerceDetailStatus: createDetailStatus("loading", {
+          entryContext: "list",
+          requestedDetailId: targetId,
+        }),
+      });
+      const result = await kernel.request.get<AfterSalesDetailResponse>(afterSalesDetailRequestPath, { caseId: targetId });
+      if (!result.ok) {
+        store.setState(handleCommerceDetailFailure(result.error.code, result.error.message, targetId));
+        return result;
+      }
+      const selectedAfterSalesCase =
+        store.getState().afterSalesCases.find((item) => item.caseId === result.value.caseItem.caseId) ?? result.value.caseItem;
+      store.setState({
+        selectedAfterSalesCase,
+        transactionMessage: result.value.operationResult?.message ?? store.getState().transactionMessage,
+        commerceDetailStatus: createDetailStatus("ready", {
+          entryContext: "list",
+          requestedDetailId: result.value.caseItem.caseId,
+        }),
+      });
+      return result;
     },
 
     async continueAfterPurchase() {

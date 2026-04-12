@@ -76,6 +76,9 @@ function createKernelStub(): AppKernel {
                 },
                 entitlementLabels: ["basic-access"],
                 balanceCents: 0,
+                availableBalanceCents: 0,
+                frozenBalanceCents: 0,
+                activeEntitlements: [],
               },
               relations: {
                 followingCount: 0,
@@ -96,6 +99,49 @@ function createKernelStub(): AppKernel {
               canUpgradeGuest: false,
               canBindPhone: false,
               mergePending: false,
+            },
+          } as T);
+        }
+
+        if (path.startsWith("/account/assets/history")) {
+          return ok({
+            accountSummary: {
+              userId: "host-h5-user",
+              phoneBound: false,
+              wechatBound: false,
+              realNameStatus: "unverified",
+              assets: {
+                points: 0,
+                level: 1,
+                membership: {
+                  active: false,
+                  tier: "guest",
+                  entitlementScope: "none",
+                  statusLabel: "Guest mode",
+                  renewalLabel: "Upgrade anytime",
+                  headline: "Guest",
+                  subheadline: "Guest",
+                  benefits: [],
+                },
+                entitlementLabels: ["basic-access"],
+                balanceCents: 0,
+                availableBalanceCents: 0,
+                frozenBalanceCents: 0,
+                activeEntitlements: [],
+              },
+              relations: {
+                followingCount: 0,
+                followerCount: 0,
+                friendCount: 0,
+                blockedCount: 0,
+              },
+            },
+            ledgerEntries: [],
+            pagination: {
+              page: 1,
+              pageSize: 5,
+              hasMore: false,
+              total: 0,
             },
           } as T);
         }
@@ -139,12 +185,45 @@ function createKernelStub(): AppKernel {
               experimentsEnabled: true,
             },
             privacyOptions: {
-              profileVisibilityLabel: "Private to signed-in session",
+              profileVisibility: "signed_in_only",
+              profileVisibilityLabel: "Visible inside signed-in surfaces only",
               personalizedRecommendations: true,
               searchHistoryEnabled: true,
               analyticsEnabled: true,
               screenshotFeedbackEnabled: true,
             },
+            effectivePolicy: {
+              notification: {
+                inAppEnabled: true,
+                subscriptionMessageEnabled: true,
+                pushEnabled: true,
+                smsEnabled: false,
+                emailEnabled: false,
+                eligibleChannels: ["in_app", "subscription_message", "push"],
+              },
+              privacy: {
+                profileVisibility: "signed_in_only",
+                profileSearchVisible: false,
+                relationSearchVisible: false,
+                personalizedRankingEnabled: true,
+                analyticsCollectionEnabled: true,
+              },
+              device: {
+                autoplayEnabled: true,
+                weakNetworkMode: false,
+                networkStrategy: "balanced",
+                uploadChunkSizeBytes: 65536,
+                diagnosticsEnabled: true,
+              },
+              developer: {
+                environment: "debug",
+                logsEditable: true,
+                experimentsEditable: true,
+                logsEnabled: true,
+                experimentsEnabled: true,
+              },
+            },
+            lockedSettingKeys: [],
           } as T);
         }
 
@@ -323,12 +402,17 @@ function createKernelStub(): AppKernel {
                 body: "Host runtime thread detail is available.",
                 createdAt: "2026-04-08T09:00:00.000Z",
                 deliveryStatus: "delivered",
+                deliveredAt: "2026-04-08T09:00:01.000Z",
+                attemptCount: 1,
+                retryable: false,
                 touchpoints: [],
               },
             ],
             detailActions: {
               canReply: true,
               canMarkRead: true,
+              canRetryFailed: false,
+              canCreateThread: true,
               deliveryLabel: "Private message delivery lane",
             },
             unreadBadge: {

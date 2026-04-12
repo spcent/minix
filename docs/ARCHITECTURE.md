@@ -216,6 +216,17 @@ The implementation target is WeChat Mini Program first. H5 only exists to verify
 
 The release goal is to make these four samples reliable under one explicit kernel contract, not to broaden MiniX into a larger framework.
 
+## Production Readiness Boundary
+
+The repository now distinguishes between:
+
+- release-complete shared behavior and sample-host coverage
+- operator-owned external setup such as real provider credentials, WeChat console allowlists, and Cloudflare resource ids
+
+That boundary is intentional. MiniX `v1.0.0` freezes a defensible official-sample system, not a credentials-in-repo turnkey SaaS deployment.
+
+For the exact release boundary, provider setup, capability support matrix, and accepted deferred issues, use [`docs/PRODUCTION_READINESS.md`](/Users/bingrong.yan/projects/birdor/minix/docs/PRODUCTION_READINESS.md).
+
 ## Layers
 
 ### Contracts

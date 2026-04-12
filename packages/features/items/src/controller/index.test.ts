@@ -149,6 +149,68 @@ test("items controller loads protected items into the model", async () => {
   assert.equal(controller.store.getState().progressHydrated, true);
 });
 
+test("items controller exposes empty list state after a successful empty response", async () => {
+  const kernel = createKernelStub(() =>
+    ok<ItemsListResponse<{ id: string; title: string }>>({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      hasMore: false,
+    }),
+  );
+
+  const controller = createItemsController({
+    kernel,
+    loginRouteId: APP_ROUTE_IDS.login,
+    settingsRouteId: APP_ROUTE_IDS.settings,
+    initialModel: createInitialItemsModel(),
+  });
+
+  await controller.loadInitial();
+
+  assert.equal(controller.store.getState().status.loadState, "empty");
+  assert.equal(controller.store.getState().status.firstLoaded, true);
+  assert.equal(controller.store.getState().items.length, 0);
+});
+
+test("items controller marks refresh failures as partial when stale items exist", async () => {
+  let requestMode: "success" | "error" = "success";
+  const kernel = createKernelStub(() => {
+    if (requestMode === "error") {
+      return {
+        ok: false as const,
+        error: {
+          code: "NETWORK_ERROR",
+          message: "Network unavailable",
+          recoverable: true,
+        },
+      };
+    }
+
+    return ok<ItemsListResponse<{ id: string; title: string }>>({
+      items: [{ id: "item_1", title: "Warm-up" }],
+      page: 1,
+      pageSize: 20,
+      hasMore: false,
+    });
+  });
+
+  const controller = createItemsController({
+    kernel,
+    loginRouteId: APP_ROUTE_IDS.login,
+    settingsRouteId: APP_ROUTE_IDS.settings,
+    initialModel: createInitialItemsModel(),
+  });
+
+  await controller.loadInitial();
+  requestMode = "error";
+  await controller.refresh();
+
+  assert.equal(controller.store.getState().status.loadState, "error");
+  assert.equal(controller.store.getState().status.staleData, true);
+  assert.equal(controller.store.getState().status.partialData, false);
+});
+
 test("items controller redirects to login on unauthorized response", async () => {
   const routerCalls: string[] = [];
   const kernel = {

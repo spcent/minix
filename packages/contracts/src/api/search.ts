@@ -10,6 +10,7 @@ export interface SearchQuery {
   domain: SearchDomain;
   page: number;
   pageSize: number;
+  sortKey?: string;
 }
 
 export interface SearchFilterOption {
@@ -29,6 +30,31 @@ export interface SearchFilterGroup {
 export interface SearchSortOption {
   key: string;
   label: string;
+}
+
+export interface SearchRouteTarget {
+  routeId: string;
+  params?: Record<string, string | number | boolean>;
+  label?: string;
+}
+
+export interface SearchRecoverySuggestion {
+  keyword: string;
+  label: string;
+  reason: string;
+}
+
+export interface SearchRankingInfo {
+  score: number;
+  label: string;
+  strategy: string;
+  matchedFields: string[];
+}
+
+export interface SearchRankingSummary {
+  strategy: string;
+  label: string;
+  appliedSortKey: string;
 }
 
 export interface SearchDomainTab {
@@ -57,6 +83,10 @@ export interface SearchResults<TItem> {
   recentKeywords: string[];
   sortOptions: SearchSortOption[];
   activeSortKey: string;
+  correctionKeyword?: string;
+  correctionReason?: string;
+  recoverySuggestions?: SearchRecoverySuggestion[];
+  ranking?: SearchRankingSummary;
   activeDomain?: SearchDomain;
   domainTabs?: SearchDomainTab[];
   resultGroups?: SearchResultGroup<TItem>[];

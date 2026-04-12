@@ -84,10 +84,22 @@ Prevent the release milestone from remaining indefinitely half-open after the ac
 
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Record
+
+- milestone closeout source:
+  - [`tasks/milestones/M001-v1.0-release-readiness.md`](/Users/bingrong.yan/projects/birdor/minix/tasks/milestones/M001-v1.0-release-readiness.md)
+- linked evidence:
+  - [`CHANGELOG.md`](/Users/bingrong.yan/projects/birdor/minix/CHANGELOG.md)
+  - [`docs/RELEASE_v1.0.0.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_v1.0.0.md)
+  - [`docs/VERIFICATION_LOG.md`](/Users/bingrong.yan/projects/birdor/minix/docs/VERIFICATION_LOG.md)
+  - [`docs/PRODUCTION_READINESS.md`](/Users/bingrong.yan/projects/birdor/minix/docs/PRODUCTION_READINESS.md)
+- verification note:
+  - docs-only milestone closeout; no additional runtime changes were introduced in this card closeout

@@ -94,9 +94,9 @@ Support content creation, drafting, editing, review, publishing, offline, archiv
 
 ## Acceptance
 
-- [ ] content authoring and draft save are implemented
-- [ ] review queue and reviewer actions are implemented
-- [ ] lifecycle actions are backed by audit history
-- [ ] content attachments use uploaded asset references
-- [ ] reader visibility obeys content lifecycle and access rules
-- [ ] `pnpm verify` run
+- [x] content authoring and draft save are implemented
+- [x] review queue and reviewer actions are implemented
+- [x] lifecycle actions are backed by audit history
+- [x] content attachments use uploaded asset references
+- [x] reader visibility obeys content lifecycle and access rules
+- [x] `pnpm verify` run

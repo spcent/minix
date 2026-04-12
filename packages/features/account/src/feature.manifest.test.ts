@@ -22,7 +22,50 @@ function createKernelStub() {
       },
     },
     request: {
-      async get<T>() {
+      async get<T>(path?: string) {
+        if (path?.startsWith("/account/assets/history")) {
+          return ok({
+            accountSummary: {
+              userId: "user-1",
+              phoneBound: false,
+              wechatBound: false,
+              realNameStatus: "unverified",
+              assets: {
+                points: 0,
+                level: 1,
+                membership: {
+                  active: false,
+                  tier: "guest",
+                  entitlementScope: "none",
+                  statusLabel: "Guest mode",
+                  renewalLabel: "Upgrade anytime",
+                  headline: "Guest",
+                  subheadline: "Guest",
+                  benefits: [],
+                },
+                entitlementLabels: ["basic-access"],
+                balanceCents: 0,
+                availableBalanceCents: 0,
+                frozenBalanceCents: 0,
+                activeEntitlements: [],
+              },
+              relations: {
+                followingCount: 0,
+                followerCount: 0,
+                friendCount: 0,
+                blockedCount: 0,
+              },
+            },
+            ledgerEntries: [],
+            pagination: {
+              page: 1,
+              pageSize: 5,
+              hasMore: false,
+              total: 0,
+            },
+          } as T);
+        }
+
         return ok({
           userProfile: {
             nickname: "Casey",
@@ -48,6 +91,9 @@ function createKernelStub() {
               },
               entitlementLabels: ["basic-access"],
               balanceCents: 0,
+              availableBalanceCents: 0,
+              frozenBalanceCents: 0,
+              activeEntitlements: [],
             },
             relations: {
               followingCount: 0,
@@ -70,6 +116,7 @@ function createKernelStub() {
             mergePending: false,
           },
           accountOperations: [],
+          operationRecords: [],
           relationTargets: [],
         } as T);
       },
@@ -85,8 +132,13 @@ function createKernelStub() {
       },
     },
     capability: {
-      status() {
-        return ok(true);
+      status(capability: "clipboard" | "device" | "location" | "payment" | "share" | "subscription" | "upload") {
+        return ok({
+          capability,
+          available: true,
+          mode: "native",
+          detail: "Capability is available.",
+        });
       },
       async execute(input: { capability: string; action: string }) {
         return ok({

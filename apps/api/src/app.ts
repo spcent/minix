@@ -8,6 +8,7 @@ import type {
   AddToBookshelfRequest,
   AuthAbnormalLoginPrompt,
   AuthCredentialProtection,
+  AuthDeviceIdentity,
   AuthOAuthAuthorizeResponse,
   AuthOAuthCallbackResponse,
   AuthPhoneVerificationResponse,
@@ -16,44 +17,77 @@ import type {
   AuthIdentityAuditRecord,
   AuthIdentityMergePreview,
   AuthIdentityWorkflow,
+  AuthRateLimitState,
   AuthRedirectTarget,
   AuthRiskDecision,
+  AuthSecurityAuditEvent,
+  AuthSecurityPrompt,
   AuthStatus,
   AuthVerificationPurpose,
+  AfterSalesDetailResponse,
+  AfterSalesListResponse,
   BookshelfMutationResponse,
+  ContentActorRole,
   ContentDetailResponse,
   ContentLifecycleMutationResponse,
+  ContentReviewQueueResponse,
   FeedbackRevisitRequest,
   FeedbackRevisitResponse,
+  FeedbackTicketActionRequest,
+  FeedbackTicketActionResponse,
   FeedbackTicketDetailResponse,
+  ListFeedbackTicketsRequest,
+  ListFeedbackTicketsResponse,
+  ListOrdersRequest,
+  SaveContentDraftRequest,
+  SaveContentDraftResponse,
   IdentityBindPhoneRequest,
+  IdentityBindOAuthRequest,
   IdentityMergeRequest,
   IdentityTransitionResponse,
   IdentityUpgradeRequest,
+  ListContentReviewQueueRequest,
+  ListUserAssetHistoryRequest,
   LoadReadingProgressResponse,
+  ListMessageThreadsRequest,
   OrderDetailResponse,
   LoginMethod,
+  LoginPlatformKind,
   LoginResponse,
   MarkThreadReadRequest,
   MembershipEntitlement,
+  OrderListResponse,
   OrderOperationRequest,
   PaymentCallbackLedgerEntry,
+  PaymentCatalogResponse,
   PaymentCallbackRequest,
   PaymentGatewayReference,
   PaymentLedgerEntry,
   PaymentReconciliationLedgerEntry,
   PaymentResult,
+  PurchaseOrderRequest,
+  PurchaseOrderResponse,
   PurchaseMembershipRequest,
   PurchaseMembershipResponse,
   RefreshTokenResponse,
   RemoveFromBookshelfRequest,
+  RetryMessageRequest,
+  RetryMessageResponse,
   SaveReadingProgressRequest,
+  CreateMessageThreadRequest,
+  CreateMessageThreadResponse,
   SendMessageRequest,
   SendMessageResponse,
+  ShareAttributionReportRequest,
+  ShareAttributionReportResponse,
   SharePrepareRequest,
   SharePrepareResponse,
+  ShareShortLinkResolveResponse,
   ShareReturnRecognitionRequest,
   ShareReturnRecognitionResponse,
+  SubscriptionListResponse,
+  SubscriptionOperationRequest,
+  SyncMessageThreadRequest,
   SubmitFeedbackRequest,
   UploadAsset,
   UploadAttachRequest,
@@ -64,6 +98,11 @@ import type {
   UploadPipelineResponse,
   UploadSessionRequest,
   UploadRetryRequest,
+  UpdateSettingsRequest,
+  AccountProviderRevokeRequest,
+  UserAssetLedgerEntry,
+  UserAssetHistoryResponse,
+  UserRelationListResponse,
   UserRelationMutationResponse,
 } from "@minix/contracts";
 import {
@@ -71,31 +110,53 @@ import {
   CHAPTER_LISTS,
   DEFAULT_MEMBERSHIP_OVERVIEW,
   NOVELS,
+  appendAccountOperationRecord,
+  applySettingsUpdate,
+  clearAccountOperationCooldown,
+  createAccountOperationResponse,
   createCurrentUserResponse,
+  createAssetLedgerEntry,
   createBookshelf,
   createFeedbackBootstrapResponse,
+  applyFeedbackTicketAction,
   createMembershipOverview,
   createMembershipOrderDetail,
   createMembershipPurchaseResponse,
+  createPaymentCatalogResponse,
   createPaymentOperationResult,
+  createProductOrderDetail,
   createSettingsResponse,
+  createShareAttributionReport,
   createSharePrepareResponse,
   createUploadResponse,
   createUploadSessionRecord,
   createUploadPipelineResponse,
   attachUploadRecord,
+  attachAfterSalesCase,
   appendUploadChunkRecord,
   bindUploadAssetsToOwner,
   cancelUploadPipeline,
+  createAfterSalesCaseRecord,
   deriveReturnTarget,
   findUploadRecordByAssetId,
   getManagedContentDetail,
+  hasFallbackCredential,
   getMessageThread,
   getUnreadBadge,
+  getAfterSalesCaseDetail,
   getFeedbackTicket,
+  listAfterSalesCases,
+  listMessageThreadResponse,
+  listFeedbackTickets,
+  listManagedContentReviewQueue,
+  listOrders,
+  listSubscriptions,
+  listUserAssetHistory,
+  listUserRelations,
   readUploadedAssetBinary,
   revisitFeedbackTicket,
   applyManagedContentLifecycle,
+  saveManagedContentDraft,
   listFeed,
   listItems,
   listNotifications,
@@ -103,20 +164,45 @@ import {
   markThreadRead,
   submitFeedbackTicket,
   markNotificationsRead,
+  resolveShareShortLink,
   recognizeShareReturn,
+  appendUserAssetLedgerEntry,
+  resolveAccountSecurityPhoneNumber,
   resolveUploadAssetForUser,
   retryUploadPipeline,
+  setAccountOperationCooldown,
+  retryThreadMessage,
   completeUploadRecord,
   resolveChapterContent,
   resolveChapterList,
   resolveNovelDetail,
   sendThreadMessage,
+  createMessageThread,
+  syncMessageThread,
 } from "./data";
-import { checkAuthRateLimit, resolveClientId, type AuthRateLimitConfig, type AuthRateLimitDecision, type RateLimitCounterStore } from "./rate-limit";
-import { renderSampleCoverAssetSvg, renderSampleProfileAssetSvg, resolveProfileMedia } from "./sample-assets";
+import {
+  checkAuthRateLimit,
+  checkSecurityRateLimit,
+  resolveClientId,
+  type AuthRateLimitConfig,
+  type AuthRateLimitDecision,
+  type RateLimitCounterStore,
+} from "./rate-limit";
+import { renderSampleCoverAssetSvg, renderSampleProfileAssetSvg, renderSharePosterSvg, resolveProfileMedia } from "./sample-assets";
 import { createD1ApiStore } from "./store.d1";
 import { getGlobalMemoryApiStore } from "./store";
-import type { ApiBindings, ApiStore, AuthSecurityState, SessionRecord, UserState } from "./types";
+import type {
+  ApiBindings,
+  ApiStore,
+  AuthOAuthCredentialRecord,
+  AuthSecurityState,
+  BackgroundJobRecord,
+  OperationalAuditRecord,
+  OperationalDomainKey,
+  OperationalState,
+  SessionRecord,
+  UserState,
+} from "./types";
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -181,7 +267,7 @@ const authRiskContextSchema = z
 
 const phoneVerificationRequestSchema = z.object({
   phoneNumber: z.string().min(1),
-  purpose: z.enum(["login", "guest_upgrade", "phone_binding", "change_phone", "password_reset"]),
+  purpose: z.enum(["login", "guest_upgrade", "phone_binding", "change_phone", "password_reset", "account_security"]),
   deviceId: z.string().min(1).optional(),
   riskContext: authRiskContextSchema,
 });
@@ -196,6 +282,7 @@ const passwordCredentialSchema = z.object({
 
 const oauthAuthorizeSchema = z.object({
   provider: z.string().min(1),
+  purpose: z.enum(["login", "bind"]).optional(),
   redirectTarget: z
     .object({
       routeId: z.string().min(1).optional(),
@@ -216,6 +303,25 @@ const oauthCallbackSchema = z.object({
   providerToken: z.string().min(8),
   providerUserId: z.string().min(1),
   platform: z.enum(["wechat", "h5"]),
+  redirectTarget: z
+    .object({
+      routeId: z.string().min(1).optional(),
+      path: z.string().min(1).optional(),
+      params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+      source: z.string().min(1).optional(),
+      label: z.string().min(1).optional(),
+      reason: z.enum(["auth-required", "session-expired", "force-relogin"]).optional(),
+      forceReauth: z.boolean().optional(),
+    })
+    .optional(),
+});
+
+const identityBindOAuthSchema = z.object({
+  provider: z.string().min(1),
+  state: z.string().min(1),
+  providerToken: z.string().min(8),
+  providerUserId: z.string().min(1),
+  mergeStrategy: z.enum(["prompt", "merge"]).optional(),
   redirectTarget: z
     .object({
       routeId: z.string().min(1).optional(),
@@ -261,7 +367,7 @@ const identityBindPhoneSchema = z.object({
 
 const identityMergeSchema = z.object({
   targetUserId: z.string().min(1),
-  workflowKind: z.enum(["guest_upgrade", "phone_binding"]).optional(),
+  workflowKind: z.enum(["guest_upgrade", "phone_binding", "oauth_binding"]).optional(),
   confirm: z.boolean(),
   redirectTarget: authRedirectTargetSchema.optional(),
 });
@@ -278,10 +384,21 @@ const feedQuerySchema = z.object({
   tag: z.string().min(1).optional(),
   mode: z.enum(["global", "content", "user", "domain"]).optional(),
   domain: z.enum(["all", "content", "user", "novel", "feed"]).optional(),
+  sort: z.string().min(1).optional(),
 });
+
+const contentActorRoleSchema = z.enum(["author", "reviewer", "admin", "reader"]);
 
 const contentIdQuerySchema = z.object({
   contentId: z.string().min(1),
+  actorRole: contentActorRoleSchema.optional(),
+});
+
+const contentReviewQueueQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().optional(),
+  state: z.enum(["draft", "published", "offline", "under_review", "review_rejected", "deleted", "all"]).optional(),
+  actorRole: contentActorRoleSchema.optional(),
 });
 
 const contentLifecycleMutationSchema = z.object({
@@ -299,6 +416,23 @@ const contentLifecycleMutationSchema = z.object({
   ]),
   visibility: z.enum(["public", "login_required", "member_only", "purchased_only"]).optional(),
   reviewMessage: z.string().min(1).max(280).optional(),
+  actorRole: contentActorRoleSchema.optional(),
+});
+
+const contentDraftSaveSchema = z.object({
+  contentId: z.string().min(1).optional(),
+  model: z.enum(["article", "course", "consultation_service", "tool_config", "post", "event", "novel_story"]),
+  title: z.string().min(1).max(80),
+  subtitle: z.string().min(1).max(120).optional(),
+  summary: z.string().min(1).max(280),
+  bodyPreview: z.string().min(1).max(2000).optional(),
+  visibility: z.enum(["public", "login_required", "member_only", "purchased_only"]),
+  categoryKey: z.string().min(1).max(64),
+  categoryLabel: z.string().min(1).max(64),
+  tags: z.array(z.object({ key: z.string().min(1), label: z.string().min(1) })).min(1),
+  coverAssetId: z.string().min(1).optional(),
+  attachmentAssetIds: z.array(z.string().min(1)).optional(),
+  actorRole: contentActorRoleSchema.optional(),
 });
 
 const notificationsQuerySchema = z.object({
@@ -366,8 +500,50 @@ const orderIdQuerySchema = z.object({
   orderId: z.string().min(1),
 });
 
+const listOrdersQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().optional(),
+  status: z.enum(["created", "pending_payment", "paid", "payment_failed", "closed", "cancelled", "refund_pending", "refunded"]).optional(),
+  productType: z.enum(["one_time", "subscription", "membership", "value_added"]).optional(),
+});
+
+const purchaseOrderSchema = z.object({
+  skuId: z.string().min(1),
+  channel: z.enum(["wechat_pay", "h5_pay", "membership_purchase", "virtual_entitlement"]).optional(),
+  providerMode: z.enum(["sample", "production"]).optional(),
+  paymentScenario: z.enum(["instant_success", "pending"]).optional(),
+  idempotencyKey: z.string().min(1).optional(),
+  source: z.string().min(1).optional(),
+  novelId: z.string().min(1).optional(),
+  chapterId: z.string().min(1).optional(),
+  subscriptionId: z.string().min(1).optional(),
+});
+
+const subscriptionOperationSchema = z.object({
+  subscriptionId: z.string().min(1),
+  skuId: z.string().min(1).optional(),
+  reason: z.string().min(1).optional(),
+});
+
+const afterSalesDetailQuerySchema = z.object({
+  caseId: z.string().min(1),
+});
+
 const threadIdQuerySchema = z.object({
   threadId: z.string().min(1),
+  cursor: z.string().min(1).optional(),
+});
+
+const messageThreadListQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().optional(),
+  type: z.enum(["private", "consultation", "customer_service", "group", "all"]).optional(),
+  onlyUnread: z
+    .enum(["true", "false"])
+    .transform((value) => value === "true")
+    .optional(),
+  sort: z.enum(["activity", "unread"]).optional(),
+  sourceTicketId: z.string().min(1).optional(),
 });
 
 const updateAccountProfileSchema = z.object({
@@ -380,20 +556,55 @@ const updateAccountProfileSchema = z.object({
 const changeAccountPhoneSchema = z.object({
   phoneNumber: z.string().min(1),
   verificationCode: z.string().min(1),
+  securityVerificationCode: z.string().min(1).optional(),
+  riskConfirmed: z.boolean().optional(),
 });
 
 const accountUnbindSchema = z.object({
-  provider: z.literal("wechat"),
+  provider: z.string().min(1),
+  providerUserId: z.string().min(1).optional(),
+  verificationCode: z.string().min(1).optional(),
+  riskConfirmed: z.boolean().optional(),
+});
+
+const accountProviderRevokeSchema = z.object({
+  provider: z.string().min(1),
+  providerUserId: z.string().min(1),
+  verificationCode: z.string().min(1).optional(),
+  riskConfirmed: z.boolean().optional(),
+  reason: z.string().min(1).optional(),
 });
 
 const accountCancellationSchema = z.object({
+  action: z.enum(["request", "revoke"]).optional(),
   confirm: z.literal(true),
+  verificationCode: z.string().min(1).optional(),
+  riskConfirmed: z.boolean().optional(),
+  reason: z.enum(["privacy", "switching", "other"]).optional(),
+  details: z.string().min(1).optional(),
 });
 
 const relationActionSchema = z.object({
   targetUserId: z.string().min(1),
   action: z.enum(["follow", "unfollow", "block", "unblock", "set_remark", "clear_remark"]),
   remarkName: z.string().min(1).max(40).optional(),
+  listKind: z.enum(["following", "followers", "friends", "blocked", "remarks"]).optional(),
+  page: z.number().int().positive().optional(),
+  pageSize: z.number().int().positive().optional(),
+  keyword: z.string().min(1).optional(),
+});
+
+const relationListQuerySchema = z.object({
+  kind: z.enum(["following", "followers", "friends", "blocked", "remarks"]),
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().optional(),
+  keyword: z.string().min(1).optional(),
+});
+
+const assetHistoryQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().optional(),
+  subject: z.enum(["points", "level", "balance", "membership", "entitlement", "all"]).optional(),
 });
 
 const sendMessageSchema = z.object({
@@ -401,12 +612,33 @@ const sendMessageSchema = z.object({
   body: z.string().min(1),
 });
 
+const createMessageThreadSchema = z.object({
+  type: z.enum(["private", "consultation", "customer_service", "group"]),
+  title: z.string().min(1).optional(),
+  participantUserIds: z.array(z.string().min(1)).optional(),
+  sourceTicketId: z.string().min(1).optional(),
+  replyPolicy: z.enum(["open", "members_only", "support_only", "readonly"]).optional(),
+});
+
 const markThreadReadSchema = z.object({
   threadId: z.string().min(1),
 });
 
+const retryMessageSchema = z.object({
+  threadId: z.string().min(1),
+  messageId: z.string().min(1),
+});
+
 const feedbackTicketIdQuerySchema = z.object({
   ticketId: z.string().min(1),
+});
+
+const feedbackTicketListQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().optional(),
+  state: z.enum(["submitted", "triaged", "in_progress", "waiting_user", "resolved", "closed", "all"]).optional(),
+  categoryKey: z.string().min(1).optional(),
+  keyword: z.string().min(1).optional(),
 });
 
 const uploadAssetSchema = z.object({
@@ -558,6 +790,62 @@ const uploadCancelSchema = z.object({
   reason: z.string().min(1).optional(),
 });
 
+const opsDiagnosticsQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(100).optional(),
+  includeCompletedJobs: z.coerce.boolean().optional(),
+});
+
+const opsRunJobsRequestSchema = z.object({
+  kind: z.enum(["upload_cleanup", "payment_reconciliation", "notification_retry", "cancellation_expiry"]).optional(),
+  limit: z.number().int().positive().max(100).optional(),
+});
+
+const settingsUpdateSchema = z.object({
+  preferences: z
+    .object({
+      notificationsEnabled: z.boolean().optional(),
+      device: z
+        .object({
+          networkStrategy: z.enum(["balanced", "wifi-first", "data-saver"]).optional(),
+          autoplay: z.boolean().optional(),
+          weakNetworkMode: z.boolean().optional(),
+        })
+        .optional(),
+      developerOptions: z
+        .object({
+          logsEnabled: z.boolean().optional(),
+          experimentsEnabled: z.boolean().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+  featureToggles: z
+    .object({
+      pushEnabled: z.boolean().optional(),
+      smsEnabled: z.boolean().optional(),
+      emailEnabled: z.boolean().optional(),
+    })
+    .optional(),
+  notificationChannels: z
+    .array(
+      z.object({
+        channel: z.enum(["subscription_message", "sms", "email", "push"]),
+        enabled: z.boolean().optional(),
+        unsubscribed: z.boolean().optional(),
+      }),
+    )
+    .optional(),
+  privacyOptions: z
+    .object({
+      profileVisibility: z.enum(["signed_in_only", "followers_only", "public"]).optional(),
+      personalizedRecommendations: z.boolean().optional(),
+      searchHistoryEnabled: z.boolean().optional(),
+      analyticsEnabled: z.boolean().optional(),
+      screenshotFeedbackEnabled: z.boolean().optional(),
+    })
+    .optional(),
+});
+
 const shareRedirectTargetSchema = z.object({
   routeId: z.string().min(1).optional(),
   path: z.string().min(1).optional(),
@@ -573,6 +861,7 @@ const shareLandingTargetSchema = z.object({
   path: z.string().min(1).optional(),
   url: z.string().min(1).optional(),
   shortLink: z.string().min(1).optional(),
+  shortCode: z.string().min(1).optional(),
   params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
   channelMarker: z.string().min(1).optional(),
   authRedirect: shareRedirectTargetSchema.optional(),
@@ -610,6 +899,7 @@ const shareAttributionSchema = z.object({
   returnFlowRecognized: z.boolean(),
   shareCount: z.number().int().nonnegative(),
   clickCount: z.number().int().nonnegative(),
+  returnCount: z.number().int().nonnegative(),
   conversionCount: z.number().int().nonnegative(),
   preparedAt: z.string().min(1).optional(),
   lastSharedAt: z.string().min(1).optional(),
@@ -633,6 +923,15 @@ const shareReturnRecognitionSchema = z.object({
   outcome: z.enum(["click", "return", "conversion"]),
   recognizedPath: z.string().min(1).optional(),
   recognizedUserId: z.string().min(1).optional(),
+});
+
+const shareResolveSchema = z.object({
+  attributionId: z.string().min(1).optional(),
+  shortCode: z.string().min(1).optional(),
+});
+
+const shareAttributionReportSchema = z.object({
+  attributionId: z.string().min(1),
 });
 
 const feedbackContextSchema = z.object({
@@ -662,6 +961,34 @@ const submitFeedbackSchema = z.object({
 const revisitFeedbackSchema = z.object({
   ticketId: z.string().min(1),
   userMessage: z.string().min(1).optional(),
+});
+
+const feedbackTicketAssigneeSchema = z.object({
+  userId: z.string().min(1),
+  label: z.string().min(1),
+  teamLabel: z.string().min(1).optional(),
+  assignedAt: z.string().min(1).optional(),
+});
+
+const feedbackTicketSlaSchema = z.object({
+  policyKey: z.string().min(1),
+  label: z.string().min(1),
+  deadlineAt: z.string().min(1),
+  breached: z.boolean(),
+  updatedAt: z.string().min(1).optional(),
+});
+
+const feedbackTicketActionSchema = z.object({
+  ticketId: z.string().min(1),
+  state: z.enum(["triaged", "in_progress", "waiting_user", "resolved", "closed"]).optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+  labels: z.array(z.string().min(1)).optional(),
+  assignee: feedbackTicketAssigneeSchema.optional(),
+  queueKey: z.string().min(1).optional(),
+  queueLabel: z.string().min(1).optional(),
+  sla: feedbackTicketSlaSchema.optional(),
+  note: z.string().min(1).optional(),
+  supportReply: z.string().min(1).optional(),
 });
 
 const markNotificationsReadSchema = z.object({
@@ -696,6 +1023,8 @@ const PHONE_VERIFICATION_MAX_ATTEMPTS = 3;
 const PASSWORD_MAX_FAILED_ATTEMPTS = 3;
 const PASSWORD_LOCK_MS = 15 * 60 * 1000;
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+const ACCOUNT_OPERATION_COOLDOWN_MS = 10 * 60 * 1000;
+const ACCOUNT_CANCELLATION_COOLING_OFF_MS = 7 * 24 * 60 * 60 * 1000;
 
 function createTraceId() {
   return `api_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -749,6 +1078,9 @@ function createAuthSecurityState(): AuthSecurityState {
     oauthStatesByState: {},
     oauthCredentialsByProviderSubject: {},
     credentialProtectionBySubject: {},
+    devicesById: {},
+    auditEvents: [],
+    rateLimitStatesByScope: {},
   };
 }
 
@@ -760,7 +1092,310 @@ function ensureAuthSecurityState(userState: UserState): AuthSecurityState {
   userState.authSecurity.oauthStatesByState ??= {};
   userState.authSecurity.oauthCredentialsByProviderSubject ??= {};
   userState.authSecurity.credentialProtectionBySubject ??= {};
+  userState.authSecurity.devicesById ??= {};
+  userState.authSecurity.auditEvents ??= [];
+  userState.authSecurity.rateLimitStatesByScope ??= {};
   return userState.authSecurity;
+}
+
+function createSecurityPrompt(input: {
+  title: string;
+  message: string;
+  severity: AuthSecurityPrompt["severity"];
+  scope: AuthSecurityAuditEvent["scope"];
+  acknowledgeRequired?: boolean;
+  acknowledgeLabel?: string;
+}): AuthSecurityPrompt {
+  return {
+    title: input.title,
+    message: input.message,
+    severity: input.severity,
+    scope: input.scope,
+    ...(input.acknowledgeRequired ? { acknowledgeRequired: true } : {}),
+    ...(input.acknowledgeLabel ? { acknowledgeLabel: input.acknowledgeLabel } : {}),
+  };
+}
+
+function upsertDeviceIdentity(input: {
+  userState: UserState;
+  deviceId?: string;
+  platform: LoginPlatformKind;
+  now: string;
+  riskDecision?: AuthRiskDecision;
+  userAgent?: string;
+  ipRegion?: string;
+  scene?: string;
+  trust?: boolean;
+}): AuthDeviceIdentity | undefined {
+  if (!input.deviceId) {
+    return undefined;
+  }
+
+  const security = ensureAuthSecurityState(input.userState);
+  const existing = security.devicesById[input.deviceId];
+  const trusted = input.trust ?? existing?.trusted ?? input.riskDecision?.level === "allow";
+  const next: AuthDeviceIdentity = {
+    deviceId: input.deviceId,
+    platform: input.platform,
+    trusted,
+    firstSeenAt: existing?.firstSeenAt ?? input.now,
+    lastSeenAt: input.now,
+    ...(trusted ? { trustedAt: existing?.trustedAt ?? input.now } : existing?.trustedAt ? { trustedAt: existing.trustedAt } : {}),
+    ...(input.userAgent ? { lastUserAgent: input.userAgent } : existing?.lastUserAgent ? { lastUserAgent: existing.lastUserAgent } : {}),
+    ...(input.ipRegion ? { lastIpRegion: input.ipRegion } : existing?.lastIpRegion ? { lastIpRegion: existing.lastIpRegion } : {}),
+    ...(input.scene ? { lastScene: input.scene } : existing?.lastScene ? { lastScene: existing.lastScene } : {}),
+    ...(input.riskDecision?.level ? { riskLevel: input.riskDecision.level } : existing?.riskLevel ? { riskLevel: existing.riskLevel } : {}),
+  };
+  security.devicesById[input.deviceId] = next;
+  return next;
+}
+
+function resolveRequestDeviceId(c: Context): string | undefined {
+  const value = c.req.header("x-device-id") ?? c.req.header("x-minix-device-id");
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function setLatestSecurityPrompt(userState: UserState, prompt: AuthSecurityPrompt | undefined) {
+  if (!prompt) {
+    return;
+  }
+
+  ensureAuthSecurityState(userState).latestPrompt = prompt;
+}
+
+function getRecentSecurityAuditEvents(userState: UserState, limit = 5): AuthSecurityAuditEvent[] {
+  return ensureAuthSecurityState(userState).auditEvents.slice(0, limit);
+}
+
+async function guardSecurityRateLimit(input: {
+  c: Context;
+  store: ApiStore;
+  userId: string;
+  userState: UserState;
+  action: Parameters<typeof checkSecurityRateLimit>[0]["action"];
+  scope: AuthSecurityAuditEvent["scope"];
+  platform: LoginPlatformKind;
+  traceId: string;
+  config?: Partial<AuthRateLimitConfig> | undefined;
+  counterStore?: RateLimitCounterStore | undefined;
+  actorUserId?: string | undefined;
+  clientId?: string | undefined;
+  deviceId?: string | undefined;
+  blockedAction: string;
+  blockedMessage: string;
+  reason?: string | undefined;
+  frequencyKey?: string | undefined;
+  scene?: string | undefined;
+}): Promise<
+  | {
+      allowed: true;
+      clientId: string;
+      nowIso: string;
+      rateLimitState: AuthRateLimitState;
+    }
+  | {
+      allowed: false;
+      clientId: string;
+      nowIso: string;
+      rateLimitState: AuthRateLimitState;
+      response: Response;
+    }
+> {
+  const clientId = input.clientId ?? resolveClientId(input.c.req.raw);
+  const rateLimitDecision = await checkSecurityRateLimit({
+    action: input.action,
+    platform: input.platform,
+    clientId,
+    env: input.c.env,
+    ...(input.config ? { config: input.config } : {}),
+    ...(input.counterStore ? { counterStore: input.counterStore } : {}),
+  });
+  const nowIso = new Date().toISOString();
+  const rateLimitState = recordRateLimitState({
+    userState: input.userState,
+    scope: input.scope,
+    key: `${input.action}:${clientId}`,
+    decision: rateLimitDecision,
+    now: nowIso,
+  });
+  if (!rateLimitDecision.limited) {
+    return {
+      allowed: true,
+      clientId,
+      nowIso,
+      rateLimitState,
+    };
+  }
+
+  appendSecurityAuditEvent({
+    userState: input.userState,
+    scope: input.scope,
+    action: input.blockedAction,
+    result: "blocked",
+    message: input.blockedMessage,
+    createdAt: nowIso,
+    ...(input.actorUserId ? { actorUserId: input.actorUserId } : {}),
+    ...(input.deviceId ? { deviceId: input.deviceId } : {}),
+    clientId,
+    platform: input.platform,
+    ...(input.reason ? { reason: input.reason } : {}),
+    ...(input.frequencyKey ? { frequencyKey: input.frequencyKey } : {}),
+    ...(input.scene ? { scene: input.scene } : {}),
+    ...(input.traceId ? { traceId: input.traceId } : {}),
+  });
+  await input.store.saveUserState(input.userId, input.userState);
+  const response = input.c.json(
+    {
+      code: "RATE_LIMITED",
+      message: input.blockedMessage,
+      retryAfterSeconds: rateLimitDecision.retryAfterSeconds,
+      rateLimitState,
+    },
+    429,
+  );
+  setRateLimitHeaders(response, rateLimitDecision);
+  return {
+    allowed: false,
+    clientId,
+    nowIso,
+    rateLimitState,
+    response,
+  };
+}
+
+function createRateLimitState(input: {
+  scope: AuthSecurityAuditEvent["scope"];
+  key: string;
+  decision: AuthRateLimitDecision;
+  now: string;
+}): AuthRateLimitState {
+  return {
+    scope: input.scope,
+    key: input.key,
+    limited: input.decision.limited,
+    limit: input.decision.limit,
+    remaining: input.decision.remaining,
+    resetAt: input.decision.resetAt,
+    retryAfterSeconds: input.decision.retryAfterSeconds,
+    updatedAt: input.now,
+  };
+}
+
+function recordRateLimitState(input: {
+  userState: UserState;
+  scope: AuthSecurityAuditEvent["scope"];
+  key: string;
+  decision: AuthRateLimitDecision;
+  now: string;
+}): AuthRateLimitState {
+  const security = ensureAuthSecurityState(input.userState);
+  const state = createRateLimitState(input);
+  security.rateLimitStatesByScope[`${input.scope}:${input.key}`] = state;
+  return state;
+}
+
+function appendSecurityAuditEvent(input: {
+  userState: UserState;
+  scope: AuthSecurityAuditEvent["scope"];
+  action: string;
+  result: AuthSecurityAuditEvent["result"];
+  message: string;
+  createdAt: string;
+  actorUserId?: string;
+  deviceId?: string;
+  clientId?: string;
+  platform?: LoginPlatformKind;
+  reason?: string;
+  frequencyKey?: string;
+  scene?: string;
+  traceId?: string;
+}) {
+  const security = ensureAuthSecurityState(input.userState);
+  const event: AuthSecurityAuditEvent = {
+    eventId: createRandomId("security_audit"),
+    scope: input.scope,
+    action: input.action,
+    result: input.result,
+    message: input.message,
+    createdAt: input.createdAt,
+    ...(input.actorUserId ? { actorUserId: input.actorUserId } : {}),
+    ...(input.deviceId ? { deviceId: input.deviceId } : {}),
+    ...(input.clientId ? { clientId: input.clientId } : {}),
+    ...(input.platform ? { platform: input.platform } : {}),
+    ...(input.reason ? { reason: input.reason } : {}),
+    ...(input.frequencyKey ? { frequencyKey: input.frequencyKey } : {}),
+    ...(input.scene ? { scene: input.scene } : {}),
+    ...(input.traceId ? { traceId: input.traceId } : {}),
+  };
+  security.auditEvents = [event, ...security.auditEvents].slice(0, 50);
+  return event;
+}
+
+function evaluateSecurityDecision(input: {
+  userState: UserState;
+  platform: LoginPlatformKind;
+  deviceId?: string;
+  riskContext?: z.infer<typeof authRiskContextSchema>;
+  scope: AuthSecurityAuditEvent["scope"];
+  forceReview?: boolean;
+}): {
+  riskDecision: AuthRiskDecision;
+  deviceIdentity?: AuthDeviceIdentity;
+  prompt?: AuthSecurityPrompt;
+} {
+  const deviceId = input.deviceId ?? input.riskContext?.deviceId;
+  const security = ensureAuthSecurityState(input.userState);
+  const existingDevice = deviceId ? security.devicesById[deviceId] : undefined;
+  const suspicious =
+    input.forceReview ||
+    input.riskContext?.scene === "suspicious-login" ||
+    input.riskContext?.frequencyKey === "abnormal-login" ||
+    input.riskContext?.ipRegion === "unusual-region" ||
+    deviceId === "device-risk-review" ||
+    Boolean(deviceId && !existingDevice);
+  const riskDecision: AuthRiskDecision = {
+    ...(deviceId ? { deviceId } : {}),
+    ...(input.riskContext?.frequencyKey ? { frequencyKey: input.riskContext.frequencyKey } : {}),
+    ...(input.riskContext?.scene ? { scene: input.riskContext.scene } : {}),
+    level: suspicious ? "review" : "allow",
+    ...(suspicious ? { reason: existingDevice ? "unusual_device_or_region" : "new_device" } : {}),
+  };
+  const deviceIdentity = upsertDeviceIdentity({
+    userState: input.userState,
+    platform: input.platform,
+    now: new Date().toISOString(),
+    riskDecision,
+    trust: !suspicious,
+    ...(deviceId ? { deviceId } : {}),
+    ...(input.riskContext?.userAgent ? { userAgent: input.riskContext.userAgent } : {}),
+    ...(input.riskContext?.ipRegion ? { ipRegion: input.riskContext.ipRegion } : {}),
+    ...(input.riskContext?.scene ? { scene: input.riskContext.scene } : {}),
+  });
+  const prompt = suspicious
+    ? createSecurityPrompt({
+        title: input.scope === "auth" ? "Unusual sign-in detected" : "Review device activity",
+        message:
+          input.scope === "auth"
+            ? "This sign-in came from a new or unusual device context. Review the session details before continuing."
+            : "This action came from a new or unusual device context. Review the operation details before continuing.",
+        severity: "warning",
+        scope: input.scope,
+        acknowledgeRequired: true,
+      })
+    : undefined;
+  if (prompt) {
+    security.latestPrompt = prompt;
+  }
+  return {
+    riskDecision,
+    ...(deviceIdentity ? { deviceIdentity } : {}),
+    ...(prompt ? { prompt } : {}),
+  };
 }
 
 function createRandomCode(): string {
@@ -771,6 +1406,441 @@ function createRandomCode(): string {
 
 function createRandomId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID()}`;
+}
+
+function cloneOperationalState(state: OperationalState): OperationalState {
+  return structuredClone(state);
+}
+
+function appendOperationalMonitoringEvent(
+  state: OperationalState,
+  input: Omit<OperationalState["monitoringEvents"][number], "eventId">,
+) {
+  const event = {
+    eventId: createRandomId("ops_event"),
+    ...input,
+  };
+  state.monitoringEvents = [event, ...state.monitoringEvents].slice(0, 100);
+  return event;
+}
+
+function appendOperationalAuditRecord(
+  state: OperationalState,
+  input: Omit<OperationalAuditRecord, "auditId">,
+) {
+  const audit = {
+    auditId: createRandomId("ops_audit"),
+    ...input,
+  };
+  state.auditTrail = [audit, ...state.auditTrail].slice(0, 200);
+  return audit;
+}
+
+function upsertOperationalDomainSchema(
+  state: OperationalState,
+  input: {
+    domain: OperationalDomainKey;
+    recordCount: number;
+    nowIso: string;
+    lastRecordId?: string;
+  },
+) {
+  const existing = state.domainSchemas.find((item) => item.domain === input.domain);
+  if (existing) {
+    existing.recordCount = input.recordCount;
+    existing.lastBackfilledAt = input.nowIso;
+    if (input.lastRecordId !== undefined) {
+      existing.lastRecordId = input.lastRecordId;
+    }
+    return;
+  }
+
+  state.domainSchemas.push({
+    domain: input.domain,
+    schemaVersion: 1,
+    recordCount: input.recordCount,
+    lastBackfilledAt: input.nowIso,
+    ...(input.lastRecordId !== undefined ? { lastRecordId: input.lastRecordId } : {}),
+  });
+}
+
+function countFailedNotificationRetries(userState: UserState): number {
+  const failedThreadMessages = Object.values(userState.threadRecordsById)
+    .flatMap((record) => record.messages)
+    .filter((message) => message.deliveryStatus === "failed" && message.retryable).length;
+  const failedNotificationReceipts = Object.values(userState.notificationTouchpointReceiptsByNotificationId ?? {})
+    .flatMap((entry) => Object.values(entry))
+    .filter((receipt) => receipt.status === "failed" && receipt.retryable).length;
+  return failedThreadMessages + failedNotificationReceipts;
+}
+
+function syncOperationalDomainSchemas(
+  state: OperationalState,
+  input: {
+    userId: string;
+    userState: UserState;
+    nowIso: string;
+    sessionCount?: number;
+  },
+) {
+  const { userState, nowIso } = input;
+  upsertOperationalDomainSchema(state, {
+    domain: "sessions",
+    recordCount: input.sessionCount ?? 1,
+    nowIso,
+    lastRecordId: input.userId,
+  });
+  upsertOperationalDomainSchema(state, {
+    domain: "credentials",
+    recordCount:
+      Object.keys(userState.authSecurity?.passwordCredentialsBySubject ?? {}).length +
+      Object.keys(userState.authSecurity?.oauthCredentialsByProviderSubject ?? {}).length +
+      Object.keys(userState.authSecurity?.phoneVerificationsById ?? {}).length,
+    nowIso,
+  });
+  upsertOperationalDomainSchema(state, {
+    domain: "orders",
+    recordCount: Object.keys(userState.ordersById).length,
+    nowIso,
+    ...(userState.latestPaidOrderId ? { lastRecordId: userState.latestPaidOrderId } : {}),
+  });
+  upsertOperationalDomainSchema(state, {
+    domain: "uploads",
+    recordCount: Object.keys(userState.uploadsByTaskId).length,
+    nowIso,
+  });
+  upsertOperationalDomainSchema(state, {
+    domain: "messages",
+    recordCount:
+      Object.keys(userState.threadRecordsById).length +
+      Object.values(userState.threadRecordsById).reduce((sum, record) => sum + record.messages.length, 0),
+    nowIso,
+  });
+  upsertOperationalDomainSchema(state, {
+    domain: "content",
+    recordCount: Object.keys(userState.managedContentById ?? {}).length,
+    nowIso,
+  });
+  upsertOperationalDomainSchema(state, {
+    domain: "feedback",
+    recordCount: userState.feedbackTicketIds.length,
+    nowIso,
+    ...(userState.latestFeedbackTicketId ? { lastRecordId: userState.latestFeedbackTicketId } : {}),
+  });
+  upsertOperationalDomainSchema(state, {
+    domain: "audit_events",
+    recordCount:
+      (userState.authSecurity?.auditEvents.length ?? 0) +
+      userState.operationRecords.length +
+      state.auditTrail.length,
+    nowIso,
+  });
+}
+
+function ensureOperationalBackfill(state: OperationalState, nowIso: string) {
+  if (state.migrations.some((item) => item.migrationId === "user_state_backfill_v1")) {
+    return;
+  }
+
+  const backfillMigration: OperationalState["migrations"][number] = {
+    migrationId: "user_state_backfill_v1",
+    target: "user_state",
+    fromVersion: 0,
+    toVersion: 1,
+    status: "completed",
+    appliedAt: nowIso,
+    note: "Backfilled operational governance metadata from persisted user state records.",
+  };
+
+  state.migrations = [
+    backfillMigration,
+    ...state.migrations,
+  ].slice(0, 50);
+}
+
+function scheduleOperationalJob(
+  state: OperationalState,
+  input: {
+    kind: BackgroundJobRecord["kind"];
+    userId: string;
+    dedupeKey: string;
+    scheduledAt: string;
+    relatedRecordId?: string;
+    maxAttempts?: number;
+  },
+) {
+  const existing = state.backgroundJobs.find(
+    (job) => job.userId === input.userId && job.kind === input.kind && job.dedupeKey === input.dedupeKey && job.status !== "failed",
+  );
+  if (existing) {
+    return existing;
+  }
+
+  const job: BackgroundJobRecord = {
+    jobId: createRandomId("job"),
+    kind: input.kind,
+    status: "queued",
+    userId: input.userId,
+    dedupeKey: input.dedupeKey,
+    ...(input.relatedRecordId ? { relatedRecordId: input.relatedRecordId } : {}),
+    scheduledAt: input.scheduledAt,
+    attempts: 0,
+    maxAttempts: input.maxAttempts ?? 3,
+  };
+  state.backgroundJobs = [job, ...state.backgroundJobs].slice(0, 200);
+  appendOperationalAuditRecord(state, {
+    category: "job",
+    action: "job_scheduled",
+    message: `${job.kind} scheduled for ${job.userId}.`,
+    createdAt: input.scheduledAt,
+    userId: input.userId,
+    ...(job.relatedRecordId ? { recordId: job.relatedRecordId } : {}),
+    metadata: {
+      attempts: job.attempts,
+      maxAttempts: job.maxAttempts,
+    },
+  });
+  return job;
+}
+
+async function scheduleOperationalJobForUser(
+  store: ApiStore,
+  input: {
+    userId: string;
+    userState: UserState;
+    kind: BackgroundJobRecord["kind"];
+    dedupeKey: string;
+    relatedRecordId?: string;
+    scheduledAt?: string;
+    maxAttempts?: number;
+  },
+) {
+  const scheduledAt = input.scheduledAt ?? new Date().toISOString();
+  const operationalState = cloneOperationalState(await store.getOperationalState());
+  ensureOperationalBackfill(operationalState, scheduledAt);
+  syncOperationalDomainSchemas(operationalState, {
+    userId: input.userId,
+    userState: input.userState,
+    nowIso: scheduledAt,
+  });
+  const job = scheduleOperationalJob(operationalState, {
+    kind: input.kind,
+    userId: input.userId,
+    dedupeKey: input.dedupeKey,
+    scheduledAt,
+    ...(input.relatedRecordId ? { relatedRecordId: input.relatedRecordId } : {}),
+    ...(input.maxAttempts !== undefined ? { maxAttempts: input.maxAttempts } : {}),
+  });
+  await store.saveOperationalState(operationalState);
+  return job;
+}
+
+async function runOperationalJobs(
+  store: ApiStore,
+  input: {
+    userId: string;
+    kind?: BackgroundJobRecord["kind"];
+    limit?: number;
+  },
+) {
+  const nowIso = new Date().toISOString();
+  const userState = await store.getUserState(input.userId);
+  const operationalState = cloneOperationalState(await store.getOperationalState());
+  ensureOperationalBackfill(operationalState, nowIso);
+  syncOperationalDomainSchemas(operationalState, {
+    userId: input.userId,
+    userState,
+    nowIso,
+  });
+
+  const runnable = operationalState.backgroundJobs
+    .filter((job) => {
+      if (job.userId !== input.userId) {
+        return false;
+      }
+      if (input.kind && job.kind !== input.kind) {
+        return false;
+      }
+      if (!(job.status === "queued" || job.status === "failed")) {
+        return false;
+      }
+      if (Date.parse(job.scheduledAt) > Date.now()) {
+        return false;
+      }
+      return true;
+    })
+    .slice(0, input.limit ?? 20);
+
+  for (const job of runnable) {
+    job.status = "running";
+    job.startedAt = nowIso;
+    job.attempts += 1;
+
+    try {
+      switch (job.kind) {
+        case "upload_cleanup": {
+          const record = job.relatedRecordId ? userState.uploadsByTaskId[job.relatedRecordId] : undefined;
+          if (!record) {
+            job.status = "skipped";
+            job.lastResult = "Upload record is already absent.";
+            break;
+          }
+          if (record.cleanupRecord?.referenced || record.references.length > 0) {
+            job.status = "skipped";
+            job.lastResult = "Upload is still referenced and cannot be cleaned up.";
+            break;
+          }
+          if (record.uploadTask.lifecycle.retentionStatus === "expired") {
+            job.status = "skipped";
+            job.lastResult = "Upload cleanup already completed.";
+            break;
+          }
+          record.uploadTask.lifecycle.retentionStatus = "expired";
+          record.uploadTask.lifecycle.canCancel = false;
+          record.binaryByChunkIndex = {};
+          delete record.binaryObjectKey;
+          record.cleanupRecord = {
+            retentionStatus: "expired",
+            cleanupScheduledAt: record.cleanupRecord?.cleanupScheduledAt ?? nowIso,
+            cleanupReason: record.cleanupRecord?.cleanupReason ?? "background_cleanup",
+            referenced: false,
+          };
+          job.status = "completed";
+          job.lastResult = "Upload cleanup completed.";
+          break;
+        }
+        case "payment_reconciliation": {
+          const order = job.relatedRecordId ? userState.ordersById[job.relatedRecordId] : undefined;
+          if (!order) {
+            job.status = "skipped";
+            job.lastResult = "Order record is already absent.";
+            break;
+          }
+          if (order.reconciliation?.status === "reconciled") {
+            job.status = "skipped";
+            job.lastResult = "Order is already reconciled.";
+            break;
+          }
+          userState.ordersById[order.order.orderId] = applyPaymentReconciliation(order);
+          job.status = "completed";
+          job.lastResult = "Payment reconciliation completed.";
+          break;
+        }
+        case "notification_retry": {
+          const messageId = job.relatedRecordId;
+          const targetThreadId = Object.values(userState.threadRecordsById).find((record) =>
+            record.messages.some((message) => message.messageId === messageId),
+          )?.thread.threadId;
+          if (!messageId || !targetThreadId) {
+            job.status = "skipped";
+            job.lastResult = "Notification retry target is already absent.";
+            break;
+          }
+          const retried = retryThreadMessage(userState, {
+            threadId: targetThreadId,
+            messageId,
+          });
+          if (!retried) {
+            job.status = "skipped";
+            job.lastResult = "Notification retry target is no longer retryable.";
+            break;
+          }
+          job.status = "completed";
+          job.lastResult = "Notification retry queued again.";
+          break;
+        }
+        case "cancellation_expiry": {
+          if (!userState.pendingCancellation) {
+            job.status = "skipped";
+            job.lastResult = "Cancellation expiry already finalized.";
+            break;
+          }
+          userState.availabilityStatus = "frozen";
+          delete userState.pendingCancellation;
+          appendAccountOperationRecord(userState, {
+            kind: "request_cancellation",
+            status: "completed",
+            actorLabel: "MiniX Operations",
+            message: "Cancellation cooling-off window expired and the account moved into a frozen archival state.",
+            notificationHookLabel: "notify:cancellation_finalized",
+          });
+          job.status = "completed";
+          job.lastResult = "Cancellation expiry finalized.";
+          break;
+        }
+      }
+    } catch (error) {
+      job.status = job.attempts >= job.maxAttempts ? "failed" : "queued";
+      job.lastError = error instanceof Error ? error.message : "unknown operational job failure";
+      appendOperationalMonitoringEvent(operationalState, {
+        level: "error",
+        scope: "job",
+        message: `${job.kind} failed: ${job.lastError}`,
+        createdAt: nowIso,
+        jobId: job.jobId,
+        userId: job.userId,
+        dedupeKey: job.dedupeKey,
+      });
+    }
+
+    job.completedAt = nowIso;
+    appendOperationalAuditRecord(operationalState, {
+      category: "job",
+      action: `job_${job.status}`,
+      message: `${job.kind} ${job.status}.`,
+      createdAt: nowIso,
+      userId: job.userId,
+      ...(job.relatedRecordId ? { recordId: job.relatedRecordId } : {}),
+      metadata: {
+        attempts: job.attempts,
+        ...(job.lastResult ? { result: job.lastResult } : {}),
+      },
+    });
+  }
+
+  operationalState.lastSweepAt = nowIso;
+  syncOperationalDomainSchemas(operationalState, {
+    userId: input.userId,
+    userState,
+    nowIso,
+  });
+  await store.saveUserState(input.userId, userState);
+  await store.saveOperationalState(operationalState);
+
+  return {
+    userState,
+    operationalState,
+    jobs: runnable,
+  };
+}
+
+function createOperationalDiagnosticsResponse(
+  userState: UserState,
+  operationalState: OperationalState,
+  input: {
+    limit?: number;
+    includeCompletedJobs?: boolean;
+  } = {},
+) {
+  const limit = input.limit ?? 20;
+  const backgroundJobs = operationalState.backgroundJobs
+    .filter((job) => input.includeCompletedJobs || (job.status !== "completed" && job.status !== "skipped"))
+    .slice(0, limit);
+  return {
+    schemaVersion: operationalState.schemaVersion,
+    ...(operationalState.lastSweepAt ? { lastSweepAt: operationalState.lastSweepAt } : {}),
+    domainSchemas: operationalState.domainSchemas,
+    migrations: operationalState.migrations.slice(0, limit),
+    backgroundJobs,
+    monitoringEvents: operationalState.monitoringEvents.slice(0, limit),
+    auditTrail: operationalState.auditTrail.slice(0, limit),
+    governance: {
+      queuedJobs: operationalState.backgroundJobs.filter((job) => job.status === "queued").length,
+      failedJobs: operationalState.backgroundJobs.filter((job) => job.status === "failed").length,
+      retryableNotifications: countFailedNotificationRetries(userState),
+      appliedMigrations: operationalState.migrations.filter((migration) => migration.status === "completed").length,
+    },
+  };
 }
 
 function toHex(bytes: ArrayBuffer): string {
@@ -801,6 +1871,99 @@ function createPhonePurposeKey(phoneNumber: string, purpose: AuthVerificationPur
 
 function createOAuthSubject(provider: string, providerUserId: string): string {
   return `${sanitizeUserKey(provider.toLowerCase())}:${sanitizeUserKey(providerUserId)}`;
+}
+
+function createOAuthIndexUserId(provider: string, providerUserId: string): string {
+  return `oauth_index_${createOAuthSubject(provider, providerUserId)}`;
+}
+
+function createOAuthProviderLabel(provider: string): string {
+  if (provider === "wechat-open-platform") {
+    return "WeChat Open Platform";
+  }
+
+  return provider
+    .split(/[-_]+/g)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+}
+
+function createOAuthCredentialRecord(input: {
+  provider: string;
+  providerUserId: string;
+  userId: string;
+  tokenHash: string;
+  now: number;
+  authorizationStatus?: AuthOAuthCredentialRecord["authorizationStatus"];
+  revokedAt?: number;
+  revocationReason?: string;
+  existing?: AuthOAuthCredentialRecord;
+}): AuthOAuthCredentialRecord {
+  return {
+    provider: input.provider,
+    providerUserId: input.providerUserId,
+    userId: input.userId,
+    tokenHash: input.tokenHash,
+    createdAt: input.existing?.createdAt ?? input.now,
+    linkedAt: input.existing?.linkedAt ?? input.now,
+    lastAuthorizedAt: input.now,
+    authorizationStatus: input.authorizationStatus ?? "active",
+    ...(input.revokedAt ? { revokedAt: input.revokedAt } : {}),
+    ...(input.revocationReason ? { revocationReason: input.revocationReason } : {}),
+  };
+}
+
+async function loadOAuthCredentialLink(
+  store: ApiStore,
+  provider: string,
+  providerUserId: string,
+): Promise<{
+  subject: string;
+  indexUserId: string;
+  indexState: UserState;
+  record?: AuthOAuthCredentialRecord;
+}> {
+  const subject = createOAuthSubject(provider, providerUserId);
+  const indexUserId = createOAuthIndexUserId(provider, providerUserId);
+  const indexState = await store.getUserState(indexUserId);
+  const record = ensureAuthSecurityState(indexState).oauthCredentialsByProviderSubject[subject];
+  return {
+    subject,
+    indexUserId,
+    indexState,
+    ...(record ? { record } : {}),
+  };
+}
+
+async function saveOAuthCredentialLink(input: {
+  store: ApiStore;
+  provider: string;
+  providerUserId: string;
+  ownerUserId: string;
+  tokenHash: string;
+  now: number;
+  authorizationStatus?: AuthOAuthCredentialRecord["authorizationStatus"];
+  revocationReason?: string;
+}) {
+  const { subject, indexUserId, indexState, record } = await loadOAuthCredentialLink(
+    input.store,
+    input.provider,
+    input.providerUserId,
+  );
+  const nextRecord = createOAuthCredentialRecord({
+    provider: input.provider,
+    providerUserId: input.providerUserId,
+    userId: input.ownerUserId,
+    tokenHash: input.tokenHash,
+    now: input.now,
+    ...(input.authorizationStatus ? { authorizationStatus: input.authorizationStatus } : {}),
+    ...(input.authorizationStatus && input.authorizationStatus !== "active" ? { revokedAt: input.now } : {}),
+    ...(input.revocationReason ? { revocationReason: input.revocationReason } : {}),
+    ...(record ? { existing: record } : {}),
+  });
+  ensureAuthSecurityState(indexState).oauthCredentialsByProviderSubject[subject] = nextRecord;
+  await input.store.saveUserState(indexUserId, indexState);
+  return { subject, indexUserId, indexState, record: nextRecord };
 }
 
 function createGuestUserId(anonymousId?: string): string {
@@ -969,6 +2132,9 @@ function normalizeSharePrepareRequest(payload: z.infer<typeof sharePrepareSchema
         ...(payload.sharePayload.landingTarget.shortLink !== undefined
           ? { shortLink: payload.sharePayload.landingTarget.shortLink }
           : {}),
+        ...(payload.sharePayload.landingTarget.shortCode !== undefined
+          ? { shortCode: payload.sharePayload.landingTarget.shortCode }
+          : {}),
         ...(payload.sharePayload.landingTarget.params !== undefined ? { params: payload.sharePayload.landingTarget.params } : {}),
         ...(payload.sharePayload.landingTarget.channelMarker !== undefined
           ? { channelMarker: payload.sharePayload.landingTarget.channelMarker }
@@ -1013,6 +2179,7 @@ function normalizeSharePrepareRequest(payload: z.infer<typeof sharePrepareSchema
       returnFlowRecognized: payload.shareAttribution.returnFlowRecognized,
       shareCount: payload.shareAttribution.shareCount,
       clickCount: payload.shareAttribution.clickCount,
+      returnCount: payload.shareAttribution.returnCount,
       conversionCount: payload.shareAttribution.conversionCount,
       ...(payload.shareAttribution.preparedAt !== undefined ? { preparedAt: payload.shareAttribution.preparedAt } : {}),
       ...(payload.shareAttribution.lastSharedAt !== undefined ? { lastSharedAt: payload.shareAttribution.lastSharedAt } : {}),
@@ -1129,6 +2296,14 @@ function createWorkflowMessage(
 
   if (kind === "phone_binding") {
     return "The current account is now bound to the verified phone number.";
+  }
+
+  if (kind === "oauth_binding") {
+    return status === "completed"
+      ? targetLabel
+        ? `${targetLabel} is now linked to the current account.`
+        : "The OAuth provider is now linked to the current account."
+      : "The OAuth provider requires account merge confirmation.";
   }
 
   return "The current session has been merged into the target account.";
@@ -1274,7 +2449,6 @@ function resolveIdentity(payload: z.infer<typeof loginRequestSchema>, userId: st
     userId,
     ...(guest ? { anonymous: true } : {}),
     ...(payload.platform === "wechat" || method === "wechat_code" ? { wechatBound: true } : {}),
-    ...(method === "oauth" && payload.credential.provider?.toLowerCase().includes("wechat") ? { wechatBound: true } : {}),
     ...(method === "phone_code" || method === "password" ? { phoneBound: true } : {}),
   };
 }
@@ -1364,9 +2538,12 @@ function createAuthResponseFromSession(
   options: {
     abnormalLoginPrompt?: AuthAbnormalLoginPrompt | undefined;
     credentialProtection?: AuthCredentialProtection | undefined;
+    deviceIdentity?: AuthDeviceIdentity | undefined;
     identityWorkflow?: AuthIdentityWorkflow | undefined;
+    rateLimitState?: AuthRateLimitState | undefined;
     redirectTarget?: AuthRedirectTarget | undefined;
     riskDecision?: AuthRiskDecision | undefined;
+    securityAuditEvents?: AuthSecurityAuditEvent[] | undefined;
   } = {},
 ): LoginResponse {
   return {
@@ -1387,9 +2564,12 @@ function createAuthResponseFromSession(
     ...(session.loginMethod ? { loginMethod: session.loginMethod } : {}),
     ...(options.abnormalLoginPrompt ? { abnormalLoginPrompt: options.abnormalLoginPrompt } : {}),
     ...(options.credentialProtection ? { credentialProtection: options.credentialProtection } : {}),
+    ...(options.deviceIdentity ? { deviceIdentity: options.deviceIdentity } : {}),
     ...(options.identityWorkflow ? { identityWorkflow: options.identityWorkflow } : {}),
+    ...(options.rateLimitState ? { rateLimitState: options.rateLimitState } : {}),
     ...(options.redirectTarget ? { redirectTarget: options.redirectTarget } : {}),
     ...(options.riskDecision ? { riskDecision: options.riskDecision } : {}),
+    ...(options.securityAuditEvents ? { securityAuditEvents: options.securityAuditEvents } : {}),
   };
 }
 
@@ -1476,6 +2656,49 @@ async function consumePhoneVerification(input: {
 
   record.consumedAt = input.now;
   return { ok: true };
+}
+
+function createOperationBlockedResponse(input: {
+  userState: UserState;
+  kind: "change_phone" | "unbind_wechat" | "unlink_provider" | "revoke_provider" | "request_cancellation" | "revoke_cancellation";
+  actorLabel: string;
+  message: string;
+  session: SessionRecord;
+  requestUrl: string;
+  traceId?: string | undefined;
+  clientId?: string | undefined;
+  deviceId?: string | undefined;
+}) {
+  const prompt = createSecurityPrompt({
+    title: "Review account security requirements",
+    message: input.message,
+    severity: "warning",
+    scope: "account",
+    acknowledgeRequired: true,
+  });
+  setLatestSecurityPrompt(input.userState, prompt);
+  appendAccountOperationRecord(input.userState, {
+    kind: input.kind,
+    status: "blocked",
+    actorLabel: input.actorLabel,
+    message: input.message,
+    notificationHookLabel: "notify:account_operation_blocked",
+  });
+  appendSecurityAuditEvent({
+    userState: input.userState,
+    scope: "account",
+    action: input.kind,
+    result: "blocked",
+    message: input.message,
+    createdAt: new Date().toISOString(),
+    actorUserId: input.session.userId,
+    ...(input.deviceId ? { deviceId: input.deviceId } : {}),
+    ...(input.clientId ? { clientId: input.clientId } : {}),
+    platform: input.session.platform,
+    ...(input.traceId ? { traceId: input.traceId } : {}),
+  });
+
+  return createAccountOperationResponse(input.session, input.userState, input.requestUrl, input.message);
 }
 
 async function registerPasswordCredential(input: {
@@ -1570,10 +2793,12 @@ async function verifyPasswordCredential(input: {
 
 function mergeUserStates(target: UserState, source: UserState): UserState {
   const mergedBookshelf = new Set<string>([...target.bookshelfNovelIds, ...source.bookshelfNovelIds]);
+  const latestPrompt = target.authSecurity?.latestPrompt ?? source.authSecurity?.latestPrompt;
   return {
     ...(target.membershipPlanId ?? source.membershipPlanId
       ? { membershipPlanId: target.membershipPlanId ?? source.membershipPlanId }
       : {}),
+    assetLedgerEntries: [...(source.assetLedgerEntries ?? []), ...(target.assetLedgerEntries ?? [])],
     bookshelfNovelIds: mergedBookshelf,
     progressByNovelId: {
       ...source.progressByNovelId,
@@ -1591,10 +2816,33 @@ function mergeUserStates(target: UserState, source: UserState): UserState {
       ...source.threadMessagesByThreadId,
       ...target.threadMessagesByThreadId,
     },
+    threadRecordsById: {
+      ...source.threadRecordsById,
+      ...target.threadRecordsById,
+    },
+    operationRecords: [...(target.operationRecords ?? []), ...(source.operationRecords ?? [])].slice(0, 20),
+    operationCooldownsByKind: {
+      ...(source.operationCooldownsByKind ?? {}),
+      ...(target.operationCooldownsByKind ?? {}),
+    },
+    ...(target.pendingCancellation ?? source.pendingCancellation
+      ? { pendingCancellation: target.pendingCancellation ?? source.pendingCancellation }
+      : {}),
     feedbackDetailsById: {
       ...source.feedbackDetailsById,
       ...target.feedbackDetailsById,
     },
+    feedbackTicketIds: [...(source.feedbackTicketIds ?? []), ...(target.feedbackTicketIds ?? [])].filter(
+      (ticketId, index, values) => values.indexOf(ticketId) === index,
+    ),
+    feedbackFaqCatalog:
+      (target.feedbackFaqCatalog?.length ?? 0) > 0
+        ? target.feedbackFaqCatalog
+        : source.feedbackFaqCatalog,
+    feedbackSupportEntries:
+      (target.feedbackSupportEntries?.length ?? 0) > 0
+        ? target.feedbackSupportEntries
+        : source.feedbackSupportEntries,
     ...(target.latestFeedbackTicketId ?? source.latestFeedbackTicketId
       ? { latestFeedbackTicketId: target.latestFeedbackTicketId ?? source.latestFeedbackTicketId }
       : {}),
@@ -1608,6 +2856,10 @@ function mergeUserStates(target: UserState, source: UserState): UserState {
     orderIdByIdempotencyKey: {
       ...source.orderIdByIdempotencyKey,
       ...target.orderIdByIdempotencyKey,
+    },
+    afterSalesById: {
+      ...source.afterSalesById,
+      ...target.afterSalesById,
     },
     sharePreparesById: {
       ...source.sharePreparesById,
@@ -1640,6 +2892,14 @@ function mergeUserStates(target: UserState, source: UserState): UserState {
             ...(source.relationTarget ?? {}),
             ...(target.relationTarget ?? {}),
           } as NonNullable<UserState["relationTarget"]>,
+        }
+      : {}),
+    ...(target.relationRecordsByUserId ?? source.relationRecordsByUserId
+      ? {
+          relationRecordsByUserId: {
+            ...(source.relationRecordsByUserId ?? {}),
+            ...(target.relationRecordsByUserId ?? {}),
+          },
         }
       : {}),
     ...(target.managedContentById ?? source.managedContentById
@@ -1683,6 +2943,16 @@ function mergeUserStates(target: UserState, source: UserState): UserState {
               ...(source.authSecurity?.credentialProtectionBySubject ?? {}),
               ...(target.authSecurity?.credentialProtectionBySubject ?? {}),
             },
+            devicesById: {
+              ...(source.authSecurity?.devicesById ?? {}),
+              ...(target.authSecurity?.devicesById ?? {}),
+            },
+            auditEvents: [...(target.authSecurity?.auditEvents ?? []), ...(source.authSecurity?.auditEvents ?? [])].slice(0, 50),
+            rateLimitStatesByScope: {
+              ...(source.authSecurity?.rateLimitStatesByScope ?? {}),
+              ...(target.authSecurity?.rateLimitStatesByScope ?? {}),
+            },
+            ...(latestPrompt ? { latestPrompt } : {}),
           },
         }
       : {}),
@@ -1753,6 +3023,244 @@ function appendReconciliationLedger(detail: OrderDetailResponse, entry: PaymentR
 
 function appendCallbackLedger(detail: OrderDetailResponse, entry: PaymentCallbackLedgerEntry) {
   detail.callbackLedger = [...(detail.callbackLedger ?? []), entry];
+}
+
+function resolveMembershipPlanIdFromOrder(detail: OrderDetailResponse): PurchaseMembershipRequest["planId"] | undefined {
+  const membershipSkuId = detail.sku?.skuId ?? detail.order.lineItems.find((item) => item.productType === "membership")?.skuId ?? "";
+  return membershipSkuId.endsWith("_annual")
+    ? "annual"
+    : membershipSkuId.endsWith("_monthly")
+      ? "monthly"
+      : membershipSkuId.endsWith("_quarterly")
+        ? "quarterly"
+        : undefined;
+}
+
+function createAssetLedgerEntitlement(detail: OrderDetailResponse, status: NonNullable<UserAssetLedgerEntry["entitlement"]>["status"]) {
+  if (!detail.entitlement) {
+    return undefined;
+  }
+
+  const planId = resolveMembershipPlanIdFromOrder(detail);
+  const membershipEntitlement =
+    detail.entitlement.productType === "membership" && "overview" in detail.entitlement
+      ? (detail.entitlement as MembershipEntitlement)
+      : undefined;
+  return {
+    entitlementId: detail.entitlement.entitlementId,
+    key: detail.sku?.entitlementKey ?? `${detail.entitlement.productType}:${detail.order.orderId}`,
+    label:
+      membershipEntitlement && planId
+        ? membershipEntitlement.overview.headline
+        : detail.product?.title ?? detail.order.title,
+    status,
+    active: status === "active",
+    productType: detail.entitlement.productType,
+    ...(planId ? { planId } : {}),
+    sourceOrderId: detail.order.orderId,
+    ...(detail.subscription?.renewsAt ? { expiresAt: detail.subscription.renewsAt } : {}),
+  } satisfies NonNullable<UserAssetLedgerEntry["entitlement"]>;
+}
+
+function resolveEntitlementLedgerSubject(detail: OrderDetailResponse): UserAssetLedgerEntry["subject"] {
+  return detail.entitlement?.productType === "membership" ? "membership" : "entitlement";
+}
+
+function appendPaymentAssetLedgerEntries(input: {
+  userState: UserState;
+  detail: OrderDetailResponse;
+  action: "purchase_paid" | "purchase_pending" | "cancel_pending" | "refund_paid" | "callback_success" | "callback_failure" | "callback_cancelled";
+}): string[] {
+  const planId = resolveMembershipPlanIdFromOrder(input.detail);
+  const amountCents = input.detail.order.totalAmountCents;
+  const createdAt = input.detail.order.updatedAt;
+  const ledgerIds: string[] = [];
+  const append = (entry: Omit<UserAssetLedgerEntry, "ledgerId">) => {
+    const next = createAssetLedgerEntry(entry);
+    appendUserAssetLedgerEntry(input.userState, next);
+    ledgerIds.push(next.ledgerId);
+  };
+
+  if (input.action === "purchase_paid") {
+    append({
+      subject: "balance",
+      kind: "consume",
+      title: `${input.detail.order.title} payment captured`,
+      message: `${input.detail.order.title} order ${input.detail.order.orderId} consumed wallet balance.`,
+      createdAt,
+      sourceType: "payment",
+      sourceId: input.detail.order.orderId,
+      balanceDeltaCents: -amountCents,
+    });
+    const grantedEntitlement = createAssetLedgerEntitlement(input.detail, "active");
+    if (grantedEntitlement) {
+      append({
+        subject: resolveEntitlementLedgerSubject(input.detail),
+        kind: "grant",
+        title: `${input.detail.order.title} granted`,
+        message: `${input.detail.order.title} entitlement was granted after successful payment.`,
+        createdAt,
+        sourceType: "payment",
+        sourceId: input.detail.order.orderId,
+        ...(planId ? { membershipPlanId: planId } : {}),
+        entitlement: grantedEntitlement,
+      });
+    }
+    if (input.detail.order.productType === "membership") {
+      append({
+        subject: "points",
+        kind: "grant",
+        title: "Membership purchase reward",
+        message: "Membership purchase granted loyalty points.",
+        createdAt,
+        sourceType: "payment",
+        sourceId: input.detail.order.orderId,
+        pointsDelta: 30,
+      });
+    }
+    return ledgerIds;
+  }
+
+  if (input.action === "purchase_pending") {
+    append({
+      subject: "balance",
+      kind: "freeze",
+      title: "Payment hold created",
+      message: `Pending order ${input.detail.order.orderId} froze wallet balance until callback confirmation.`,
+      createdAt,
+      sourceType: "payment",
+      sourceId: input.detail.order.orderId,
+      frozenBalanceDeltaCents: amountCents,
+    });
+    const frozenEntitlement = createAssetLedgerEntitlement(input.detail, "frozen");
+    if (frozenEntitlement) {
+      append({
+        subject: "entitlement",
+        kind: "freeze",
+        title: `${input.detail.order.title} entitlement pending`,
+        message: `${input.detail.order.title} entitlement is pending payment confirmation.`,
+        createdAt,
+        sourceType: "payment",
+        sourceId: input.detail.order.orderId,
+        entitlement: frozenEntitlement,
+      });
+    }
+    return ledgerIds;
+  }
+
+  if (input.action === "cancel_pending") {
+    append({
+      subject: "balance",
+      kind: "unfreeze",
+      title: "Payment hold released",
+      message: `Pending order ${input.detail.order.orderId} was cancelled and the wallet hold was released.`,
+      createdAt,
+      sourceType: "payment",
+      sourceId: input.detail.order.orderId,
+      frozenBalanceDeltaCents: -amountCents,
+    });
+    return ledgerIds;
+  }
+
+  if (input.action === "callback_success") {
+    append({
+      subject: "balance",
+      kind: "unfreeze",
+      title: "Payment hold settled",
+      message: `Callback success settled the frozen wallet amount for ${input.detail.order.orderId}.`,
+      createdAt,
+      sourceType: "payment",
+      sourceId: input.detail.order.orderId,
+      frozenBalanceDeltaCents: -amountCents,
+    });
+    append({
+      subject: "balance",
+      kind: "consume",
+      title: `${input.detail.order.title} payment captured`,
+      message: `Confirmed callback consumed the wallet amount for ${input.detail.order.orderId}.`,
+      createdAt,
+      sourceType: "payment",
+      sourceId: input.detail.order.orderId,
+      balanceDeltaCents: -amountCents,
+    });
+    const activatedEntitlement = createAssetLedgerEntitlement(input.detail, "active");
+    if (activatedEntitlement) {
+      append({
+        subject: resolveEntitlementLedgerSubject(input.detail),
+        kind: "grant",
+        title: `${input.detail.order.title} activated`,
+        message: `${input.detail.order.title} entitlement moved from pending to active after callback success.`,
+        createdAt,
+        sourceType: "payment",
+        sourceId: input.detail.order.orderId,
+        ...(planId ? { membershipPlanId: planId } : {}),
+        entitlement: activatedEntitlement,
+      });
+    }
+    return ledgerIds;
+  }
+
+  if (input.action === "callback_failure" || input.action === "callback_cancelled") {
+    append({
+      subject: "balance",
+      kind: "unfreeze",
+      title: "Payment hold released",
+      message: `Payment callback released the frozen wallet amount for ${input.detail.order.orderId}.`,
+      createdAt,
+      sourceType: "payment",
+      sourceId: input.detail.order.orderId,
+      frozenBalanceDeltaCents: -amountCents,
+    });
+    const revokedEntitlement = createAssetLedgerEntitlement(
+      input.detail,
+      input.action === "callback_failure" ? "revoked" : "expired",
+    );
+    if (revokedEntitlement) {
+      append({
+        subject: "entitlement",
+        kind: input.action === "callback_failure" ? "revoke" : "expire",
+        title: input.action === "callback_failure" ? `${input.detail.order.title} entitlement revoked` : `${input.detail.order.title} entitlement cancelled`,
+        message:
+          input.action === "callback_failure"
+            ? `Pending ${input.detail.order.title} entitlement was revoked after callback failure.`
+            : `Pending ${input.detail.order.title} entitlement was cancelled before activation.`,
+        createdAt,
+        sourceType: "payment",
+        sourceId: input.detail.order.orderId,
+        entitlement: revokedEntitlement,
+      });
+    }
+    return ledgerIds;
+  }
+
+  if (input.action === "refund_paid") {
+    append({
+      subject: "balance",
+      kind: "refund",
+      title: `${input.detail.order.title} refund credited`,
+      message: `Refund for ${input.detail.order.orderId} returned wallet balance.`,
+      createdAt,
+      sourceType: "refund",
+      sourceId: input.detail.order.orderId,
+      balanceDeltaCents: amountCents,
+    });
+    const refundedEntitlement = createAssetLedgerEntitlement(input.detail, "refunded");
+    if (refundedEntitlement) {
+      append({
+        subject: resolveEntitlementLedgerSubject(input.detail),
+        kind: "refund",
+        title: `${input.detail.order.title} refunded`,
+        message: `${input.detail.order.title} entitlement was refunded and revoked.`,
+        createdAt,
+        sourceType: "refund",
+        sourceId: input.detail.order.orderId,
+        ...(planId ? { membershipPlanId: planId } : {}),
+        entitlement: refundedEntitlement,
+      });
+    }
+  }
+
+  return ledgerIds;
 }
 
 function verifyPaymentCallback(input: {
@@ -2213,6 +3721,15 @@ function setAuthRateLimitHeaders(c: Context<{ Bindings: ApiBindings }>, decision
   }
 }
 
+function setRateLimitHeaders(response: Response, decision: AuthRateLimitDecision) {
+  response.headers.set("X-RateLimit-Limit", String(decision.limit));
+  response.headers.set("X-RateLimit-Remaining", String(decision.remaining));
+  response.headers.set("X-RateLimit-Reset", String(decision.resetAt));
+  if (decision.limited) {
+    response.headers.set("Retry-After", String(decision.retryAfterSeconds));
+  }
+}
+
 function logAuthEvent(
   event: "login_rate_limited" | "refresh_rate_limited" | "login_failed" | "refresh_failed",
   detail: Record<string, string | number | undefined>,
@@ -2317,6 +3834,18 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     return createSvgResponse(svg, traceId);
   });
 
+  app.get("/share-posters/:shortCode.svg", (c) => {
+    const traceId = c.get("traceId");
+    const svg = renderSharePosterSvg({
+      title: "MiniX Share Poster",
+      summary: "Open the short link to continue into the attributed share flow.",
+      shortCode: c.req.param("shortCode") ?? "share",
+      channelLabel: "Poster",
+    });
+
+    return createSvgResponse(svg, traceId);
+  });
+
   app.post("/auth/verification-code/request", async (c) => {
     const traceId = c.get("traceId");
     const payload = await parseJsonBody(c.req.raw, phoneVerificationRequestSchema, traceId);
@@ -2325,9 +3854,62 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
 
     const store = getStore(c.env, options.store);
-    const userId = createUserIdFromCredential({ method: "phone_code", phoneNumber: payload.phoneNumber });
+    const clientId = resolveClientId(c.req.raw);
+    let userId = createUserIdFromCredential({ method: "phone_code", phoneNumber: payload.phoneNumber });
+    let platform: LoginPlatformKind = "h5";
+    if (payload.purpose === "account_security") {
+      const accessToken = resolveBearerToken(c.req.header("authorization"));
+      if (accessToken) {
+        const session = await store.getSessionByAccessToken(accessToken);
+        if (session) {
+          userId = session.userId;
+          platform = session.platform;
+        }
+      }
+    }
     const userState = await store.getUserState(userId);
+    const guard = await guardSecurityRateLimit({
+      c,
+      store,
+      userId,
+      userState,
+      action: "verification",
+      scope: "verification",
+      platform,
+      clientId,
+      deviceId: payload.deviceId,
+      traceId,
+      ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
+      ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
+      blockedAction: "verification_rate_limited",
+      blockedMessage: "Too many verification requests. Retry later.",
+      ...(payload.riskContext?.frequencyKey ? { frequencyKey: payload.riskContext.frequencyKey } : {}),
+      ...(payload.riskContext?.scene ? { scene: payload.riskContext.scene } : {}),
+    });
     const now = Date.now();
+    const nowIso = guard.nowIso;
+    const rateLimitState = guard.rateLimitState;
+    const securityDecision = evaluateSecurityDecision({
+      userState,
+      platform,
+      riskContext: payload.riskContext,
+      scope: "verification",
+      ...(payload.deviceId ? { deviceId: payload.deviceId } : {}),
+    });
+    const verificationAuditBase = {
+      userState,
+      scope: "verification" as const,
+      ...(payload.deviceId ? { deviceId: payload.deviceId } : {}),
+      clientId,
+      platform,
+      ...(securityDecision.riskDecision.reason ? { reason: securityDecision.riskDecision.reason } : {}),
+      ...(securityDecision.riskDecision.frequencyKey ? { frequencyKey: securityDecision.riskDecision.frequencyKey } : {}),
+      ...(securityDecision.riskDecision.scene ? { scene: securityDecision.riskDecision.scene } : {}),
+      traceId,
+    };
+    if (!guard.allowed) {
+      return guard.response;
+    }
     const challenge = await createPhoneVerificationChallenge({
       userState,
       phoneNumber: payload.phoneNumber,
@@ -2335,13 +3917,16 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       ...(payload.deviceId ? { deviceId: payload.deviceId } : {}),
       now,
     });
+    appendSecurityAuditEvent({
+      ...verificationAuditBase,
+      action: "verification_code_issued",
+      result: securityDecision.riskDecision.level === "review" ? "review" : "allowed",
+      message: `Verification code issued for ${payload.purpose}.`,
+      createdAt: nowIso,
+    });
     await store.saveUserState(userId, userState);
 
     const maskedTarget = maskPhoneNumber(payload.phoneNumber);
-    const riskDecision = resolveRiskDecision({
-      credentialDeviceId: payload.deviceId,
-      riskContext: payload.riskContext,
-    });
     const response: AuthPhoneVerificationResponse = {
       verificationId: challenge.verificationId,
       phoneNumberMasked: maskedTarget,
@@ -2356,7 +3941,10 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
         debugCode: challenge.code,
         message: "Verification code issued by the built-in simulated SMS provider.",
       },
-      riskDecision,
+      riskDecision: securityDecision.riskDecision,
+      ...(securityDecision.deviceIdentity ? { deviceIdentity: securityDecision.deviceIdentity } : {}),
+      rateLimitState,
+      securityAuditEvents: getRecentSecurityAuditEvents(userState),
     };
 
     return c.json(response);
@@ -2478,15 +4066,36 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     ensureAuthSecurityState(stateStore).oauthStatesByState[state] = {
       provider: payload.provider,
       state,
+      ...(payload.purpose ? { purpose: payload.purpose } : {}),
+      ...(payload.purpose === "bind"
+        ? (() => {
+            const accessToken = resolveBearerToken(c.req.header("authorization"));
+            return accessToken ? { ownerUserId: "__deferred__" } : {};
+          })()
+        : {}),
       expiresAt,
       createdAt: Date.now(),
       ...(payload.deviceId ? { deviceId: payload.deviceId } : {}),
       ...(redirectTarget ? { redirectTarget } : {}),
     };
+    if (payload.purpose === "bind") {
+      const accessToken = resolveBearerToken(c.req.header("authorization"));
+      if (accessToken) {
+        const session = await store.getSessionByAccessToken(accessToken);
+        if (session) {
+          const stateSecurity = ensureAuthSecurityState(stateStore);
+          const pendingState = stateSecurity.oauthStatesByState[state];
+          if (pendingState) {
+            pendingState.ownerUserId = session.userId;
+          }
+        }
+      }
+    }
     await store.saveUserState(stateUserId, stateStore);
 
     const response: AuthOAuthAuthorizeResponse = {
       provider: payload.provider,
+      ...(payload.purpose ? { purpose: payload.purpose } : {}),
       state,
       authorizationUrl: `https://auth.example.test/${providerKey}/authorize?state=${encodeURIComponent(state)}`,
       expiresAt,
@@ -2517,27 +4126,35 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       );
     }
 
-    const userId = `user_oauth_${providerKey}_${sanitizeUserKey(payload.providerUserId)}`;
+    const now = Date.now();
+    const providerSubject = createOAuthSubject(payload.provider, payload.providerUserId);
+    const linked = await loadOAuthCredentialLink(store, payload.provider, payload.providerUserId);
+    const userId =
+      linked.record && linked.record.authorizationStatus !== "unlinked"
+        ? linked.record.userId
+        : `user_oauth_${providerKey}_${sanitizeUserKey(payload.providerUserId)}`;
     const userState = await store.getUserState(userId);
-    ensureAuthSecurityState(userState).oauthCredentialsByProviderSubject[createOAuthSubject(payload.provider, payload.providerUserId)] = {
+    const tokenHash = await hashSecret(payload.providerToken, payload.state);
+    const record = createOAuthCredentialRecord({
       provider: payload.provider,
       providerUserId: payload.providerUserId,
       userId,
-      tokenHash: await hashSecret(payload.providerToken, payload.state),
-      createdAt: Date.now(),
-    };
+      tokenHash,
+      now,
+      ...(linked.record ? { existing: linked.record } : {}),
+    });
+    ensureAuthSecurityState(userState).oauthCredentialsByProviderSubject[providerSubject] = record;
+    ensureAuthSecurityState(linked.indexState).oauthCredentialsByProviderSubject[providerSubject] = record;
     delete ensureAuthSecurityState(stateStore).oauthStatesByState[payload.state];
     await store.saveUserState(stateUserId, stateStore);
+    await store.saveUserState(linked.indexUserId, linked.indexState);
     await store.saveUserState(userId, userState);
 
     const session = await store.createSession({
       platform: payload.platform,
       userId,
       authStatus: "authenticated",
-      identity: {
-        userId,
-        ...(payload.provider.toLowerCase().includes("wechat") ? { wechatBound: true } : {}),
-      },
+      identity: { userId },
       loginMethod: "oauth",
     });
     const redirectTarget = resolveRedirectTarget(payload.redirectTarget ?? stateRecord.redirectTarget);
@@ -2555,33 +4172,6 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
 
     const clientId = resolveClientId(c.req.raw);
-    const rateLimitDecision = await checkAuthRateLimit({
-      action: "login",
-      platform: payload.platform,
-      clientId,
-      env: c.env,
-      ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
-      ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
-    });
-    setAuthRateLimitHeaders(c, rateLimitDecision);
-    if (rateLimitDecision.limited) {
-      logAuthEvent("login_rate_limited", {
-        clientId,
-        platform: payload.platform,
-        retryAfterSeconds: rateLimitDecision.retryAfterSeconds,
-        deployEnv: c.env?.MINIX_DEPLOY_ENV,
-        traceId,
-      });
-      return c.json(
-        {
-          code: "RATE_LIMITED",
-          message: "Too many login attempts. Retry later.",
-          retryAfterSeconds: rateLimitDecision.retryAfterSeconds,
-        },
-        429,
-      );
-    }
-
     const loginMethod = resolveLoginMethod(payload);
 
     if (loginMethod === "wechat_code" && !payload.credential.code && !payload.credential.authCode) {
@@ -2613,10 +4203,64 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
 
     const store = getStore(c.env, options.store);
     let userId = createUserIdFromLogin(payload, loginMethod);
+    let userState = await store.getUserState(userId);
+    const rateLimitGuard = await guardSecurityRateLimit({
+      c,
+      store,
+      userId,
+      userState,
+      action: "login",
+      scope: "auth",
+      platform: payload.platform,
+      clientId,
+      deviceId: payload.credential.deviceId ?? payload.riskContext?.deviceId,
+      traceId,
+      ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
+      ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
+      blockedAction: "login_rate_limited",
+      blockedMessage: "Too many login attempts. Retry later.",
+      ...(payload.riskContext?.frequencyKey ? { frequencyKey: payload.riskContext.frequencyKey } : {}),
+      ...(payload.riskContext?.scene ? { scene: payload.riskContext.scene } : {}),
+    });
+    setAuthRateLimitHeaders(c, {
+      limited: !rateLimitGuard.allowed,
+      limit: rateLimitGuard.rateLimitState.limit,
+      remaining: rateLimitGuard.rateLimitState.remaining,
+      resetAt: rateLimitGuard.rateLimitState.resetAt,
+      retryAfterSeconds: rateLimitGuard.rateLimitState.retryAfterSeconds,
+    });
+    if (!rateLimitGuard.allowed) {
+      logAuthEvent("login_rate_limited", {
+        clientId,
+        platform: payload.platform,
+        retryAfterSeconds: rateLimitGuard.rateLimitState.retryAfterSeconds,
+        deployEnv: c.env?.MINIX_DEPLOY_ENV,
+        traceId,
+      });
+      return rateLimitGuard.response;
+    }
+    const securityDecision = evaluateSecurityDecision({
+      userState,
+      platform: payload.platform,
+      riskContext: payload.riskContext,
+      scope: "auth",
+      ...(payload.credential.deviceId ? { deviceId: payload.credential.deviceId } : {}),
+    });
     let credentialProtection: AuthCredentialProtection | undefined;
+    const loginAuditBase = {
+      userState,
+      scope: "auth" as const,
+      actorUserId: userId,
+      clientId,
+      platform: payload.platform,
+      ...(securityDecision.riskDecision.deviceId ? { deviceId: securityDecision.riskDecision.deviceId } : {}),
+      ...(securityDecision.riskDecision.reason ? { reason: securityDecision.riskDecision.reason } : {}),
+      ...(securityDecision.riskDecision.frequencyKey ? { frequencyKey: securityDecision.riskDecision.frequencyKey } : {}),
+      ...(securityDecision.riskDecision.scene ? { scene: securityDecision.riskDecision.scene } : {}),
+      traceId,
+    };
 
     if (loginMethod === "phone_code") {
-      const userState = await store.getUserState(userId);
       const verified = await consumePhoneVerification({
         userState,
         phoneNumber: payload.credential.phoneNumber!,
@@ -2624,8 +4268,15 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
         verificationCode: payload.credential.verificationCode!,
         now: Date.now(),
       });
-      await store.saveUserState(userId, userState);
       if (!verified.ok) {
+        appendSecurityAuditEvent({
+          ...loginAuditBase,
+          action: "phone_code_login",
+          result: "blocked",
+          message: verified.message,
+          createdAt: new Date().toISOString(),
+        });
+        await store.saveUserState(userId, userState);
         return c.json({ code: "LOGIN_FAILED", message: verified.message, credentialProtection: verified.protection }, verified.status);
       }
     }
@@ -2635,19 +4286,28 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       if (!subject) {
         return jsonError("LOGIN_FAILED", "password login requires an account identifier and password", 400, traceId);
       }
-      const userState = await store.getUserState(userId);
       const verified = await verifyPasswordCredential({
         userState,
         subject,
         password: payload.credential.password!,
         now: Date.now(),
       });
-      await store.saveUserState(userId, userState);
       if (!verified.ok) {
+        appendSecurityAuditEvent({
+          ...loginAuditBase,
+          action: "password_login",
+          result: "blocked",
+          message: verified.message,
+          createdAt: new Date().toISOString(),
+        });
+        await store.saveUserState(userId, userState);
         return c.json({ code: "LOGIN_FAILED", message: verified.message, credentialProtection: verified.protection }, verified.status);
       }
       userId = verified.userId;
       credentialProtection = verified.protection;
+      if (userId !== loginAuditBase.actorUserId) {
+        userState = await store.getUserState(userId);
+      }
     }
 
     if (loginMethod === "oauth") {
@@ -2655,6 +4315,15 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       const stateStore = await store.getUserState(`oauth_state_${providerKey}`);
       const stateRecord = ensureAuthSecurityState(stateStore).oauthStatesByState[payload.credential.oauthState!];
       if (!stateRecord || stateRecord.provider !== payload.credential.provider || stateRecord.expiresAt <= Date.now()) {
+        appendSecurityAuditEvent({
+          ...loginAuditBase,
+          action: "oauth_login",
+          result: "blocked",
+          message: "oauth state is invalid or expired",
+          createdAt: new Date().toISOString(),
+          reason: "oauth_state_invalid",
+        });
+        await store.saveUserState(userId, userState);
         return c.json(
           {
             code: "LOGIN_FAILED",
@@ -2664,20 +4333,28 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
           400,
         );
       }
-      userId = `user_oauth_${providerKey}_${sanitizeUserKey(payload.credential.providerUserId!)}`;
-      const userState = await store.getUserState(userId);
-      ensureAuthSecurityState(userState).oauthCredentialsByProviderSubject[
-        createOAuthSubject(payload.credential.provider!, payload.credential.providerUserId!)
-      ] = {
+      const now = Date.now();
+      const providerSubject = createOAuthSubject(payload.credential.provider!, payload.credential.providerUserId!);
+      const linked = await loadOAuthCredentialLink(store, payload.credential.provider!, payload.credential.providerUserId!);
+      userId =
+        linked.record && linked.record.authorizationStatus !== "unlinked"
+          ? linked.record.userId
+          : `user_oauth_${providerKey}_${sanitizeUserKey(payload.credential.providerUserId!)}`;
+      userState = await store.getUserState(userId);
+      const tokenHash = await hashSecret(payload.credential.providerToken!, payload.credential.oauthState!);
+      const record = createOAuthCredentialRecord({
         provider: payload.credential.provider!,
         providerUserId: payload.credential.providerUserId!,
         userId,
-        tokenHash: await hashSecret(payload.credential.providerToken!, payload.credential.oauthState!),
-        createdAt: Date.now(),
-      };
+        tokenHash,
+        now,
+        ...(linked.record ? { existing: linked.record } : {}),
+      });
+      ensureAuthSecurityState(userState).oauthCredentialsByProviderSubject[providerSubject] = record;
+      ensureAuthSecurityState(linked.indexState).oauthCredentialsByProviderSubject[providerSubject] = record;
       delete ensureAuthSecurityState(stateStore).oauthStatesByState[payload.credential.oauthState!];
       await store.saveUserState(`oauth_state_${providerKey}`, stateStore);
-      await store.saveUserState(userId, userState);
+      await store.saveUserState(linked.indexUserId, linked.indexState);
     }
 
     const session = await store.createSession({
@@ -2688,16 +4365,32 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       loginMethod,
     });
     const redirectTarget = resolveRedirectTarget(payload.redirectTarget);
-    const abnormalLoginPrompt = resolveAbnormalLoginPrompt(payload, loginMethod);
-    const riskDecision = resolveRiskDecision({
-      credentialDeviceId: payload.credential.deviceId,
-      riskContext: payload.riskContext,
+    const abnormalLoginPrompt = securityDecision.prompt ?? resolveAbnormalLoginPrompt(payload, loginMethod);
+    appendSecurityAuditEvent({
+      userState,
+      scope: "auth",
+      action: `${loginMethod}_login`,
+      result: securityDecision.riskDecision.level === "review" ? "review" : "allowed",
+      message: `Login completed through ${loginMethod}.`,
+      createdAt: new Date().toISOString(),
+      actorUserId: userId,
+      ...(securityDecision.riskDecision.deviceId ? { deviceId: securityDecision.riskDecision.deviceId } : {}),
+      clientId,
+      platform: payload.platform,
+      ...(securityDecision.riskDecision.reason ? { reason: securityDecision.riskDecision.reason } : {}),
+      ...(securityDecision.riskDecision.frequencyKey ? { frequencyKey: securityDecision.riskDecision.frequencyKey } : {}),
+      ...(securityDecision.riskDecision.scene ? { scene: securityDecision.riskDecision.scene } : {}),
+      traceId,
     });
+    await store.saveUserState(userId, userState);
     const response: LoginResponse = createAuthResponseFromSession(session, c.req.url, {
       ...(abnormalLoginPrompt ? { abnormalLoginPrompt } : {}),
       ...(credentialProtection ? { credentialProtection } : {}),
       ...(redirectTarget ? { redirectTarget } : {}),
-      riskDecision,
+      ...(securityDecision.deviceIdentity ? { deviceIdentity: securityDecision.deviceIdentity } : {}),
+      rateLimitState: rateLimitGuard.rateLimitState,
+      riskDecision: securityDecision.riskDecision,
+      securityAuditEvents: getRecentSecurityAuditEvents(userState),
     });
 
     return c.json(response);
@@ -2711,34 +4404,41 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
 
     const clientId = resolveClientId(c.req.raw);
-    const rateLimitDecision = await checkAuthRateLimit({
+    const store = getStore(c.env, options.store);
+    const refreshStateKey = `refresh_${sanitizeUserKey(clientId)}`;
+    const refreshUserState = await store.getUserState(refreshStateKey);
+    const refreshGuard = await guardSecurityRateLimit({
+      c,
+      store,
+      userId: refreshStateKey,
+      userState: refreshUserState,
       action: "refresh",
+      scope: "auth",
       platform: payload.platform,
       clientId,
-      env: c.env,
+      traceId,
       ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
       ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
+      blockedAction: "refresh_rate_limited",
+      blockedMessage: "Too many refresh attempts. Retry later.",
     });
-    setAuthRateLimitHeaders(c, rateLimitDecision);
-    if (rateLimitDecision.limited) {
+    setAuthRateLimitHeaders(c, {
+      limited: !refreshGuard.allowed,
+      limit: refreshGuard.rateLimitState.limit,
+      remaining: refreshGuard.rateLimitState.remaining,
+      resetAt: refreshGuard.rateLimitState.resetAt,
+      retryAfterSeconds: refreshGuard.rateLimitState.retryAfterSeconds,
+    });
+    if (!refreshGuard.allowed) {
       logAuthEvent("refresh_rate_limited", {
         clientId,
         platform: payload.platform,
-        retryAfterSeconds: rateLimitDecision.retryAfterSeconds,
+        retryAfterSeconds: refreshGuard.rateLimitState.retryAfterSeconds,
         deployEnv: c.env?.MINIX_DEPLOY_ENV,
         traceId,
       });
-      return c.json(
-        {
-          code: "RATE_LIMITED",
-          message: "Too many refresh attempts. Retry later.",
-          retryAfterSeconds: rateLimitDecision.retryAfterSeconds,
-        },
-        429,
-      );
+      return refreshGuard.response;
     }
-
-    const store = getStore(c.env, options.store);
     const session = await store.refreshSession(payload.platform, payload.refreshToken);
     if (!session) {
       logAuthEvent("refresh_failed", {
@@ -2750,24 +4450,25 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       });
       return jsonError("UNAUTHORIZED", "Refresh token is invalid or expired.", 401, traceId);
     }
+    const userState = await store.getUserState(session.userId);
+    appendSecurityAuditEvent({
+      userState,
+      scope: "auth",
+      action: "refresh_session",
+      result: "allowed",
+      message: "Session refresh completed.",
+      createdAt: new Date().toISOString(),
+      actorUserId: session.userId,
+      clientId,
+      platform: session.platform,
+      traceId,
+    });
+    await store.saveUserState(session.userId, userState);
 
-    const response: RefreshTokenResponse = {
-      userId: session.userId,
-      accessToken: session.accessToken,
-      refreshToken: session.refreshToken,
-      expiresAt: session.expiresAt,
-      profile: resolveProfileMedia(session.profile, c.req.url),
-      session: {
-        accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
-        expiresAt: session.expiresAt,
-        issuedAt: Date.now(),
-        tokenType: "Bearer",
-      },
-      identity: session.identity,
-      authStatus: session.authStatus,
-      ...(session.loginMethod ? { loginMethod: session.loginMethod } : {}),
-    };
+    const response: RefreshTokenResponse = createAuthResponseFromSession(session, c.req.url, {
+      rateLimitState: refreshGuard.rateLimitState,
+      securityAuditEvents: getRecentSecurityAuditEvents(userState),
+    });
 
     return c.json(response);
   });
@@ -3169,6 +4870,238 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     return c.json(response);
   });
 
+  app.post("/auth/identity/bind-oauth", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, identityBindOAuthSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const redirectTarget = resolveRedirectTarget(payload.redirectTarget);
+    const store = getStore(c.env, options.store);
+    const providerKey = sanitizeUserKey(payload.provider.toLowerCase());
+    const stateUserId = `oauth_state_${providerKey}`;
+    const stateStore = await store.getUserState(stateUserId);
+    const stateRecord = ensureAuthSecurityState(stateStore).oauthStatesByState[payload.state];
+    if (!stateRecord || stateRecord.provider !== payload.provider || stateRecord.expiresAt <= Date.now()) {
+      return c.json(
+        {
+          code: "LOGIN_FAILED",
+          message: "oauth state is invalid or expired",
+          credentialProtection: { failureReason: "oauth_state_invalid" },
+        },
+        400,
+      );
+    }
+
+    const linked = await loadOAuthCredentialLink(store, payload.provider, payload.providerUserId);
+    const sourceState = await store.getUserState(session.userId);
+    if (stateRecord.purpose === "bind" && stateRecord.ownerUserId && stateRecord.ownerUserId !== session.userId) {
+      return jsonError("FORBIDDEN", "oauth authorization state belongs to another account session", 403, traceId);
+    }
+    const tokenHash = await hashSecret(payload.providerToken, payload.state);
+    if (linked.record && linked.record.userId !== session.userId && linked.record.authorizationStatus !== "unlinked") {
+      const targetState = await store.getUserState(linked.record.userId);
+      const workflowId = createRandomId("identity_workflow");
+      const targetLabel = `${createOAuthProviderLabel(payload.provider)} account ${linked.record.userId}`;
+      const mergePreview = createMergePreview({
+        sourceUserId: session.userId,
+        targetUserId: linked.record.userId,
+        targetLabel,
+        sourceState,
+        targetState,
+      });
+      const workflow = createIdentityWorkflow({
+        kind: "oauth_binding",
+        status: payload.mergeStrategy === "merge" ? "completed" : "merge_required",
+        workflowId,
+        stage: payload.mergeStrategy === "merge" ? "completed" : "preview",
+        sourceUserId: session.userId,
+        continueTarget: redirectTarget,
+        targetUserId: linked.record.userId,
+        targetLabel,
+        ...(payload.mergeStrategy === "merge" ? {} : { failureReason: "merge_confirmation_required" }),
+        mergePreview,
+        audit: [
+          createIdentityAuditRecord({
+            action: "preview_created",
+            workflowId,
+            actorUserId: session.userId,
+            sourceUserId: session.userId,
+            targetUserId: linked.record.userId,
+            message: "OAuth provider binding merge preview created.",
+          }),
+          createIdentityAuditRecord({
+            action: payload.mergeStrategy === "merge" ? "merge_completed" : "merge_required",
+            workflowId,
+            actorUserId: session.userId,
+            sourceUserId: session.userId,
+            targetUserId: linked.record.userId,
+            message:
+              payload.mergeStrategy === "merge"
+                ? "OAuth provider binding completed through account merge."
+                : "OAuth provider binding requires explicit merge confirmation.",
+          }),
+        ],
+      });
+
+      if (payload.mergeStrategy !== "merge") {
+        sourceState.pendingIdentityWorkflow = workflow;
+        sourceState.lastIdentityWorkflow = workflow;
+        appendSecurityAuditEvent({
+          userState: sourceState,
+          scope: "auth",
+          action: "oauth_bind_merge_required",
+          result: "review",
+          message: `${createOAuthProviderLabel(payload.provider)} is already linked to another account and needs merge confirmation.`,
+          createdAt: new Date().toISOString(),
+          actorUserId: session.userId,
+          platform: session.platform,
+          traceId,
+        });
+        await store.saveUserState(session.userId, sourceState);
+        return c.json(
+          createAuthResponseFromSession(session, c.req.url, {
+            identityWorkflow: workflow,
+            redirectTarget,
+          }),
+        );
+      }
+
+      const nextState = mergeUserStates(targetState, {
+        ...sourceState,
+        lastIdentityWorkflow: workflow,
+      });
+      const record = createOAuthCredentialRecord({
+        provider: payload.provider,
+        providerUserId: payload.providerUserId,
+        userId: linked.record.userId,
+        tokenHash,
+        now: Date.now(),
+        ...(linked.record ? { existing: linked.record } : {}),
+      });
+      ensureAuthSecurityState(nextState).oauthCredentialsByProviderSubject[linked.subject] = record;
+      ensureAuthSecurityState(linked.indexState).oauthCredentialsByProviderSubject[linked.subject] = record;
+      delete nextState.pendingIdentityWorkflow;
+      nextState.lastIdentityWorkflow = workflow;
+      appendSecurityAuditEvent({
+        userState: nextState,
+        scope: "auth",
+        action: "oauth_bind_merge_completed",
+        result: "allowed",
+        message: `${createOAuthProviderLabel(payload.provider)} binding completed through account merge.`,
+        createdAt: new Date().toISOString(),
+        actorUserId: linked.record.userId,
+        platform: session.platform,
+        traceId,
+      });
+      await store.saveUserState(linked.record.userId, nextState);
+      await store.saveUserState(linked.indexUserId, linked.indexState);
+      delete sourceState.pendingIdentityWorkflow;
+      sourceState.lastIdentityWorkflow = workflow;
+      await store.saveUserState(session.userId, sourceState);
+      delete ensureAuthSecurityState(stateStore).oauthStatesByState[payload.state];
+      await store.saveUserState(stateUserId, stateStore);
+      await store.revokeSession({
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+      });
+      const nextSession = await store.createSession({
+        platform: session.platform,
+        userId: linked.record.userId,
+        profile: session.profile,
+        authStatus: "authenticated",
+        identity: {
+          userId: linked.record.userId,
+          ...(session.identity.phoneBound ? { phoneBound: true } : {}),
+          ...(session.identity.realNameVerified !== undefined ? { realNameVerified: session.identity.realNameVerified } : {}),
+        },
+        loginMethod: "oauth",
+      });
+      const response: IdentityTransitionResponse = {
+        ...createAuthResponseFromSession(nextSession, c.req.url, {
+          identityWorkflow: workflow,
+          redirectTarget,
+        }),
+        identityWorkflow: workflow,
+      };
+      return c.json(response);
+    }
+
+    const workflowId = createRandomId("identity_workflow");
+    const workflow = createIdentityWorkflow({
+      kind: "oauth_binding",
+      status: "completed",
+      workflowId,
+      stage: "completed",
+      sourceUserId: session.userId,
+      continueTarget: redirectTarget,
+      targetUserId: session.userId,
+      targetLabel: `${createOAuthProviderLabel(payload.provider)} linked`,
+      audit: [
+        createIdentityAuditRecord({
+          action: "merge_completed",
+          workflowId,
+          actorUserId: session.userId,
+          sourceUserId: session.userId,
+          targetUserId: session.userId,
+          message: "OAuth provider linked to the current account.",
+        }),
+      ],
+    });
+    const record = createOAuthCredentialRecord({
+      provider: payload.provider,
+      providerUserId: payload.providerUserId,
+      userId: session.userId,
+      tokenHash,
+      now: Date.now(),
+      ...(linked.record ? { existing: linked.record } : {}),
+    });
+    ensureAuthSecurityState(sourceState).oauthCredentialsByProviderSubject[linked.subject] = record;
+    ensureAuthSecurityState(linked.indexState).oauthCredentialsByProviderSubject[linked.subject] = record;
+    delete ensureAuthSecurityState(stateStore).oauthStatesByState[payload.state];
+    sourceState.lastIdentityWorkflow = workflow;
+    appendSecurityAuditEvent({
+      userState: sourceState,
+      scope: "auth",
+      action: "oauth_bind",
+      result: "allowed",
+      message: `${createOAuthProviderLabel(payload.provider)} linked to the current account.`,
+      createdAt: new Date().toISOString(),
+      actorUserId: session.userId,
+      platform: session.platform,
+      traceId,
+    });
+    await store.saveUserState(session.userId, sourceState);
+    await store.saveUserState(linked.indexUserId, linked.indexState);
+    await store.saveUserState(stateUserId, stateStore);
+    const nextSession = await store.createSession({
+      platform: session.platform,
+      userId: session.userId,
+      profile: session.profile,
+      authStatus: "authenticated",
+      identity: {
+        userId: session.userId,
+        ...(session.identity.phoneBound ? { phoneBound: true } : {}),
+        ...(session.identity.realNameVerified !== undefined ? { realNameVerified: session.identity.realNameVerified } : {}),
+      },
+      loginMethod: "oauth",
+    });
+    await store.revokeSession({
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+    });
+    const response: IdentityTransitionResponse = {
+      ...createAuthResponseFromSession(nextSession, c.req.url, {
+        identityWorkflow: workflow,
+        redirectTarget,
+      }),
+      identityWorkflow: workflow,
+    };
+    return c.json(response);
+  });
+
   app.post("/auth/identity/merge", async (c) => {
     const traceId = c.get("traceId");
     const payload = await parseJsonBody(c.req.raw, identityMergeSchema, traceId);
@@ -3278,7 +5211,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       targetState,
     });
     const workflow = createIdentityWorkflow({
-      kind: "account_merge",
+      kind: pendingWorkflow.kind === "oauth_binding" ? "oauth_binding" : "account_merge",
       status: "completed",
       workflowId,
       stage: "completed",
@@ -3370,12 +5303,18 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   app.use("/orders/*", requireSession);
   app.use("/payments", requireSession);
   app.use("/payments/*", requireSession);
+  app.use("/subscriptions", requireSession);
+  app.use("/subscriptions/*", requireSession);
+  app.use("/after-sales", requireSession);
+  app.use("/after-sales/*", requireSession);
   app.use("/share", requireSession);
   app.use("/share/*", requireSession);
   app.use("/uploads", requireSession);
   app.use("/uploads/*", requireSession);
   app.use("/reading-progress", requireSession);
   app.use("/settings", requireSession);
+  app.use("/ops", requireSession);
+  app.use("/ops/*", requireSession);
 
   app.get("/me", async (c) => {
     const store = getStore(c.env, options.store);
@@ -3398,6 +5337,84 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
     return c.json(createSettingsResponse(session, userState, c.env?.MINIX_DEPLOY_ENV));
+  });
+
+  app.post("/settings", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, settingsUpdateSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const update = payload as UpdateSettingsRequest;
+    applySettingsUpdate(userState, update, c.env?.MINIX_DEPLOY_ENV);
+    await store.saveUserState(session.userId, userState);
+    return c.json(createSettingsResponse(session, userState, c.env?.MINIX_DEPLOY_ENV));
+  });
+
+  app.get("/ops/diagnostics", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), opsDiagnosticsQuerySchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const operationalState = cloneOperationalState(await store.getOperationalState());
+    const nowIso = new Date().toISOString();
+    ensureOperationalBackfill(operationalState, nowIso);
+    syncOperationalDomainSchemas(operationalState, {
+      userId: session.userId,
+      userState,
+      nowIso,
+    });
+    await store.saveOperationalState(operationalState);
+    return c.json(
+      createOperationalDiagnosticsResponse(userState, operationalState, {
+        ...(query.limit !== undefined ? { limit: query.limit } : {}),
+        ...(query.includeCompletedJobs !== undefined ? { includeCompletedJobs: query.includeCompletedJobs } : {}),
+      }),
+    );
+  });
+
+  app.post("/ops/jobs/run", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, opsRunJobsRequestSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const result = await runOperationalJobs(store, {
+      userId: session.userId,
+      ...(payload.kind ? { kind: payload.kind } : {}),
+      ...(payload.limit !== undefined ? { limit: payload.limit } : {}),
+    });
+    appendOperationalAuditRecord(result.operationalState, {
+      category: "governance",
+      action: "jobs_run_requested",
+      message: `Manual operational job run processed ${result.jobs.length} jobs.`,
+      createdAt: new Date().toISOString(),
+      userId: session.userId,
+      metadata: {
+        processedJobs: result.jobs.length,
+        ...(payload.kind ? { filtered: true, jobKind: payload.kind } : { filtered: false }),
+      },
+    });
+    await store.saveOperationalState(result.operationalState);
+    return c.json({
+      processedJobs: result.jobs,
+      diagnostics: createOperationalDiagnosticsResponse(result.userState, result.operationalState, {
+        limit: Math.max(payload.limit ?? 20, result.jobs.length || 1),
+        includeCompletedJobs: true,
+      }),
+    });
   });
 
   app.post("/account/profile", async (c) => {
@@ -3432,16 +5449,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       });
     }
     await store.saveUserState(session.userId, userState);
-
-    const next = createCurrentUserResponse(session, userState, c.req.url);
-    const response: AccountOperationResponse = {
-      userProfile: next.userProfile,
-      accountSummary: next.accountSummary,
-      userStatus: next.userStatus,
-      accountOperations: next.accountOperations,
-      transitionMessage: "Profile updated.",
-    };
-    return c.json(response);
+    return c.json(createAccountOperationResponse(session, userState, c.req.url, "Profile updated."));
   });
 
   app.post("/account/change-phone", async (c) => {
@@ -3453,6 +5461,79 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
 
     const session = c.get("session");
     const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const clientId = resolveClientId(c.req.raw);
+    const deviceId = resolveRequestDeviceId(c);
+    const rateLimitGuard = await guardSecurityRateLimit({
+      c,
+      store,
+      userId: session.userId,
+      userState,
+      action: "account",
+      scope: "account",
+      platform: session.platform,
+      clientId,
+      deviceId,
+      actorUserId: session.userId,
+      traceId,
+      ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
+      ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
+      blockedAction: "change_phone_rate_limited",
+      blockedMessage: "Too many sensitive account operations. Retry later.",
+    });
+    if (!rateLimitGuard.allowed) {
+      return rateLimitGuard.response;
+    }
+    const current = createCurrentUserResponse(session, userState, c.req.url);
+    const operation = current.accountOperations.find((item) => item.kind === "change_phone");
+    if (!operation?.available) {
+      const response = createOperationBlockedResponse({
+        userState,
+        kind: "change_phone",
+        actorLabel: "MiniX Account Center",
+        message: operation?.blockedReason ?? "Phone binding changes are unavailable.",
+        session,
+        requestUrl: c.req.url,
+        traceId,
+        clientId,
+        ...(deviceId ? { deviceId } : {}),
+      });
+      await store.saveUserState(session.userId, userState);
+      return c.json(response, 409);
+    }
+
+    if (operation.riskPrompt && !payload.riskConfirmed) {
+      return jsonError("INVALID_ARGUMENT", "Phone change requires explicit risk confirmation.", 400, traceId);
+    }
+
+    const currentSecurityPhone = resolveAccountSecurityPhoneNumber(session, userState);
+    if (operation.verificationRequired) {
+      if (!currentSecurityPhone) {
+        return jsonError("FORBIDDEN", "Phone change requires an existing verified phone security credential.", 409, traceId);
+      }
+      if (!payload.securityVerificationCode) {
+        return jsonError("INVALID_ARGUMENT", "Phone change requires the current phone security verification code.", 400, traceId);
+      }
+      const verifiedCurrentCredential = await consumePhoneVerification({
+        userState,
+        phoneNumber: currentSecurityPhone,
+        purpose: "account_security",
+        verificationCode: payload.securityVerificationCode,
+        now: Date.now(),
+      });
+      if (!verifiedCurrentCredential.ok) {
+        await store.saveUserState(session.userId, userState);
+        return c.json(
+          {
+            code: "INVALID_ARGUMENT",
+            message: verifiedCurrentCredential.message,
+            credentialProtection: verifiedCurrentCredential.protection,
+          },
+          verifiedCurrentCredential.status,
+        );
+      }
+    }
+
     const targetUserId = createUserIdFromCredential({ method: "phone_code", phoneNumber: payload.phoneNumber });
     const targetState = await store.getUserState(targetUserId);
     const verified = await consumePhoneVerification({
@@ -3464,28 +5545,39 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     });
     await store.saveUserState(targetUserId, targetState);
     if (!verified.ok) {
+      await store.saveUserState(session.userId, userState);
       return c.json({ code: "INVALID_ARGUMENT", message: verified.message, credentialProtection: verified.protection }, verified.status);
     }
 
-    const userState = await store.getUserState(session.userId);
-    const current = createCurrentUserResponse(session, userState, c.req.url);
-    const operation = current.accountOperations.find((item) => item.kind === "change_phone");
-    if (!operation?.available) {
-      return jsonError("FORBIDDEN", operation?.blockedReason ?? "Phone binding changes are unavailable.", 409, traceId);
-    }
-
     userState.boundPhoneNumber = payload.phoneNumber;
+    setAccountOperationCooldown(userState, {
+      kind: "change_phone",
+      label: "Phone changes are temporarily locked while the new credential propagates.",
+      durationMs:  ACCOUNT_OPERATION_COOLDOWN_MS,
+    });
+    const operationRecord = appendAccountOperationRecord(userState, {
+      kind: "change_phone",
+      status: "completed",
+      actorLabel: "MiniX Account Center",
+      message: `Bound phone updated to ${maskPhoneNumber(payload.phoneNumber)}.`,
+      verificationPurpose: currentSecurityPhone ? "account_security" : "change_phone",
+      notificationHookLabel: "notify:phone_changed",
+    });
+    appendSecurityAuditEvent({
+      userState,
+      scope: "account",
+      action: "change_phone",
+      result: "allowed",
+      message: "Bound phone updated after security verification.",
+      createdAt: new Date().toISOString(),
+      actorUserId: session.userId,
+      ...(deviceId ? { deviceId } : {}),
+      clientId,
+      platform: session.platform,
+      traceId,
+    });
     await store.saveUserState(session.userId, userState);
-
-    const next = createCurrentUserResponse(session, userState, c.req.url);
-    const response: AccountOperationResponse = {
-      userProfile: next.userProfile,
-      accountSummary: next.accountSummary,
-      userStatus: next.userStatus,
-      accountOperations: next.accountOperations,
-      transitionMessage: "Phone binding updated.",
-    };
-    return c.json(response);
+    return c.json(createAccountOperationResponse(session, userState, c.req.url, "Phone binding updated.", operationRecord));
   });
 
   app.post("/account/unbind", async (c) => {
@@ -3498,26 +5590,357 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const session = c.get("session");
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
+    const clientId = resolveClientId(c.req.raw);
+    const deviceId = resolveRequestDeviceId(c);
+    const rateLimitGuard = await guardSecurityRateLimit({
+      c,
+      store,
+      userId: session.userId,
+      userState,
+      action: "account",
+      scope: "account",
+      platform: session.platform,
+      clientId,
+      deviceId,
+      actorUserId: session.userId,
+      traceId,
+      ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
+      ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
+      blockedAction: "unbind_wechat_rate_limited",
+      blockedMessage: "Too many sensitive account operations. Retry later.",
+    });
+    if (!rateLimitGuard.allowed) {
+      return rateLimitGuard.response;
+    }
     const current = createCurrentUserResponse(session, userState, c.req.url);
     const operation = current.accountOperations.find((item) => item.kind === "unbind_wechat");
     if (!operation?.available) {
-      return jsonError("FORBIDDEN", operation?.blockedReason ?? "WeChat unbinding is unavailable.", 409, traceId);
+      const response = createOperationBlockedResponse({
+        userState,
+        kind: "unbind_wechat",
+        actorLabel: "MiniX Account Center",
+        message: operation?.blockedReason ?? "WeChat unbinding is unavailable.",
+        session,
+        requestUrl: c.req.url,
+        traceId,
+        clientId,
+        ...(deviceId ? { deviceId } : {}),
+      });
+      await store.saveUserState(session.userId, userState);
+      return c.json(response, 409);
+    }
+
+    if (!payload.riskConfirmed) {
+      return jsonError("INVALID_ARGUMENT", "WeChat unbinding requires explicit risk confirmation.", 400, traceId);
+    }
+
+    if (payload.provider !== "wechat") {
+      return jsonError("INVALID_ARGUMENT", "Non-WeChat providers must use the provider unlink route.", 400, traceId);
+    }
+
+    const securityPhone = resolveAccountSecurityPhoneNumber(session, userState);
+    if (!securityPhone) {
+      return jsonError("FORBIDDEN", "WeChat unbinding requires a verified phone security credential.", 409, traceId);
+    }
+    if (!payload.verificationCode) {
+      return jsonError("INVALID_ARGUMENT", "WeChat unbinding requires a security verification code.", 400, traceId);
+    }
+    const verified = await consumePhoneVerification({
+      userState,
+      phoneNumber: securityPhone,
+      purpose: "account_security",
+      verificationCode: payload.verificationCode,
+      now: Date.now(),
+    });
+    if (!verified.ok) {
+      await store.saveUserState(session.userId, userState);
+      return c.json({ code: "INVALID_ARGUMENT", message: verified.message, credentialProtection: verified.protection }, verified.status);
     }
 
     if (payload.provider === "wechat") {
       userState.wechatBoundOverride = false;
     }
+    setAccountOperationCooldown(userState, {
+      kind: "unbind_wechat",
+      label: "WeChat binding changes are temporarily locked while device sign-in state settles.",
+      durationMs: ACCOUNT_OPERATION_COOLDOWN_MS,
+    });
+    const operationRecord = appendAccountOperationRecord(userState, {
+      kind: "unbind_wechat",
+      status: "completed",
+      actorLabel: "MiniX Account Center",
+      message: "WeChat binding removed after fallback credential verification.",
+      verificationPurpose: "account_security",
+      notificationHookLabel: "notify:wechat_unbound",
+    });
+    appendSecurityAuditEvent({
+      userState,
+      scope: "account",
+      action: "unbind_wechat",
+      result: "allowed",
+      message: "WeChat binding removed after fallback credential verification.",
+      createdAt: new Date().toISOString(),
+      actorUserId: session.userId,
+      ...(deviceId ? { deviceId } : {}),
+      clientId,
+      platform: session.platform,
+      traceId,
+    });
     await store.saveUserState(session.userId, userState);
+    return c.json(createAccountOperationResponse(session, userState, c.req.url, "WeChat binding removed.", operationRecord));
+  });
 
-    const next = createCurrentUserResponse(session, userState, c.req.url);
-    const response: AccountOperationResponse = {
-      userProfile: next.userProfile,
-      accountSummary: next.accountSummary,
-      userStatus: next.userStatus,
-      accountOperations: next.accountOperations,
-      transitionMessage: "WeChat binding removed.",
-    };
-    return c.json(response);
+  app.post("/account/provider/unlink", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, accountUnbindSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const clientId = resolveClientId(c.req.raw);
+    const deviceId = resolveRequestDeviceId(c);
+    const rateLimitGuard = await guardSecurityRateLimit({
+      c,
+      store,
+      userId: session.userId,
+      userState,
+      action: "account",
+      scope: "account",
+      platform: session.platform,
+      clientId,
+      deviceId,
+      actorUserId: session.userId,
+      traceId,
+      ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
+      ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
+      blockedAction: "unlink_provider_rate_limited",
+      blockedMessage: "Too many sensitive account operations. Retry later.",
+    });
+    if (!rateLimitGuard.allowed) {
+      return rateLimitGuard.response;
+    }
+
+    if (payload.provider === "wechat") {
+      return jsonError("INVALID_ARGUMENT", "Native WeChat binding must use /account/unbind.", 400, traceId);
+    }
+    if (!payload.providerUserId) {
+      return jsonError("INVALID_ARGUMENT", "Provider unlink requires providerUserId.", 400, traceId);
+    }
+
+    const linked = await loadOAuthCredentialLink(store, payload.provider, payload.providerUserId);
+    if (!linked.record || linked.record.userId !== session.userId || linked.record.authorizationStatus === "unlinked") {
+      return jsonError("NOT_FOUND", "Provider identity is not linked to the current account.", 404, traceId);
+    }
+
+    const providerLabel = createOAuthProviderLabel(payload.provider);
+    const canUnlink = hasFallbackCredential(session, userState, {
+      excludingProvider: {
+        provider: payload.provider,
+        providerUserId: payload.providerUserId,
+      },
+    });
+    if (!canUnlink) {
+      const response = createOperationBlockedResponse({
+        userState,
+        kind: "unlink_provider",
+        actorLabel: "MiniX Account Center",
+        message: `${providerLabel} cannot be unlinked because it is the last usable login method.`,
+        session,
+        requestUrl: c.req.url,
+        traceId,
+        clientId,
+        ...(deviceId ? { deviceId } : {}),
+      });
+      await store.saveUserState(session.userId, userState);
+      return c.json(response, 409);
+    }
+
+    if (!payload.riskConfirmed) {
+      return jsonError("INVALID_ARGUMENT", `${providerLabel} unlink requires explicit risk confirmation.`, 400, traceId);
+    }
+    const securityPhone = resolveAccountSecurityPhoneNumber(session, userState);
+    if (!securityPhone) {
+      return jsonError("FORBIDDEN", `${providerLabel} unlink requires a verified phone security credential.`, 409, traceId);
+    }
+    if (!payload.verificationCode) {
+      return jsonError("INVALID_ARGUMENT", `${providerLabel} unlink requires a security verification code.`, 400, traceId);
+    }
+    const verified = await consumePhoneVerification({
+      userState,
+      phoneNumber: securityPhone,
+      purpose: "account_security",
+      verificationCode: payload.verificationCode,
+      now: Date.now(),
+    });
+    if (!verified.ok) {
+      await store.saveUserState(session.userId, userState);
+      return c.json({ code: "INVALID_ARGUMENT", message: verified.message, credentialProtection: verified.protection }, verified.status);
+    }
+
+    const nextRecord = createOAuthCredentialRecord({
+      provider: payload.provider,
+      providerUserId: payload.providerUserId,
+      userId: session.userId,
+      tokenHash: linked.record.tokenHash,
+      now: Date.now(),
+      authorizationStatus: "unlinked",
+      revocationReason: "user_unlinked",
+      ...(linked.record ? { existing: linked.record } : {}),
+    });
+    ensureAuthSecurityState(userState).oauthCredentialsByProviderSubject[linked.subject] = nextRecord;
+    ensureAuthSecurityState(linked.indexState).oauthCredentialsByProviderSubject[linked.subject] = nextRecord;
+    const operationRecord = appendAccountOperationRecord(userState, {
+      kind: "unlink_provider",
+      status: "completed",
+      actorLabel: "MiniX Account Center",
+      message: `${providerLabel} was unlinked after fallback credential verification.`,
+      verificationPurpose: "account_security",
+      notificationHookLabel: "notify:provider_unlinked",
+    });
+    appendSecurityAuditEvent({
+      userState,
+      scope: "account",
+      action: "unlink_provider",
+      result: "allowed",
+      message: `${providerLabel} was unlinked from the current account.`,
+      createdAt: new Date().toISOString(),
+      actorUserId: session.userId,
+      ...(deviceId ? { deviceId } : {}),
+      clientId,
+      platform: session.platform,
+      traceId,
+    });
+    await store.saveUserState(session.userId, userState);
+    await store.saveUserState(linked.indexUserId, linked.indexState);
+    return c.json(createAccountOperationResponse(session, userState, c.req.url, `${providerLabel} unlinked.`, operationRecord));
+  });
+
+  app.post("/account/provider/revoke", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, accountProviderRevokeSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const clientId = resolveClientId(c.req.raw);
+    const deviceId = resolveRequestDeviceId(c);
+    const rateLimitGuard = await guardSecurityRateLimit({
+      c,
+      store,
+      userId: session.userId,
+      userState,
+      action: "account",
+      scope: "account",
+      platform: session.platform,
+      clientId,
+      deviceId,
+      actorUserId: session.userId,
+      traceId,
+      ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
+      ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
+      blockedAction: "revoke_provider_rate_limited",
+      blockedMessage: "Too many sensitive account operations. Retry later.",
+    });
+    if (!rateLimitGuard.allowed) {
+      return rateLimitGuard.response;
+    }
+
+    const linked = await loadOAuthCredentialLink(store, payload.provider, payload.providerUserId);
+    if (!linked.record || linked.record.userId !== session.userId || linked.record.authorizationStatus === "unlinked") {
+      return jsonError("NOT_FOUND", "Provider identity is not linked to the current account.", 404, traceId);
+    }
+
+    const providerLabel = createOAuthProviderLabel(payload.provider);
+    const active = (linked.record.authorizationStatus ?? "active") === "active";
+    if (!active) {
+      return jsonError("INVALID_ARGUMENT", `${providerLabel} authorization is already inactive.`, 409, traceId);
+    }
+    const canRevoke = hasFallbackCredential(session, userState, {
+      excludingProvider: {
+        provider: payload.provider,
+        providerUserId: payload.providerUserId,
+      },
+    });
+    if (!canRevoke) {
+      const response = createOperationBlockedResponse({
+        userState,
+        kind: "revoke_provider",
+        actorLabel: "MiniX Account Center",
+        message: `${providerLabel} cannot be revoked because it is the last usable login method.`,
+        session,
+        requestUrl: c.req.url,
+        traceId,
+        clientId,
+        ...(deviceId ? { deviceId } : {}),
+      });
+      await store.saveUserState(session.userId, userState);
+      return c.json(response, 409);
+    }
+
+    if (!payload.riskConfirmed) {
+      return jsonError("INVALID_ARGUMENT", `${providerLabel} revoke requires explicit risk confirmation.`, 400, traceId);
+    }
+    const securityPhone = resolveAccountSecurityPhoneNumber(session, userState);
+    if (!securityPhone) {
+      return jsonError("FORBIDDEN", `${providerLabel} revoke requires a verified phone security credential.`, 409, traceId);
+    }
+    if (!payload.verificationCode) {
+      return jsonError("INVALID_ARGUMENT", `${providerLabel} revoke requires a security verification code.`, 400, traceId);
+    }
+    const verified = await consumePhoneVerification({
+      userState,
+      phoneNumber: securityPhone,
+      purpose: "account_security",
+      verificationCode: payload.verificationCode,
+      now: Date.now(),
+    });
+    if (!verified.ok) {
+      await store.saveUserState(session.userId, userState);
+      return c.json({ code: "INVALID_ARGUMENT", message: verified.message, credentialProtection: verified.protection }, verified.status);
+    }
+
+    const nextRecord = createOAuthCredentialRecord({
+      provider: payload.provider,
+      providerUserId: payload.providerUserId,
+      userId: session.userId,
+      tokenHash: linked.record.tokenHash,
+      now: Date.now(),
+      authorizationStatus: "revoked",
+      revocationReason: payload.reason?.trim() || "user_revoked",
+      ...(linked.record ? { existing: linked.record } : {}),
+    });
+    ensureAuthSecurityState(userState).oauthCredentialsByProviderSubject[linked.subject] = nextRecord;
+    ensureAuthSecurityState(linked.indexState).oauthCredentialsByProviderSubject[linked.subject] = nextRecord;
+    const operationRecord = appendAccountOperationRecord(userState, {
+      kind: "revoke_provider",
+      status: "completed",
+      actorLabel: "MiniX Account Center",
+      message: `${providerLabel} authorization was revoked for this account.`,
+      verificationPurpose: "account_security",
+      notificationHookLabel: "notify:provider_revoked",
+    });
+    appendSecurityAuditEvent({
+      userState,
+      scope: "account",
+      action: "revoke_provider",
+      result: "allowed",
+      message: `${providerLabel} authorization was revoked.`,
+      createdAt: new Date().toISOString(),
+      actorUserId: session.userId,
+      ...(deviceId ? { deviceId } : {}),
+      clientId,
+      platform: session.platform,
+      traceId,
+    });
+    await store.saveUserState(session.userId, userState);
+    await store.saveUserState(linked.indexUserId, linked.indexState);
+    return c.json(createAccountOperationResponse(session, userState, c.req.url, `${providerLabel} authorization revoked.`, operationRecord));
   });
 
   app.post("/account/cancellation", async (c) => {
@@ -3530,25 +5953,219 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const session = c.get("session");
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
+    const clientId = resolveClientId(c.req.raw);
+    const deviceId = resolveRequestDeviceId(c);
+    const rateLimitGuard = await guardSecurityRateLimit({
+      c,
+      store,
+      userId: session.userId,
+      userState,
+      action: "account",
+      scope: "account",
+      platform: session.platform,
+      clientId,
+      deviceId,
+      actorUserId: session.userId,
+      traceId,
+      ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
+      ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
+      blockedAction: "cancellation_rate_limited",
+      blockedMessage: "Too many sensitive account operations. Retry later.",
+    });
+    if (!rateLimitGuard.allowed) {
+      return rateLimitGuard.response;
+    }
     const current = createCurrentUserResponse(session, userState, c.req.url);
+    const action = payload.action ?? "request";
+
+    if (action === "revoke") {
+      const operation = current.accountOperations.find((item) => item.kind === "revoke_cancellation");
+      if (!operation?.available) {
+        const response = createOperationBlockedResponse({
+          userState,
+          kind: "revoke_cancellation",
+          actorLabel: "MiniX Account Center",
+          message: operation?.blockedReason ?? "Cancellation revoke is unavailable.",
+          session,
+          requestUrl: c.req.url,
+          traceId,
+          clientId,
+          ...(deviceId ? { deviceId } : {}),
+        });
+        await store.saveUserState(session.userId, userState);
+        return c.json(response, 409);
+      }
+
+      userState.availabilityStatus = "enabled";
+      delete userState.pendingCancellation;
+      clearAccountOperationCooldown(userState, "request_cancellation");
+      const operationRecord = appendAccountOperationRecord(userState, {
+        kind: "revoke_cancellation",
+        status: "revoked",
+        actorLabel: "MiniX Account Center",
+        message: "Cancellation request revoked during the cooling-off window.",
+        notificationHookLabel: "notify:cancellation_revoked",
+      });
+      appendSecurityAuditEvent({
+        userState,
+        scope: "account",
+        action: "revoke_cancellation",
+        result: "allowed",
+        message: "Cancellation request revoked during the cooling-off window.",
+        createdAt: new Date().toISOString(),
+        actorUserId: session.userId,
+        ...(deviceId ? { deviceId } : {}),
+        clientId,
+        platform: session.platform,
+        traceId,
+      });
+      await store.saveUserState(session.userId, userState);
+      return c.json(
+        createAccountOperationResponse(
+          session,
+          userState,
+          c.req.url,
+          "Cancellation request revoked.",
+          operationRecord,
+        ),
+      );
+    }
+
     const operation = current.accountOperations.find((item) => item.kind === "request_cancellation");
     if (!operation?.available) {
-      return jsonError("FORBIDDEN", operation?.blockedReason ?? "Cancellation is unavailable.", 409, traceId);
+      const response = createOperationBlockedResponse({
+        userState,
+        kind: "request_cancellation",
+        actorLabel: "MiniX Account Center",
+        message: operation?.blockedReason ?? "Cancellation is unavailable.",
+        session,
+        requestUrl: c.req.url,
+        traceId,
+        clientId,
+        ...(deviceId ? { deviceId } : {}),
+      });
+      await store.saveUserState(session.userId, userState);
+      return c.json(response, 409);
     }
 
-    if (payload.confirm) {
-      userState.availabilityStatus = "cancellation_pending";
+    if (!payload.riskConfirmed) {
+      return jsonError("INVALID_ARGUMENT", "Cancellation requires explicit risk confirmation.", 400, traceId);
     }
-    await store.saveUserState(session.userId, userState);
+    const securityPhone = resolveAccountSecurityPhoneNumber(session, userState);
+    if (!securityPhone) {
+      return jsonError("FORBIDDEN", "Cancellation requires a verified phone security credential.", 409, traceId);
+    }
+    if (!payload.verificationCode) {
+      return jsonError("INVALID_ARGUMENT", "Cancellation requires a security verification code.", 400, traceId);
+    }
+    const verified = await consumePhoneVerification({
+      userState,
+      phoneNumber: securityPhone,
+      purpose: "account_security",
+      verificationCode: payload.verificationCode,
+      now: Date.now(),
+    });
+    if (!verified.ok) {
+      await store.saveUserState(session.userId, userState);
+      return c.json({ code: "INVALID_ARGUMENT", message: verified.message, credentialProtection: verified.protection }, verified.status);
+    }
 
-    const next = createCurrentUserResponse(session, userState, c.req.url);
-    const response: AccountOperationResponse = {
-      userProfile: next.userProfile,
-      accountSummary: next.accountSummary,
-      userStatus: next.userStatus,
-      accountOperations: next.accountOperations,
-      transitionMessage: "Cancellation request submitted.",
+    const requestedAt = new Date().toISOString();
+    const effectiveAt = new Date(Date.now() + ACCOUNT_CANCELLATION_COOLING_OFF_MS).toISOString();
+    userState.availabilityStatus = "cancellation_pending";
+    userState.pendingCancellation = {
+      requestedAt,
+      effectiveAt,
+      revokeUntil: effectiveAt,
+      ...(payload.reason ? { reason: payload.reason } : {}),
+      ...(payload.details ? { details: payload.details } : {}),
     };
+    setAccountOperationCooldown(userState, {
+      kind: "request_cancellation",
+      label: "Cancellation is in the cooling-off window and can still be revoked.",
+      durationMs: ACCOUNT_CANCELLATION_COOLING_OFF_MS,
+    });
+    const operationRecord = appendAccountOperationRecord(userState, {
+      kind: "request_cancellation",
+      status: "pending",
+      actorLabel: "MiniX Account Center",
+      message: `Cancellation requested and revocable until ${effectiveAt}.`,
+      verificationPurpose: "account_security",
+      notificationHookLabel: "notify:cancellation_requested",
+    });
+    appendSecurityAuditEvent({
+      userState,
+      scope: "account",
+      action: "request_cancellation",
+      result: "review",
+      message: "Cancellation request entered the cooling-off window.",
+      createdAt: new Date().toISOString(),
+      actorUserId: session.userId,
+      ...(deviceId ? { deviceId } : {}),
+      clientId,
+      platform: session.platform,
+      traceId,
+    });
+    await scheduleOperationalJobForUser(store, {
+      userId: session.userId,
+      userState,
+      kind: "cancellation_expiry",
+      dedupeKey: `cancellation_expiry:${session.userId}`,
+      relatedRecordId: session.userId,
+      scheduledAt: effectiveAt,
+      maxAttempts: 1,
+    });
+    await store.saveUserState(session.userId, userState);
+    return c.json(
+      createAccountOperationResponse(
+        session,
+        userState,
+        c.req.url,
+        "Cancellation request submitted.",
+        operationRecord,
+      ),
+    );
+  });
+
+  app.get("/account/relations/list", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), relationListQuerySchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const current = createCurrentUserResponse(session, userState, c.req.url);
+    const response: UserRelationListResponse = {
+      accountSummary: current.accountSummary,
+      userStatus: current.userStatus,
+      relationList: listUserRelations(userState, current.userStatus.availability, {
+        kind: query.kind,
+        ...(query.page ? { page: query.page } : {}),
+        ...(query.pageSize ? { pageSize: query.pageSize } : {}),
+        ...(query.keyword ? { keyword: query.keyword } : {}),
+      }),
+    };
+    return c.json(response);
+  });
+
+  app.get("/account/assets/history", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), assetHistoryQuerySchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const response: UserAssetHistoryResponse = listUserAssetHistory(session, userState, {
+      ...(query.page ? { page: query.page } : {}),
+      ...(query.pageSize ? { pageSize: query.pageSize } : {}),
+      ...(query.subject ? { subject: query.subject } : {}),
+    } satisfies ListUserAssetHistoryRequest);
     return c.json(response);
   });
 
@@ -3563,8 +6180,16 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
     const current = createCurrentUserResponse(session, userState, c.req.url);
-    const target = current.relationTargets.find((item) => item.targetUserId === payload.targetUserId);
-    if (!target || !userState.relationTarget || userState.relationTarget.targetUserId !== payload.targetUserId) {
+    const relationRecord = userState.relationRecordsByUserId?.[payload.targetUserId];
+    const target =
+      current.relationTargets.find((item) => item.targetUserId === payload.targetUserId) ??
+      listUserRelations(userState, current.userStatus.availability, {
+        kind: payload.listKind ?? "following",
+        page: 1,
+        pageSize: 100,
+        ...(payload.keyword ? { keyword: payload.keyword } : {}),
+      }).items.find((item) => item.targetUserId === payload.targetUserId);
+    if (!target || !relationRecord) {
       return jsonError("NOT_FOUND", "Relation target not found.", 404, traceId);
     }
 
@@ -3575,29 +6200,46 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
 
     switch (payload.action) {
       case "follow":
-        userState.relationTarget.following = true;
+        relationRecord.following = true;
+        relationRecord.friend = relationRecord.followedBy;
+        relationRecord.friendState = relationRecord.followedBy ? "mutual" : "outgoing_request";
         break;
       case "unfollow":
-        userState.relationTarget.following = false;
-        userState.relationTarget.friend = false;
+        relationRecord.following = false;
+        relationRecord.friend = false;
+        relationRecord.friendState = relationRecord.followedBy ? "incoming_request" : "none";
         break;
       case "block":
-        userState.relationTarget.blocked = true;
-        userState.relationTarget.following = false;
-        userState.relationTarget.friend = false;
+        relationRecord.blocked = true;
+        relationRecord.following = false;
+        relationRecord.friend = false;
+        relationRecord.friendState = "none";
         break;
       case "unblock":
-        userState.relationTarget.blocked = false;
+        relationRecord.blocked = false;
         break;
       case "set_remark":
         if (!payload.remarkName) {
           return jsonError("INVALID_ARGUMENT", "remark name is required when setting a remark", 400, traceId);
         }
-        userState.relationTarget.remarkName = payload.remarkName;
+        relationRecord.remarkName = payload.remarkName;
         break;
       case "clear_remark":
-        delete userState.relationTarget.remarkName;
+        delete relationRecord.remarkName;
         break;
+    }
+
+    relationRecord.lastInteractionAt = new Date().toISOString();
+    if (userState.relationTarget?.targetUserId === relationRecord.targetUserId) {
+      userState.relationTarget = {
+        ...userState.relationTarget,
+        following: relationRecord.following,
+        followedBy: relationRecord.followedBy,
+        friend: relationRecord.friend,
+        ...(relationRecord.friendState ? { friendState: relationRecord.friendState } : {}),
+        blocked: relationRecord.blocked,
+        ...(relationRecord.remarkName ? { remarkName: relationRecord.remarkName } : {}),
+      };
     }
 
     await store.saveUserState(session.userId, userState);
@@ -3606,6 +6248,16 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       accountSummary: next.accountSummary,
       userStatus: next.userStatus,
       relationTargets: next.relationTargets,
+      ...(payload.listKind
+        ? {
+            relationList: listUserRelations(userState, next.userStatus.availability, {
+              kind: payload.listKind,
+              ...(payload.page ? { page: payload.page } : {}),
+              ...(payload.pageSize ? { pageSize: payload.pageSize } : {}),
+              ...(payload.keyword ? { keyword: payload.keyword } : {}),
+            }),
+          }
+        : {}),
       transitionMessage:
         payload.action === "follow"
           ? "Followed relation target."
@@ -3653,12 +6305,71 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const session = c.get("session");
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
-    const response = getManagedContentDetail(query.contentId, userState);
+    const response = getManagedContentDetail(
+      {
+        contentId: query.contentId,
+        ...(query.actorRole ? { actorRole: query.actorRole as ContentActorRole } : {}),
+      },
+      userState,
+    );
     if (!response) {
       return jsonError("NOT_FOUND", "Managed content not found.", 404, c.get("traceId"));
     }
 
     return c.json(response satisfies ContentDetailResponse);
+  });
+
+  app.get("/content/review-queue", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), contentReviewQueueQuerySchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const request: ListContentReviewQueueRequest = {
+      ...(query.page !== undefined ? { page: query.page } : {}),
+      ...(query.pageSize !== undefined ? { pageSize: query.pageSize } : {}),
+      ...(query.state !== undefined ? { state: query.state } : {}),
+      ...(query.actorRole !== undefined ? { actorRole: query.actorRole } : {}),
+    };
+    return c.json(listManagedContentReviewQueue(userState, request) satisfies ContentReviewQueueResponse);
+  });
+
+  app.post("/content/save-draft", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, contentDraftSaveSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const request: SaveContentDraftRequest = {
+      model: payload.model,
+      title: payload.title,
+      summary: payload.summary,
+      visibility: payload.visibility,
+      categoryKey: payload.categoryKey,
+      categoryLabel: payload.categoryLabel,
+      tags: payload.tags,
+      ...(payload.contentId ? { contentId: payload.contentId } : {}),
+      ...(payload.subtitle ? { subtitle: payload.subtitle } : {}),
+      ...(payload.bodyPreview ? { bodyPreview: payload.bodyPreview } : {}),
+      ...(payload.coverAssetId ? { coverAssetId: payload.coverAssetId } : {}),
+      ...(payload.attachmentAssetIds ? { attachmentAssetIds: payload.attachmentAssetIds } : {}),
+      ...(payload.actorRole ? { actorRole: payload.actorRole } : {}),
+    };
+    const response = saveManagedContentDraft(userState, request);
+    if (!response.ok) {
+      return jsonError(response.code, response.message, response.code === "FORBIDDEN" ? 403 : 404, traceId);
+    }
+
+    await store.saveUserState(session.userId, userState);
+    return c.json(response.value satisfies SaveContentDraftResponse);
   });
 
   app.post("/content/lifecycle", async (c) => {
@@ -3676,13 +6387,14 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       action: payload.action,
       ...(payload.visibility ? { visibility: payload.visibility } : {}),
       ...(payload.reviewMessage ? { reviewMessage: payload.reviewMessage } : {}),
+      ...(payload.actorRole ? { actorRole: payload.actorRole } : {}),
     });
-    if (!response) {
-      return jsonError("NOT_FOUND", "Managed content not found.", 404, traceId);
+    if (!response.ok) {
+      return jsonError(response.code, response.message, response.code === "FORBIDDEN" ? 403 : 404, traceId);
     }
 
     await store.saveUserState(session.userId, userState);
-    return c.json(response satisfies ContentLifecycleMutationResponse);
+    return c.json(response.value satisfies ContentLifecycleMutationResponse);
   });
 
   app.get("/notifications", async (c) => {
@@ -3719,6 +6431,27 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     return c.json(getUnreadBadge(userState));
   });
 
+  app.get("/messages/threads", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), messageThreadListQuerySchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const request: ListMessageThreadsRequest = {
+      ...(query.page !== undefined ? { page: query.page } : {}),
+      ...(query.pageSize !== undefined ? { pageSize: query.pageSize } : {}),
+      ...(query.type !== undefined ? { type: query.type } : {}),
+      ...(query.onlyUnread !== undefined ? { onlyUnread: query.onlyUnread } : {}),
+      ...(query.sort !== undefined ? { sort: query.sort } : {}),
+      ...(query.sourceTicketId !== undefined ? { sourceTicketId: query.sourceTicketId } : {}),
+    };
+    return c.json(listMessageThreadResponse(userState, request));
+  });
+
   app.get("/messages/thread", async (c) => {
     const traceId = c.get("traceId");
     const query = parseQuery(new URL(c.req.url), threadIdQuerySchema, traceId);
@@ -3729,12 +6462,72 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const session = c.get("session");
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
-    const response = getMessageThread(userState, query.threadId);
+    const response = getMessageThread(userState, {
+      threadId: query.threadId,
+      ...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
+    });
     if (!response) {
       return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
     }
 
     return c.json(response);
+  });
+
+  app.post("/messages/thread/create", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, createMessageThreadSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const clientId = resolveClientId(c.req.raw);
+    const deviceId = resolveRequestDeviceId(c);
+    const rateLimitGuard = await guardSecurityRateLimit({
+      c,
+      store,
+      userId: session.userId,
+      userState,
+      action: "messages",
+      scope: "messages",
+      platform: session.platform,
+      clientId,
+      deviceId,
+      actorUserId: session.userId,
+      traceId,
+      ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
+      ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
+      blockedAction: "messages_thread_create_rate_limited",
+      blockedMessage: "Too many message operations. Retry later.",
+    });
+    if (!rateLimitGuard.allowed) {
+      return rateLimitGuard.response;
+    }
+    const request: CreateMessageThreadRequest = {
+      type: payload.type,
+      ...(payload.title !== undefined ? { title: payload.title } : {}),
+      ...(payload.participantUserIds !== undefined ? { participantUserIds: payload.participantUserIds } : {}),
+      ...(payload.sourceTicketId !== undefined ? { sourceTicketId: payload.sourceTicketId } : {}),
+      ...(payload.replyPolicy !== undefined ? { replyPolicy: payload.replyPolicy } : {}),
+    };
+    const response = createMessageThread(userState, request);
+    appendSecurityAuditEvent({
+      userState,
+      scope: "messages",
+      action: "thread_create",
+      result: "allowed",
+      message: "Message thread created.",
+      createdAt: new Date().toISOString(),
+      actorUserId: session.userId,
+      ...(deviceId ? { deviceId } : {}),
+      clientId,
+      platform: session.platform,
+      traceId,
+    });
+    await store.saveUserState(session.userId, userState);
+    return c.json(response satisfies CreateMessageThreadResponse);
   });
 
   app.post("/messages/thread/read", async (c) => {
@@ -3769,6 +6562,28 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const session = c.get("session");
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
+    const clientId = resolveClientId(c.req.raw);
+    const deviceId = resolveRequestDeviceId(c);
+    const rateLimitGuard = await guardSecurityRateLimit({
+      c,
+      store,
+      userId: session.userId,
+      userState,
+      action: "messages",
+      scope: "messages",
+      platform: session.platform,
+      clientId,
+      deviceId,
+      actorUserId: session.userId,
+      traceId,
+      ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
+      ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
+      blockedAction: "messages_send_rate_limited",
+      blockedMessage: "Too many message operations. Retry later.",
+    });
+    if (!rateLimitGuard.allowed) {
+      return rateLimitGuard.response;
+    }
     const request: SendMessageRequest = {
       threadId: payload.threadId,
       body: payload.body,
@@ -3777,9 +6592,77 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     if (!response) {
       return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
     }
+    if (response.messageItem.deliveryStatus === "failed") {
+      await scheduleOperationalJobForUser(store, {
+        userId: session.userId,
+        userState,
+        kind: "notification_retry",
+        dedupeKey: `message_retry:${response.messageItem.messageId}`,
+        relatedRecordId: response.messageItem.messageId,
+      });
+    }
 
+    appendSecurityAuditEvent({
+      userState,
+      scope: "messages",
+      action: "thread_send",
+      result: "allowed",
+      message: "Message sent into thread.",
+      createdAt: new Date().toISOString(),
+      actorUserId: session.userId,
+      ...(deviceId ? { deviceId } : {}),
+      clientId,
+      platform: session.platform,
+      traceId,
+    });
     await store.saveUserState(session.userId, userState);
     return c.json(response satisfies SendMessageResponse);
+  });
+
+  app.post("/messages/thread/retry", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, retryMessageSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const request: RetryMessageRequest = {
+      threadId: payload.threadId,
+      messageId: payload.messageId,
+    };
+    const response = retryThreadMessage(userState, request);
+    if (!response) {
+      return jsonError("NOT_FOUND", "Retryable message not found.", 404, traceId);
+    }
+
+    await store.saveUserState(session.userId, userState);
+    return c.json(response satisfies RetryMessageResponse);
+  });
+
+  app.get("/messages/thread/sync", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), threadIdQuerySchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const request: SyncMessageThreadRequest = {
+      threadId: query.threadId,
+      ...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
+    };
+    const response = syncMessageThread(userState, request);
+    if (!response) {
+      return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
+    }
+
+    await store.saveUserState(session.userId, userState);
+    return c.json(response);
   });
 
   app.post("/share/prepare", async (c) => {
@@ -3792,10 +6675,78 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const session = c.get("session");
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
+    const clientId = resolveClientId(c.req.raw);
+    const deviceId = resolveRequestDeviceId(c);
+    const rateLimitGuard = await guardSecurityRateLimit({
+      c,
+      store,
+      userId: session.userId,
+      userState,
+      action: "share",
+      scope: "share",
+      platform: session.platform,
+      clientId,
+      deviceId,
+      actorUserId: session.userId,
+      traceId,
+      ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
+      ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
+      blockedAction: "share_prepare_rate_limited",
+      blockedMessage: "Too many share preparations. Retry later.",
+    });
+    if (!rateLimitGuard.allowed) {
+      return rateLimitGuard.response;
+    }
     const response = createSharePrepareResponse(normalizeSharePrepareRequest(payload), c.req.url);
     userState.sharePreparesById[response.shareAttribution.attributionId ?? response.sharePayload.shareToken ?? response.sharePayload.title] = response;
+    appendSecurityAuditEvent({
+      userState,
+      scope: "share",
+      action: "share_prepare",
+      result: "allowed",
+      message: "Share payload prepared.",
+      createdAt: new Date().toISOString(),
+      actorUserId: session.userId,
+      ...(deviceId ? { deviceId } : {}),
+      clientId,
+      platform: session.platform,
+      traceId,
+    });
     await store.saveUserState(session.userId, userState);
     return c.json(response);
+  });
+
+  app.get("/share/resolve", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), shareResolveSchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const existing =
+      (query.attributionId ? userState.sharePreparesById[query.attributionId] : undefined) ??
+      Object.values(userState.sharePreparesById).find((entry) => entry.shortLinkRecord?.shortCode === query.shortCode);
+    if (!existing) {
+      return jsonError("NOT_FOUND", "Share short link was not found.", 404, traceId);
+    }
+
+    const response = resolveShareShortLink(existing);
+    const nextKey = response.shareAttribution.attributionId ?? response.sharePayload.shareToken ?? existing.sharePayload.title;
+    userState.sharePreparesById[nextKey] = {
+      ...existing,
+      sharePayload: response.sharePayload,
+      shareChannel: response.shareChannel,
+      shareAttribution: response.shareAttribution,
+      landingTarget: response.landingTarget,
+      shortLinkRecord: response.shortLinkRecord,
+      ...(response.posterAsset ? { posterAsset: response.posterAsset } : {}),
+      attributionReport: response.attributionReport,
+    };
+    await store.saveUserState(session.userId, userState);
+    return c.json(response satisfies ShareShortLinkResolveResponse);
   });
 
   app.post("/share/return", async (c) => {
@@ -3821,13 +6772,39 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     };
     const response = recognizeShareReturn(existing, request);
     userState.sharePreparesById[payload.attributionId] = {
+      ...existing,
       sharePayload: response.sharePayload,
       shareChannel: response.shareChannel,
       shareAttribution: response.shareAttribution,
       landingTarget: response.landingTarget ?? existing.landingTarget,
+      ...(response.shortLinkRecord ? { shortLinkRecord: response.shortLinkRecord } : {}),
+      ...(response.posterAsset ? { posterAsset: response.posterAsset } : {}),
+      attributionReport: response.attributionReport,
     };
     await store.saveUserState(session.userId, userState);
     return c.json(response);
+  });
+
+  app.get("/share/report", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), shareAttributionReportSchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const request: ShareAttributionReportRequest = {
+      attributionId: query.attributionId,
+    };
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const existing = userState.sharePreparesById[request.attributionId];
+    if (!existing) {
+      return jsonError("NOT_FOUND", "Share attribution was not found.", 404, traceId);
+    }
+
+    const response = createShareAttributionReport(existing);
+    return c.json(response satisfies ShareAttributionReportResponse);
   });
 
   app.post("/uploads", async (c) => {
@@ -3840,7 +6817,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const session = c.get("session");
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
-    let record = createUploadSessionRecord(normalizeUploadSessionRequest(payload), c.req.url);
+    let record = createUploadSessionRecord(normalizeUploadSessionRequest(payload), c.req.url, userState);
     const initialTransfer = record.transfer;
     const initialSession = record.session;
     if (initialTransfer && !record.uploadError && initialSession) {
@@ -3868,6 +6845,16 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       }
     }
     userState.uploadsByTaskId[record.uploadTask.taskId] = record;
+    if (record.cleanupRecord?.retentionStatus === "scheduled_cleanup") {
+      await scheduleOperationalJobForUser(store, {
+        userId: session.userId,
+        userState,
+        kind: "upload_cleanup",
+        dedupeKey: `upload_cleanup:${record.uploadTask.taskId}`,
+        relatedRecordId: record.uploadTask.taskId,
+        ...(record.cleanupRecord.cleanupScheduledAt ? { scheduledAt: record.cleanupRecord.cleanupScheduledAt } : {}),
+      });
+    }
     await store.saveUserState(session.userId, userState);
     return c.json(createUploadResponse(record));
   });
@@ -3882,8 +6869,43 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const session = c.get("session");
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
-    const record = createUploadSessionRecord(normalizeUploadSessionRequest(payload), c.req.url);
+    const clientId = resolveClientId(c.req.raw);
+    const deviceId = resolveRequestDeviceId(c);
+    const rateLimitGuard = await guardSecurityRateLimit({
+      c,
+      store,
+      userId: session.userId,
+      userState,
+      action: "upload",
+      scope: "upload",
+      platform: session.platform,
+      clientId,
+      deviceId,
+      actorUserId: session.userId,
+      traceId,
+      ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
+      ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
+      blockedAction: "upload_session_rate_limited",
+      blockedMessage: "Too many upload sessions. Retry later.",
+    });
+    if (!rateLimitGuard.allowed) {
+      return rateLimitGuard.response;
+    }
+    const record = createUploadSessionRecord(normalizeUploadSessionRequest(payload), c.req.url, userState);
     userState.uploadsByTaskId[record.uploadTask.taskId] = record;
+    appendSecurityAuditEvent({
+      userState,
+      scope: "upload",
+      action: "upload_session_create",
+      result: "allowed",
+      message: "Upload session created.",
+      createdAt: new Date().toISOString(),
+      actorUserId: session.userId,
+      ...(deviceId ? { deviceId } : {}),
+      clientId,
+      platform: session.platform,
+      traceId,
+    });
     await store.saveUserState(session.userId, userState);
     return c.json(createUploadResponse(record));
   });
@@ -3933,6 +6955,16 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     };
     const record = completeUploadRecord(existing, request, c.req.url);
     userState.uploadsByTaskId[payload.taskId] = record;
+    if (record.cleanupRecord?.retentionStatus === "scheduled_cleanup") {
+      await scheduleOperationalJobForUser(store, {
+        userId: session.userId,
+        userState,
+        kind: "upload_cleanup",
+        dedupeKey: `upload_cleanup:${record.uploadTask.taskId}`,
+        relatedRecordId: record.uploadTask.taskId,
+        ...(record.cleanupRecord.cleanupScheduledAt ? { scheduledAt: record.cleanupRecord.cleanupScheduledAt } : {}),
+      });
+    }
     await store.saveUserState(session.userId, userState);
     return c.json(createUploadResponse(record));
   });
@@ -4020,6 +7052,14 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     };
     const record = cancelUploadPipeline(existing, request);
     userState.uploadsByTaskId[payload.taskId] = record;
+    await scheduleOperationalJobForUser(store, {
+      userId: session.userId,
+      userState,
+      kind: "upload_cleanup",
+      dedupeKey: `upload_cleanup:${record.uploadTask.taskId}`,
+      relatedRecordId: record.uploadTask.taskId,
+      ...(record.cleanupRecord?.cleanupScheduledAt ? { scheduledAt: record.cleanupRecord.cleanupScheduledAt } : {}),
+    });
     await store.saveUserState(session.userId, userState);
     return c.json(createUploadResponse(record));
   });
@@ -4087,6 +7127,26 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     return c.json(response);
   });
 
+  app.get("/feedback/tickets", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), feedbackTicketListQuerySchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const request: ListFeedbackTicketsRequest = {
+      ...(query.page !== undefined ? { page: query.page } : {}),
+      ...(query.pageSize !== undefined ? { pageSize: query.pageSize } : {}),
+      ...(query.state !== undefined ? { state: query.state } : {}),
+      ...(query.categoryKey !== undefined ? { categoryKey: query.categoryKey } : {}),
+      ...(query.keyword !== undefined ? { keyword: query.keyword } : {}),
+    };
+    return c.json(listFeedbackTickets(userState, request) satisfies ListFeedbackTicketsResponse);
+  });
+
   app.post("/feedback/ticket/revisit", async (c) => {
     const traceId = c.get("traceId");
     const payload = await parseJsonBody(c.req.raw, revisitFeedbackSchema, traceId);
@@ -4110,6 +7170,56 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     return c.json(response satisfies FeedbackRevisitResponse);
   });
 
+  app.post("/feedback/ticket/action", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, feedbackTicketActionSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const request: FeedbackTicketActionRequest = {
+      ticketId: payload.ticketId,
+      ...(payload.state !== undefined ? { state: payload.state } : {}),
+      ...(payload.priority !== undefined ? { priority: payload.priority } : {}),
+      ...(payload.labels !== undefined ? { labels: payload.labels } : {}),
+      ...(payload.assignee !== undefined
+        ? {
+            assignee: {
+              userId: payload.assignee.userId,
+              label: payload.assignee.label,
+              ...(payload.assignee.teamLabel !== undefined ? { teamLabel: payload.assignee.teamLabel } : {}),
+              ...(payload.assignee.assignedAt !== undefined ? { assignedAt: payload.assignee.assignedAt } : {}),
+            },
+          }
+        : {}),
+      ...(payload.queueKey !== undefined ? { queueKey: payload.queueKey } : {}),
+      ...(payload.queueLabel !== undefined ? { queueLabel: payload.queueLabel } : {}),
+      ...(payload.sla !== undefined
+        ? {
+            sla: {
+              policyKey: payload.sla.policyKey,
+              label: payload.sla.label,
+              deadlineAt: payload.sla.deadlineAt,
+              breached: payload.sla.breached,
+              ...(payload.sla.updatedAt !== undefined ? { updatedAt: payload.sla.updatedAt } : {}),
+            },
+          }
+        : {}),
+      ...(payload.note !== undefined ? { note: payload.note } : {}),
+      ...(payload.supportReply !== undefined ? { supportReply: payload.supportReply } : {}),
+    };
+    const response = applyFeedbackTicketAction(userState, request);
+    if (!response) {
+      return jsonError("NOT_FOUND", "Feedback ticket not found.", 404, traceId);
+    }
+
+    await store.saveUserState(session.userId, userState);
+    return c.json(response satisfies FeedbackTicketActionResponse);
+  });
+
   app.post("/feedback", async (c) => {
     const traceId = c.get("traceId");
     const payload = await parseJsonBody(c.req.raw, submitFeedbackSchema, traceId);
@@ -4120,6 +7230,28 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const session = c.get("session");
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
+    const clientId = resolveClientId(c.req.raw);
+    const deviceId = resolveRequestDeviceId(c);
+    const rateLimitGuard = await guardSecurityRateLimit({
+      c,
+      store,
+      userId: session.userId,
+      userState,
+      action: "feedback",
+      scope: "feedback",
+      platform: session.platform,
+      clientId,
+      deviceId,
+      actorUserId: session.userId,
+      traceId,
+      ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
+      ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
+      blockedAction: "feedback_submit_rate_limited",
+      blockedMessage: "Too many feedback submissions. Retry later.",
+    });
+    if (!rateLimitGuard.allowed) {
+      return rateLimitGuard.response;
+    }
     const normalizedPayload: SubmitFeedbackRequest = {
       type: payload.type,
       categoryKey: payload.categoryKey,
@@ -4142,6 +7274,19 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       },
     };
     const response = submitFeedbackTicket(session, userState, normalizedPayload);
+    appendSecurityAuditEvent({
+      userState,
+      scope: "feedback",
+      action: "feedback_submit",
+      result: "allowed",
+      message: `Feedback ticket ${response.feedbackTicket.ticketId} submitted.`,
+      createdAt: new Date().toISOString(),
+      actorUserId: session.userId,
+      ...(deviceId ? { deviceId } : {}),
+      clientId,
+      platform: session.platform,
+      traceId,
+    });
     await store.saveUserState(session.userId, userState);
     return c.json(response);
   });
@@ -4286,7 +7431,8 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
   });
 
   app.post("/membership/purchase", async (c) => {
-    const payload = await parseJsonBody(c.req.raw, purchaseMembershipSchema, c.get("traceId"));
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, purchaseMembershipSchema, traceId);
     if (payload instanceof Response) {
       return payload;
     }
@@ -4304,6 +7450,28 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const session = c.get("session");
     const store = getStore(c.env, options.store);
     const userState = await store.getUserState(session.userId);
+    const clientId = resolveClientId(c.req.raw);
+    const deviceId = resolveRequestDeviceId(c);
+    const rateLimitGuard = await guardSecurityRateLimit({
+      c,
+      store,
+      userId: session.userId,
+      userState,
+      action: "payment",
+      scope: "payment",
+      platform: session.platform,
+      clientId,
+      deviceId,
+      actorUserId: session.userId,
+      traceId,
+      ...(options.authRateLimitConfig ? { config: options.authRateLimitConfig } : {}),
+      ...(options.authRateLimitStore ? { counterStore: options.authRateLimitStore } : {}),
+      blockedAction: "payment_purchase_rate_limited",
+      blockedMessage: "Too many payment attempts. Retry later.",
+    });
+    if (!rateLimitGuard.allowed) {
+      return rateLimitGuard.response;
+    }
 
     const existingOrderId = purchasePayload.idempotencyKey ? userState.orderIdByIdempotencyKey[purchasePayload.idempotencyKey] : undefined;
     const existingOrder = existingOrderId ? userState.ordersById[existingOrderId] : undefined;
@@ -4338,6 +7506,14 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
     const duplicateProtected = Boolean(userState.latestPaidOrderId);
     const orderDetail = createMembershipOrderDetail(session, purchasePayload, duplicateProtected);
+    const assetLedgerIds = appendPaymentAssetLedgerEntries({
+      userState,
+      detail: orderDetail,
+      action: orderDetail.order.status === "paid" ? "purchase_paid" : "purchase_pending",
+    });
+    if (orderDetail.operationResult) {
+      orderDetail.operationResult.assetLedgerIds = assetLedgerIds;
+    }
     userState.ordersById[orderDetail.order.orderId] = orderDetail;
     if (orderDetail.order.status === "paid") {
       userState.membershipPlanId = purchasePayload.planId;
@@ -4346,9 +7522,267 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     if (purchasePayload.idempotencyKey) {
       userState.orderIdByIdempotencyKey[purchasePayload.idempotencyKey] = orderDetail.order.orderId;
     }
+    appendSecurityAuditEvent({
+      userState,
+      scope: "payment",
+      action: "membership_purchase",
+      result: orderDetail.order.status === "paid" ? "allowed" : "review",
+      message: `Membership purchase ${orderDetail.order.status} for ${purchasePayload.planId}.`,
+      createdAt: new Date().toISOString(),
+      actorUserId: session.userId,
+      ...(deviceId ? { deviceId } : {}),
+      clientId,
+      platform: session.platform,
+      traceId,
+    });
+    if (orderDetail.reconciliation.status !== "reconciled") {
+      await scheduleOperationalJobForUser(store, {
+        userId: session.userId,
+        userState,
+        kind: "payment_reconciliation",
+        dedupeKey: `payment_reconciliation:${orderDetail.order.orderId}`,
+        relatedRecordId: orderDetail.order.orderId,
+      });
+    }
     await store.saveUserState(session.userId, userState);
 
     return c.json(createMembershipPurchaseResponse(orderDetail, purchasePayload) satisfies PurchaseMembershipResponse);
+  });
+
+  app.get("/orders/catalog", async (c) => {
+    return c.json(createPaymentCatalogResponse() satisfies PaymentCatalogResponse);
+  });
+
+  app.post("/orders/purchase", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, purchaseOrderSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+    const purchasePayload: PurchaseOrderRequest = {
+      skuId: payload.skuId,
+      ...(payload.channel ? { channel: payload.channel } : {}),
+      ...(payload.providerMode ? { providerMode: payload.providerMode } : {}),
+      ...(payload.paymentScenario ? { paymentScenario: payload.paymentScenario } : {}),
+      ...(payload.idempotencyKey ? { idempotencyKey: payload.idempotencyKey } : {}),
+      ...(payload.source ? { source: payload.source } : {}),
+      ...(payload.novelId ? { novelId: payload.novelId } : {}),
+      ...(payload.chapterId ? { chapterId: payload.chapterId } : {}),
+      ...(payload.subscriptionId ? { subscriptionId: payload.subscriptionId } : {}),
+    };
+
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const existingOrderId = purchasePayload.idempotencyKey ? userState.orderIdByIdempotencyKey[purchasePayload.idempotencyKey] : undefined;
+    const existingOrder = existingOrderId ? userState.ordersById[existingOrderId] : undefined;
+    if (existingOrder?.product && existingOrder.sku) {
+      return c.json({
+        order: existingOrder.order,
+        product: existingOrder.product,
+        sku: existingOrder.sku,
+        paymentIntent: existingOrder.paymentIntent,
+        paymentResult: existingOrder.paymentResult,
+        callbackVerification: existingOrder.callbackVerification,
+        reconciliation: existingOrder.reconciliation,
+        ...(existingOrder.operationResult ? { operationResult: existingOrder.operationResult } : {}),
+        ...(existingOrder.entitlement ? { entitlement: existingOrder.entitlement } : {}),
+        ...(existingOrder.subscription ? { subscription: existingOrder.subscription } : {}),
+      } satisfies PurchaseOrderResponse);
+    }
+
+    const duplicateProtected = Boolean(userState.latestPaidOrderId);
+    const orderDetail = createProductOrderDetail(session, purchasePayload, duplicateProtected);
+    if (!orderDetail?.product || !orderDetail.sku) {
+      return jsonError("BAD_REQUEST", "Unknown SKU.", 400, traceId);
+    }
+    const assetLedgerIds = appendPaymentAssetLedgerEntries({
+      userState,
+      detail: orderDetail,
+      action: orderDetail.order.status === "paid" ? "purchase_paid" : "purchase_pending",
+    });
+    if (orderDetail.operationResult) {
+      orderDetail.operationResult.assetLedgerIds = assetLedgerIds;
+    }
+    userState.ordersById[orderDetail.order.orderId] = orderDetail;
+    if (purchasePayload.idempotencyKey) {
+      userState.orderIdByIdempotencyKey[purchasePayload.idempotencyKey] = orderDetail.order.orderId;
+    }
+    if (orderDetail.reconciliation.status !== "reconciled") {
+      await scheduleOperationalJobForUser(store, {
+        userId: session.userId,
+        userState,
+        kind: "payment_reconciliation",
+        dedupeKey: `payment_reconciliation:${orderDetail.order.orderId}`,
+        relatedRecordId: orderDetail.order.orderId,
+      });
+    }
+    await store.saveUserState(session.userId, userState);
+    return c.json({
+      order: orderDetail.order,
+      product: orderDetail.product,
+      sku: orderDetail.sku,
+      paymentIntent: orderDetail.paymentIntent,
+      paymentResult: orderDetail.paymentResult,
+      callbackVerification: orderDetail.callbackVerification,
+      reconciliation: orderDetail.reconciliation,
+      ...(orderDetail.operationResult ? { operationResult: orderDetail.operationResult } : {}),
+      ...(orderDetail.entitlement ? { entitlement: orderDetail.entitlement } : {}),
+      ...(orderDetail.subscription ? { subscription: orderDetail.subscription } : {}),
+    } satisfies PurchaseOrderResponse);
+  });
+
+  app.get("/orders/list", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), listOrdersQuerySchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+    const request: ListOrdersRequest = {
+      ...(query.page ? { page: query.page } : {}),
+      ...(query.pageSize ? { pageSize: query.pageSize } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.productType ? { productType: query.productType } : {}),
+    };
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    return c.json(listOrders(userState, request) satisfies OrderListResponse);
+  });
+
+  app.get("/subscriptions", async (c) => {
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    return c.json(listSubscriptions(userState) satisfies SubscriptionListResponse);
+  });
+
+  app.post("/subscriptions/cancel", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, subscriptionOperationSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const targetEntry = Object.entries(userState.ordersById).find(([, detail]) => detail.subscription?.subscriptionId === payload.subscriptionId);
+    if (!targetEntry) {
+      return jsonError("NOT_FOUND", "Subscription not found.", 404, traceId);
+    }
+    const [orderId, existing] = targetEntry;
+    if (!existing.subscription) {
+      return jsonError("BAD_REQUEST", "Subscription not found.", 400, traceId);
+    }
+    const processedAt = new Date().toISOString();
+    const nextOrder: OrderDetailResponse = {
+      ...existing,
+      subscription: {
+        ...existing.subscription,
+        status: "cancelled",
+        statusLabel: "Auto-renew disabled. Access remains until the current term ends.",
+        autoRenew: false,
+        cancelledAt: processedAt,
+        ...(existing.subscription.renewsAt ? { graceEndsAt: existing.subscription.renewsAt } : {}),
+      },
+      operationResult: createPaymentOperationResult({
+        operation: "cancel",
+        applied: true,
+        orderStatus: existing.order.status,
+        paymentStatus: existing.paymentResult.status,
+        message: "Subscription auto-renew was disabled for the current term.",
+        processedAt,
+      }),
+    };
+    userState.ordersById[orderId] = nextOrder;
+    await store.saveUserState(session.userId, userState);
+    return c.json(nextOrder satisfies OrderDetailResponse);
+  });
+
+  app.post("/subscriptions/renew", async (c) => {
+    const traceId = c.get("traceId");
+    const payload = await parseJsonBody(c.req.raw, subscriptionOperationSchema, traceId);
+    if (payload instanceof Response) {
+      return payload;
+    }
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const existing = Object.values(userState.ordersById).find((detail) => detail.subscription?.subscriptionId === payload.subscriptionId);
+    if (!existing?.sku) {
+      return jsonError("NOT_FOUND", "Subscription not found.", 404, traceId);
+    }
+    const renewalDetail = createProductOrderDetail(
+      session,
+      {
+        skuId: payload.skuId ?? existing.sku.skuId,
+        subscriptionId: payload.subscriptionId,
+        paymentScenario: "instant_success",
+        ...(existing.order.source ? { source: existing.order.source } : {}),
+        ...(existing.order.novelId ? { novelId: existing.order.novelId } : {}),
+        ...(existing.order.chapterId ? { chapterId: existing.order.chapterId } : {}),
+      },
+      Boolean(userState.latestPaidOrderId),
+    );
+    if (!renewalDetail?.subscription) {
+      return jsonError("BAD_REQUEST", "Subscription renewal failed.", 400, traceId);
+    }
+    renewalDetail.subscription = {
+      ...renewalDetail.subscription,
+      subscriptionId: payload.subscriptionId,
+      status: "active",
+      statusLabel: "Renewal succeeded for the next subscription term.",
+    };
+    const assetLedgerIds = appendPaymentAssetLedgerEntries({
+      userState,
+      detail: renewalDetail,
+      action: "purchase_paid",
+    });
+    renewalDetail.operationResult = createPaymentOperationResult({
+      operation: "reconcile",
+      applied: true,
+      orderStatus: renewalDetail.order.status,
+      paymentStatus: renewalDetail.paymentResult.status,
+      message: "Subscription renewal created the next paid term.",
+    });
+    renewalDetail.operationResult.assetLedgerIds = assetLedgerIds;
+    userState.ordersById[renewalDetail.order.orderId] = renewalDetail;
+    await store.saveUserState(session.userId, userState);
+    return c.json({
+      order: renewalDetail.order,
+      product: renewalDetail.product!,
+      sku: renewalDetail.sku!,
+      paymentIntent: renewalDetail.paymentIntent,
+      paymentResult: renewalDetail.paymentResult,
+      callbackVerification: renewalDetail.callbackVerification,
+      reconciliation: renewalDetail.reconciliation,
+      ...(renewalDetail.operationResult ? { operationResult: renewalDetail.operationResult } : {}),
+      ...(renewalDetail.entitlement ? { entitlement: renewalDetail.entitlement } : {}),
+      subscription: renewalDetail.subscription,
+    } satisfies PurchaseOrderResponse);
+  });
+
+  app.get("/after-sales/list", async (c) => {
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    return c.json(listAfterSalesCases(userState) satisfies AfterSalesListResponse);
+  });
+
+  app.get("/after-sales/detail", async (c) => {
+    const traceId = c.get("traceId");
+    const query = parseQuery(new URL(c.req.url), afterSalesDetailQuerySchema, traceId);
+    if (query instanceof Response) {
+      return query;
+    }
+    const session = c.get("session");
+    const store = getStore(c.env, options.store);
+    const userState = await store.getUserState(session.userId);
+    const detail = getAfterSalesCaseDetail(userState, query.caseId);
+    if (!detail) {
+      return jsonError("NOT_FOUND", "After-sales case not found.", 404, traceId);
+    }
+    return c.json(detail satisfies AfterSalesDetailResponse);
   });
 
   app.get("/orders/detail", async (c) => {
@@ -4385,6 +7819,27 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
 
     const nextOrder = applyOrderCancellation(existing, payload.reason);
+    if (nextOrder.order.status === "cancelled") {
+      const assetLedgerIds = appendPaymentAssetLedgerEntries({
+        userState,
+        detail: nextOrder,
+        action: "cancel_pending",
+      });
+      if (nextOrder.operationResult) {
+        nextOrder.operationResult.assetLedgerIds = assetLedgerIds;
+      }
+      const caseItem = createAfterSalesCaseRecord({
+        kind: "cancel",
+        detail: nextOrder,
+        ...(payload.reason ? { reason: payload.reason } : {}),
+        processedAt: nextOrder.operationResult?.processedAt ?? nextOrder.order.updatedAt,
+      });
+      userState.afterSalesById[caseItem.caseId] = caseItem;
+      userState.ordersById[payload.orderId] = attachAfterSalesCase(nextOrder, caseItem);
+      await store.saveUserState(session.userId, userState);
+      const response = userState.ordersById[payload.orderId]!;
+      return c.json(response satisfies OrderDetailResponse);
+    }
     userState.ordersById[payload.orderId] = nextOrder;
     await store.saveUserState(session.userId, userState);
     return c.json(nextOrder satisfies OrderDetailResponse);
@@ -4406,11 +7861,32 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     }
 
     const nextOrder = applyOrderRefund(existing, payload.reason);
-    userState.ordersById[payload.orderId] = nextOrder;
-    if (nextOrder.order.status === "refunded" && userState.latestPaidOrderId === payload.orderId) {
-      delete userState.latestPaidOrderId;
-      delete userState.membershipPlanId;
+    if (nextOrder.order.status === "refunded") {
+      const assetLedgerIds = appendPaymentAssetLedgerEntries({
+        userState,
+        detail: nextOrder,
+        action: "refund_paid",
+      });
+      if (nextOrder.operationResult) {
+        nextOrder.operationResult.assetLedgerIds = assetLedgerIds;
+      }
+      const caseItem = createAfterSalesCaseRecord({
+        kind: "refund",
+        detail: nextOrder,
+        ...(payload.reason ? { reason: payload.reason } : {}),
+        processedAt: nextOrder.operationResult?.processedAt ?? nextOrder.order.updatedAt,
+      });
+      userState.afterSalesById[caseItem.caseId] = caseItem;
+      userState.ordersById[payload.orderId] = attachAfterSalesCase(nextOrder, caseItem);
+      if (nextOrder.order.status === "refunded" && userState.latestPaidOrderId === payload.orderId) {
+        delete userState.latestPaidOrderId;
+        delete userState.membershipPlanId;
+      }
+      await store.saveUserState(session.userId, userState);
+      const response = userState.ordersById[payload.orderId]!;
+      return c.json(response satisfies OrderDetailResponse);
     }
+    userState.ordersById[payload.orderId] = nextOrder;
     await store.saveUserState(session.userId, userState);
     return c.json(nextOrder satisfies OrderDetailResponse);
   });
@@ -4497,6 +7973,27 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
         receivedAt,
       });
       userState.ordersById[payload.orderId] = rejected;
+      const operationalState = cloneOperationalState(await store.getOperationalState());
+      appendOperationalMonitoringEvent(operationalState, {
+        level: "warn",
+        scope: "security",
+        message: `Payment callback rejected for order ${payload.orderId}: ${verification.message}`,
+        createdAt: receivedAt,
+        userId: session.userId,
+        dedupeKey: verification.callbackReference,
+      });
+      appendOperationalAuditRecord(operationalState, {
+        category: "governance",
+        action: "payment_callback_rejected",
+        message: verification.message,
+        createdAt: receivedAt,
+        userId: session.userId,
+        recordId: payload.orderId,
+        metadata: {
+          callbackVerified: false,
+        },
+      });
+      await store.saveOperationalState(operationalState);
       await store.saveUserState(session.userId, userState);
       return jsonError("PAYMENT_CALLBACK_REJECTED", verification.message, 400, traceId);
     }
@@ -4513,6 +8010,34 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       ...(payload.signature ? { signature: payload.signature } : {}),
     };
     const nextOrder = applyPaymentCallback(existing, callbackPayload);
+    if (payload.outcome === "success" && nextOrder.order.status === "paid") {
+      const assetLedgerIds = appendPaymentAssetLedgerEntries({
+        userState,
+        detail: nextOrder,
+        action: "callback_success",
+      });
+      if (nextOrder.operationResult) {
+        nextOrder.operationResult.assetLedgerIds = assetLedgerIds;
+      }
+    } else if (payload.outcome === "failure") {
+      const assetLedgerIds = appendPaymentAssetLedgerEntries({
+        userState,
+        detail: nextOrder,
+        action: "callback_failure",
+      });
+      if (nextOrder.operationResult) {
+        nextOrder.operationResult.assetLedgerIds = assetLedgerIds;
+      }
+    } else if (payload.outcome === "cancelled") {
+      const assetLedgerIds = appendPaymentAssetLedgerEntries({
+        userState,
+        detail: nextOrder,
+        action: "callback_cancelled",
+      });
+      if (nextOrder.operationResult) {
+        nextOrder.operationResult.assetLedgerIds = assetLedgerIds;
+      }
+    }
     appendCallbackLedger(nextOrder, {
       callbackReference: verification.callbackReference,
       orderId: payload.orderId,
@@ -4527,13 +8052,17 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     });
     userState.ordersById[payload.orderId] = nextOrder;
     if (nextOrder.order.status === "paid" && nextOrder.entitlement && "overview" in nextOrder.entitlement) {
-      const membershipProductId = nextOrder.order.lineItems.find((item) => item.productType === "membership")?.productId ?? "";
-      userState.membershipPlanId = membershipProductId.endsWith("_annual")
-        ? "annual"
-        : membershipProductId.endsWith("_monthly")
-          ? "monthly"
-          : "quarterly";
+      userState.membershipPlanId = resolveMembershipPlanIdFromOrder(nextOrder) ?? "quarterly";
       userState.latestPaidOrderId = payload.orderId;
+    }
+    if (nextOrder.reconciliation.status !== "reconciled") {
+      await scheduleOperationalJobForUser(store, {
+        userId: session.userId,
+        userState,
+        kind: "payment_reconciliation",
+        dedupeKey: `payment_reconciliation:${nextOrder.order.orderId}`,
+        relatedRecordId: nextOrder.order.orderId,
+      });
     }
     await store.saveUserState(session.userId, userState);
     return c.json(nextOrder satisfies OrderDetailResponse);

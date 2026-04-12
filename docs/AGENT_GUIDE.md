@@ -108,6 +108,12 @@ When adding behavior, prefer this order:
 8. add tests
 9. update docs if behavior or setup changed
 
+When behavior affects deployment, provider setup, capability support, release gates, or accepted deferred limits, sync:
+
+- [`docs/BACKEND_CONTRACT.md`](/Users/bingrong.yan/projects/birdor/minix/docs/BACKEND_CONTRACT.md)
+- [`docs/PRODUCTION_READINESS.md`](/Users/bingrong.yan/projects/birdor/minix/docs/PRODUCTION_READINESS.md)
+- [`docs/RELEASE_RUNBOOK.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_RUNBOOK.md)
+
 `pnpm verify` enforces this by checking shared production code for direct platform calls, for `throw`-based failure paths outside the manifest assertion layer, for core service and adapter interfaces that drift away from `Promise<Result<...>>` or approved synchronous `Result<...>` query methods, for `contracts` code that tries to import runtime-only types from `@minix/core`, for `contracts` shapes that start declaring host/runtime configuration fields, for behavior-shaped contract types such as method signatures or function-typed members, for managed workspace packages that drift away from the canonical `src/index.ts` public entry, and for feature packages that try to widen their public surface beyond `src/index.ts`.
 
 ## What To Avoid

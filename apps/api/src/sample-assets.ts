@@ -163,6 +163,44 @@ export function renderSampleProfileAssetSvg(assetId: string): string | null {
   return createProfileSvg(assetId as SampleProfileAssetId);
 }
 
+export function renderSharePosterSvg(input: {
+  title: string;
+  summary?: string;
+  inviteCode?: string;
+  channelLabel?: string;
+  shortCode: string;
+}): string {
+  const title = escapeXml(input.title);
+  const summary = escapeXml(input.summary ?? "Open MiniX and continue through the shared growth flow.");
+  const inviteCode = escapeXml(input.inviteCode ?? "MINIX");
+  const channelLabel = escapeXml((input.channelLabel ?? "Share").toUpperCase());
+  const shortCode = escapeXml(input.shortCode.toUpperCase());
+
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="1440" viewBox="0 0 960 1440" role="img" aria-label="${title} poster">`,
+    "<defs>",
+    `  <linearGradient id="posterBg" x1="0%" y1="0%" x2="100%" y2="100%">`,
+    `    <stop offset="0%" stop-color="#16324a"/>`,
+    `    <stop offset="100%" stop-color="#335d74"/>`,
+    "  </linearGradient>",
+    "</defs>",
+    `  <rect width="960" height="1440" fill="url(#posterBg)"/>`,
+    `  <circle cx="760" cy="280" r="170" fill="#f2c572" fill-opacity="0.12"/>`,
+    `  <circle cx="250" cy="1110" r="220" fill="#f2c572" fill-opacity="0.1"/>`,
+    `  <rect x="72" y="72" width="816" height="1296" rx="36" fill="none" stroke="#f2c572" stroke-opacity="0.45" stroke-width="3"/>`,
+    `  <text x="112" y="170" font-size="34" font-family="'Helvetica Neue', Arial, sans-serif" letter-spacing="8" fill="#f2c572">${channelLabel}</text>`,
+    `  <text x="112" y="330" font-size="92" font-family="Georgia, 'Times New Roman', serif" font-weight="700" fill="#f8f4ed">${title}</text>`,
+    `  <text x="112" y="430" font-size="34" font-family="'Helvetica Neue', Arial, sans-serif" fill="#f8f4ed" fill-opacity="0.92">${summary}</text>`,
+    `  <rect x="112" y="548" width="736" height="420" rx="30" fill="#f8f4ed" fill-opacity="0.08" stroke="#f8f4ed" stroke-opacity="0.16"/>`,
+    `  <text x="480" y="720" text-anchor="middle" font-size="48" font-family="'Helvetica Neue', Arial, sans-serif" fill="#f8f4ed">Invite Code</text>`,
+    `  <text x="480" y="810" text-anchor="middle" font-size="88" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="700" letter-spacing="10" fill="#f2c572">${inviteCode}</text>`,
+    `  <text x="480" y="910" text-anchor="middle" font-size="30" font-family="'Helvetica Neue', Arial, sans-serif" fill="#f8f4ed" fill-opacity="0.82">Short code ${shortCode}</text>`,
+    `  <text x="112" y="1200" font-size="32" font-family="'Helvetica Neue', Arial, sans-serif" fill="#f8f4ed">Scan or open the short link to attribute click, return, and conversion.</text>`,
+    `  <text x="112" y="1290" font-size="28" font-family="'Helvetica Neue', Arial, sans-serif" letter-spacing="6" fill="#f2c572">MINIX SHARE POSTER SAMPLE</text>`,
+    "</svg>",
+  ].join("");
+}
+
 export function resolveSampleMediaUrl(value: string | undefined, requestUrl: string): string | undefined {
   if (!value) {
     return undefined;

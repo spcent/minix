@@ -17,7 +17,7 @@ export interface FeedFeatureControllerOptions {
 export const feedCapabilityRequirements: CapabilityRequirement[] = [];
 export const feedGuardPolicy: GuardPolicy | undefined = undefined;
 export const feedFeatureConfig: FeatureConfig = {
-  surface: "feed",
+  surface: "search",
 };
 
 export const feedFeatureManifest = defineFeatureManifest<

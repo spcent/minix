@@ -1,5 +1,6 @@
 import {
   createAuthRedirectParams,
+  createDetailStatus,
   ok,
   createStore,
   deriveLatestMilestoneContinuity,
@@ -343,16 +344,9 @@ export function createNovelDetailController(options: CreateNovelDetailController
         detail,
         detailData: detail,
         title: detail.title,
-        detailStatus: {
-          loadState: "ready",
+        detailStatus: createDetailStatus("ready", {
           entryContext: deriveEntryContext(kernel),
-          refreshable: true,
-          invalidated: false,
-          deleted: false,
-          permissionDenied: false,
-          offline: false,
-          unpublished: false,
-        },
+        }),
         detailActions,
         membershipLocked,
         membershipMessage: access.accessState !== "open" ? access.accessSummary : undefined,

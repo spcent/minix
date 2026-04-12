@@ -4,20 +4,192 @@ import assert from "node:assert/strict";
 import { ok, type AppKernel } from "@minix/core";
 import {
   APP_ROUTE_IDS,
+  type CreateMessageThreadResponse,
   type MarkNotificationsReadResponse,
+  type MessageBodyItem,
+  type MessageThread,
+  type MessageThreadListResponse,
   type MessageThreadResponse,
   type NotificationListResponse,
+  type RetryMessageResponse,
   type SendMessageResponse,
 } from "@minix/contracts";
 
 import { createMessagesController } from "./index";
 import { createDefaultMessagesState } from "../model";
 
+function createThread(unreadCount: number, lastMessagePreview = "Reply"): MessageThread {
+  return {
+    threadId: "thread-1",
+    type: "private",
+    title: "Tutor",
+    participantLabels: ["Tutor", "You"],
+    pinned: true,
+    doNotDisturb: false,
+    unreadCount,
+    lastMessagePreview,
+    lastMessageAt: "2026-04-08T09:10:00.000Z",
+    reserved: true,
+    touchpoints: [],
+    replyPolicy: "open",
+    members: [
+      { userId: "advisor-1", label: "Tutor", role: "advisor", active: true, canReply: true, joinedAt: "2026-04-08T08:00:00.000Z" },
+      { userId: "self", label: "You", role: "customer", active: true, canReply: true, joinedAt: "2026-04-08T08:00:00.000Z" },
+    ],
+    syncState: {
+      mode: "polling",
+      cursor: `cursor-${unreadCount}-${lastMessagePreview}`,
+      recommendedPollIntervalMs: 3000,
+      recoverable: true,
+      lastSyncedAt: "2026-04-08T09:10:00.000Z",
+    },
+  };
+}
+
+function createInboundMessage(unreadCount: number): MessageBodyItem {
+  return {
+    messageId: "msg-1",
+    threadId: "thread-1",
+    direction: "inbound",
+    senderRole: "advisor",
+    senderLabel: "Tutor",
+    body: "Please review the latest task.",
+    createdAt: "2026-04-08T09:00:00.000Z",
+    deliveryStatus: unreadCount > 0 ? "delivered" : "read",
+    ...(unreadCount > 0 ? {} : { readAt: "2026-04-08T09:30:00.000Z" }),
+    deliveredAt: "2026-04-08T09:00:02.000Z",
+    attemptCount: 1,
+    retryable: false,
+    touchpoints: [],
+  };
+}
+
+function createOutboundMessage(
+  body: string,
+  status: "sent" | "pending" | "delivered" | "failed" = "sent",
+  attemptCount = 1,
+): MessageBodyItem {
+  return {
+    messageId: "msg-out-1",
+    threadId: "thread-1",
+    direction: "outbound",
+    senderRole: "self",
+    senderLabel: "You",
+    body,
+    createdAt: "2026-04-08T09:31:00.000Z",
+    deliveryStatus: status,
+    ...(status === "delivered" ? { deliveredAt: "2026-04-08T09:31:04.000Z" } : {}),
+    ...(status === "failed"
+      ? { failureCode: "DELIVERY_FAILED", failureMessage: "Sample delivery failure." }
+      : {}),
+    attemptCount,
+    retryable: status === "failed",
+    touchpoints: [],
+  };
+}
+
+function createThreadResponse(unreadCount: number, sentMessageBody?: string, changed = true): MessageThreadResponse {
+  const messageThread = createThread(unreadCount, sentMessageBody ?? "Reply");
+  return {
+    messageThread,
+    messageItems: [createInboundMessage(unreadCount), ...(sentMessageBody ? [createOutboundMessage(sentMessageBody)] : [])],
+    detailActions: {
+      canReply: true,
+      canMarkRead: unreadCount > 0,
+      canRetryFailed: false,
+      canCreateThread: true,
+      deliveryLabel: "Private message delivery lane",
+    },
+    unreadBadge: {
+      totalUnread: 2 + unreadCount,
+      notificationUnread: 2,
+      threadUnread: unreadCount,
+      breakdown: [{ key: "system", label: "System", count: 1 }],
+    },
+    threadList: {
+      items: [messageThread],
+      page: 1,
+      pageSize: 20,
+      total: 1,
+      hasMore: false,
+      selectedThreadId: messageThread.threadId,
+      ...(messageThread.syncState ? { syncState: messageThread.syncState } : {}),
+    },
+    changed,
+  };
+}
+
+function createNotificationListResponse(): NotificationListResponse {
+  const thread = createThread(1);
+  return {
+    notificationList: {
+      items: [
+        {
+          id: "notice-1",
+          type: "system",
+          groupKey: "security",
+          groupLabel: "Security",
+          title: "Security update",
+          summary: "First page notification",
+          createdAt: "2026-04-08T09:00:00.000Z",
+          pinned: true,
+          doNotDisturb: false,
+          receipt: {
+            read: false,
+            readReceiptRequired: true,
+          },
+          touchpoints: [],
+          tagLabels: ["security"],
+        },
+      ],
+      page: 1,
+      pageSize: 6,
+      total: 2,
+      hasMore: true,
+      grouping: "type",
+      groups: [{ key: "security", label: "Security", count: 1 }],
+      filters: [
+        {
+          key: "type",
+          label: "Type",
+          selectedKeys: [],
+          options: [
+            { key: "all", label: "All", count: 2 },
+            { key: "system", label: "System", count: 1 },
+          ],
+        },
+      ],
+      onlyUnread: false,
+      selectedNotificationId: "notice-1",
+    },
+    messageThread: thread,
+    unreadBadge: {
+      totalUnread: 3,
+      notificationUnread: 2,
+      threadUnread: 1,
+      breakdown: [{ key: "system", label: "System", count: 1 }],
+    },
+    reservedThreads: [thread],
+    threadList: {
+      items: [thread],
+      page: 1,
+      pageSize: 20,
+      total: 1,
+      hasMore: false,
+      selectedThreadId: thread.threadId,
+      ...(thread.syncState ? { syncState: thread.syncState } : {}),
+    },
+  };
+}
+
 function createKernelStub() {
   const routeCalls: Array<{ routeId: string; params?: Record<string, string | number | boolean> }> = [];
   let requestMode: "success" | "unauthorized" = "success";
   let threadUnreadCount = 1;
   let sentMessageBody: string | undefined;
+  let lastDeliveryStatus: "sent" | "pending" | "delivered" | "failed" = "sent";
+  let messageAttemptCount = 1;
+  let currentRoute: { path: string; params?: Record<string, string | number | boolean> } = { path: "/messages" };
 
   const kernel: AppKernel = {
     env: {
@@ -61,53 +233,37 @@ function createKernelStub() {
         }
 
         if (url === "/messages/thread") {
-          const response: MessageThreadResponse = {
-            messageThread: {
-              threadId: String(query?.threadId ?? "thread-1"),
-              type: "private",
-              title: "Tutor",
-              participantLabels: ["Tutor", "You"],
-              pinned: true,
-              doNotDisturb: false,
-              unreadCount: threadUnreadCount,
-              lastMessagePreview: sentMessageBody ?? "Reply",
-              lastMessageAt: "2026-04-08T09:10:00.000Z",
-              reserved: true,
-              touchpoints: [],
-            },
-            messageItems: [
-              {
-                messageId: "msg-1",
-                threadId: "thread-1",
-                direction: "inbound",
-                senderRole: "advisor",
-                senderLabel: "Tutor",
-                body: "Please review the latest task.",
-                createdAt: "2026-04-08T09:00:00.000Z",
-                deliveryStatus: threadUnreadCount > 0 ? "delivered" : "read",
-                ...(threadUnreadCount > 0 ? {} : { readAt: "2026-04-08T09:30:00.000Z" }),
-                touchpoints: [],
-              },
-              ...(sentMessageBody
-                ? [
-                    {
-                      messageId: "msg-out-1",
-                      threadId: "thread-1",
-                      direction: "outbound" as const,
-                      senderRole: "self" as const,
-                      senderLabel: "You",
-                      body: sentMessageBody,
-                      createdAt: "2026-04-08T09:31:00.000Z",
-                      deliveryStatus: "sent" as const,
-                      touchpoints: [],
-                    },
-                  ]
-                : []),
-            ],
-            detailActions: {
-              canReply: true,
-              canMarkRead: threadUnreadCount > 0,
-              deliveryLabel: "Private message delivery lane",
+          const response = createThreadResponse(threadUnreadCount, sentMessageBody);
+          if (sentMessageBody) {
+            response.messageItems = [createInboundMessage(threadUnreadCount), createOutboundMessage(sentMessageBody, lastDeliveryStatus, messageAttemptCount)];
+            response.detailActions.canRetryFailed = lastDeliveryStatus === "failed";
+          }
+          response.messageThread.threadId = String(query?.threadId ?? "thread-1");
+          return ok(response as T);
+        }
+
+        if (url === "/messages/thread/sync") {
+          const response = createThreadResponse(threadUnreadCount, sentMessageBody, query?.cursor !== "cursor-stable");
+          if (sentMessageBody) {
+            response.messageItems = [
+              createInboundMessage(threadUnreadCount),
+              createOutboundMessage(sentMessageBody, query?.cursor ? "delivered" : lastDeliveryStatus === "failed" ? "failed" : "delivered", messageAttemptCount),
+            ];
+          }
+          return ok(response as T);
+        }
+
+        if (url === "/messages/threads") {
+          const thread = createThread(threadUnreadCount, sentMessageBody ?? "Reply");
+          const response: MessageThreadListResponse = {
+            threadList: {
+              items: [thread],
+              page: Number(query?.page ?? 1),
+              pageSize: Number(query?.pageSize ?? 20),
+              total: 1,
+              hasMore: false,
+              selectedThreadId: thread.threadId,
+              ...(thread.syncState ? { syncState: thread.syncState } : {}),
             },
             unreadBadge: {
               totalUnread: 2 + threadUnreadCount,
@@ -116,145 +272,122 @@ function createKernelStub() {
               breakdown: [{ key: "system", label: "System", count: 1 }],
             },
           };
-
           return ok(response as T);
         }
 
-        const response: NotificationListResponse = {
-          notificationList: {
-            items:
-              query?.page === 2
-                ? [
-                    {
-                      id: "notice-2",
-                      type: "business",
-                      groupKey: "orders",
-                      groupLabel: "Orders",
-                      title: "Order update",
-                      summary: "Second page notification",
-                      createdAt: "2026-04-08T08:00:00.000Z",
-                      pinned: false,
-                      doNotDisturb: false,
-                      receipt: {
-                        read: false,
-                        readReceiptRequired: true,
-                      },
-                      touchpoints: [],
-                      tagLabels: ["orders"],
-                    },
-                  ]
-                : [
-                    {
-                      id: "notice-1",
-                      type: "system",
-                      groupKey: "security",
-                      groupLabel: "Security",
-                      title: "Security update",
-                      summary: "First page notification",
-                      createdAt: "2026-04-08T09:00:00.000Z",
-                      pinned: true,
-                      doNotDisturb: false,
-                      receipt: {
-                        read: false,
-                        readReceiptRequired: true,
-                      },
-                      touchpoints: [],
-                      tagLabels: ["security"],
-                    },
-                  ],
-            page: Number(query?.page ?? 1),
-            pageSize: Number(query?.pageSize ?? 6),
-            total: 2,
-            hasMore: Number(query?.page ?? 1) === 1,
-            grouping: "type",
-            groups: [{ key: "security", label: "Security", count: 1 }],
-            filters: [
-              {
-                key: "type",
-                label: "Type",
-                selectedKeys: typeof query?.type === "string" ? [query.type] : [],
-                options: [
-                  { key: "all", label: "All", count: 2 },
-                  { key: "system", label: "System", count: 1 },
-                ],
-              },
-            ],
-            onlyUnread: query?.onlyUnread === true,
-            selectedNotificationId: Number(query?.page ?? 1) === 1 ? "notice-1" : "notice-2",
-          },
-          messageThread: {
-            threadId: "thread-1",
-            type: "private",
-            title: "Tutor",
-            participantLabels: ["Tutor", "You"],
-            pinned: true,
-            doNotDisturb: false,
-            unreadCount: 1,
-            lastMessagePreview: "Reply",
-            lastMessageAt: "2026-04-08T09:10:00.000Z",
-            reserved: true,
-            touchpoints: [],
-          },
-          unreadBadge: {
-            totalUnread: 3,
-            notificationUnread: 2,
-            threadUnread: 1,
-            breakdown: [{ key: "system", label: "System", count: 1 }],
-          },
-          reservedThreads: [
+        if (Number(query?.page ?? 1) === 2) {
+          const response = createNotificationListResponse();
+          response.notificationList.items = [
             {
-              threadId: "thread-1",
-              type: "private",
-              title: "Tutor",
-              participantLabels: ["Tutor", "You"],
-              pinned: true,
+              id: "notice-2",
+              type: "business",
+              groupKey: "orders",
+              groupLabel: "Orders",
+              title: "Order update",
+              summary: "Second page notification",
+              createdAt: "2026-04-08T08:00:00.000Z",
+              pinned: false,
               doNotDisturb: false,
-              unreadCount: 1,
-              lastMessagePreview: "Reply",
-              lastMessageAt: "2026-04-08T09:10:00.000Z",
-              reserved: true,
+              receipt: {
+                read: false,
+                readReceiptRequired: true,
+              },
               touchpoints: [],
+              tagLabels: ["orders"],
             },
-          ],
-        };
+          ];
+          response.notificationList.page = 2;
+          response.notificationList.hasMore = false;
+          response.notificationList.selectedNotificationId = "notice-2";
+          return ok(response as T);
+        }
 
-        return ok(response as T);
+        return ok(createNotificationListResponse() as T);
       },
       async post<T>(url: string, body?: Record<string, unknown>) {
         if (url === "/messages/thread/read") {
           threadUnreadCount = 0;
-          const response: MessageThreadResponse = {
-            messageThread: {
-              threadId: String(body?.threadId ?? "thread-1"),
-              type: "private",
-              title: "Tutor",
-              participantLabels: ["Tutor", "You"],
-              pinned: true,
-              doNotDisturb: false,
-              unreadCount: 0,
-              lastMessagePreview: sentMessageBody ?? "Reply",
-              lastMessageAt: "2026-04-08T09:10:00.000Z",
-              lastReadAt: "2026-04-08T09:30:00.000Z",
-              reserved: true,
-              touchpoints: [],
+          return ok(createThreadResponse(0, sentMessageBody) as T);
+        }
+
+        if (url === "/messages/thread/send") {
+          sentMessageBody = String(body?.body ?? "");
+          lastDeliveryStatus = sentMessageBody.includes("retry") ? "failed" : "pending";
+          messageAttemptCount = 1;
+          const response: SendMessageResponse = {
+            messageThread: createThread(threadUnreadCount, sentMessageBody),
+            messageItem: createOutboundMessage(sentMessageBody, lastDeliveryStatus, messageAttemptCount),
+            detailActions: {
+              canReply: true,
+              canMarkRead: threadUnreadCount > 0,
+              canRetryFailed: lastDeliveryStatus === "failed",
+              canCreateThread: true,
+              deliveryLabel: "Private message delivery lane",
             },
-            messageItems: [
-              {
-                messageId: "msg-1",
-                threadId: "thread-1",
-                direction: "inbound",
-                senderRole: "advisor",
-                senderLabel: "Tutor",
-                body: "Please review the latest task.",
-                createdAt: "2026-04-08T09:00:00.000Z",
-                deliveryStatus: "read",
-                readAt: "2026-04-08T09:30:00.000Z",
-                touchpoints: [],
-              },
-            ],
+            unreadBadge: {
+              totalUnread: 2 + threadUnreadCount,
+              notificationUnread: 2,
+              threadUnread: threadUnreadCount,
+              breakdown: [{ key: "system", label: "System", count: 1 }],
+            },
+            threadList: {
+              items: [createThread(threadUnreadCount, sentMessageBody)],
+              page: 1,
+              pageSize: 20,
+              total: 1,
+              hasMore: false,
+              selectedThreadId: "thread-1",
+            },
+          };
+          return ok(response as T);
+        }
+
+        if (url === "/messages/thread/retry") {
+          lastDeliveryStatus = "pending";
+          messageAttemptCount = 2;
+          const response: RetryMessageResponse = {
+            messageThread: createThread(threadUnreadCount, sentMessageBody ?? "Reply"),
+            messageItem: createOutboundMessage(sentMessageBody ?? "retry", "pending", messageAttemptCount),
+            detailActions: {
+              canReply: true,
+              canMarkRead: threadUnreadCount > 0,
+              canRetryFailed: false,
+              canCreateThread: true,
+              deliveryLabel: "Private message delivery lane",
+            },
+            unreadBadge: {
+              totalUnread: 2 + threadUnreadCount,
+              notificationUnread: 2,
+              threadUnread: threadUnreadCount,
+              breakdown: [{ key: "system", label: "System", count: 1 }],
+            },
+            threadList: {
+              items: [createThread(threadUnreadCount, sentMessageBody ?? "Reply")],
+              page: 1,
+              pageSize: 20,
+              total: 1,
+              hasMore: false,
+              selectedThreadId: "thread-1",
+            },
+          };
+          return ok(response as T);
+        }
+
+        if (url === "/messages/thread/create") {
+          const response: CreateMessageThreadResponse = {
+            messageThread: {
+              ...createThread(0, "New conversation"),
+              threadId: "thread-created",
+              type: String(body?.type ?? "private") as MessageThread["type"],
+              title: String(body?.title ?? "New Conversation"),
+              reserved: false,
+              unreadCount: 0,
+            },
             detailActions: {
               canReply: true,
               canMarkRead: false,
+              canRetryFailed: false,
+              canCreateThread: true,
               deliveryLabel: "Private message delivery lane",
             },
             unreadBadge: {
@@ -263,47 +396,21 @@ function createKernelStub() {
               threadUnread: 0,
               breakdown: [{ key: "system", label: "System", count: 1 }],
             },
-          };
-          return ok(response as T);
-        }
-
-        if (url === "/messages/thread/send") {
-          sentMessageBody = String(body?.body ?? "");
-          const response: SendMessageResponse = {
-            messageThread: {
-              threadId: String(body?.threadId ?? "thread-1"),
-              type: "private",
-              title: "Tutor",
-              participantLabels: ["Tutor", "You"],
-              pinned: true,
-              doNotDisturb: false,
-              unreadCount: threadUnreadCount,
-              lastMessagePreview: sentMessageBody,
-              lastMessageAt: "2026-04-08T09:31:00.000Z",
-              reserved: true,
-              touchpoints: [],
-            },
-            messageItem: {
-              messageId: "msg-out-1",
-              threadId: "thread-1",
-              direction: "outbound",
-              senderRole: "self",
-              senderLabel: "You",
-              body: sentMessageBody,
-              createdAt: "2026-04-08T09:31:00.000Z",
-              deliveryStatus: "sent",
-              touchpoints: [],
-            },
-            detailActions: {
-              canReply: true,
-              canMarkRead: threadUnreadCount > 0,
-              deliveryLabel: "Private message delivery lane",
-            },
-            unreadBadge: {
-              totalUnread: 2 + threadUnreadCount,
-              notificationUnread: 2,
-              threadUnread: threadUnreadCount,
-              breakdown: [{ key: "system", label: "System", count: 1 }],
+            threadList: {
+              items: [
+                {
+                  ...createThread(0, "New conversation"),
+                  threadId: "thread-created",
+                  title: String(body?.title ?? "New Conversation"),
+                  reserved: false,
+                },
+                createThread(threadUnreadCount, sentMessageBody ?? "Reply"),
+              ],
+              page: 1,
+              pageSize: 20,
+              total: 2,
+              hasMore: false,
+              selectedThreadId: "thread-created",
             },
           };
           return ok(response as T);
@@ -372,10 +479,18 @@ function createKernelStub() {
       },
       async toRoute(routeId, params) {
         routeCalls.push({ routeId, ...(params ? { params } : {}) });
+        currentRoute = {
+          path: typeof routeId === "string" ? routeId : currentRoute.path,
+          ...(params ? { params } : {}),
+        };
         return ok(undefined);
       },
       async replaceRoute(routeId, params) {
         routeCalls.push({ routeId, ...(params ? { params } : {}) });
+        currentRoute = {
+          path: typeof routeId === "string" ? routeId : currentRoute.path,
+          ...(params ? { params } : {}),
+        };
         return ok(undefined);
       },
       resolve() {
@@ -385,7 +500,7 @@ function createKernelStub() {
         return ok(undefined);
       },
       current() {
-        return ok({ path: "/messages" });
+        return ok(currentRoute);
       },
     },
     ui: {} as AppKernel["ui"],
@@ -396,6 +511,9 @@ function createKernelStub() {
     routeCalls,
     setRequestMode(mode: "success" | "unauthorized") {
       requestMode = mode;
+    },
+    setCurrentRoute(nextRoute: { path: string; params?: Record<string, string | number | boolean> }) {
+      currentRoute = nextRoute;
     },
   };
 }
@@ -435,6 +553,47 @@ test("messages controller appends the next page and keeps the current list", asy
   assert.equal(controller.store.getState().items[1]?.id, "notice-2");
   assert.equal(controller.store.getState().pagination.page, 2);
   assert.equal(controller.store.getState().status.loadState, "ready");
+});
+
+test("messages controller preserves deep-link recovery metadata and marks missing detail as unavailable", async () => {
+  const { kernel, setCurrentRoute } = createKernelStub();
+  const originalGet = kernel.request.get.bind(kernel.request);
+  setCurrentRoute({
+    path: "/messages",
+    params: {
+      type: "system",
+      onlyUnread: true,
+      threadId: "thread-1",
+    },
+  });
+  kernel.request.get = async <T>(url: string, query?: Record<string, unknown>) => {
+    if (url === "/messages/thread") {
+      return {
+        ok: false as const,
+        error: {
+          code: "NOT_FOUND",
+          message: "Thread not found",
+          recoverable: false,
+        },
+      };
+    }
+
+    return originalGet<T>(url, query);
+  };
+
+  const controller = createMessagesController({
+    kernel,
+    initialState: createDefaultMessagesState(),
+  });
+
+  await controller.loadInitial();
+
+  assert.equal(controller.store.getState().status.restoredFromRoute, true);
+  assert.deepEqual(controller.store.getState().status.restoredQueryKeys, ["type", "onlyUnread"]);
+  assert.equal(controller.store.getState().status.restoredSelectionId, "thread-1");
+  assert.equal(controller.store.getState().detailStatus.loadState, "unavailable");
+  assert.equal(controller.store.getState().detailStatus.recoveredFromLink, true);
+  assert.equal(controller.store.getState().detailStatus.requestedDetailId, "thread-1");
 });
 
 test("messages controller syncs type filters into the route and reloads", async () => {
@@ -501,6 +660,69 @@ test("messages controller can send an outbound message into the selected thread"
   assert.equal(controller.store.getState().composerText, "");
   assert.equal(controller.store.getState().messageItems.at(-1)?.body, "Can you review my next attempt?");
   assert.equal(controller.store.getState().messageThread?.lastMessagePreview, "Can you review my next attempt?");
+  assert.equal(controller.store.getState().messageItems.at(-1)?.deliveryStatus, "pending");
+});
+
+test("messages controller retries a failed outbound message", async () => {
+  const { kernel } = createKernelStub();
+  const controller = createMessagesController({
+    kernel,
+    initialState: createDefaultMessagesState(),
+  });
+
+  await controller.loadInitial();
+  await controller.sendMessage("please retry this delivery");
+  await controller.retryMessage("msg-out-1");
+
+  assert.equal(controller.store.getState().messageItems.at(-1)?.deliveryStatus, "pending");
+  assert.equal(controller.store.getState().messageItems.at(-1)?.attemptCount, 2);
+  assert.equal(controller.store.getState().detailActions?.canRetryFailed, false);
+});
+
+test("messages controller can sync a thread and promote delivery state", async () => {
+  const { kernel } = createKernelStub();
+  const controller = createMessagesController({
+    kernel,
+    initialState: createDefaultMessagesState(),
+  });
+
+  await controller.loadInitial();
+  await controller.sendMessage("sync this reply");
+  const cursor = controller.store.getState().messageThread?.syncState?.cursor;
+  await controller.syncThread(undefined, cursor);
+
+  assert.equal(controller.store.getState().messageItems.at(-1)?.deliveryStatus, "delivered");
+});
+
+test("messages controller can create a new thread and switch selection", async () => {
+  const { kernel } = createKernelStub();
+  const controller = createMessagesController({
+    kernel,
+    initialState: createDefaultMessagesState(),
+  });
+
+  await controller.loadInitial();
+  await controller.createThread({
+    type: "private",
+    title: "New Conversation",
+    participantUserIds: ["coach-2"],
+  });
+
+  assert.equal(controller.store.getState().selectedThreadId, "thread-created");
+  assert.equal(controller.store.getState().reservedThreads[0]?.threadId, "thread-created");
+});
+
+test("messages controller can load a customer-service thread by ticket id", async () => {
+  const { kernel } = createKernelStub();
+  const controller = createMessagesController({
+    kernel,
+    initialState: createDefaultMessagesState(),
+  });
+
+  await controller.loadInitial();
+  await controller.loadSupportThreadByTicket("fb_1");
+
+  assert.equal(controller.store.getState().messageThread?.threadId, "thread-1");
 });
 
 test("messages controller routes unauthorized responses back to login", async () => {

@@ -91,9 +91,9 @@ Support FAQ, ticket creation, triage, assignment, progress updates, support conv
 
 ## Acceptance
 
-- [ ] ticket list and detail are implemented
-- [ ] triage, assignment, priority, tag, and SLA fields are durable
-- [ ] support conversation syncs with message threads
-- [ ] revisit and closure update processing history
-- [ ] FAQ/support entry data is configurable and durable
-- [ ] `pnpm verify` run
+- [x] ticket list and detail are implemented
+- [x] triage, assignment, priority, tag, and SLA fields are durable
+- [x] support conversation syncs with message threads
+- [x] revisit and closure update processing history
+- [x] FAQ/support entry data is configurable and durable
+- [x] `pnpm verify` run

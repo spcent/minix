@@ -1,22 +1,46 @@
 import type {
+  AccountOperationCooldown,
+  AccountOperationKind,
+  AccountOperationRecord,
+  AfterSalesCase,
+  ContentActorRole,
+  ContentAttachmentReference,
+  ContentAuditEntry,
+  ContentAuthoringData,
   UserAvailabilityStatus,
   AuthCredentialProtection,
+  AuthDeviceIdentity,
   AuthIdentityWorkflow,
+  AuthRateLimitState,
   AuthVerificationPurpose,
   AuthIdentity,
+  AuthSecurityAuditEvent,
+  AuthSecurityPrompt,
   AuthStatus,
   AuthRedirectTarget,
   ContentLifecycle,
   ContentModel,
+  ContentReviewRecord,
   ContentVisibility,
+  FeedbackFaqEntry,
+  FeedbackSupportEntry,
   FeedbackTicketDetailResponse,
   LoginMethod,
   LoginPlatformKind,
   MessageBodyItem,
+  MessageTouchpointChannel,
+  MessageTouchpointReceipt,
+  MessageThread,
   OrderDetailResponse,
   PurchaseMembershipRequest,
   ReadingProgress,
   SharePrepareResponse,
+  SettingsNotificationChannel,
+  SettingsPrivacyOptions,
+  SettingsPreferences,
+  SettingsFeatureToggles,
+  UserAssetLedgerEntry,
+  UserFriendState,
   UploadChunkReceipt,
   UploadCleanupRecord,
   UploadPipelineResponse,
@@ -72,6 +96,8 @@ export interface AuthPasswordCredentialRecord {
 export interface AuthOAuthStateRecord {
   provider: string;
   state: string;
+  purpose?: "login" | "bind";
+  ownerUserId?: string;
   expiresAt: number;
   createdAt: number;
   deviceId?: string;
@@ -84,6 +110,11 @@ export interface AuthOAuthCredentialRecord {
   userId: string;
   tokenHash: string;
   createdAt: number;
+  linkedAt?: number;
+  lastAuthorizedAt?: number;
+  authorizationStatus?: "active" | "revoked" | "unlinked";
+  revokedAt?: number;
+  revocationReason?: string;
   expiresAt?: number;
 }
 
@@ -94,6 +125,10 @@ export interface AuthSecurityState {
   oauthStatesByState: Record<string, AuthOAuthStateRecord>;
   oauthCredentialsByProviderSubject: Record<string, AuthOAuthCredentialRecord>;
   credentialProtectionBySubject: Record<string, AuthCredentialProtection>;
+  devicesById: Record<string, AuthDeviceIdentity>;
+  auditEvents: AuthSecurityAuditEvent[];
+  rateLimitStatesByScope: Record<string, AuthRateLimitState>;
+  latestPrompt?: AuthSecurityPrompt;
 }
 
 export interface StoredUploadRecord extends UploadPipelineResponse {
@@ -108,6 +143,20 @@ export interface StoredUploadRecord extends UploadPipelineResponse {
   references: UploadReference[];
 }
 
+export interface StoredMessageThreadRecord {
+  thread: MessageThread;
+  messages: MessageBodyItem[];
+  syncCursor: string;
+  updatedAt: string;
+}
+
+export interface StoredNotificationTouchpointRecord extends MessageTouchpointReceipt {
+  channel: MessageTouchpointChannel;
+  providerKey: string;
+  templateKey: string;
+  locale: string;
+}
+
 export interface UserState {
   membershipPlanId?: PurchaseMembershipRequest["planId"];
   bookshelfNovelIds: Set<string>;
@@ -115,13 +164,48 @@ export interface UserState {
   notificationReadAtById: Record<string, string>;
   threadReadAtById: Record<string, string>;
   threadMessagesByThreadId: Record<string, MessageBodyItem[]>;
+  threadRecordsById: Record<string, StoredMessageThreadRecord>;
+  notificationTouchpointReceiptsByNotificationId?: Record<string, Record<string, StoredNotificationTouchpointRecord>>;
   feedbackDetailsById: Record<string, FeedbackTicketDetailResponse>;
+  feedbackTicketIds: string[];
+  feedbackFaqCatalog: FeedbackFaqEntry[];
+  feedbackSupportEntries: FeedbackSupportEntry[];
   latestFeedbackTicketId?: string;
   latestPaidOrderId?: string;
   ordersById: Record<string, OrderDetailResponse>;
   orderIdByIdempotencyKey: Record<string, string>;
+  afterSalesById: Record<string, AfterSalesCase>;
   sharePreparesById: Record<string, SharePrepareResponse>;
   uploadsByTaskId: Record<string, StoredUploadRecord>;
+  assetLedgerEntries: UserAssetLedgerEntry[];
+  settingsState?: {
+    preferences?: {
+      notificationsEnabled?: SettingsPreferences["notificationsEnabled"];
+      device?: Partial<Pick<SettingsPreferences["device"], "networkStrategy" | "autoplay" | "weakNetworkMode">>;
+      developerOptions?: Partial<SettingsPreferences["developerOptions"]>;
+    };
+    featureToggles?: Partial<Pick<SettingsFeatureToggles, "pushEnabled" | "smsEnabled" | "emailEnabled">>;
+    notificationChannels?: Partial<
+      Record<
+        SettingsNotificationChannel,
+        {
+          enabled?: boolean;
+          unsubscribed?: boolean;
+          unsubscribedAt?: string;
+        }
+      >
+    >;
+    privacyOptions?: Partial<Pick<SettingsPrivacyOptions, "profileVisibility" | "personalizedRecommendations" | "searchHistoryEnabled" | "analyticsEnabled" | "screenshotFeedbackEnabled">>;
+  };
+  operationRecords: AccountOperationRecord[];
+  operationCooldownsByKind: Partial<Record<AccountOperationKind, AccountOperationCooldown>>;
+  pendingCancellation?: {
+    requestedAt: string;
+    effectiveAt: string;
+    revokeUntil: string;
+    reason?: "privacy" | "switching" | "other";
+    details?: string;
+  };
   boundPhoneNumber?: string;
   wechatBoundOverride?: boolean;
   profileOverrides?: {
@@ -137,25 +221,136 @@ export interface UserState {
     following: boolean;
     followedBy: boolean;
     friend: boolean;
+    friendState?: UserFriendState;
     blocked: boolean;
     remarkName?: string;
   };
+  relationRecordsByUserId?: Record<
+    string,
+    {
+      targetUserId: string;
+      displayName: string;
+      following: boolean;
+      followedBy: boolean;
+      friend: boolean;
+      friendState?: UserFriendState;
+      blocked: boolean;
+      remarkName?: string;
+      lastInteractionAt?: string;
+    }
+  >;
   managedContentById?: Record<
     string,
     {
+      authorUserId: string;
       model: ContentModel;
       visibility: ContentVisibility;
       lifecycle: ContentLifecycle;
       authorLabel: string;
+      title: string;
+      subtitle?: string;
       summary: string;
+      bodyPreview?: string;
       categoryKey: string;
       categoryLabel: string;
       tags: Array<{ key: string; label: string }>;
+      coverAssetId?: string;
+      attachments: ContentAttachmentReference[];
+      reviewRecord: ContentReviewRecord;
+      auditHistory: ContentAuditEntry[];
+      actorRoles: ContentActorRole[];
+      authoring: ContentAuthoringData;
     }
   >;
   pendingIdentityWorkflow?: AuthIdentityWorkflow;
   lastIdentityWorkflow?: AuthIdentityWorkflow;
   authSecurity?: AuthSecurityState;
+}
+
+export type OperationalDomainKey =
+  | "sessions"
+  | "credentials"
+  | "orders"
+  | "uploads"
+  | "messages"
+  | "content"
+  | "feedback"
+  | "audit_events";
+
+export type OperationalMigrationStatus = "completed" | "skipped";
+export type OperationalJobKind =
+  | "upload_cleanup"
+  | "payment_reconciliation"
+  | "notification_retry"
+  | "cancellation_expiry";
+export type OperationalJobStatus = "queued" | "running" | "completed" | "failed" | "skipped";
+export type OperationalMonitoringLevel = "info" | "warn" | "error";
+export type OperationalAuditCategory = "job" | "migration" | "governance";
+
+export interface OperationalDomainSchema {
+  domain: OperationalDomainKey;
+  schemaVersion: number;
+  recordCount: number;
+  lastRecordId?: string;
+  lastBackfilledAt?: string;
+}
+
+export interface OperationalMigrationRecord {
+  migrationId: string;
+  target: "user_state" | "operational_state";
+  fromVersion: number;
+  toVersion: number;
+  status: OperationalMigrationStatus;
+  appliedAt: string;
+  note: string;
+}
+
+export interface BackgroundJobRecord {
+  jobId: string;
+  kind: OperationalJobKind;
+  status: OperationalJobStatus;
+  userId: string;
+  dedupeKey: string;
+  relatedRecordId?: string;
+  scheduledAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  attempts: number;
+  maxAttempts: number;
+  lastError?: string;
+  lastResult?: string;
+}
+
+export interface OperationalMonitoringEvent {
+  eventId: string;
+  level: OperationalMonitoringLevel;
+  scope: "job" | "security" | "persistence";
+  message: string;
+  createdAt: string;
+  jobId?: string;
+  userId?: string;
+  dedupeKey?: string;
+}
+
+export interface OperationalAuditRecord {
+  auditId: string;
+  category: OperationalAuditCategory;
+  action: string;
+  message: string;
+  createdAt: string;
+  userId?: string;
+  recordId?: string;
+  metadata?: Record<string, string | number | boolean>;
+}
+
+export interface OperationalState {
+  schemaVersion: number;
+  domainSchemas: OperationalDomainSchema[];
+  migrations: OperationalMigrationRecord[];
+  backgroundJobs: BackgroundJobRecord[];
+  monitoringEvents: OperationalMonitoringEvent[];
+  auditTrail: OperationalAuditRecord[];
+  lastSweepAt?: string;
 }
 
 export interface SessionRecord {
@@ -186,6 +381,8 @@ export interface ApiStore {
   getSessionByAccessToken(accessToken: string): Promise<SessionRecord | null>;
   getUserState(userId: string): Promise<UserState>;
   saveUserState(userId: string, userState: UserState): Promise<void>;
+  getOperationalState(): Promise<OperationalState>;
+  saveOperationalState(state: OperationalState): Promise<void>;
 }
 
 export interface D1PreparedStatementLike {

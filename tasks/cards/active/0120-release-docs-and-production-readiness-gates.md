@@ -88,9 +88,14 @@ Make production readiness explicit by documenting behavior, provider setup, know
 
 ## Acceptance
 
-- [ ] backend contract docs reflect productionized behavior
-- [ ] provider setup and environment variables are documented without secrets
-- [ ] host capability support matrix is documented
-- [ ] release gate checklist includes automated and manual validation
-- [ ] accepted deferred issues are explicit
-- [ ] docs-only validation decision or `pnpm verify` result is recorded
+- [x] backend contract docs reflect productionized behavior
+- [x] provider setup and environment variables are documented without secrets
+- [x] host capability support matrix is documented
+- [x] release gate checklist includes automated and manual validation
+- [x] accepted deferred issues are explicit
+- [x] docs-only validation decision or `pnpm verify` result is recorded
+
+## Verification Record
+
+- `pnpm verify`
+- `pnpm verify:release`

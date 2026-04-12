@@ -34,12 +34,17 @@ function createKernelStub() {
                 body: "Loaded from manifest controller",
                 createdAt: "2026-04-08T09:00:00.000Z",
                 deliveryStatus: "delivered",
+                deliveredAt: "2026-04-08T09:00:01.000Z",
+                attemptCount: 1,
+                retryable: false,
                 touchpoints: [],
               },
             ],
             detailActions: {
               canReply: true,
               canMarkRead: true,
+              canRetryFailed: false,
+              canCreateThread: true,
               deliveryLabel: "Private message delivery lane",
             },
             unreadBadge: {

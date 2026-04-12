@@ -1,4 +1,12 @@
-import type { Entitlement, Order, PaymentChannel, PaymentIntent, PaymentProviderMode, PaymentResult } from "./payment";
+import type {
+  Entitlement,
+  Order,
+  PaymentChannel,
+  PaymentIntent,
+  PaymentOperationResult,
+  PaymentProviderMode,
+  PaymentResult,
+} from "./payment";
 
 export interface MembershipBenefit {
   key: string;
@@ -39,6 +47,7 @@ export interface PurchaseMembershipResponse {
   order: Order;
   paymentIntent: PaymentIntent;
   paymentResult: PaymentResult;
+  operationResult?: PaymentOperationResult;
   entitlement: MembershipEntitlement;
   source?: string;
   novelId?: string;

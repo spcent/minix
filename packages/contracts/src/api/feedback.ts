@@ -16,6 +16,9 @@ export interface FeedbackFaqEntry {
   summary: string;
   linkLabel?: string;
   linkUrl?: string;
+  categoryKeys?: string[];
+  updatedAt?: string;
+  enabled?: boolean;
 }
 
 export interface FeedbackSupportEntry {
@@ -23,8 +26,28 @@ export interface FeedbackSupportEntry {
   label: string;
   summary: string;
   channel: "messages" | "settings";
+  queueKey?: string;
+  queueLabel?: string;
+  handlerLabel?: string;
   routeId?: AppRouteId;
   threadId?: string;
+  updatedAt?: string;
+  enabled?: boolean;
+}
+
+export interface FeedbackTicketAssignee {
+  userId: string;
+  label: string;
+  teamLabel?: string;
+  assignedAt?: string;
+}
+
+export interface FeedbackTicketSla {
+  policyKey: string;
+  label: string;
+  deadlineAt: string;
+  breached: boolean;
+  updatedAt?: string;
 }
 
 export interface FeedbackRevisitAction {
@@ -40,6 +63,8 @@ export interface FeedbackRevisitAction {
 export interface FeedbackProcessingRecord {
   recordedAt: string;
   actorLabel: string;
+  actorRole?: "system" | "user" | "support";
+  actorUserId?: string;
   actionLabel: string;
   note?: string;
   state: FeedbackTicketState;
@@ -55,6 +80,10 @@ export interface FeedbackStatus {
   faqEntries?: FeedbackFaqEntry[];
   customerServiceEntryLabel?: string;
   supportEntry?: FeedbackSupportEntry;
+  queueKey?: string;
+  queueLabel?: string;
+  assignee?: FeedbackTicketAssignee;
+  sla?: FeedbackTicketSla;
   revisitAction?: FeedbackRevisitAction;
   handlingProgress: string[];
   processingHistory: FeedbackProcessingRecord[];
@@ -72,6 +101,8 @@ export interface FeedbackCategory {
   faqEntries?: FeedbackFaqEntry[];
   customerServiceEntryLabel?: string;
   supportEntry?: FeedbackSupportEntry;
+  defaultQueueKey?: string;
+  defaultQueueLabel?: string;
 }
 
 export interface FeedbackContextCapture {
@@ -96,9 +127,42 @@ export interface FeedbackTicket {
   labels: string[];
   revisitRequested: boolean;
   satisfactionScore?: number;
+  queueKey?: string;
+  queueLabel?: string;
+  assignee?: FeedbackTicketAssignee;
+  sla?: FeedbackTicketSla;
+  supportThreadId?: string;
+  closedAt?: string;
   createdAt: string;
   updatedAt: string;
   context: FeedbackContextCapture;
+}
+
+export interface FeedbackTicketSummary {
+  ticketId: string;
+  title: string;
+  categoryKey: string;
+  categoryLabel: string;
+  type: FeedbackType;
+  state: FeedbackTicketState;
+  priority: FeedbackPriority;
+  labels: string[];
+  revisitRequired: boolean;
+  queueKey?: string;
+  queueLabel?: string;
+  assignee?: FeedbackTicketAssignee;
+  sla?: FeedbackTicketSla;
+  supportThreadId?: string;
+  lastUpdatedAt: string;
+}
+
+export interface FeedbackTicketList {
+  items: FeedbackTicketSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+  selectedTicketId?: string;
 }
 
 export interface FeedbackTicketDetailResponse {
@@ -109,10 +173,13 @@ export interface FeedbackTicketDetailResponse {
 
 export interface FeedbackBootstrapResponse {
   feedbackCategories: FeedbackCategory[];
+  ticketList?: FeedbackTicketList;
   latestTicket?: FeedbackTicket;
   latestStatus?: FeedbackStatus;
   latestCategory?: FeedbackCategory;
   recommendedFaqEntries?: FeedbackFaqEntry[];
+  faqCatalog?: FeedbackFaqEntry[];
+  supportEntries?: FeedbackSupportEntry[];
   supportEntry?: FeedbackSupportEntry;
   serviceLoopSummary?: string;
 }
@@ -131,9 +198,40 @@ export interface SubmitFeedbackRequest {
 
 export interface SubmitFeedbackResponse extends FeedbackTicketDetailResponse {}
 
+export interface ListFeedbackTicketsRequest {
+  page?: number;
+  pageSize?: number;
+  state?: FeedbackTicketState | "all";
+  categoryKey?: string;
+  keyword?: string;
+}
+
+export interface ListFeedbackTicketsResponse {
+  ticketList: FeedbackTicketList;
+  faqCatalog: FeedbackFaqEntry[];
+  supportEntries: FeedbackSupportEntry[];
+}
+
 export interface FeedbackRevisitRequest {
   ticketId: string;
   userMessage?: string;
 }
 
 export interface FeedbackRevisitResponse extends FeedbackTicketDetailResponse {}
+
+export interface FeedbackTicketActionRequest {
+  ticketId: string;
+  state?: Extract<FeedbackTicketState, "triaged" | "in_progress" | "waiting_user" | "resolved" | "closed">;
+  priority?: FeedbackPriority;
+  labels?: string[];
+  assignee?: FeedbackTicketAssignee;
+  queueKey?: string;
+  queueLabel?: string;
+  sla?: FeedbackTicketSla;
+  note?: string;
+  supportReply?: string;
+}
+
+export interface FeedbackTicketActionResponse extends FeedbackTicketDetailResponse {
+  ticketList: FeedbackTicketList;
+}

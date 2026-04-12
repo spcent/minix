@@ -2,13 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { ok, type AppKernel } from "@minix/core";
-import { APP_ROUTE_IDS, type FeedbackBootstrapResponse, type FeedbackTicketDetailResponse } from "@minix/contracts";
+import {
+  APP_ROUTE_IDS,
+  type FeedbackBootstrapResponse,
+  type FeedbackTicketActionResponse,
+  type FeedbackTicketDetailResponse,
+  type ListFeedbackTicketsResponse,
+} from "@minix/contracts";
 
 import { createFeedbackController } from "./index";
 import { createDefaultFeedbackState } from "../model";
 
 function createKernelStub() {
   const routeCalls: Array<{ routeId: string; params?: Record<string, string | number | boolean> }> = [];
+  const storageValues = new Map<string, unknown>();
   let requestMode: "success" | "unauthorized" = "success";
   const uploadTransfer = {
     mode: "chunked" as const,
@@ -47,7 +54,13 @@ function createKernelStub() {
     },
     capability: {
       status(capability: string) {
-        return ok(capability === "device" || capability === "upload");
+        const available = capability === "device" || capability === "upload";
+        return ok({
+          capability: capability as "device" | "upload",
+          available,
+          mode: available ? "native" : "unavailable",
+          detail: available ? `${capability} capability is available.` : `${capability} capability is unavailable.`,
+        });
       },
       async execute(input?: { capability?: string }) {
         if (input?.capability === "upload") {
@@ -118,6 +131,23 @@ function createKernelStub() {
         });
       },
     },
+    storage: {
+      async get<T>(key: string) {
+        return ok((storageValues.get(key) as T | undefined) ?? null);
+      },
+      async set<T>(key: string, value: T) {
+        storageValues.set(key, value);
+        return ok(undefined);
+      },
+      async remove(key: string) {
+        storageValues.delete(key);
+        return ok(undefined);
+      },
+      async clear() {
+        storageValues.clear();
+        return ok(undefined);
+      },
+    },
     request: {
       async get<T>(path: string) {
         if (requestMode === "unauthorized") {
@@ -174,6 +204,31 @@ function createKernelStub() {
                 summary: "Use the shared account recovery lane first.",
               },
             ],
+            faqCatalog: [
+              {
+                entryId: "faq_account_recovery",
+                title: "Account Recovery FAQ",
+                summary: "Use the shared account recovery lane first.",
+                categoryKeys: ["product_issue"],
+                enabled: true,
+                updatedAt: "2026-04-08T10:00:00.000Z",
+              },
+            ],
+            supportEntries: [
+              {
+                entryId: "support_feedback",
+                label: "Open Support Desk",
+                summary: "Continue follow-up in the inbox support thread.",
+                channel: "messages",
+                routeId: APP_ROUTE_IDS.messages,
+                threadId: "thread_customer_service",
+                queueKey: "product_support",
+                queueLabel: "Product Support",
+                handlerLabel: "Support Desk",
+                enabled: true,
+                updatedAt: "2026-04-08T10:00:00.000Z",
+              },
+            ],
             supportEntry: {
               entryId: "support_feedback",
               label: "Open Support Desk",
@@ -183,6 +238,81 @@ function createKernelStub() {
               threadId: "thread_customer_service",
             },
             serviceLoopSummary: "Use the support entry if you need to add more context.",
+            ticketList: {
+              items: [],
+              page: 1,
+              pageSize: 10,
+              total: 0,
+              hasMore: false,
+            },
+          };
+          return ok(response as T);
+        }
+
+        if (path === "/feedback/tickets") {
+          const response: ListFeedbackTicketsResponse = {
+            ticketList: {
+              items: [
+                {
+                  ticketId: "fb_1",
+                  title: "Login button missing",
+                  categoryKey: "product_issue",
+                  categoryLabel: "Product Issue",
+                  type: "issue_report",
+                  state: "submitted",
+                  priority: "high",
+                  labels: ["product", "bug"],
+                  revisitRequired: true,
+                  queueKey: "product_support",
+                  queueLabel: "Product Support",
+                  assignee: {
+                    userId: "support_agent_1",
+                    label: "Support Desk",
+                    teamLabel: "Product Support",
+                    assignedAt: "2026-04-08T10:00:00.000Z",
+                  },
+                  sla: {
+                    policyKey: "product_issue_default_sla",
+                    label: "24 hour response",
+                    deadlineAt: "2026-04-09T10:00:00.000Z",
+                    breached: false,
+                    updatedAt: "2026-04-08T10:00:00.000Z",
+                  },
+                  supportThreadId: "thread_customer_service",
+                  lastUpdatedAt: "2026-04-08T10:00:00.000Z",
+                },
+              ],
+              page: 1,
+              pageSize: 10,
+              total: 1,
+              hasMore: false,
+              selectedTicketId: "fb_1",
+            },
+            faqCatalog: [
+              {
+                entryId: "faq_account_recovery",
+                title: "Account Recovery FAQ",
+                summary: "Use the shared account recovery lane first.",
+                categoryKeys: ["product_issue"],
+                enabled: true,
+                updatedAt: "2026-04-08T10:00:00.000Z",
+              },
+            ],
+            supportEntries: [
+              {
+                entryId: "support_feedback",
+                label: "Open Support Desk",
+                summary: "Continue follow-up in the inbox support thread.",
+                channel: "messages",
+                routeId: APP_ROUTE_IDS.messages,
+                threadId: "thread_customer_service",
+                queueKey: "product_support",
+                queueLabel: "Product Support",
+                handlerLabel: "Support Desk",
+                enabled: true,
+                updatedAt: "2026-04-08T10:00:00.000Z",
+              },
+            ],
           };
           return ok(response as T);
         }
@@ -197,6 +327,22 @@ function createKernelStub() {
             priority: "high",
             labels: ["product", "bug"],
             revisitRequested: true,
+            queueKey: "product_support",
+            queueLabel: "Product Support",
+            assignee: {
+              userId: "support_agent_1",
+              label: "Support Desk",
+              teamLabel: "Product Support",
+              assignedAt: "2026-04-08T10:00:00.000Z",
+            },
+            sla: {
+              policyKey: "product_issue_default_sla",
+              label: "24 hour response",
+              deadlineAt: "2026-04-09T10:00:00.000Z",
+              breached: false,
+              updatedAt: "2026-04-08T10:00:00.000Z",
+            },
+            supportThreadId: "thread_customer_service",
             createdAt: "2026-04-08T10:00:00.000Z",
             updatedAt: "2026-04-08T10:00:00.000Z",
             context: {
@@ -237,6 +383,21 @@ function createKernelStub() {
               channel: "messages",
               routeId: APP_ROUTE_IDS.messages,
               threadId: "thread_customer_service",
+            },
+            queueKey: "product_support",
+            queueLabel: "Product Support",
+            assignee: {
+              userId: "support_agent_1",
+              label: "Support Desk",
+              teamLabel: "Product Support",
+              assignedAt: "2026-04-08T10:00:00.000Z",
+            },
+            sla: {
+              policyKey: "product_issue_default_sla",
+              label: "24 hour response",
+              deadlineAt: "2026-04-09T10:00:00.000Z",
+              breached: false,
+              updatedAt: "2026-04-08T10:00:00.000Z",
             },
             revisitAction: {
               ticketId: "fb_1",
@@ -479,6 +640,15 @@ function createKernelStub() {
             priority: "high",
             labels: ["product", "bug"],
             revisitRequested: true,
+            queueKey: "product_support",
+            queueLabel: "Product Support",
+            assignee: {
+              userId: "support_agent_1",
+              label: "Support Desk",
+              teamLabel: "Product Support",
+              assignedAt: "2026-04-08T10:00:00.000Z",
+            },
+            supportThreadId: "thread_customer_service",
             createdAt: "2026-04-08T10:00:00.000Z",
             updatedAt: "2026-04-08T11:00:00.000Z",
             context: {
@@ -521,6 +691,14 @@ function createKernelStub() {
               routeId: APP_ROUTE_IDS.messages,
               threadId: "thread_customer_service",
             },
+            queueKey: "product_support",
+            queueLabel: "Product Support",
+            assignee: {
+              userId: "support_agent_1",
+              label: "Support Desk",
+              teamLabel: "Product Support",
+              assignedAt: "2026-04-08T10:00:00.000Z",
+            },
             revisitAction: {
               ticketId: request.ticketId,
               label: "Add More Context",
@@ -547,6 +725,148 @@ function createKernelStub() {
             ],
           },
         } as T);
+      }
+
+      if (_path === "/feedback/ticket/action") {
+        const request = payload as {
+          ticketId: string;
+          state?: string;
+          supportReply?: string;
+        };
+        const response: FeedbackTicketActionResponse = {
+          feedbackTicket: {
+            ticketId: request.ticketId,
+            type: "issue_report",
+            categoryKey: "product_issue",
+            title: "Login button missing",
+            description: "The primary login button did not render.",
+            priority: "urgent",
+            labels: ["product", "bug", "route-guard"],
+            revisitRequested: true,
+            queueKey: "product_support",
+            queueLabel: "Product Support",
+            assignee: {
+              userId: "support_agent_2",
+              label: "Case Owner",
+              teamLabel: "Product Support",
+              assignedAt: "2026-04-08T11:30:00.000Z",
+            },
+            sla: {
+              policyKey: "product_issue_default_sla",
+              label: "4 hour response",
+              deadlineAt: "2026-04-08T15:30:00.000Z",
+              breached: false,
+              updatedAt: "2026-04-08T11:30:00.000Z",
+            },
+            supportThreadId: "thread_customer_service",
+            createdAt: "2026-04-08T10:00:00.000Z",
+            updatedAt: "2026-04-08T11:30:00.000Z",
+            context: {
+              sourcePage: "/feedback",
+              userId: "feedback-user",
+              platform: "h5",
+              appVersion: "1.0.0",
+              screenshotAssets: [],
+              attachmentAssets: [],
+            },
+          },
+          feedbackCategory: {
+            key: "product_issue",
+            label: "Product Issue",
+            type: "issue_report",
+            defaultPriority: "high",
+            labels: ["product", "bug"],
+            supportsAttachments: true,
+            customerServiceEntryLabel: "Open Support Desk",
+          },
+          feedbackStatus: {
+            state: (request.state as "resolved") ?? "resolved",
+            label: "Resolved",
+            progressLabel: "Handled and ready for confirmation",
+            revisitRequired: true,
+            nextStepLabel: "Confirm whether the proposed resolution is sufficient.",
+            supportEntry: {
+              entryId: "support_feedback",
+              label: "Open Support Desk",
+              summary: "Continue follow-up in the inbox support thread.",
+              channel: "messages",
+              routeId: APP_ROUTE_IDS.messages,
+              threadId: "thread_customer_service",
+            },
+            queueKey: "product_support",
+            queueLabel: "Product Support",
+            assignee: {
+              userId: "support_agent_2",
+              label: "Case Owner",
+              teamLabel: "Product Support",
+              assignedAt: "2026-04-08T11:30:00.000Z",
+            },
+            sla: {
+              policyKey: "product_issue_default_sla",
+              label: "4 hour response",
+              deadlineAt: "2026-04-08T15:30:00.000Z",
+              breached: false,
+              updatedAt: "2026-04-08T11:30:00.000Z",
+            },
+            revisitAction: {
+              ticketId: request.ticketId,
+              label: "Request Follow-up",
+              summary: request.supportReply ?? "Resolution sent to the support thread.",
+              enabled: true,
+              routeId: APP_ROUTE_IDS.messages,
+              threadId: "thread_customer_service",
+            },
+            handlingProgress: ["Submitted", "Triaged", "Processed", "Resolved"],
+            processingHistory: [
+              {
+                recordedAt: "2026-04-08T11:30:00.000Z",
+                actorLabel: "Case Owner",
+                actorRole: "support",
+                state: "resolved",
+                actionLabel: "Ticket moved to resolved",
+                ...(request.supportReply ? { note: request.supportReply } : {}),
+              },
+            ],
+          },
+          ticketList: {
+            items: [
+              {
+                ticketId: request.ticketId,
+                title: "Login button missing",
+                categoryKey: "product_issue",
+                categoryLabel: "Product Issue",
+                type: "issue_report",
+                state: (request.state as "resolved") ?? "resolved",
+                priority: "urgent",
+                labels: ["product", "bug", "route-guard"],
+                revisitRequired: true,
+                queueKey: "product_support",
+                queueLabel: "Product Support",
+                assignee: {
+                  userId: "support_agent_2",
+                  label: "Case Owner",
+                  teamLabel: "Product Support",
+                  assignedAt: "2026-04-08T11:30:00.000Z",
+                },
+                sla: {
+                  policyKey: "product_issue_default_sla",
+                  label: "4 hour response",
+                  deadlineAt: "2026-04-08T15:30:00.000Z",
+                  breached: false,
+                  updatedAt: "2026-04-08T11:30:00.000Z",
+                },
+                supportThreadId: "thread_customer_service",
+                lastUpdatedAt: "2026-04-08T11:30:00.000Z",
+              },
+            ],
+            page: 1,
+            pageSize: 10,
+            total: 1,
+            hasMore: false,
+            selectedTicketId: request.ticketId,
+          },
+        };
+        return ok(response as T);
       }
 
       const request = payload as {
@@ -639,6 +959,7 @@ function createKernelStub() {
   return {
     kernel,
     routeCalls,
+    storageValues,
     setRequestMode(mode: "success" | "unauthorized") {
       requestMode = mode;
     },
@@ -663,6 +984,37 @@ test("feedback controller loads bootstrap data and captures local context", asyn
   assert.match(controller.store.getState().values.deviceSummary ?? "", /userAgent/);
   assert.equal(controller.store.getState().recommendedFaqEntries.length, 1);
   assert.equal(controller.store.getState().supportEntry?.threadId, "thread_customer_service");
+});
+
+test("feedback controller drives schema, draft recovery, and approval nodes from the shared form platform", async () => {
+  const { kernel, storageValues } = createKernelStub();
+  const controller = createFeedbackController({
+    kernel,
+    initialState: createDefaultFeedbackState(),
+  });
+
+  await controller.loadInitial();
+  controller.setStep("attachments");
+  controller.updateValues({
+    title: "Broken payment receipt",
+    description: "Resolved quickly.",
+  });
+  controller.toggleRevisitRequested();
+  await controller.saveDraft();
+
+  const restoredController = createFeedbackController({
+    kernel,
+    initialState: createDefaultFeedbackState(),
+  });
+  await restoredController.loadInitial();
+
+  assert.equal(storageValues.has("@minix/feedback/form-draft/v1"), true);
+  assert.equal(restoredController.store.getState().values.title, "Broken payment receipt");
+  assert.equal(restoredController.store.getState().workflow.currentStepKey, "attachments");
+  assert.equal(restoredController.store.getState().workflow.conditionalFieldKeys.includes("attachmentAssets"), true);
+  assert.equal(restoredController.store.getState().schema.fields.some((field) => field.type === "rich_text"), true);
+  assert.equal(restoredController.store.getState().schema.fields.some((field) => field.type === "upload_reference"), true);
+  assert.equal(restoredController.store.getState().workflow.approvalNodes?.[0]?.assigneeLabel, "Support Desk");
 });
 
 test("feedback controller validates required fields before submit", async () => {
@@ -743,6 +1095,23 @@ test("feedback controller can refresh the latest ticket status", async () => {
   assert.equal(controller.store.getState().latestStatus?.state, "submitted");
 });
 
+test("feedback controller loads ticket list and can open a selected ticket", async () => {
+  const { kernel } = createKernelStub();
+  const controller = createFeedbackController({
+    kernel,
+    initialState: createDefaultFeedbackState(),
+  });
+
+  await controller.loadInitial();
+  await controller.loadTickets();
+  await controller.openTicket("fb_1");
+
+  assert.equal(controller.store.getState().ticketList?.items.length, 1);
+  assert.equal(controller.store.getState().selectedTicketId, "fb_1");
+  assert.equal(controller.store.getState().faqCatalog[0]?.entryId, "faq_account_recovery");
+  assert.equal(controller.store.getState().latestTicket?.ticketId, "fb_1");
+});
+
 test("feedback controller can request a ticket revisit and keep support-loop state aligned", async () => {
   const { kernel } = createKernelStub();
   const controller = createFeedbackController({
@@ -761,6 +1130,46 @@ test("feedback controller can request a ticket revisit and keep support-loop sta
   assert.equal(controller.store.getState().latestStatus?.state, "in_progress");
   assert.equal(controller.store.getState().latestStatus?.processingHistory.length, 2);
   assert.equal(controller.store.getState().serviceLoopSummary, "Reply from the support entry to continue this ticket.");
+});
+
+test("feedback controller can apply support operator actions and keep queue state aligned", async () => {
+  const { kernel } = createKernelStub();
+  const controller = createFeedbackController({
+    kernel,
+    initialState: createDefaultFeedbackState(),
+  });
+
+  await controller.loadInitial();
+  await controller.loadTickets();
+  const result = await controller.performTicketAction({
+    ticketId: "fb_1",
+    state: "resolved",
+    priority: "urgent",
+    labels: ["product", "bug", "route-guard"],
+    assignee: {
+      userId: "support_agent_2",
+      label: "Case Owner",
+      teamLabel: "Product Support",
+    },
+    queueKey: "product_support",
+    queueLabel: "Product Support",
+    sla: {
+      policyKey: "product_issue_default_sla",
+      label: "4 hour response",
+      deadlineAt: "2026-04-08T15:30:00.000Z",
+      breached: false,
+    },
+    supportReply: "We refreshed the affected cache and confirmed the route guard badge is correct now.",
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(controller.store.getState().latestStatus?.state, "resolved");
+  assert.equal(controller.store.getState().latestStatus?.assignee?.label, "Case Owner");
+  assert.equal(controller.store.getState().ticketList?.items[0]?.priority, "urgent");
+  assert.equal(
+    controller.store.getState().latestStatus?.processingHistory.at(-1)?.note,
+    "We refreshed the affected cache and confirmed the route guard badge is correct now.",
+  );
 });
 
 test("feedback controller routes unauthorized bootstrap responses back to login", async () => {

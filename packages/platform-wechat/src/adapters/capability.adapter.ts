@@ -1,10 +1,18 @@
-import type { CapabilityActionInput, CapabilityActionResult } from "@minix/contracts";
+import type {
+  CapabilityActionInput,
+  CapabilityActionResult,
+  CapabilityKind,
+  CapabilityStatus,
+} from "@minix/contracts";
 import { createError, fail, ok, type CapabilityAdapter } from "@minix/core";
 
 import { resolveWechatRuntime } from "../runtime";
 
 interface WechatCapabilityRuntime {
-  getLocation?: unknown;
+  getLocation?: (options: {
+    success?: (result: Record<string, unknown>) => void;
+    fail?: (error: unknown) => void;
+  }) => void;
   getSystemInfo?: (options: {
     success?: (result: Record<string, unknown>) => void;
     fail?: (error: unknown) => void;
@@ -66,26 +74,137 @@ function prefersVisualUpload(input: CapabilityActionInput): boolean {
   return false;
 }
 
+function resolveWechatShareFallbackText(payload: Record<string, unknown>): string {
+  const sharePayload =
+    typeof payload.sharePayload === "object" && payload.sharePayload !== null
+      ? (payload.sharePayload as Record<string, unknown>)
+      : {};
+  const shareChannel =
+    typeof payload.shareChannel === "object" && payload.shareChannel !== null
+      ? (payload.shareChannel as Record<string, unknown>)
+      : {};
+  const shareKind = typeof shareChannel.kind === "string" ? shareChannel.kind : "";
+
+  if (shareKind === "poster_image" && typeof sharePayload.posterImageUrl === "string") {
+    return sharePayload.posterImageUrl;
+  }
+
+  return (
+    (typeof sharePayload.shortLink === "string" ? sharePayload.shortLink : undefined) ??
+    (typeof sharePayload.landingUrl === "string" ? sharePayload.landingUrl : undefined) ??
+    (typeof sharePayload.title === "string" ? sharePayload.title : "")
+  );
+}
+
 export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime): CapabilityAdapter {
   const host = resolveWechatRuntime<WechatCapabilityRuntime>(runtime);
+
+  function createCapabilityStatus(
+    capability: CapabilityKind,
+    input: Omit<CapabilityStatus, "capability">,
+  ) {
+    return ok({
+      capability,
+      ...input,
+    });
+  }
 
   return {
     status(capability) {
       switch (capability) {
         case "clipboard":
-          return ok(Boolean(host.setClipboardData));
+          return host.setClipboardData
+            ? createCapabilityStatus(capability, {
+                available: true,
+                mode: "native",
+                detail: "WeChat clipboard API is available.",
+              })
+            : createCapabilityStatus(capability, {
+                available: false,
+                mode: "unavailable",
+                detail: "WeChat clipboard API is unavailable.",
+                reason: "clipboard-api-missing",
+              });
         case "device":
-          return ok(Boolean(host.getSystemInfo));
+          return host.getSystemInfo
+            ? createCapabilityStatus(capability, {
+                available: true,
+                mode: "native",
+                detail: "WeChat device info API is available.",
+              })
+            : createCapabilityStatus(capability, {
+                available: false,
+                mode: "unavailable",
+                detail: "WeChat device info API is unavailable.",
+                reason: "device-api-missing",
+              });
         case "location":
-          return ok(Boolean(host.getLocation));
+          return host.getLocation
+            ? createCapabilityStatus(capability, {
+                available: true,
+                mode: "native",
+                detail: "WeChat location API is available.",
+              })
+            : createCapabilityStatus(capability, {
+                available: false,
+                mode: "unavailable",
+                detail: "WeChat location API is unavailable.",
+                reason: "location-api-missing",
+              });
         case "share":
-          return ok(Boolean(host.showShareMenu));
+          return host.showShareMenu
+            ? createCapabilityStatus(capability, {
+                available: true,
+                mode: "native",
+                detail: "WeChat share menu is available.",
+              })
+            : host.setClipboardData
+              ? createCapabilityStatus(capability, {
+                  available: true,
+                  mode: "degraded",
+                  detail: "WeChat share menu is unavailable. Falling back to clipboard copy.",
+                  reason: "clipboard-fallback",
+                  fallbackActionLabel: "Copy share link",
+                })
+              : createCapabilityStatus(capability, {
+                  available: false,
+                  mode: "unavailable",
+                  detail: "No share menu or clipboard fallback is available.",
+                  reason: "share-api-missing",
+                });
         case "payment":
-          return ok(Boolean(host.requestPayment));
+          return host.requestPayment
+            ? createCapabilityStatus(capability, {
+                available: true,
+                mode: "native",
+                detail: "WeChat payment API is available.",
+              })
+            : createCapabilityStatus(capability, {
+                available: false,
+                mode: "unavailable",
+                detail: "WeChat payment API is unavailable.",
+                reason: "payment-api-missing",
+              });
         case "upload":
-          return ok(Boolean(host.chooseMedia || host.chooseMessageFile));
+          return host.chooseMedia || host.chooseMessageFile
+            ? createCapabilityStatus(capability, {
+                available: true,
+                mode: "native",
+                detail: "WeChat media or file picker is available.",
+              })
+            : createCapabilityStatus(capability, {
+                available: false,
+                mode: "unavailable",
+                detail: "No WeChat picker API is available.",
+                reason: "upload-picker-missing",
+              });
         default:
-          return ok(false);
+          return createCapabilityStatus(capability, {
+            available: false,
+            mode: "unavailable",
+            detail: `wechat capability "${capability}" is not implemented`,
+            reason: "unsupported-capability",
+          });
       }
     },
 
@@ -150,25 +269,50 @@ export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime)
           });
 
         case "share":
-          if (!host.showShareMenu) {
+          if (host.showShareMenu) {
+            return new Promise((resolve) => {
+              const payload = typeof input.payload === "object" && input.payload !== null ? (input.payload as TResult) : undefined;
+              host.showShareMenu?.({
+                success() {
+                  resolve(ok({
+                    capability: input.capability,
+                    action: input.action,
+                    ...(payload ? { value: payload } : {}),
+                    detail: "WeChat share menu dispatched successfully.",
+                  } as CapabilityActionResult<TResult>));
+                },
+                fail(error) {
+                  resolve(fail(createError("CAPABILITY_UNAVAILABLE", "wechat share menu failed", {
+                    cause: error,
+                    recoverable: true,
+                  })));
+                },
+              });
+            });
+          }
+
+          if (!host.setClipboardData) {
             return Promise.resolve(
               fail(createError("CAPABILITY_UNAVAILABLE", "share capability is unavailable", { recoverable: true })),
             );
           }
 
           return new Promise((resolve) => {
-            const payload = typeof input.payload === "object" && input.payload !== null ? (input.payload as TResult) : undefined;
-            host.showShareMenu?.({
+            const payload = typeof input.payload === "object" && input.payload !== null ? (input.payload as Record<string, unknown>) : {};
+            host.setClipboardData?.({
+              data: resolveWechatShareFallbackText(payload),
               success() {
                 resolve(ok({
                   capability: input.capability,
                   action: input.action,
-                  ...(payload ? { value: payload } : {}),
-                  detail: "share dispatch reserved through wechat capability adapter",
+                  value: payload as TResult,
+                  detail: "WeChat share menu was unavailable. Copied the share target to clipboard instead.",
+                  degraded: true,
+                  fallbackActionLabel: "Copy share link",
                 } as CapabilityActionResult<TResult>));
               },
               fail(error) {
-                resolve(fail(createError("CAPABILITY_UNAVAILABLE", "wechat share menu failed", {
+                resolve(fail(createError("CAPABILITY_UNAVAILABLE", "wechat share clipboard fallback failed", {
                   cause: error,
                   recoverable: true,
                 })));
@@ -192,11 +336,37 @@ export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime)
                   capability: input.capability,
                   action: input.action,
                   ...(result ? { value: result as TResult } : {}),
-                  detail: "wechat payment execution dispatched with gateway client parameters",
+                  detail: "WeChat payment executed with gateway client parameters.",
                 }));
               },
               fail(error) {
                 resolve(fail(createError("CAPABILITY_UNAVAILABLE", "wechat payment execution failed", {
+                  cause: error,
+                  recoverable: true,
+                })));
+              },
+            });
+          });
+
+        case "location":
+          if (!host.getLocation) {
+            return Promise.resolve(
+              fail(createError("CAPABILITY_UNAVAILABLE", "location capability is unavailable", { recoverable: true })),
+            );
+          }
+
+          return new Promise((resolve) => {
+            host.getLocation?.({
+              success(result) {
+                resolve(ok({
+                  capability: input.capability,
+                  action: input.action,
+                  value: result as TResult,
+                  detail: "WeChat location resolved successfully.",
+                }));
+              },
+              fail(error) {
+                resolve(fail(createError("CAPABILITY_UNAVAILABLE", "wechat location failed", {
                   cause: error,
                   recoverable: true,
                 })));
@@ -223,7 +393,7 @@ export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime)
                     capability: input.capability,
                     action: input.action,
                     value: result as TResult,
-                    detail: "upload reservation selected through wechat chooseMedia",
+                    detail: "WeChat chooseMedia selected upload input.",
                   }));
                 },
                 fail(error) {
@@ -251,7 +421,7 @@ export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime)
                   capability: input.capability,
                   action: input.action,
                   value: result as TResult,
-                  detail: "upload reservation selected through wechat chooseMessageFile",
+                  detail: "WeChat chooseMessageFile selected upload input.",
                 }));
               },
               fail(error) {

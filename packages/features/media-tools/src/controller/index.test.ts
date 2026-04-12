@@ -41,7 +41,13 @@ function createKernelStub() {
   const kernel = {
     capability: {
       status(capability: string) {
-        return ok(capability === "upload" || capability === "share" || capability === "clipboard");
+        const available = capability === "upload" || capability === "share" || capability === "clipboard";
+        return ok({
+          capability: capability as "upload" | "share" | "clipboard",
+          available,
+          mode: available ? "native" : "unavailable",
+          detail: available ? `${capability} capability is available.` : `${capability} capability is unavailable.`,
+        });
       },
       async execute(input: { capability: string; action: string; payload?: Record<string, unknown> }) {
         if (input.capability === "upload") {
@@ -87,7 +93,7 @@ function createKernelStub() {
               },
               transfer: uploadTransfer,
             },
-            detail: "upload selection prepared through h5 capability adapter",
+            detail: "Configured H5 upload runtime selected upload input.",
           });
         }
 
@@ -96,7 +102,7 @@ function createKernelStub() {
           return ok({
             capability: "clipboard",
             action: input.action,
-            detail: "clipboard share dispatch through h5 capability adapter",
+            detail: "Clipboard write completed.",
           });
         }
 
@@ -130,11 +136,12 @@ function createKernelStub() {
               returnFlowRecognized: false,
               shareCount: 0,
               clickCount: 0,
+              returnCount: 0,
               conversionCount: 0,
               preparedAt: "2026-04-08T09:39:00.000Z",
             },
           },
-          detail: "share dispatch reserved through h5 capability adapter",
+          detail: "Native browser share dispatched successfully.",
         });
       },
     },
@@ -146,6 +153,190 @@ function createKernelStub() {
       },
     },
     request: {
+      async get<T>(path: string) {
+        if (path.startsWith("/share/resolve")) {
+          return ok({
+            sharePayload: {
+              scenario: "invite",
+              title: "Invite a friend to MiniX",
+              landingPath: "/login",
+              landingUrl: "https://example.test/login?from=share",
+              shortLink: "https://mini.x/s/share1",
+              trackingParams: {
+                channel: "host-h5",
+              },
+              channelMarker: "host-h5-demo",
+              inviteCode: "MINIX42",
+              shareToken: "share_prepare_1",
+            },
+            shareChannel: {
+              kind: "copy_link",
+              label: "Copy Link",
+              executable: true,
+              channelMarker: "host-h5-demo",
+            },
+            shareAttribution: {
+              attributionId: "share_prepare_1",
+              channelMarker: "host-h5-demo",
+              inviteBindingEnabled: true,
+              returnFlowRecognized: false,
+              shareCount: 1,
+              clickCount: 1,
+              returnCount: 0,
+              conversionCount: 0,
+              preparedAt: "2026-04-08T09:39:00.000Z",
+              lastSharedAt: "2026-04-08T09:39:00.000Z",
+              lastClickAt: "2026-04-08T09:40:00.000Z",
+              lastLandingPath: "/login",
+            },
+            shortLinkRecord: {
+              attributionId: "share_prepare_1",
+              shortCode: "share1",
+              shortLink: "https://mini.x/s/share1",
+              landingPath: "/login",
+              landingUrl: "https://example.test/login?from=share",
+              createdAt: "2026-04-08T09:39:00.000Z",
+              resolvedCount: 1,
+              lastResolvedAt: "2026-04-08T09:40:00.000Z",
+            },
+            attributionReport: {
+              shareAttribution: {
+                attributionId: "share_prepare_1",
+                channelMarker: "host-h5-demo",
+                inviteBindingEnabled: true,
+                returnFlowRecognized: false,
+                shareCount: 1,
+                clickCount: 1,
+                returnCount: 0,
+                conversionCount: 0,
+                preparedAt: "2026-04-08T09:39:00.000Z",
+                lastSharedAt: "2026-04-08T09:39:00.000Z",
+                lastClickAt: "2026-04-08T09:40:00.000Z",
+                lastLandingPath: "/login",
+              },
+              shortLinkRecord: {
+                attributionId: "share_prepare_1",
+                shortCode: "share1",
+                shortLink: "https://mini.x/s/share1",
+                landingPath: "/login",
+                landingUrl: "https://example.test/login?from=share",
+                createdAt: "2026-04-08T09:39:00.000Z",
+                resolvedCount: 1,
+                lastResolvedAt: "2026-04-08T09:40:00.000Z",
+              },
+            },
+            landingTarget: {
+              path: "/login",
+              url: "https://example.test/login?from=share",
+              shortLink: "https://mini.x/s/share1",
+              shortCode: "share1",
+              channelMarker: "host-h5-demo",
+            },
+          } as T);
+        }
+
+        if (path.startsWith("/share/report")) {
+          return ok({
+            sharePayload: {
+              scenario: "invite",
+              title: "Invite a friend to MiniX",
+              landingPath: "/login",
+              landingUrl: "https://example.test/login?from=share",
+              shortLink: "https://mini.x/s/share1",
+              posterImageUrl: "https://example.test/posters/share1.svg",
+              trackingParams: {
+                channel: "host-h5",
+              },
+              channelMarker: "host-h5-demo",
+              inviteCode: "MINIX42",
+              shareToken: "share_prepare_1",
+            },
+            shareChannel: {
+              kind: "copy_link",
+              label: "Copy Link",
+              executable: true,
+              channelMarker: "host-h5-demo",
+            },
+            shareAttribution: {
+              attributionId: "share_prepare_1",
+              channelMarker: "host-h5-demo",
+              inviteBindingEnabled: true,
+              returnFlowRecognized: true,
+              shareCount: 1,
+              clickCount: 1,
+              returnCount: 1,
+              conversionCount: 1,
+              preparedAt: "2026-04-08T09:39:00.000Z",
+              lastSharedAt: "2026-04-08T09:39:00.000Z",
+              lastClickAt: "2026-04-08T09:40:00.000Z",
+              lastConversionAt: "2026-04-08T09:40:00.000Z",
+              lastReturnAt: "2026-04-08T09:40:00.000Z",
+              lastLandingPath: "/login",
+              inviteBoundUserId: "shared-user",
+            },
+            shortLinkRecord: {
+              attributionId: "share_prepare_1",
+              shortCode: "share1",
+              shortLink: "https://mini.x/s/share1",
+              landingPath: "/login",
+              landingUrl: "https://example.test/login?from=share",
+              createdAt: "2026-04-08T09:39:00.000Z",
+              resolvedCount: 1,
+              lastResolvedAt: "2026-04-08T09:40:00.000Z",
+            },
+            posterAsset: {
+              assetId: "share_poster_share1",
+              provider: "sample",
+              url: "https://example.test/posters/share1.svg",
+              createdAt: "2026-04-08T09:39:00.000Z",
+            },
+            attributionReport: {
+              shareAttribution: {
+                attributionId: "share_prepare_1",
+                channelMarker: "host-h5-demo",
+                inviteBindingEnabled: true,
+                returnFlowRecognized: true,
+                shareCount: 1,
+                clickCount: 1,
+                returnCount: 1,
+                conversionCount: 1,
+                preparedAt: "2026-04-08T09:39:00.000Z",
+                lastSharedAt: "2026-04-08T09:39:00.000Z",
+                lastClickAt: "2026-04-08T09:40:00.000Z",
+                lastConversionAt: "2026-04-08T09:40:00.000Z",
+                lastReturnAt: "2026-04-08T09:40:00.000Z",
+                lastLandingPath: "/login",
+                inviteBoundUserId: "shared-user",
+              },
+              shortLinkRecord: {
+                attributionId: "share_prepare_1",
+                shortCode: "share1",
+                shortLink: "https://mini.x/s/share1",
+                landingPath: "/login",
+                landingUrl: "https://example.test/login?from=share",
+                createdAt: "2026-04-08T09:39:00.000Z",
+                resolvedCount: 1,
+                lastResolvedAt: "2026-04-08T09:40:00.000Z",
+              },
+              posterAsset: {
+                assetId: "share_poster_share1",
+                provider: "sample",
+                url: "https://example.test/posters/share1.svg",
+                createdAt: "2026-04-08T09:39:00.000Z",
+              },
+            },
+            landingTarget: {
+              path: "/login",
+              url: "https://example.test/login?from=share",
+              shortLink: "https://mini.x/s/share1",
+              shortCode: "share1",
+              channelMarker: "host-h5-demo",
+            },
+          } as T);
+        }
+
+        return ok({} as T);
+      },
       async post<T>(path: string, body?: Record<string, unknown>) {
         if (path === "/share/prepare") {
           return ok({
@@ -178,13 +369,47 @@ function createKernelStub() {
               channelMarker: "host-h5-demo",
               returnFlowRecognized: false,
               shareCount: 1,
+              returnCount: 0,
               preparedAt: "2026-04-08T09:39:00.000Z",
               lastSharedAt: "2026-04-08T09:39:00.000Z",
+            },
+            shortLinkRecord: {
+              attributionId: "share_prepare_1",
+              shortCode: "share1",
+              shortLink: "https://mini.x/s/share1",
+              landingPath: "/login",
+              landingUrl: "https://example.test/login?from=share",
+              createdAt: "2026-04-08T09:39:00.000Z",
+              resolvedCount: 0,
+            },
+            attributionReport: {
+              shareAttribution: {
+                ...(body?.shareAttribution as Record<string, unknown>),
+                attributionId: "share_prepare_1",
+                channelMarker: "host-h5-demo",
+                returnFlowRecognized: false,
+                shareCount: 1,
+                clickCount: 0,
+                returnCount: 0,
+                conversionCount: 0,
+                preparedAt: "2026-04-08T09:39:00.000Z",
+                lastSharedAt: "2026-04-08T09:39:00.000Z",
+              },
+              shortLinkRecord: {
+                attributionId: "share_prepare_1",
+                shortCode: "share1",
+                shortLink: "https://mini.x/s/share1",
+                landingPath: "/login",
+                landingUrl: "https://example.test/login?from=share",
+                createdAt: "2026-04-08T09:39:00.000Z",
+                resolvedCount: 0,
+              },
             },
             landingTarget: {
               path: "/login",
               url: "https://example.test/login?from=share",
               shortLink: "https://mini.x/s/share1",
+              shortCode: "share1",
               channelMarker: "host-h5-demo",
               authRedirect: {
                 path: "/workspace/media-tools",
@@ -223,6 +448,7 @@ function createKernelStub() {
               returnFlowRecognized: true,
               shareCount: 1,
               clickCount: 1,
+              returnCount: 1,
               conversionCount: 1,
               preparedAt: "2026-04-08T09:39:00.000Z",
               lastSharedAt: "2026-04-08T09:39:00.000Z",
@@ -232,10 +458,231 @@ function createKernelStub() {
               lastLandingPath: "/login",
               inviteBoundUserId: "shared-user",
             },
+            shortLinkRecord: {
+              attributionId: "share_prepare_1",
+              shortCode: "share1",
+              shortLink: "https://mini.x/s/share1",
+              landingPath: "/login",
+              landingUrl: "https://example.test/login?from=share",
+              createdAt: "2026-04-08T09:39:00.000Z",
+              resolvedCount: 1,
+              lastResolvedAt: "2026-04-08T09:40:00.000Z",
+            },
+            attributionReport: {
+              shareAttribution: {
+                attributionId: "share_prepare_1",
+                channelMarker: "host-h5-demo",
+                inviteBindingEnabled: true,
+                returnFlowRecognized: true,
+                shareCount: 1,
+                clickCount: 1,
+                returnCount: 1,
+                conversionCount: 1,
+                preparedAt: "2026-04-08T09:39:00.000Z",
+                lastSharedAt: "2026-04-08T09:39:00.000Z",
+                lastClickAt: "2026-04-08T09:40:00.000Z",
+                lastConversionAt: "2026-04-08T09:40:00.000Z",
+                lastReturnAt: "2026-04-08T09:40:00.000Z",
+                lastLandingPath: "/login",
+                inviteBoundUserId: "shared-user",
+              },
+              shortLinkRecord: {
+                attributionId: "share_prepare_1",
+                shortCode: "share1",
+                shortLink: "https://mini.x/s/share1",
+                landingPath: "/login",
+                landingUrl: "https://example.test/login?from=share",
+                createdAt: "2026-04-08T09:39:00.000Z",
+                resolvedCount: 1,
+                lastResolvedAt: "2026-04-08T09:40:00.000Z",
+              },
+            },
             landingTarget: {
               path: "/login",
               url: "https://example.test/login?from=share",
               shortLink: "https://mini.x/s/share1",
+              shortCode: "share1",
+              channelMarker: "host-h5-demo",
+            },
+          } as T);
+        }
+
+        if (path === "/share/resolve") {
+          return ok({
+            sharePayload: {
+              scenario: "invite",
+              title: "Invite a friend to MiniX",
+              landingPath: "/login",
+              landingUrl: "https://example.test/login?from=share",
+              shortLink: "https://mini.x/s/share1",
+              trackingParams: {
+                channel: "host-h5",
+              },
+              channelMarker: "host-h5-demo",
+              inviteCode: "MINIX42",
+              shareToken: "share_prepare_1",
+            },
+            shareChannel: {
+              kind: "copy_link",
+              label: "Copy Link",
+              executable: true,
+              channelMarker: "host-h5-demo",
+            },
+            shareAttribution: {
+              attributionId: "share_prepare_1",
+              channelMarker: "host-h5-demo",
+              inviteBindingEnabled: true,
+              returnFlowRecognized: false,
+              shareCount: 1,
+              clickCount: 1,
+              returnCount: 0,
+              conversionCount: 0,
+              preparedAt: "2026-04-08T09:39:00.000Z",
+              lastSharedAt: "2026-04-08T09:39:00.000Z",
+              lastClickAt: "2026-04-08T09:40:00.000Z",
+              lastLandingPath: "/login",
+            },
+            shortLinkRecord: {
+              attributionId: "share_prepare_1",
+              shortCode: "share1",
+              shortLink: "https://mini.x/s/share1",
+              landingPath: "/login",
+              landingUrl: "https://example.test/login?from=share",
+              createdAt: "2026-04-08T09:39:00.000Z",
+              resolvedCount: 1,
+              lastResolvedAt: "2026-04-08T09:40:00.000Z",
+            },
+            attributionReport: {
+              shareAttribution: {
+                attributionId: "share_prepare_1",
+                channelMarker: "host-h5-demo",
+                inviteBindingEnabled: true,
+                returnFlowRecognized: false,
+                shareCount: 1,
+                clickCount: 1,
+                returnCount: 0,
+                conversionCount: 0,
+                preparedAt: "2026-04-08T09:39:00.000Z",
+                lastSharedAt: "2026-04-08T09:39:00.000Z",
+                lastClickAt: "2026-04-08T09:40:00.000Z",
+                lastLandingPath: "/login",
+              },
+              shortLinkRecord: {
+                attributionId: "share_prepare_1",
+                shortCode: "share1",
+                shortLink: "https://mini.x/s/share1",
+                landingPath: "/login",
+                landingUrl: "https://example.test/login?from=share",
+                createdAt: "2026-04-08T09:39:00.000Z",
+                resolvedCount: 1,
+                lastResolvedAt: "2026-04-08T09:40:00.000Z",
+              },
+            },
+            landingTarget: {
+              path: "/login",
+              url: "https://example.test/login?from=share",
+              shortLink: "https://mini.x/s/share1",
+              shortCode: "share1",
+              channelMarker: "host-h5-demo",
+            },
+          } as T);
+        }
+
+        if (path === "/share/report") {
+          return ok({
+            sharePayload: {
+              scenario: "invite",
+              title: "Invite a friend to MiniX",
+              landingPath: "/login",
+              landingUrl: "https://example.test/login?from=share",
+              shortLink: "https://mini.x/s/share1",
+              posterImageUrl: "https://example.test/posters/share1.svg",
+              trackingParams: {
+                channel: "host-h5",
+              },
+              channelMarker: "host-h5-demo",
+              inviteCode: "MINIX42",
+              shareToken: "share_prepare_1",
+            },
+            shareChannel: {
+              kind: "copy_link",
+              label: "Copy Link",
+              executable: true,
+              channelMarker: "host-h5-demo",
+            },
+            shareAttribution: {
+              attributionId: "share_prepare_1",
+              channelMarker: "host-h5-demo",
+              inviteBindingEnabled: true,
+              returnFlowRecognized: true,
+              shareCount: 1,
+              clickCount: 1,
+              returnCount: 1,
+              conversionCount: 1,
+              preparedAt: "2026-04-08T09:39:00.000Z",
+              lastSharedAt: "2026-04-08T09:39:00.000Z",
+              lastClickAt: "2026-04-08T09:40:00.000Z",
+              lastConversionAt: "2026-04-08T09:40:00.000Z",
+              lastReturnAt: "2026-04-08T09:40:00.000Z",
+              lastLandingPath: "/login",
+              inviteBoundUserId: "shared-user",
+            },
+            shortLinkRecord: {
+              attributionId: "share_prepare_1",
+              shortCode: "share1",
+              shortLink: "https://mini.x/s/share1",
+              landingPath: "/login",
+              landingUrl: "https://example.test/login?from=share",
+              createdAt: "2026-04-08T09:39:00.000Z",
+              resolvedCount: 1,
+              lastResolvedAt: "2026-04-08T09:40:00.000Z",
+            },
+            posterAsset: {
+              assetId: "share_poster_share1",
+              provider: "sample",
+              url: "https://example.test/posters/share1.svg",
+              createdAt: "2026-04-08T09:39:00.000Z",
+            },
+            attributionReport: {
+              shareAttribution: {
+                attributionId: "share_prepare_1",
+                channelMarker: "host-h5-demo",
+                inviteBindingEnabled: true,
+                returnFlowRecognized: true,
+                shareCount: 1,
+                clickCount: 1,
+                returnCount: 1,
+                conversionCount: 1,
+                preparedAt: "2026-04-08T09:39:00.000Z",
+                lastSharedAt: "2026-04-08T09:39:00.000Z",
+                lastClickAt: "2026-04-08T09:40:00.000Z",
+                lastConversionAt: "2026-04-08T09:40:00.000Z",
+                lastReturnAt: "2026-04-08T09:40:00.000Z",
+                lastLandingPath: "/login",
+                inviteBoundUserId: "shared-user",
+              },
+              shortLinkRecord: {
+                attributionId: "share_prepare_1",
+                shortCode: "share1",
+                shortLink: "https://mini.x/s/share1",
+                landingPath: "/login",
+                landingUrl: "https://example.test/login?from=share",
+                createdAt: "2026-04-08T09:39:00.000Z",
+                resolvedCount: 1,
+                lastResolvedAt: "2026-04-08T09:40:00.000Z",
+              },
+              posterAsset: {
+                assetId: "share_poster_share1",
+                provider: "sample",
+                url: "https://example.test/posters/share1.svg",
+                createdAt: "2026-04-08T09:39:00.000Z",
+              },
+            },
+            landingTarget: {
+              path: "/login",
+              url: "https://example.test/login?from=share",
+              shortLink: "https://mini.x/s/share1",
+              shortCode: "share1",
               channelMarker: "host-h5-demo",
             },
           } as T);
@@ -610,6 +1057,36 @@ test("media-tools controller loads capability availability", () => {
   assert.equal(controller.store.getState().ready, true);
   assert.equal(controller.store.getState().uploadAvailable, true);
   assert.equal(controller.store.getState().shareAvailable, true);
+  assert.equal(controller.store.getState().uploadCapabilityStatus?.mode, "native");
+  assert.equal(controller.store.getState().shareCapabilityStatus?.mode, "native");
+});
+
+test("media-tools controller surfaces degraded fallback capability metadata", () => {
+  const { kernel } = createKernelStub();
+  kernel.capability!.status = (capability: string) =>
+    ok({
+      capability: capability as "clipboard" | "device" | "location" | "payment" | "share" | "subscription" | "upload",
+      available: capability === "share" || capability === "clipboard",
+      mode: capability === "share" ? "degraded" : capability === "clipboard" ? "native" : "unavailable",
+      detail:
+        capability === "share"
+          ? "Native share is unavailable. Falling back to clipboard copy."
+          : capability === "clipboard"
+            ? "Clipboard is available."
+            : "Capability is unavailable.",
+      ...(capability === "share" ? { fallbackActionLabel: "Copy share link" } : {}),
+    });
+
+  const controller = createMediaToolsController({
+    kernel,
+    initialState: createDefaultMediaToolsState(),
+  });
+
+  controller.loadInitial();
+
+  assert.equal(controller.store.getState().shareAvailable, true);
+  assert.equal(controller.store.getState().shareCapabilityStatus?.mode, "degraded");
+  assert.equal(controller.store.getState().shareCapabilityStatus?.fallbackActionLabel, "Copy share link");
 });
 
 test("media-tools controller stores upload contract output after the primary action", async () => {
@@ -660,6 +1137,7 @@ test("media-tools controller stores share contract output after the secondary ac
   assert.equal(controller.store.getState().shareAttribution.shareCount, 1);
   assert.equal(controller.store.getState().shareAttribution.returnFlowRecognized, true);
   assert.equal(controller.store.getState().shareAttribution.clickCount, 1);
+  assert.equal(controller.store.getState().shareAttribution.returnCount, 1);
   assert.equal(controller.store.getState().shareAttribution.conversionCount, 1);
   assert.equal(controller.store.getState().lastResult?.message.includes("Share link copied"), true);
 });
@@ -683,6 +1161,23 @@ test("media-tools controller supports native share channels through the same pre
 
   assert.equal(shareDispatches[0], "Invite a friend to MiniX");
   assert.equal(controller.store.getState().shareAttribution.returnFlowRecognized, true);
+});
+
+test("media-tools controller can load the attribution report after share resolution", async () => {
+  const { kernel } = createKernelStub();
+  const controller = createMediaToolsController({
+    kernel,
+    initialState: createDefaultMediaToolsState(),
+  });
+
+  await controller.startShare();
+  await controller.loadShareReport();
+
+  assert.equal(controller.store.getState().shareAttribution.clickCount, 1);
+  assert.equal(controller.store.getState().shareAttribution.returnCount, 1);
+  assert.equal(controller.store.getState().shareAttribution.conversionCount, 1);
+  assert.equal(controller.store.getState().sharePayload.posterImageUrl, "https://example.test/posters/share1.svg");
+  assert.equal(controller.store.getState().lastResult?.message, "Share attribution report loaded.");
 });
 
 test("media-tools controller can route into settings when configured", async () => {

@@ -10,8 +10,20 @@ import { createDefaultFeedbackState } from "./model";
 function createKernelStub() {
   return {
     capability: {
-      status() {
-        return ok(false);
+      status(capability: "clipboard" | "device" | "location" | "payment" | "share" | "subscription" | "upload") {
+        return ok({
+          capability,
+          available: false,
+          mode: "unavailable",
+          detail: "Capability is unavailable.",
+        });
+      },
+      async execute() {
+        return ok({
+          capability: "device",
+          action: "getInfo",
+          value: {},
+        });
       },
     },
     session: {

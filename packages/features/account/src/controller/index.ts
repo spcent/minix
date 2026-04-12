@@ -1,6 +1,10 @@
 import {
+  beginFormSubmit,
+  createFormSubmissionKey,
+  createFormWorkflowState,
   createAuthRedirectParams,
   createStore,
+  finalizeFormSubmit,
   ok,
   persistAuthSessionResponse,
   type AppKernel,
@@ -11,17 +15,27 @@ import type {
   AccountCancellationRequest,
   AccountOperation,
   AccountOperationResponse,
+  AccountProviderRevokeRequest,
   AccountUnbindRequest,
   AppRouteId,
   ChangeBoundPhoneRequest,
   CurrentUserResponse,
+  FormApprovalNode,
+  FormFieldDefinition,
+  FormSchema,
   FormValidationError,
   IdentityBindPhoneRequest,
   IdentityMergeRequest,
   IdentityTransitionResponse,
   IdentityUpgradeRequest,
+  ListUserAssetHistoryRequest,
+  ListUserRelationsRequest,
   UpdateUserProfileRequest,
+  UserAssetHistoryResponse,
+  UserAssetLedgerEntry,
+  UserRelationList,
   UserRelationMutationRequest,
+  UserRelationListResponse,
   UserRelationMutationResponse,
   UserRelationTarget,
 } from "@minix/contracts";
@@ -74,12 +88,20 @@ function cloneState(state: AccountState): AccountState {
     initialFormValues: structuredClone(state.initialFormValues),
     validationErrors: state.validationErrors.map((error) => ({ ...error })),
     submitState: { ...state.submitState },
+    schema: {
+      fields: state.schema.fields.map((field) => structuredClone(field)),
+      steps: state.schema.steps.map((step) => structuredClone(step)),
+    },
     workflow: {
       ...state.workflow,
       stepKeys: [...state.workflow.stepKeys],
       visibleFieldKeys: [...state.workflow.visibleFieldKeys],
       dynamicFieldKeys: [...state.workflow.dynamicFieldKeys],
       conditionalFieldKeys: [...state.workflow.conditionalFieldKeys],
+      ...(state.workflow.approvalNodes
+        ? { approvalNodes: state.workflow.approvalNodes.map((node) => structuredClone(node)) }
+        : {}),
+      ...(state.workflow.draft ? { draft: structuredClone(state.workflow.draft) } : {}),
     },
     values: structuredClone(state.values),
     initialValues: structuredClone(state.initialValues),
@@ -94,6 +116,15 @@ function cloneState(state: AccountState): AccountState {
     ...(state.accountOperations
       ? { accountOperations: state.accountOperations.map((operation) => ({ ...operation })) }
       : {}),
+    ...(state.operationRecords
+      ? { operationRecords: state.operationRecords.map((record) => ({ ...record })) }
+      : {}),
+    ...(state.securityCenter ? { securityCenter: structuredClone(state.securityCenter) } : {}),
+    assetLedgerEntries: state.assetLedgerEntries.map((entry) => ({
+      ...entry,
+      ...(entry.entitlement ? { entitlement: { ...entry.entitlement } } : {}),
+    })),
+    ...(state.relationList ? { relationList: structuredClone(state.relationList) } : {}),
     ...(state.relationTargets
       ? {
           relationTargets: state.relationTargets.map((target) => ({
@@ -106,6 +137,19 @@ function cloneState(state: AccountState): AccountState {
 }
 
 const accountFormDraftStorageKey = "@minix/account/operation-form-draft/v1";
+
+function createAccountDraftState(input: {
+  savedAt: number;
+  currentStepKey?: string;
+  restored?: boolean;
+}): AccountState["workflow"]["draft"] {
+  return {
+    draftId: "account-operation",
+    recoveryKey: accountFormDraftStorageKey,
+    lastSavedAt: input.savedAt,
+    ...(input.restored ? { restoredAt: Date.now() } : {}),
+  };
+}
 
 function upsertSectionItem(items: AccountSectionItem[], nextItem: AccountSectionItem): AccountSectionItem[] {
   const existingIndex = items.findIndex((item) => item.key === nextItem.key);
@@ -268,6 +312,10 @@ function createRemoteStats(response: CurrentUserResponse): AccountSummaryStat[] 
 }
 
 function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
+  const securityCenter = response.securityCenter ?? {
+    deviceIdentities: [],
+    auditEvents: [],
+  };
   const sections: AccountSection[] = [
     {
       key: "identity",
@@ -335,8 +383,24 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
         },
         {
           key: "balance",
-          label: "Balance placeholder",
+          label: "Wallet balance",
           value: `${(response.accountSummary.assets.balanceCents / 100).toFixed(2)} CNY`,
+        },
+        {
+          key: "available-balance",
+          label: "Available balance",
+          value: `${(response.accountSummary.assets.availableBalanceCents / 100).toFixed(2)} CNY`,
+        },
+        {
+          key: "frozen-balance",
+          label: "Frozen balance",
+          value: `${(response.accountSummary.assets.frozenBalanceCents / 100).toFixed(2)} CNY`,
+        },
+        {
+          key: "active-entitlements",
+          label: "Active entitlements",
+          value:
+            response.accountSummary.assets.activeEntitlements.map((entitlement) => entitlement.label).join(", ") || "None",
         },
       ],
     },
@@ -373,6 +437,27 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
     },
   ];
 
+  if ((response.accountSummary.providerIdentities ?? []).length > 0) {
+    sections.push({
+      key: "providers",
+      title: "Linked providers",
+      items: response.accountSummary.providerIdentities!.flatMap((provider) => [
+        {
+          key: `provider-${provider.provider}-${provider.providerUserId}`,
+          label: provider.providerLabel,
+          value: provider.authorizationStatus === "active" ? "Authorized" : provider.authorizationStatus,
+          hint: [provider.providerUserId, provider.lastAuthorizedAt].filter(Boolean).join(" · "),
+        },
+        ...provider.actions.map((action) => ({
+          key: `provider-${provider.provider}-${provider.providerUserId}-${action.kind}`,
+          label: action.label,
+          value: action.available ? "Available" : "Unavailable",
+          ...(action.blockedReason ? { hint: action.blockedReason } : {}),
+        })),
+      ]),
+    });
+  }
+
   if (response.accountOperations.length > 0) {
     sections.push({
       key: "account-operations",
@@ -383,6 +468,72 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
         value: operation.statusLabel,
         ...(operation.blockedReason ? { hint: operation.blockedReason } : {}),
       })),
+    });
+  }
+
+  if ((response.operationRecords ?? []).length > 0) {
+    sections.push({
+      key: "operation-records",
+      title: "Recent security operations",
+      items: (response.operationRecords ?? []).map((record) => {
+        const hint = [record.status, record.notificationHookLabel].filter(Boolean).join(" · ");
+        return {
+          key: `operation-record-${record.recordId}`,
+          label: record.kind,
+          value: record.message,
+          ...(hint ? { hint } : {}),
+        };
+      }),
+    });
+  }
+
+  if (
+    securityCenter.deviceIdentities.length > 0 ||
+    securityCenter.auditEvents.length > 0 ||
+    securityCenter.latestPrompt ||
+    securityCenter.latestRateLimit
+  ) {
+    const securityItems: AccountSectionItem[] = [];
+    if (securityCenter.latestPrompt) {
+      securityItems.push({
+        key: "security-latest-prompt",
+        label: securityCenter.latestPrompt.title,
+        value: securityCenter.latestPrompt.message,
+        hint: [securityCenter.latestPrompt.scope, securityCenter.latestPrompt.severity]
+          .filter(Boolean)
+          .join(" · "),
+      });
+    }
+    if (securityCenter.latestRateLimit) {
+      securityItems.push({
+        key: "security-latest-rate-limit",
+        label: `Rate limit: ${securityCenter.latestRateLimit.scope}`,
+        value: securityCenter.latestRateLimit.limited
+          ? `Limited, retry in ${securityCenter.latestRateLimit.retryAfterSeconds}s`
+          : `${securityCenter.latestRateLimit.remaining} attempts remaining`,
+        hint: securityCenter.latestRateLimit.updatedAt,
+      });
+    }
+    securityItems.push(
+      ...securityCenter.deviceIdentities.slice(0, 3).map((device) => ({
+        key: `security-device-${device.deviceId}`,
+        label: device.deviceId,
+        value: device.trusted ? "Trusted device" : "Review required",
+        hint: [device.platform, device.lastIpRegion, device.lastSeenAt].filter(Boolean).join(" · "),
+      })),
+    );
+    securityItems.push(
+      ...securityCenter.auditEvents.slice(0, 3).map((event) => ({
+        key: `security-audit-${event.eventId}`,
+        label: `${event.scope}:${event.action}`,
+        value: event.message,
+        hint: [event.result, event.createdAt].filter(Boolean).join(" · "),
+      })),
+    );
+    sections.push({
+      key: "security-center",
+      title: "Security center",
+      items: securityItems,
     });
   }
 
@@ -441,6 +592,42 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
   }
 
   return sections;
+}
+
+function createRelationListSection(relationList: UserRelationList | undefined): AccountSection | undefined {
+  if (!relationList || relationList.items.length === 0) {
+    return undefined;
+  }
+
+  return {
+    key: `relation-list-${relationList.kind}`,
+    title: `Relation list: ${relationList.kind}`,
+    items: relationList.items.map((item) => ({
+      key: `${relationList.kind}-${item.targetUserId}`,
+      label: item.displayName,
+      value: item.relationshipSummary,
+      ...(item.remarkName ? { hint: `Remark: ${item.remarkName}` } : {}),
+    })),
+  };
+}
+
+function createAssetLedgerSection(entries: UserAssetLedgerEntry[]): AccountSection | undefined {
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return {
+    key: "asset-ledger",
+    title: "Asset history",
+    items: entries.map((entry) => ({
+      key: entry.ledgerId,
+      label: entry.title,
+      value: entry.message,
+      hint: [entry.subject, entry.kind, entry.entitlement?.label, entry.membershipPlanId, entry.createdAt]
+        .filter(Boolean)
+        .join(" · "),
+    })),
+  };
 }
 
 function createRemoteActions(response: CurrentUserResponse): AccountAction[] {
@@ -506,11 +693,24 @@ function createRemoteActions(response: CurrentUserResponse): AccountAction[] {
 }
 
 function mergeRemoteProfile(baseState: AccountState, profile: CurrentUserResponse): AccountState {
+  const securityCenter = profile.securityCenter ?? {
+    deviceIdentities: [],
+    auditEvents: [],
+  };
   const remoteSections = createRemoteSections(profile);
+  const assetLedgerSection = createAssetLedgerSection(baseState.assetLedgerEntries);
+  const relationListSection = createRelationListSection(baseState.relationList);
   const remoteStats = createRemoteStats(profile);
   const remoteActions = createRemoteActions(profile);
   const sessionLabel = baseState.sessionLabel ?? "Managed by the current signed-in session.";
   const authStatusLabel = `${baseState.authStatusLabel ?? "Signed in"} · ${createStatusLabel(profile)}`;
+  const sections = [...remoteSections];
+  if (assetLedgerSection) {
+    sections.push(assetLedgerSection);
+  }
+  if (relationListSection) {
+    sections.push(relationListSection);
+  }
 
   return {
     ...baseState,
@@ -526,10 +726,12 @@ function mergeRemoteProfile(baseState: AccountState, profile: CurrentUserRespons
     accountSummary: profile.accountSummary,
     userStatus: profile.userStatus,
     identityWorkflows: profile.identityWorkflows,
+    securityCenter,
     accountOperations: profile.accountOperations,
+    operationRecords: profile.operationRecords,
     relationTargets: profile.relationTargets,
     stats: remoteStats,
-    sections: remoteSections,
+    sections,
     actions: remoteActions,
     transitionFeedback: profile.identityWorkflows.lastWorkflow?.message,
   };
@@ -575,6 +777,26 @@ function findAvailableRelationAction(
   return ok({ target, action });
 }
 
+function createRelationListRequestPath(input: ListUserRelationsRequest): string {
+  const params = new URLSearchParams({
+    kind: input.kind,
+    ...(input.page ? { page: String(input.page) } : {}),
+    ...(input.pageSize ? { pageSize: String(input.pageSize) } : {}),
+    ...(input.keyword ? { keyword: input.keyword } : {}),
+  });
+  return `/account/relations/list?${params.toString()}`;
+}
+
+function createAssetHistoryRequestPath(input: ListUserAssetHistoryRequest): string {
+  const params = new URLSearchParams({
+    ...(input.page ? { page: String(input.page) } : {}),
+    ...(input.pageSize ? { pageSize: String(input.pageSize) } : {}),
+    ...(input.subject ? { subject: input.subject } : {}),
+  });
+
+  return params.size > 0 ? `/account/assets/history?${params.toString()}` : "/account/assets/history";
+}
+
 function createAccountOperationValuesFromProfile(
   profile: Pick<CurrentUserResponse, "userProfile"> | undefined,
   values: Partial<AccountOperationFormValues> = {},
@@ -588,61 +810,147 @@ function createAccountOperationValuesFromProfile(
   });
 }
 
-function createAccountWorkflow(values: AccountOperationFormValues, currentStepKey?: string) {
+function createAccountWorkflow(
+  values: AccountOperationFormValues,
+  currentStepKey?: string,
+  operation?: AccountOperation,
+  draft?: AccountState["workflow"]["draft"],
+) {
+  const schema = createAccountFormSchema(values, operation);
+  const approvalNodes = createAccountApprovalNodes(values, operation);
+  const workflowOptions: Parameters<typeof createFormWorkflowState<AccountOperationFormValues>>[0] = {
+    values,
+    schema,
+    approvalState: values.operationKind === "request_cancellation" ? "pending" : "none",
+    ...(currentStepKey ? { currentStepKey } : {}),
+    ...(approvalNodes.length > 0 ? { approvalNodes } : {}),
+    ...(draft ? { draft } : {}),
+  };
+
+  return createFormWorkflowState(workflowOptions);
+}
+
+function createAccountFormSchema(values: AccountOperationFormValues, operation?: AccountOperation): FormSchema {
+  const fields: FormFieldDefinition[] = [];
+
   if (values.operationKind === "edit_profile") {
-    const stepKeys = ["profile", "preferences", "confirm"];
-    const nextStepKey = stepKeys.includes(currentStepKey ?? "") ? currentStepKey : "profile";
+    fields.push(
+      { key: "operationKind", label: "Operation", type: "single_select", dynamic: true, stepKey: "profile" },
+      { key: "nickname", label: "Nickname", type: "text", required: true, stepKey: "profile" },
+      { key: "region", label: "Region", type: "text", stepKey: "profile" },
+      { key: "includeBio", label: "Add bio", type: "single_select", dynamic: true, stepKey: "preferences" },
+      {
+        key: "bio",
+        label: "Bio",
+        type: "text",
+        dynamic: true,
+        stepKey: "preferences",
+        conditions: [{ field: "includeBio", operator: "truthy" }],
+      },
+    );
     return {
-      stepKeys,
-      ...(nextStepKey !== undefined ? { currentStepKey: nextStepKey } : {}),
-      approvalState: "none" as const,
-      visibleFieldKeys: values.includeBio
-        ? ["operationKind", "nickname", "region", "includeBio", "bio"]
-        : ["operationKind", "nickname", "region", "includeBio"],
-      dynamicFieldKeys: ["operationKind", "includeBio", "bio"],
-      conditionalFieldKeys: ["bio"],
+      fields,
+      steps: [
+        { key: "profile", label: "Profile" },
+        { key: "preferences", label: "Preferences" },
+        { key: "confirm", label: "Confirm" },
+      ],
     };
   }
 
   if (values.operationKind === "change_phone") {
-    const stepKeys = ["contact", "verify", "confirm"];
-    const nextStepKey = stepKeys.includes(currentStepKey ?? "") ? currentStepKey : "contact";
+    fields.push(
+      { key: "operationKind", label: "Operation", type: "single_select", dynamic: true, stepKey: "contact" },
+      { key: "phoneNumber", label: "Phone number", type: "text", required: true, stepKey: "contact" },
+      { key: "verificationCode", label: "Verification code", type: "text", required: true, stepKey: "verify" },
+    );
+    if (operation?.verificationRequired) {
+      fields.push({
+        key: "securityVerificationCode",
+        label: "Security verification code",
+        type: "text",
+        required: true,
+        dynamic: true,
+        stepKey: "verify",
+      });
+    }
+    if (operation?.riskPrompt) {
+      fields.push({
+        key: "riskConfirmed",
+        label: "Risk confirmation",
+        type: "single_select",
+        dynamic: true,
+        stepKey: "confirm",
+      });
+    }
     return {
-      stepKeys,
-      ...(nextStepKey !== undefined ? { currentStepKey: nextStepKey } : {}),
-      approvalState: "none" as const,
-      visibleFieldKeys: ["operationKind", "phoneNumber", "verificationCode"],
-      dynamicFieldKeys: ["operationKind", "verificationCode"],
-      conditionalFieldKeys: [],
+      fields,
+      steps: [
+        { key: "contact", label: "Contact" },
+        { key: "verify", label: "Verify" },
+        { key: "confirm", label: "Confirm" },
+      ],
     };
   }
 
   if (values.operationKind === "request_cancellation") {
-    const stepKeys = ["review", "reason", "confirm"];
-    const nextStepKey = stepKeys.includes(currentStepKey ?? "") ? currentStepKey : "review";
+    fields.push(
+      { key: "operationKind", label: "Operation", type: "single_select", dynamic: true, stepKey: "review" },
+      { key: "verificationCode", label: "Security verification code", type: "text", required: true, stepKey: "review" },
+      { key: "riskConfirmed", label: "Risk confirmation", type: "single_select", dynamic: true, stepKey: "review" },
+      { key: "cancellationReason", label: "Cancellation reason", type: "single_select", required: true, dynamic: true, stepKey: "reason" },
+      {
+        key: "cancellationDetails",
+        label: "Cancellation details",
+        type: "text",
+        dynamic: true,
+        stepKey: "reason",
+        conditions: [{ field: "cancellationReason", operator: "eq", value: "other" }],
+      },
+      { key: "confirmCancellation", label: "Confirm cancellation", type: "single_select", dynamic: true, stepKey: "confirm" },
+    );
     return {
-      stepKeys,
-      ...(nextStepKey !== undefined ? { currentStepKey: nextStepKey } : {}),
-      approvalState: "pending" as const,
-      visibleFieldKeys:
-        values.cancellationReason === "other"
-          ? ["operationKind", "cancellationReason", "cancellationDetails", "confirmCancellation"]
-          : ["operationKind", "cancellationReason", "confirmCancellation"],
-      dynamicFieldKeys: ["operationKind", "cancellationReason", "cancellationDetails", "confirmCancellation"],
-      conditionalFieldKeys: ["cancellationDetails"],
+      fields,
+      steps: [
+        { key: "review", label: "Review" },
+        { key: "reason", label: "Reason" },
+        { key: "confirm", label: "Confirm" },
+      ],
     };
   }
 
   return {
-    stepKeys: [],
-    approvalState: "none" as const,
-    visibleFieldKeys: Object.keys(values),
-    dynamicFieldKeys: [],
-    conditionalFieldKeys: [],
+    fields,
+    steps: [],
   };
 }
 
-function validateOperationValues(values: AccountOperationFormValues): FormValidationError[] {
+function createAccountApprovalNodes(values: AccountOperationFormValues, operation?: AccountOperation): FormApprovalNode[] {
+  if (values.operationKind !== "request_cancellation") {
+    return [];
+  }
+
+  return [
+    {
+      nodeKey: "risk_review",
+      label: "Risk review",
+      state: operation?.riskPrompt ? "pending" : "not_started",
+      assigneeLabel: "Risk Ops",
+      comment: operation?.riskPrompt?.message ?? "Cancellation requests are reviewed before the cooling-off window starts.",
+    },
+    {
+      nodeKey: "cooling_off",
+      label: "Cooling-off window",
+      state: operation?.cooldown?.active ? "pending" : "not_started",
+      assigneeLabel: "Account system",
+    },
+  ];
+}
+
+function validateOperationValues(
+  values: AccountOperationFormValues,
+  operation?: AccountOperation,
+): FormValidationError[] {
   const errors: FormValidationError[] = [];
 
   if (!values.operationKind) {
@@ -697,9 +1005,45 @@ function validateOperationValues(values: AccountOperationFormValues): FormValida
         blocking: true,
       });
     }
+    if (operation?.verificationRequired && !values.securityVerificationCode.trim()) {
+      errors.push({
+        field: "securityVerificationCode",
+        message: "Enter the current phone security verification code.",
+        rule: "required",
+        fieldType: "text",
+        blocking: true,
+      });
+    }
+    if (operation?.riskPrompt && !values.riskConfirmed) {
+      errors.push({
+        field: "riskConfirmed",
+        message: "Acknowledge the recovery impact before changing the bound phone.",
+        rule: "cross_field",
+        fieldType: "single_select",
+        blocking: true,
+      });
+    }
   }
 
   if (values.operationKind === "request_cancellation") {
+    if (operation?.verificationRequired && !values.verificationCode.trim()) {
+      errors.push({
+        field: "verificationCode",
+        message: "Enter the security verification code.",
+        rule: "required",
+        fieldType: "text",
+        blocking: true,
+      });
+    }
+    if (operation?.riskPrompt && !values.riskConfirmed) {
+      errors.push({
+        field: "riskConfirmed",
+        message: "Acknowledge the cancellation risk before continuing.",
+        rule: "cross_field",
+        fieldType: "single_select",
+        blocking: true,
+      });
+    }
     if (!values.cancellationReason) {
       errors.push({
         field: "cancellationReason",
@@ -755,13 +1099,21 @@ export function createAccountController(options: CreateAccountControllerOptions)
     options: {
       dirty?: boolean;
       operationFormOpen?: boolean;
+      currentStepKey?: string;
+      draft?: AccountState["workflow"]["draft"];
       draftSavedAt?: number;
       phase?: AccountState["submitState"]["phase"];
       preserveResult?: boolean;
     } = {},
   ) {
     const current = store.getState();
-    const workflow = createAccountWorkflow(values, current.workflow.currentStepKey);
+    const operation = current.accountOperations?.find((item) => item.kind === values.operationKind);
+    const workflow = createAccountWorkflow(
+      values,
+      options.currentStepKey ?? current.workflow.currentStepKey,
+      operation,
+      options.draft,
+    );
     store.setState({
       dirty: options.dirty ?? current.dirty,
       operationFormOpen: options.operationFormOpen ?? current.operationFormOpen,
@@ -862,6 +1214,12 @@ export function createAccountController(options: CreateAccountControllerOptions)
     applyOperationValues(values, {
       dirty: true,
       operationFormOpen: Boolean(values.operationKind),
+      ...(result.value.currentStepKey ? { currentStepKey: result.value.currentStepKey } : {}),
+      draft: createAccountDraftState({
+        savedAt: result.value.savedAt,
+        ...(result.value.currentStepKey ? { currentStepKey: result.value.currentStepKey } : {}),
+        restored: true,
+      }),
       draftSavedAt: result.value.savedAt,
       phase: "idle",
     });
@@ -882,6 +1240,23 @@ export function createAccountController(options: CreateAccountControllerOptions)
     }
 
     return ok(undefined);
+  }
+
+  async function loadAssetHistoryIntoState(
+    input: ListUserAssetHistoryRequest,
+  ): Promise<Result<UserAssetHistoryResponse>> {
+    const result = await kernel.request.get<UserAssetHistoryResponse>(createAssetHistoryRequestPath(input));
+    if (!result.ok) {
+      return result;
+    }
+
+    const assetLedgerSection = createAssetLedgerSection(result.value.ledgerEntries);
+    store.setState({
+      accountSummary: result.value.accountSummary,
+      assetLedgerEntries: result.value.ledgerEntries,
+      sections: assetLedgerSection ? upsertSection(store.getState().sections, assetLedgerSection) : store.getState().sections,
+    });
+    return result;
   }
 
   return {
@@ -962,6 +1337,12 @@ export function createAccountController(options: CreateAccountControllerOptions)
         workflow: createAccountWorkflow(profileSeedValues),
       });
       await loadOperationDraft(remoteProfile.value);
+      const assetHistoryResult = await loadAssetHistoryIntoState({ page: 1, pageSize: 5 });
+      if (!assetHistoryResult.ok) {
+        store.setState({
+          transitionFeedback: assetHistoryResult.error.message,
+        });
+      }
       return ok(undefined);
     },
 
@@ -983,9 +1364,9 @@ export function createAccountController(options: CreateAccountControllerOptions)
       }
 
       const clipboardStatus = kernel.capability.status("clipboard");
-      if (!clipboardStatus.ok || !clipboardStatus.value) {
+      if (!clipboardStatus.ok || !clipboardStatus.value.available) {
         store.setState({
-          copyFeedback: "Clipboard is unavailable on this host.",
+          copyFeedback: clipboardStatus.ok ? clipboardStatus.value.detail ?? "Clipboard is unavailable on this host." : "Clipboard is unavailable on this host.",
         });
         return ok(undefined);
       }
@@ -1072,7 +1453,9 @@ export function createAccountController(options: CreateAccountControllerOptions)
     },
 
     validateOperationForm() {
-      const errors = validateOperationValues(store.getState().values);
+      const current = store.getState();
+      const operation = current.accountOperations?.find((item) => item.kind === current.values.operationKind);
+      const errors = validateOperationValues(current.values, operation);
       store.setState({
         fieldErrors: errors,
         validationErrors: errors,
@@ -1100,12 +1483,23 @@ export function createAccountController(options: CreateAccountControllerOptions)
       const snapshot: AccountDraftSnapshot = {
         savedAt: Date.now(),
         values: structuredClone(store.getState().values),
+        ...(store.getState().workflow.currentStepKey ? { currentStepKey: store.getState().workflow.currentStepKey } : {}),
       };
+      const submissionKey = createFormSubmissionKey("account-operation", "draft", snapshot.values);
+      const submissionState = beginFormSubmit(store.getState().submitState, {
+        mode: "draft",
+        submissionKey,
+      });
+      if (submissionState.blocked) {
+        store.setState({
+          transitionFeedback: "This draft is already saved.",
+          submitState: submissionState.submitState,
+        });
+        return ok(undefined);
+      }
+
       store.setState({
-        submitState: {
-          ...store.getState().submitState,
-          phase: "draft_saving",
-        },
+        submitState: submissionState.submitState,
       });
       const result = await kernel.storage.set(accountFormDraftStorageKey, snapshot);
       if (!result.ok) {
@@ -1119,14 +1513,24 @@ export function createAccountController(options: CreateAccountControllerOptions)
         return result;
       }
 
+      const nextSubmitState = finalizeFormSubmit(store.getState().submitState, {
+        mode: "draft",
+        submissionKey,
+        submittedAt: snapshot.savedAt,
+        draftSavedAt: snapshot.savedAt,
+      });
       store.setState({
         dirty: true,
-        submitState: {
-          ...store.getState().submitState,
-          phase: "idle",
-          mode: "draft",
-          draftSavedAt: snapshot.savedAt,
-        },
+        workflow: createAccountWorkflow(
+          store.getState().values,
+          store.getState().workflow.currentStepKey,
+          store.getState().accountOperations?.find((item) => item.kind === store.getState().values.operationKind),
+          createAccountDraftState({
+            savedAt: snapshot.savedAt,
+            ...(snapshot.currentStepKey ? { currentStepKey: snapshot.currentStepKey } : {}),
+          }),
+        ),
+        submitState: nextSubmitState,
         transitionFeedback: "Account operation draft saved.",
       });
       return ok(undefined);
@@ -1158,12 +1562,21 @@ export function createAccountController(options: CreateAccountControllerOptions)
       }
 
       const values = store.getState().values;
+      const submissionKey = createFormSubmissionKey("account-operation", "submit", values);
+      const submissionState = beginFormSubmit(store.getState().submitState, {
+        mode: "submit",
+        submissionKey,
+      });
+      if (submissionState.blocked) {
+        store.setState({
+          transitionFeedback: "This account operation was already submitted.",
+          submitState: submissionState.submitState,
+        });
+        return ok(undefined);
+      }
+
       store.setState({
-        submitState: {
-          ...store.getState().submitState,
-          phase: "submitting",
-          mode: "submit",
-        },
+        submitState: submissionState.submitState,
       });
 
       let result: Result<unknown>;
@@ -1177,9 +1590,18 @@ export function createAccountController(options: CreateAccountControllerOptions)
         result = await this.changePhone({
           phoneNumber: values.phoneNumber,
           verificationCode: values.verificationCode,
+          securityVerificationCode: values.securityVerificationCode,
+          riskConfirmed: values.riskConfirmed,
         });
       } else if (values.operationKind === "request_cancellation") {
-        result = await this.requestCancellation({ confirm: true });
+        result = await this.requestCancellation({
+          action: "request",
+          confirm: true,
+          verificationCode: values.verificationCode,
+          riskConfirmed: values.riskConfirmed,
+          ...(values.cancellationReason ? { reason: values.cancellationReason } : {}),
+          ...(values.cancellationDetails ? { details: values.cancellationDetails } : {}),
+        });
       } else {
         result = ok(undefined);
       }
@@ -1194,6 +1616,7 @@ export function createAccountController(options: CreateAccountControllerOptions)
         return result;
       }
 
+      const submittedAt = Date.now();
       await clearOperationDraft();
       const currentProfile = store.getState().userProfile;
       const resetValues = createAccountOperationValuesFromProfile(
@@ -1208,16 +1631,15 @@ export function createAccountController(options: CreateAccountControllerOptions)
         initialValues: structuredClone(resetValues),
         initialFormValues: structuredClone(resetValues),
         lastSubmission: {
-          submittedAt: Date.now(),
+          submittedAt,
           value: result.value,
         },
-        submitState: {
-          ...store.getState().submitState,
-          phase: "submitted",
+        submitState: finalizeFormSubmit(store.getState().submitState, {
           mode: "submit",
-          submittedAt: Date.now(),
+          submissionKey,
+          submittedAt,
           result: result.value,
-        },
+        }),
       });
       return result;
     },
@@ -1349,7 +1771,77 @@ export function createAccountController(options: CreateAccountControllerOptions)
       return refreshed;
     },
 
-    async requestCancellation(input: AccountCancellationRequest = { confirm: true }) {
+    async unlinkProvider(input: AccountUnbindRequest) {
+      const providerIdentity = store
+        .getState()
+        .accountSummary?.providerIdentities?.find(
+          (item) => item.provider === input.provider && item.providerUserId === input.providerUserId,
+        );
+      const unlinkAction = providerIdentity?.actions.find((action) => action.kind === "unlink");
+      if (unlinkAction && !unlinkAction.available) {
+        const message = unlinkAction.blockedReason ?? `${providerIdentity?.providerLabel ?? "Provider"} cannot be unlinked right now.`;
+        store.setState({
+          transitionFeedback: message,
+        });
+        return ok(undefined);
+      }
+
+      const result = await kernel.request.post<AccountOperationResponse>("/account/provider/unlink", input);
+      if (!result.ok) {
+        store.setState({
+          transitionFeedback: result.error.message,
+        });
+        return result;
+      }
+
+      store.setState({
+        transitionFeedback: result.value.transitionMessage,
+      });
+      const refreshed = await this.loadInitial();
+      if (refreshed.ok) {
+        store.setState({
+          transitionFeedback: result.value.transitionMessage,
+        });
+      }
+      return refreshed;
+    },
+
+    async revokeProvider(input: AccountProviderRevokeRequest) {
+      const providerIdentity = store
+        .getState()
+        .accountSummary?.providerIdentities?.find(
+          (item) => item.provider === input.provider && item.providerUserId === input.providerUserId,
+        );
+      const revokeAction = providerIdentity?.actions.find((action) => action.kind === "revoke");
+      if (revokeAction && !revokeAction.available) {
+        const message = revokeAction.blockedReason ?? `${providerIdentity?.providerLabel ?? "Provider"} cannot be revoked right now.`;
+        store.setState({
+          transitionFeedback: message,
+        });
+        return ok(undefined);
+      }
+
+      const result = await kernel.request.post<AccountOperationResponse>("/account/provider/revoke", input);
+      if (!result.ok) {
+        store.setState({
+          transitionFeedback: result.error.message,
+        });
+        return result;
+      }
+
+      store.setState({
+        transitionFeedback: result.value.transitionMessage,
+      });
+      const refreshed = await this.loadInitial();
+      if (refreshed.ok) {
+        store.setState({
+          transitionFeedback: result.value.transitionMessage,
+        });
+      }
+      return refreshed;
+    },
+
+    async requestCancellation(input: AccountCancellationRequest = { action: "request", confirm: true }) {
       const available = findAvailableOperation(store.getState().accountOperations, "request_cancellation");
       if (!available.ok) {
         store.setState({
@@ -1378,8 +1870,8 @@ export function createAccountController(options: CreateAccountControllerOptions)
       return refreshed;
     },
 
-    async applyRelationAction(input: UserRelationMutationRequest) {
-      const available = findAvailableRelationAction(store.getState().relationTargets, input.targetUserId, input.action);
+    async revokeCancellation(input: AccountCancellationRequest = { action: "revoke", confirm: true }) {
+      const available = findAvailableOperation(store.getState().accountOperations, "revoke_cancellation");
       if (!available.ok) {
         store.setState({
           transitionFeedback: available.error.message,
@@ -1387,7 +1879,7 @@ export function createAccountController(options: CreateAccountControllerOptions)
         return available;
       }
 
-      const result = await kernel.request.post<UserRelationMutationResponse>("/account/relations", input);
+      const result = await kernel.request.post<AccountOperationResponse>("/account/cancellation", input);
       if (!result.ok) {
         store.setState({
           transitionFeedback: result.error.message,
@@ -1405,6 +1897,82 @@ export function createAccountController(options: CreateAccountControllerOptions)
         });
       }
       return refreshed;
+    },
+
+    async loadRelationList(input: ListUserRelationsRequest) {
+      const result = await kernel.request.get<UserRelationListResponse>(createRelationListRequestPath(input));
+      if (!result.ok) {
+        store.setState({
+          transitionFeedback: result.error.message,
+        });
+        return result;
+      }
+
+      const relationListSection = createRelationListSection(result.value.relationList);
+      store.setState({
+        accountSummary: result.value.accountSummary,
+        userStatus: result.value.userStatus,
+        relationList: result.value.relationList,
+        activeRelationListKind: result.value.relationList.kind,
+        relationKeyword: result.value.relationList.keyword ?? "",
+        sections: relationListSection
+          ? upsertSection(store.getState().sections, relationListSection)
+          : store.getState().sections,
+      });
+      return result;
+    },
+
+    async loadAssetHistory(input: ListUserAssetHistoryRequest) {
+      const result = await loadAssetHistoryIntoState(input);
+      if (!result.ok) {
+        store.setState({
+          transitionFeedback: result.error.message,
+        });
+      }
+      return result;
+    },
+
+    async applyRelationAction(input: UserRelationMutationRequest) {
+      const available = findAvailableRelationAction(store.getState().relationTargets, input.targetUserId, input.action);
+      if (!available.ok) {
+        store.setState({
+          transitionFeedback: available.error.message,
+        });
+        return available;
+      }
+
+      const state = store.getState();
+      const result = await kernel.request.post<UserRelationMutationResponse>("/account/relations", {
+        ...input,
+        ...(state.activeRelationListKind ? { listKind: state.activeRelationListKind } : {}),
+        ...(state.relationList?.pagination.page ? { page: state.relationList.pagination.page } : {}),
+        ...(state.relationList?.pagination.pageSize ? { pageSize: state.relationList.pagination.pageSize } : {}),
+        ...(state.relationKeyword ? { keyword: state.relationKeyword } : {}),
+      });
+      if (!result.ok) {
+        store.setState({
+          transitionFeedback: result.error.message,
+        });
+        return result;
+      }
+
+      const relationListSection = createRelationListSection(result.value.relationList);
+      store.setState({
+        accountSummary: result.value.accountSummary,
+        userStatus: result.value.userStatus,
+        relationTargets: result.value.relationTargets,
+        ...(result.value.relationList ? { relationList: result.value.relationList } : {}),
+        ...(result.value.relationList ? { activeRelationListKind: result.value.relationList.kind } : {}),
+        ...(result.value.relationList
+          ? {
+              sections: relationListSection
+                ? upsertSection(store.getState().sections, relationListSection)
+                : store.getState().sections,
+            }
+          : {}),
+        transitionFeedback: result.value.transitionMessage,
+      });
+      return ok(undefined);
     },
 
     async confirmIdentityMerge(input?: Partial<IdentityMergeRequest>) {

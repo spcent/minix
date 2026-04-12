@@ -1,4 +1,4 @@
-import { createAuthRedirectParams, ok, createStore, type AppKernel, type Result } from "@minix/core";
+import { createAuthRedirectParams, createListStatus, ok, createStore, type AppKernel, type Result } from "@minix/core";
 import {
   type ItemsListItem,
   type AppRouteId,
@@ -101,16 +101,6 @@ function createSelectionState(selectedItemId: string | undefined) {
   };
 }
 
-function createListStatus(loadState: ItemsPageModel["status"]["loadState"], hasItems: boolean) {
-  return {
-    loadState,
-    firstLoaded: hasItems,
-    retryable: true,
-    partialData: false,
-    stickyHeaderEnabled: false,
-  };
-}
-
 export function createItemsController<TItem extends ItemsListItem>(options: CreateItemsControllerOptions<TItem>) {
   const {
     kernel,
@@ -205,7 +195,10 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
       loading: false,
       refreshing: false,
       errorText: result.error.message,
-      status: createListStatus(store.getState().items.length > 0 ? "error" : "error", store.getState().items.length > 0),
+      status: createListStatus("error", {
+        firstLoaded: store.getState().items.length > 0,
+        staleData: store.getState().items.length > 0,
+      }),
     });
 
     if (result.error.code === "UNAUTHORIZED") {
@@ -229,7 +222,9 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
         loading: true,
         refreshing: false,
         errorText: undefined,
-        status: createListStatus("loading", current.items.length > 0),
+        status: createListStatus("loading", {
+          firstLoaded: current.items.length > 0,
+        }),
       });
 
       const result = await kernel.request.get<ItemsListResponse<TItem>>(
@@ -264,7 +259,10 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
         errorText: undefined,
         featuredReason: deriveFeaturedReason(nextItems, current.featuredReason),
         recentlyCompletedItemId: undefined,
-        status: createListStatus(nextItems.length > 0 ? "ready" : "empty", nextItems.length > 0),
+        status: createListStatus(nextItems.length > 0 ? "ready" : "empty", {
+          firstLoaded: true,
+          ...(selectedItemId ? { restoredSelectionId: selectedItemId } : {}),
+        }),
       });
       return result;
     },
@@ -275,7 +273,10 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
       store.setState({
         refreshing: true,
         errorText: undefined,
-        status: createListStatus("refreshing", current.items.length > 0),
+        status: createListStatus("refreshing", {
+          firstLoaded: current.items.length > 0,
+          staleData: current.items.length > 0,
+        }),
       });
 
       const result = await kernel.request.get<ItemsListResponse<TItem>>(
@@ -310,7 +311,10 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
         errorText: undefined,
         featuredReason: deriveFeaturedReason(nextItems, current.featuredReason),
         recentlyCompletedItemId: undefined,
-        status: createListStatus(nextItems.length > 0 ? "ready" : "empty", nextItems.length > 0),
+        status: createListStatus(nextItems.length > 0 ? "ready" : "empty", {
+          firstLoaded: true,
+          ...(selectedItemId ? { restoredSelectionId: selectedItemId } : {}),
+        }),
       });
       return result;
     },
@@ -326,7 +330,11 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
       store.setState({
         loading: true,
         errorText: undefined,
-        status: createListStatus("appending", current.items.length > 0),
+        status: createListStatus("partial", {
+          firstLoaded: current.items.length > 0,
+          partialData: current.items.length > 0,
+          staleData: current.items.length > 0,
+        }),
       });
 
       const result = await kernel.request.get<ItemsListResponse<TItem>>(
@@ -359,7 +367,10 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
         },
         errorText: undefined,
         featuredReason: deriveFeaturedReason(nextItems, current.featuredReason),
-        status: createListStatus("ready", nextItems.length > 0),
+        status: createListStatus("ready", {
+          firstLoaded: true,
+          ...(selectedItemId ? { restoredSelectionId: selectedItemId } : {}),
+        }),
       });
       return result;
     },

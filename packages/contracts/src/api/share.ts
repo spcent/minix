@@ -20,6 +20,7 @@ export interface ShareLandingTarget {
   path?: string;
   url?: string;
   shortLink?: string;
+  shortCode?: string;
   params?: Record<string, string | number | boolean>;
   channelMarker?: string;
   authRedirect?: AuthRedirectTarget;
@@ -57,6 +58,7 @@ export interface ShareAttribution {
   returnFlowRecognized: boolean;
   shareCount: number;
   clickCount: number;
+  returnCount: number;
   conversionCount: number;
   preparedAt?: string;
   lastSharedAt?: string;
@@ -66,6 +68,32 @@ export interface ShareAttribution {
   lastLandingPath?: string;
   inviteBoundUserId?: string;
   returnTarget?: AuthRedirectTarget;
+}
+
+export interface ShareShortLinkRecord {
+  attributionId: string;
+  shortCode: string;
+  shortLink: string;
+  landingPath?: string;
+  landingUrl: string;
+  createdAt: string;
+  resolvedCount: number;
+  lastResolvedAt?: string;
+}
+
+export interface SharePosterAsset {
+  assetId: string;
+  provider: "sample" | "provider";
+  url: string;
+  thumbnailUrl?: string;
+  createdAt: string;
+  expiresAt?: string;
+}
+
+export interface ShareAttributionReport {
+  shareAttribution: ShareAttribution;
+  shortLinkRecord?: ShareShortLinkRecord;
+  posterAsset?: SharePosterAsset;
 }
 
 export interface ShareDispatchRequest {
@@ -86,6 +114,9 @@ export interface SharePrepareRequest extends ShareDispatchRequest {
 
 export interface SharePrepareResponse extends ShareDispatchResult {
   landingTarget: ShareLandingTarget;
+  shortLinkRecord?: ShareShortLinkRecord;
+  posterAsset?: SharePosterAsset;
+  attributionReport: ShareAttributionReport;
 }
 
 export interface ShareReturnRecognitionRequest {
@@ -97,4 +128,30 @@ export interface ShareReturnRecognitionRequest {
 
 export interface ShareReturnRecognitionResponse extends ShareDispatchResult {
   landingTarget?: ShareLandingTarget;
+  shortLinkRecord?: ShareShortLinkRecord;
+  posterAsset?: SharePosterAsset;
+  attributionReport: ShareAttributionReport;
+}
+
+export interface ShareShortLinkResolveRequest {
+  attributionId?: string;
+  shortCode?: string;
+}
+
+export interface ShareShortLinkResolveResponse extends ShareDispatchResult {
+  landingTarget: ShareLandingTarget;
+  shortLinkRecord: ShareShortLinkRecord;
+  posterAsset?: SharePosterAsset;
+  attributionReport: ShareAttributionReport;
+}
+
+export interface ShareAttributionReportRequest {
+  attributionId: string;
+}
+
+export interface ShareAttributionReportResponse extends ShareDispatchResult {
+  landingTarget?: ShareLandingTarget;
+  shortLinkRecord?: ShareShortLinkRecord;
+  posterAsset?: SharePosterAsset;
+  attributionReport: ShareAttributionReport;
 }

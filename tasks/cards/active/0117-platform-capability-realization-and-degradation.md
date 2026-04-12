@@ -83,12 +83,26 @@ Make payment, upload, share, clipboard, location, and related platform capabilit
   - none
 - final verifier handoff:
   - include H5/WeChat capability support matrix
+  - H5:
+    - `clipboard`: native
+    - `device`: native
+    - `location`: native
+    - `share`: native or clipboard-degraded fallback
+    - `upload`: configured runtime or browser file-picker fallback
+    - `payment`: configured runtime only, otherwise explicit unavailable state
+  - WeChat:
+    - `clipboard`: native
+    - `device`: native
+    - `location`: native
+    - `share`: native or clipboard-degraded fallback
+    - `upload`: `chooseMedia` / `chooseMessageFile`
+    - `payment`: `requestPayment`
 
 ## Acceptance
 
-- [ ] H5 and WeChat adapters expose real capability execution where configured
-- [ ] unavailable capabilities return actionable degradation metadata
-- [ ] feature controllers surface fallback actions
-- [ ] platform APIs remain isolated to platform packages or host apps
-- [ ] adapter tests cover success/failure/unavailable/degraded cases
-- [ ] `pnpm verify` run
+- [x] H5 and WeChat adapters expose real capability execution where configured
+- [x] unavailable capabilities return actionable degradation metadata
+- [x] feature controllers surface fallback actions
+- [x] platform APIs remain isolated to platform packages or host apps
+- [x] adapter tests cover success/failure/unavailable/degraded cases
+- [x] `pnpm verify` run

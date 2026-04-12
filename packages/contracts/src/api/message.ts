@@ -6,6 +6,10 @@ export type MessageThreadType = (typeof MESSAGE_THREAD_TYPES)[number];
 
 export const MESSAGE_TOUCHPOINT_CHANNELS = ["in_app", "subscription_message", "sms", "email", "push"] as const;
 export type MessageTouchpointChannel = (typeof MESSAGE_TOUCHPOINT_CHANNELS)[number];
+export const MESSAGE_TOUCHPOINT_PROVIDER_MODES = ["sample", "production"] as const;
+export type MessageTouchpointProviderMode = (typeof MESSAGE_TOUCHPOINT_PROVIDER_MODES)[number];
+export const MESSAGE_TOUCHPOINT_RECEIPT_STATUSES = ["queued", "sent", "delivered", "failed", "skipped", "opted_out"] as const;
+export type MessageTouchpointReceiptStatus = (typeof MESSAGE_TOUCHPOINT_RECEIPT_STATUSES)[number];
 
 export const NOTIFICATION_GROUPING_MODES = ["timeline", "type"] as const;
 export type NotificationGroupingMode = (typeof NOTIFICATION_GROUPING_MODES)[number];
@@ -19,6 +23,45 @@ export type MessageSenderRole = (typeof MESSAGE_SENDER_ROLES)[number];
 export const MESSAGE_DELIVERY_STATUSES = ["pending", "sent", "delivered", "read", "failed"] as const;
 export type MessageDeliveryStatus = (typeof MESSAGE_DELIVERY_STATUSES)[number];
 
+export const MESSAGE_THREAD_MEMBER_ROLES = ["owner", "member", "advisor", "support_agent", "customer", "viewer"] as const;
+export type MessageThreadMemberRole = (typeof MESSAGE_THREAD_MEMBER_ROLES)[number];
+
+export const MESSAGE_REPLY_POLICIES = ["open", "members_only", "support_only", "readonly"] as const;
+export type MessageReplyPolicy = (typeof MESSAGE_REPLY_POLICIES)[number];
+
+export const MESSAGE_CONSULTATION_STATES = ["queued", "assigned", "in_progress", "waiting_user", "resolved", "closed"] as const;
+export type MessageConsultationState = (typeof MESSAGE_CONSULTATION_STATES)[number];
+
+export const MESSAGE_SUPPORT_STATES = ["unassigned", "assigned", "waiting_user", "resolved", "closed"] as const;
+export type MessageSupportState = (typeof MESSAGE_SUPPORT_STATES)[number];
+
+export const MESSAGE_SYNC_MODES = ["polling"] as const;
+export type MessageSyncMode = (typeof MESSAGE_SYNC_MODES)[number];
+
+export const MESSAGE_THREAD_LIST_SORTS = ["activity", "unread"] as const;
+export type MessageThreadListSort = (typeof MESSAGE_THREAD_LIST_SORTS)[number];
+
+export interface MessageTouchpointTemplate {
+  templateKey: string;
+  locale: string;
+  title?: string;
+  channelConstraint?: MessageTouchpointChannel;
+}
+
+export interface MessageTouchpointReceipt {
+  receiptId: string;
+  providerReference?: string;
+  status: MessageTouchpointReceiptStatus;
+  attemptedAt?: string;
+  deliveredAt?: string;
+  failedAt?: string;
+  failureCode?: string;
+  failureMessage?: string;
+  retryCount: number;
+  retryable: boolean;
+  nextRetryAt?: string;
+}
+
 export interface MessageTouchpoint {
   channel: MessageTouchpointChannel;
   executable: boolean;
@@ -26,6 +69,14 @@ export interface MessageTouchpoint {
   delivered?: boolean;
   statusLabel?: string;
   templateKey?: string;
+  providerKey?: string;
+  providerLabel?: string;
+  providerMode?: MessageTouchpointProviderMode;
+  template?: MessageTouchpointTemplate;
+  receipt?: MessageTouchpointReceipt;
+  fallbackToInApp?: boolean;
+  unsubscribable?: boolean;
+  unsubscribeKey?: string;
 }
 
 export interface NotificationReceipt {
@@ -92,6 +143,54 @@ export interface NotificationList {
   selectedNotificationId?: string;
 }
 
+export interface MessageThreadMember {
+  userId: string;
+  label: string;
+  role: MessageThreadMemberRole;
+  active: boolean;
+  canReply: boolean;
+  joinedAt?: string;
+}
+
+export interface MessageThreadAssignment {
+  assigneeUserId?: string;
+  assigneeLabel?: string;
+  teamLabel?: string;
+  assignedAt?: string;
+  statusLabel?: string;
+}
+
+export interface MessageConsultationProgress {
+  caseId: string;
+  state: MessageConsultationState;
+  advisorLabel?: string;
+  nextStepLabel?: string;
+}
+
+export interface MessageSupportProgress {
+  ticketId?: string;
+  state: MessageSupportState;
+  queueLabel?: string;
+  assigneeLabel?: string;
+  nextStepLabel?: string;
+}
+
+export interface MessageGroupState {
+  memberCount: number;
+  userMember: boolean;
+  userRole?: MessageThreadMemberRole;
+  replyPolicy: MessageReplyPolicy;
+  readonlyReason?: string;
+}
+
+export interface MessageSyncState {
+  mode: MessageSyncMode;
+  cursor: string;
+  recommendedPollIntervalMs: number;
+  recoverable: boolean;
+  lastSyncedAt?: string;
+}
+
 export interface MessageThread {
   threadId: string;
   type: MessageThreadType;
@@ -106,6 +205,13 @@ export interface MessageThread {
   lastReadAt?: string;
   reserved: boolean;
   touchpoints: MessageTouchpoint[];
+  replyPolicy?: MessageReplyPolicy;
+  members?: MessageThreadMember[];
+  assignment?: MessageThreadAssignment;
+  consultationProgress?: MessageConsultationProgress;
+  supportProgress?: MessageSupportProgress;
+  groupState?: MessageGroupState;
+  syncState?: MessageSyncState;
 }
 
 export interface MessageBodyItem {
@@ -119,12 +225,19 @@ export interface MessageBodyItem {
   updatedAt?: string;
   deliveryStatus: MessageDeliveryStatus;
   readAt?: string;
+  deliveredAt?: string;
+  attemptCount: number;
+  retryable: boolean;
+  failureCode?: string;
+  failureMessage?: string;
   touchpoints: MessageTouchpoint[];
 }
 
 export interface MessageThreadActions {
   canReply: boolean;
   canMarkRead: boolean;
+  canRetryFailed: boolean;
+  canCreateThread: boolean;
   deliveryLabel: string;
 }
 
@@ -142,17 +255,35 @@ export interface UnreadBadge {
   lastUpdatedAt?: string;
 }
 
+export interface MessageThreadList {
+  items: MessageThread[];
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+  selectedThreadId?: string;
+  syncState?: MessageSyncState;
+}
+
 export interface NotificationListResponse {
   notificationList: NotificationList;
   messageThread: MessageThread | undefined;
   unreadBadge: UnreadBadge;
   reservedThreads: MessageThread[];
+  threadList?: MessageThreadList;
 }
 
 export interface MessageThreadResponse {
   messageThread: MessageThread;
   messageItems: MessageBodyItem[];
   detailActions: MessageThreadActions;
+  unreadBadge: UnreadBadge;
+  threadList?: MessageThreadList;
+  changed?: boolean;
+}
+
+export interface MessageThreadListResponse {
+  threadList: MessageThreadList;
   unreadBadge: UnreadBadge;
 }
 
@@ -171,6 +302,20 @@ export interface MarkNotificationsReadResponse {
   unreadBadge: UnreadBadge;
 }
 
+export interface ListMessageThreadsRequest {
+  page?: number;
+  pageSize?: number;
+  type?: MessageThreadType | "all";
+  onlyUnread?: boolean;
+  sort?: MessageThreadListSort;
+  sourceTicketId?: string;
+}
+
+export interface GetMessageThreadRequest {
+  threadId: string;
+  cursor?: string;
+}
+
 export interface SendMessageRequest {
   threadId: string;
   body: string;
@@ -181,8 +326,36 @@ export interface SendMessageResponse {
   messageItem: MessageBodyItem;
   detailActions: MessageThreadActions;
   unreadBadge: UnreadBadge;
+  threadList?: MessageThreadList;
+}
+
+export interface RetryMessageRequest {
+  threadId: string;
+  messageId: string;
+}
+
+export interface RetryMessageResponse extends SendMessageResponse {}
+
+export interface CreateMessageThreadRequest {
+  type: MessageThreadType;
+  title?: string;
+  participantUserIds?: string[];
+  sourceTicketId?: string;
+  replyPolicy?: MessageReplyPolicy;
+}
+
+export interface CreateMessageThreadResponse {
+  messageThread: MessageThread;
+  detailActions: MessageThreadActions;
+  unreadBadge: UnreadBadge;
+  threadList: MessageThreadList;
 }
 
 export interface MarkThreadReadRequest {
   threadId: string;
+}
+
+export interface SyncMessageThreadRequest {
+  threadId: string;
+  cursor?: string;
 }

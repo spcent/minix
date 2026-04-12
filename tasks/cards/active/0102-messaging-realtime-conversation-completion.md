@@ -92,9 +92,9 @@ Provide full conversation read/write lifecycle, thread list management, delivery
 
 ## Acceptance
 
-- [ ] conversation list and detail are both backed by durable state
-- [ ] sending tracks pending, delivered, failed, and retry states
-- [ ] customer-service and consultation flows have assignment/progress state
-- [ ] group threads enforce membership and reply permissions
-- [ ] unread/read receipts remain correct across thread operations
-- [ ] `pnpm verify` run
+- [x] conversation list and detail are both backed by durable state
+- [x] sending tracks pending, delivered, failed, and retry states
+- [x] customer-service and consultation flows have assignment/progress state
+- [x] group threads enforce membership and reply permissions
+- [x] unread/read receipts remain correct across thread operations
+- [x] `pnpm verify` run

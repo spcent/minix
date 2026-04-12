@@ -5,6 +5,7 @@ import type {
   FeedbackRevisitAction,
   FeedbackSupportEntry,
   FeedbackTicket,
+  FeedbackTicketList,
   FeedbackTicketDetailResponse,
   FeedbackStatus,
   FeedbackType,
@@ -30,12 +31,22 @@ export interface FeedbackValues extends Record<string, unknown> {
   attachmentAssets: UploadAsset[];
 }
 
+export interface FeedbackDraftSnapshot {
+  savedAt: number;
+  values: FeedbackValues;
+  currentStepKey?: string;
+}
+
 export type FeedbackState = FormPageState<FeedbackValues, FeedbackTicketDetailResponse> & {
   categories: FeedbackCategory[];
   latestTicket: FeedbackTicket | undefined;
   latestStatus: FeedbackStatus | undefined;
   latestCategory: FeedbackCategory | undefined;
+  ticketList: FeedbackTicketList | undefined;
+  selectedTicketId: string | undefined;
   recommendedFaqEntries: FeedbackFaqEntry[];
+  faqCatalog: FeedbackFaqEntry[];
+  supportEntries: FeedbackSupportEntry[];
   supportEntry: FeedbackSupportEntry | undefined;
   revisitAction: FeedbackRevisitAction | undefined;
   serviceLoopSummary: string | undefined;
@@ -81,7 +92,11 @@ export function createDefaultFeedbackState(
     latestTicket: undefined,
     latestStatus: undefined,
     latestCategory: undefined,
+    ticketList: undefined,
+    selectedTicketId: undefined,
     recommendedFaqEntries: [],
+    faqCatalog: [],
+    supportEntries: [],
     supportEntry: undefined,
     revisitAction: undefined,
     serviceLoopSummary: undefined,
@@ -99,9 +114,13 @@ export function applyFeedbackBootstrap(
     latestTicket: bootstrap.latestTicket ? structuredClone(bootstrap.latestTicket) : undefined,
     latestStatus: bootstrap.latestStatus ? structuredClone(bootstrap.latestStatus) : undefined,
     latestCategory: bootstrap.latestCategory ? structuredClone(bootstrap.latestCategory) : undefined,
+    ticketList: bootstrap.ticketList ? structuredClone(bootstrap.ticketList) : undefined,
+    selectedTicketId: bootstrap.ticketList?.selectedTicketId ?? bootstrap.latestTicket?.ticketId,
     recommendedFaqEntries: bootstrap.recommendedFaqEntries
       ? bootstrap.recommendedFaqEntries.map((entry) => structuredClone(entry))
       : [],
+    faqCatalog: bootstrap.faqCatalog ? bootstrap.faqCatalog.map((entry) => structuredClone(entry)) : [],
+    supportEntries: bootstrap.supportEntries ? bootstrap.supportEntries.map((entry) => structuredClone(entry)) : [],
     supportEntry: bootstrap.supportEntry ? structuredClone(bootstrap.supportEntry) : undefined,
     revisitAction: bootstrap.latestStatus?.revisitAction ? structuredClone(bootstrap.latestStatus.revisitAction) : undefined,
     serviceLoopSummary: bootstrap.serviceLoopSummary,

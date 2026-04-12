@@ -89,9 +89,9 @@ Turn account operation entries into risk-checked, auditable, reversible where ap
 
 ## Acceptance
 
-- [ ] phone change requires verified credential proof
-- [ ] WeChat unbind requires risk confirmation and fallback credential availability
-- [ ] cancellation has cooling-off and revoke support
-- [ ] operation audit and notification hooks are recorded
-- [ ] restricted account states block unsafe operations consistently
-- [ ] `pnpm verify` run
+- [x] phone change requires verified credential proof
+- [x] WeChat unbind requires risk confirmation and fallback credential availability
+- [x] cancellation has cooling-off and revoke support
+- [x] operation audit and notification hooks are recorded
+- [x] restricted account states block unsafe operations consistently
+- [x] `pnpm verify` run

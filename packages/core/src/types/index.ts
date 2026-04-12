@@ -1,7 +1,11 @@
 import type {
   AuthAbnormalLoginPrompt,
+  AuthDeviceIdentity,
   AuthIdentityWorkflow,
+  AuthRateLimitState,
   AuthRedirectTarget,
+  AuthRiskDecision,
+  AuthSecurityAuditEvent,
   AuthStatus,
   CapabilityKind,
   ConfigValue,
@@ -44,6 +48,10 @@ export interface UserSession {
   loggedIn: boolean;
   authStatus?: AuthStatus;
   abnormalLoginPrompt?: AuthAbnormalLoginPrompt;
+  riskDecision?: AuthRiskDecision;
+  deviceIdentity?: AuthDeviceIdentity;
+  rateLimitState?: AuthRateLimitState;
+  securityAuditEvents?: AuthSecurityAuditEvent[];
   identityWorkflow?: AuthIdentityWorkflow;
   platform: PlatformKind;
   redirectTarget?: AuthRedirectTarget;

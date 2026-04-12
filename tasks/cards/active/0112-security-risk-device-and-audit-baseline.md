@@ -89,9 +89,9 @@ Provide a reusable security baseline for auth, account operations, payment, uplo
 
 ## Acceptance
 
-- [ ] device identity is normalized and persisted
-- [ ] risk decisions are shared across sensitive features
-- [ ] frequency controls are centrally enforced
-- [ ] security audit events are durable and queryable
-- [ ] abnormal operation prompts reach feature state
-- [ ] `pnpm verify` run
+- [x] device identity is normalized and persisted
+- [x] risk decisions are shared across sensitive features
+- [x] frequency controls are centrally enforced
+- [x] security audit events are durable and queryable
+- [x] abnormal operation prompts reach feature state
+- [x] `pnpm verify` run

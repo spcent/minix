@@ -5,8 +5,12 @@ export const AUTH_STATUSES = ["guest", "authenticated", "reauth_required"] as co
 export type AuthStatus = (typeof AUTH_STATUSES)[number];
 export const AUTH_REDIRECT_REASONS = ["auth-required", "session-expired", "force-relogin"] as const;
 export type AuthRedirectReason = (typeof AUTH_REDIRECT_REASONS)[number];
-export const AUTH_IDENTITY_WORKFLOW_KINDS = ["guest_upgrade", "phone_binding", "account_merge"] as const;
+export const AUTH_IDENTITY_WORKFLOW_KINDS = ["guest_upgrade", "phone_binding", "oauth_binding", "account_merge"] as const;
 export type AuthIdentityWorkflowKind = (typeof AUTH_IDENTITY_WORKFLOW_KINDS)[number];
+export const AUTH_PROVIDER_AUTHORIZATION_STATUSES = ["active", "revoked", "unlinked"] as const;
+export type AuthProviderAuthorizationStatus = (typeof AUTH_PROVIDER_AUTHORIZATION_STATUSES)[number];
+export const AUTH_PROVIDER_ACTION_KINDS = ["unlink", "revoke", "reauthorize"] as const;
+export type AuthProviderActionKind = (typeof AUTH_PROVIDER_ACTION_KINDS)[number];
 export const AUTH_IDENTITY_WORKFLOW_STATUSES = ["completed", "merge_required", "conflict", "blocked"] as const;
 export type AuthIdentityWorkflowStatus = (typeof AUTH_IDENTITY_WORKFLOW_STATUSES)[number];
 export const AUTH_IDENTITY_FAILURE_REASONS = [
@@ -22,7 +26,14 @@ export const AUTH_IDENTITY_FAILURE_REASONS = [
 export type AuthIdentityFailureReason = (typeof AUTH_IDENTITY_FAILURE_REASONS)[number];
 export const AUTH_MERGE_STRATEGIES = ["prompt", "merge"] as const;
 export type AuthMergeStrategy = (typeof AUTH_MERGE_STRATEGIES)[number];
-export const AUTH_VERIFICATION_PURPOSES = ["login", "guest_upgrade", "phone_binding", "change_phone", "password_reset"] as const;
+export const AUTH_VERIFICATION_PURPOSES = [
+  "login",
+  "guest_upgrade",
+  "phone_binding",
+  "change_phone",
+  "password_reset",
+  "account_security",
+] as const;
 export type AuthVerificationPurpose = (typeof AUTH_VERIFICATION_PURPOSES)[number];
 export const AUTH_CREDENTIAL_FAILURE_REASONS = [
   "credential_missing",
@@ -38,12 +49,82 @@ export const AUTH_CREDENTIAL_FAILURE_REASONS = [
 ] as const;
 export type AuthCredentialFailureReason = (typeof AUTH_CREDENTIAL_FAILURE_REASONS)[number];
 
+export const AUTH_SECURITY_EVENT_SCOPES = [
+  "auth",
+  "verification",
+  "account",
+  "payment",
+  "upload",
+  "share",
+  "feedback",
+  "messages",
+] as const;
+export type AuthSecurityEventScope = (typeof AUTH_SECURITY_EVENT_SCOPES)[number];
+
+export interface AuthSecurityRequestContext {
+  deviceId?: string;
+  userAgent?: string;
+  ipRegion?: string;
+  frequencyKey?: string;
+  scene?: string;
+}
+
 export interface AuthRiskDecision {
   deviceId?: string;
   frequencyKey?: string;
   scene?: string;
   level: "allow" | "review" | "block";
   reason?: string;
+}
+
+export interface AuthDeviceIdentity {
+  deviceId: string;
+  platform: LoginPlatformKind;
+  trusted: boolean;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  trustedAt?: string;
+  lastUserAgent?: string;
+  lastIpRegion?: string;
+  lastScene?: string;
+  riskLevel?: AuthRiskDecision["level"];
+}
+
+export interface AuthRateLimitState {
+  scope: AuthSecurityEventScope;
+  key: string;
+  limited: boolean;
+  limit: number;
+  remaining: number;
+  resetAt: number;
+  retryAfterSeconds: number;
+  updatedAt: string;
+}
+
+export interface AuthSecurityAuditEvent {
+  eventId: string;
+  scope: AuthSecurityEventScope;
+  action: string;
+  result: "allowed" | "review" | "blocked";
+  message: string;
+  createdAt: string;
+  actorUserId?: string;
+  deviceId?: string;
+  clientId?: string;
+  platform?: LoginPlatformKind;
+  reason?: string;
+  frequencyKey?: string;
+  scene?: string;
+  traceId?: string;
+}
+
+export interface AuthSecurityPrompt {
+  title: string;
+  message: string;
+  severity: "info" | "warning" | "critical";
+  acknowledgeRequired?: boolean;
+  acknowledgeLabel?: string;
+  scope?: AuthSecurityEventScope;
 }
 
 export interface AuthCredentialProtection {
@@ -69,6 +150,27 @@ export interface AuthIdentity {
   mergedUserId?: string;
 }
 
+export interface AuthProviderAction {
+  kind: AuthProviderActionKind;
+  label: string;
+  available: boolean;
+  blockedReason?: string;
+  destructive?: boolean;
+}
+
+export interface AuthProviderIdentity {
+  provider: string;
+  providerLabel: string;
+  providerUserId: string;
+  authorizationStatus: AuthProviderAuthorizationStatus;
+  loginEnabled: boolean;
+  linkedAt: string;
+  lastAuthorizedAt?: string;
+  revokedAt?: string;
+  revocationReason?: string;
+  actions: AuthProviderAction[];
+}
+
 export interface AuthRedirectTarget {
   routeId?: string;
   path?: string;
@@ -79,12 +181,7 @@ export interface AuthRedirectTarget {
   forceReauth?: boolean;
 }
 
-export interface AuthAbnormalLoginPrompt {
-  title: string;
-  message: string;
-  severity: "info" | "warning";
-  acknowledgeRequired?: boolean;
-}
+export interface AuthAbnormalLoginPrompt extends AuthSecurityPrompt {}
 
 export interface AuthIdentityWorkflow {
   kind: AuthIdentityWorkflowKind;
@@ -175,6 +272,9 @@ export interface LoginResponse {
   loginMethod?: LoginMethod;
   abnormalLoginPrompt?: AuthAbnormalLoginPrompt;
   riskDecision?: AuthRiskDecision;
+  deviceIdentity?: AuthDeviceIdentity;
+  rateLimitState?: AuthRateLimitState;
+  securityAuditEvents?: AuthSecurityAuditEvent[];
   credentialProtection?: AuthCredentialProtection;
   identityWorkflow?: AuthIdentityWorkflow;
   redirectTarget?: AuthRedirectTarget;
@@ -209,7 +309,7 @@ export interface IdentityBindPhoneRequest {
 
 export interface IdentityMergeRequest {
   targetUserId: string;
-  workflowKind?: Extract<AuthIdentityWorkflowKind, "guest_upgrade" | "phone_binding">;
+  workflowKind?: Extract<AuthIdentityWorkflowKind, "guest_upgrade" | "phone_binding" | "oauth_binding">;
   confirm: boolean;
   redirectTarget?: AuthRedirectTarget;
 }
@@ -240,6 +340,9 @@ export interface AuthPhoneVerificationResponse {
     message: string;
   };
   riskDecision?: AuthRiskDecision;
+  deviceIdentity?: AuthDeviceIdentity;
+  rateLimitState?: AuthRateLimitState;
+  securityAuditEvents?: AuthSecurityAuditEvent[];
 }
 
 export interface AuthPasswordCredentialRequest {
@@ -259,12 +362,14 @@ export interface AuthPasswordCredentialResponse {
 
 export interface AuthOAuthAuthorizeRequest {
   provider: string;
+  purpose?: "login" | "bind";
   redirectTarget?: AuthRedirectTarget;
   deviceId?: string;
 }
 
 export interface AuthOAuthAuthorizeResponse {
   provider: string;
+  purpose?: "login" | "bind";
   state: string;
   authorizationUrl: string;
   expiresAt: number;
@@ -280,3 +385,12 @@ export interface AuthOAuthCallbackRequest {
 }
 
 export interface AuthOAuthCallbackResponse extends LoginResponse {}
+
+export interface IdentityBindOAuthRequest {
+  provider: string;
+  state: string;
+  providerToken: string;
+  providerUserId: string;
+  mergeStrategy?: AuthMergeStrategy;
+  redirectTarget?: AuthRedirectTarget;
+}

@@ -10,6 +10,7 @@ import {
 } from "@minix/core";
 import type {
   AppRouteId,
+  AuthOAuthAuthorizeRequest,
   AuthOAuthAuthorizeResponse,
   AuthOAuthCallbackResponse,
   AuthPasswordCredentialResponse,
@@ -19,6 +20,7 @@ import type {
   AuthRedirectTarget as ContractAuthRedirectTarget,
   AuthVerificationPurpose,
   IdentityBindPhoneRequest,
+  IdentityBindOAuthRequest,
   IdentityMergeRequest,
   IdentityTransitionResponse,
   IdentityUpgradeRequest,
@@ -275,6 +277,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
       redirectForceReauth: options?.preserveRedirect ? store.getState().redirectForceReauth : false,
       rateLimitMessage: options?.retryAfterSeconds !== undefined ? deriveRateLimitMessage(options.retryAfterSeconds) : null,
       retryAfterSeconds: options?.retryAfterSeconds ?? null,
+      rateLimitState: null,
     });
 
     await reportError?.(message);
@@ -289,6 +292,10 @@ export function createAuthController(options: CreateAuthControllerOptions) {
       lastLoginMethod: session.identity.loginMethod ?? store.getState().selectedLoginMethod,
       noticeMessage: options?.clearNotice === false ? store.getState().noticeMessage : null,
       abnormalLoginPrompt: session.abnormalLoginPrompt ?? null,
+      riskDecision: session.riskDecision ?? null,
+      deviceIdentity: session.deviceIdentity ?? null,
+      rateLimitState: session.rateLimitState ?? null,
+      securityAuditEvents: session.securityAuditEvents ?? [],
       credentialProtection: null,
       identityWorkflow: session.identityWorkflow ?? null,
       identityFailureReason: session.identityWorkflow?.failureReason ?? null,
@@ -335,6 +342,10 @@ export function createAuthController(options: CreateAuthControllerOptions) {
       rateLimitMessage: null,
       retryAfterSeconds: null,
       abnormalLoginPrompt: null,
+      riskDecision: null,
+      deviceIdentity: null,
+      rateLimitState: null,
+      securityAuditEvents: [],
       credentialProtection: null,
     });
 
@@ -394,6 +405,10 @@ export function createAuthController(options: CreateAuthControllerOptions) {
       rateLimitMessage: null,
       retryAfterSeconds: null,
       abnormalLoginPrompt: null,
+      riskDecision: null,
+      deviceIdentity: null,
+      rateLimitState: null,
+      securityAuditEvents: [],
     });
 
     const credential = createCredentialFromState(method, current.credentials);
@@ -505,6 +520,10 @@ export function createAuthController(options: CreateAuthControllerOptions) {
           retryAfterSeconds: result.value.retryAfterSeconds,
           debugCode: result.value.delivery.debugCode ?? null,
         },
+        riskDecision: result.value.riskDecision ?? null,
+        deviceIdentity: result.value.deviceIdentity ?? null,
+        rateLimitState: result.value.rateLimitState ?? null,
+        securityAuditEvents: result.value.securityAuditEvents ?? [],
         noticeMessage: `Verification code sent to ${result.value.phoneNumberMasked}.`,
       });
       return result;
@@ -526,7 +545,15 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         return ok(undefined);
       }
 
-      store.setState({ loading: true, errorMessage: null, fieldErrors: {} });
+      store.setState({
+        loading: true,
+        errorMessage: null,
+        fieldErrors: {},
+        riskDecision: null,
+        deviceIdentity: null,
+        rateLimitState: null,
+        securityAuditEvents: [],
+      });
       const result = await kernel.request.post<AuthPasswordCredentialResponse>("/auth/password/register", {
         ...(credentials.account.trim() ? { account: credentials.account.trim() } : {}),
         ...(credentials.phoneNumber.trim() ? { phoneNumber: credentials.phoneNumber.trim() } : {}),
@@ -542,6 +569,10 @@ export function createAuthController(options: CreateAuthControllerOptions) {
       store.setState({
         loading: false,
         credentialProtection: result.value.credentialProtection,
+        riskDecision: null,
+        deviceIdentity: null,
+        rateLimitState: null,
+        securityAuditEvents: [],
         noticeMessage: "Password credential configured.",
       });
       return result;
@@ -562,7 +593,15 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         return ok(undefined);
       }
 
-      store.setState({ loading: true, errorMessage: null, fieldErrors: {} });
+      store.setState({
+        loading: true,
+        errorMessage: null,
+        fieldErrors: {},
+        riskDecision: null,
+        deviceIdentity: null,
+        rateLimitState: null,
+        securityAuditEvents: [],
+      });
       const result = await kernel.request.post<AuthPasswordCredentialResponse>("/auth/password/reset", {
         phoneNumber: credentials.phoneNumber.trim(),
         verificationCode: credentials.verificationCode.trim(),
@@ -577,12 +616,16 @@ export function createAuthController(options: CreateAuthControllerOptions) {
       store.setState({
         loading: false,
         credentialProtection: result.value.credentialProtection,
+        riskDecision: null,
+        deviceIdentity: null,
+        rateLimitState: null,
+        securityAuditEvents: [],
         noticeMessage: "Password credential reset.",
       });
       return result;
     },
 
-    async startOauthAuthorization() {
+    async startOauthAuthorization(purpose: "login" | "bind" = "login") {
       const credentials = store.getState().credentials;
       if (!credentials.provider.trim()) {
         store.setState({
@@ -593,11 +636,20 @@ export function createAuthController(options: CreateAuthControllerOptions) {
       }
 
       store.setState({ loading: true, errorMessage: null, fieldErrors: {} });
-      const result = await kernel.request.post<AuthOAuthAuthorizeResponse>("/auth/oauth/authorize", {
+      const body: AuthOAuthAuthorizeRequest = {
         provider: credentials.provider.trim(),
-        ...(credentials.deviceId.trim() ? { deviceId: credentials.deviceId.trim() } : {}),
-        ...(createWorkflowRedirectTarget(store.getState()) ? { redirectTarget: createWorkflowRedirectTarget(store.getState()) } : {}),
-      });
+      };
+      if (purpose === "bind") {
+        body.purpose = purpose;
+      }
+      if (credentials.deviceId.trim()) {
+        body.deviceId = credentials.deviceId.trim();
+      }
+      const redirectTarget = createWorkflowRedirectTarget(store.getState());
+      if (redirectTarget) {
+        body.redirectTarget = redirectTarget;
+      }
+      const result = await kernel.request.post<AuthOAuthAuthorizeResponse>("/auth/oauth/authorize", body);
       if (!result.ok) {
         await handleError(result.error.message, { preserveRedirect: true });
         return result;
@@ -654,6 +706,29 @@ export function createAuthController(options: CreateAuthControllerOptions) {
 
       syncSessionState(persisted.value);
       return routeToSuccess();
+    },
+
+    async submitOauthBinding() {
+      const fieldErrors = createMethodValidation("oauth", store.getState().credentials);
+      if (Object.keys(fieldErrors).length > 0) {
+        store.setState({
+          fieldErrors,
+          errorMessage: "Please complete the required OAuth binding fields.",
+        });
+        return ok(undefined);
+      }
+
+      const body: IdentityBindOAuthRequest = {
+        provider: store.getState().credentials.provider.trim(),
+        state: store.getState().credentials.oauthState.trim(),
+        providerToken: store.getState().credentials.providerToken.trim(),
+        providerUserId: store.getState().credentials.providerUserId.trim(),
+      };
+      const redirectTarget = createWorkflowRedirectTarget(store.getState());
+      if (redirectTarget) {
+        body.redirectTarget = redirectTarget;
+      }
+      return submitIdentityTransition("/auth/identity/bind-oauth", body);
     },
 
     async restoreSession() {
@@ -884,7 +959,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         targetUserId: nextTargetUserId,
         confirm: true,
       };
-      if (workflow?.kind === "guest_upgrade" || workflow?.kind === "phone_binding") {
+      if (workflow?.kind === "guest_upgrade" || workflow?.kind === "phone_binding" || workflow?.kind === "oauth_binding") {
         body.workflowKind = workflow.kind;
       }
       if (redirectTarget) {
@@ -908,7 +983,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         targetUserId: nextTargetUserId,
         confirm: false,
       };
-      if (workflow?.kind === "guest_upgrade" || workflow?.kind === "phone_binding") {
+      if (workflow?.kind === "guest_upgrade" || workflow?.kind === "phone_binding" || workflow?.kind === "oauth_binding") {
         body.workflowKind = workflow.kind;
       }
       if (redirectTarget) {
@@ -931,6 +1006,10 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         rateLimitMessage: null,
         retryAfterSeconds: null,
         abnormalLoginPrompt: null,
+        riskDecision: null,
+        deviceIdentity: null,
+        rateLimitState: null,
+        securityAuditEvents: [],
       });
 
       const redirectTarget = createWorkflowRedirectTarget(store.getState());
@@ -958,6 +1037,10 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         rateLimitMessage: null,
         retryAfterSeconds: null,
         abnormalLoginPrompt: null,
+        riskDecision: null,
+        deviceIdentity: null,
+        rateLimitState: null,
+        securityAuditEvents: [],
       });
 
       const result = await kernel.auth.ensureLogin();

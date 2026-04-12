@@ -1,8 +1,12 @@
 import type {
   AuthAbnormalLoginPrompt,
   AuthCredentialProtection,
+  AuthDeviceIdentity,
   AuthIdentityFailureReason,
   AuthIdentityWorkflow,
+  AuthRateLimitState,
+  AuthRiskDecision,
+  AuthSecurityAuditEvent,
   AuthRedirectReason,
   AuthStatus,
   AuthVerificationPurpose,
@@ -46,6 +50,10 @@ export interface AuthPageState {
   rateLimitMessage: string | null;
   retryAfterSeconds: number | null;
   abnormalLoginPrompt: AuthAbnormalLoginPrompt | null;
+  riskDecision: AuthRiskDecision | null;
+  deviceIdentity: AuthDeviceIdentity | null;
+  rateLimitState: AuthRateLimitState | null;
+  securityAuditEvents: AuthSecurityAuditEvent[];
   credentialProtection: AuthCredentialProtection | null;
   phoneVerification:
     | {
@@ -60,6 +68,7 @@ export interface AuthPageState {
   oauthAuthorization:
     | {
         provider: string;
+        purpose?: "login" | "bind";
         state: string;
         authorizationUrl: string;
         expiresAt: number;
@@ -102,6 +111,10 @@ export function createInitialAuthPageState(): AuthPageState {
     rateLimitMessage: null,
     retryAfterSeconds: null,
     abnormalLoginPrompt: null,
+    riskDecision: null,
+    deviceIdentity: null,
+    rateLimitState: null,
+    securityAuditEvents: [],
     credentialProtection: null,
     phoneVerification: null,
     oauthAuthorization: null,

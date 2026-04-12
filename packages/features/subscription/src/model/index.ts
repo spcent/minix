@@ -1,12 +1,19 @@
 import type {
+  AfterSalesCase,
+  DetailStatus,
+  ListStatus,
   MembershipBenefit,
   MembershipEntitlement,
   MembershipOverview,
+  OrderList,
   Order,
+  PaymentProduct,
+  PaymentSku,
   PaymentCallbackVerification,
   PaymentIntent,
   PaymentReconciliation,
   PaymentResult,
+  SubscriptionRecord,
 } from "@minix/contracts";
 import type { LatestMilestoneHistoryEntry } from "@minix/core";
 
@@ -18,15 +25,27 @@ export interface SubscriptionState {
   errorText: string | undefined;
   paymentExecutionDetail: string | undefined;
   overview: MembershipOverview | undefined;
+  catalogProducts: PaymentProduct[];
+  catalogSkus: PaymentSku[];
+  selectedSkuId: string | undefined;
+  orderList: OrderList | undefined;
+  orderListStatus: ListStatus;
+  selectedOrderId: string | undefined;
+  subscriptions: SubscriptionRecord[];
+  afterSalesCases: AfterSalesCase[];
+  selectedAfterSalesCase: AfterSalesCase | undefined;
   order: Order | undefined;
   paymentIntent: PaymentIntent | undefined;
   paymentResult: PaymentResult | undefined;
   callbackVerification: PaymentCallbackVerification | undefined;
   reconciliation: PaymentReconciliation | undefined;
   entitlement: MembershipEntitlement | undefined;
+  commerceDetailStatus: DetailStatus;
   transactionMessage: string | undefined;
   canCancelOrder: boolean;
   canRefundOrder: boolean;
+  canCancelSubscription: boolean;
+  canRenewSubscription: boolean;
   source: string | undefined;
   novelId: string | undefined;
   chapterId: string | undefined;
@@ -68,15 +87,49 @@ export function createInitialSubscriptionState(options: CreateSubscriptionStateO
     errorText: undefined,
     paymentExecutionDetail: undefined,
     overview: undefined,
+    catalogProducts: [],
+    catalogSkus: [],
+    selectedSkuId: undefined,
+    orderList: undefined,
+    orderListStatus: {
+      loadState: "idle",
+      firstLoaded: false,
+      retryable: true,
+      partialData: false,
+      stickyHeaderEnabled: false,
+      empty: false,
+      skeleton: false,
+      staleData: false,
+      restoredFromRoute: false,
+    },
+    selectedOrderId: undefined,
+    subscriptions: [],
+    afterSalesCases: [],
+    selectedAfterSalesCase: undefined,
     order: undefined,
     paymentIntent: undefined,
     paymentResult: undefined,
     callbackVerification: undefined,
     reconciliation: undefined,
     entitlement: undefined,
+    commerceDetailStatus: {
+      loadState: "idle",
+      entryContext: "unknown",
+      refreshable: true,
+      invalidated: false,
+      deleted: false,
+      permissionDenied: false,
+      offline: false,
+      stale: false,
+      unavailable: false,
+      unpublished: false,
+      recoveredFromLink: false,
+    },
     transactionMessage: undefined,
     canCancelOrder: false,
     canRefundOrder: false,
+    canCancelSubscription: false,
+    canRenewSubscription: false,
     source: options.source,
     novelId: options.novelId,
     chapterId: options.chapterId,

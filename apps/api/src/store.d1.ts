@@ -1,7 +1,7 @@
-import { createDefaultUserState } from "./data";
+import { createDefaultOperationalState, createDefaultUserState } from "./data";
 import { buildSampleProfileAssetPath } from "./sample-assets";
-import { deserializeUserState, serializeUserState } from "./state";
-import type { ApiStore, CreateSessionInput, D1DatabaseLike, LoginProfile, SessionRecord } from "./types";
+import { deserializeOperationalState, deserializeUserState, serializeOperationalState, serializeUserState } from "./state";
+import type { ApiStore, CreateSessionInput, D1DatabaseLike, LoginProfile, OperationalState, SessionRecord } from "./types";
 import type { AuthIdentity, AuthStatus, LoginPlatformKind, LoginMethod } from "@minix/contracts";
 
 const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -26,6 +26,11 @@ interface SessionRow {
 interface UserStateRow {
   user_id: string;
   membership_plan_id: string | null;
+  state_json: string;
+}
+
+interface OperationalStateRow {
+  state_key: string;
   state_json: string;
 }
 
@@ -73,6 +78,17 @@ function toSessionRecord(row: SessionRow): SessionRecord {
 }
 
 export function createD1ApiStore(db: D1DatabaseLike): ApiStore {
+  async function upsertOperationalState() {
+    await db
+      .prepare(
+        `INSERT INTO ops_state (state_key, state_json, updated_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(state_key) DO NOTHING`,
+      )
+      .bind("singleton", serializeOperationalState(createDefaultOperationalState()), new Date().toISOString())
+      .run();
+  }
+
   async function upsertUserState(userId: string) {
     await db
       .prepare(
@@ -264,6 +280,38 @@ export function createD1ApiStore(db: D1DatabaseLike): ApiStore {
           serializeUserState(userState),
           new Date().toISOString(),
         )
+        .run();
+    },
+
+    async getOperationalState() {
+      const row = await db
+        .prepare(
+          `SELECT state_key, state_json
+           FROM ops_state
+           WHERE state_key = ?`,
+        )
+        .bind("singleton")
+        .first<OperationalStateRow>();
+
+      if (!row) {
+        const defaultState = createDefaultOperationalState();
+        await upsertOperationalState();
+        return defaultState;
+      }
+
+      return deserializeOperationalState(row.state_json);
+    },
+
+    async saveOperationalState(state: OperationalState) {
+      await db
+        .prepare(
+          `INSERT INTO ops_state (state_key, state_json, updated_at)
+           VALUES (?, ?, ?)
+           ON CONFLICT(state_key) DO UPDATE SET
+             state_json = excluded.state_json,
+             updated_at = excluded.updated_at`,
+        )
+        .bind("singleton", serializeOperationalState(state), new Date().toISOString())
         .run();
     },
   };

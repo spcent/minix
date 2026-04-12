@@ -88,9 +88,9 @@ Implement points, level, membership, rights, balance, freezes, refunds, and enti
 
 ## Acceptance
 
-- [ ] asset ledger is durable and append-only
-- [ ] membership and entitlement state derives from ledger events
-- [ ] refunds and cancellations update assets correctly
-- [ ] account summary exposes balance/points/rights without placeholder semantics
-- [ ] tests cover grant, consume, refund, freeze, and expiry
-- [ ] `pnpm verify` run
+- [x] asset ledger is durable and append-only
+- [x] membership and entitlement state derives from ledger events
+- [x] refunds and cancellations update assets correctly
+- [x] account summary exposes balance/points/rights without placeholder semantics
+- [x] tests cover grant, consume, refund, freeze, and expiry
+- [x] `pnpm verify` run

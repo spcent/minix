@@ -87,9 +87,9 @@ Make notification, privacy, device, autoplay, debug, and experiment settings dur
 
 ## Acceptance
 
-- [ ] notification settings affect delivery eligibility
-- [ ] privacy settings affect profile/relation/search exposure
-- [ ] device settings affect media/cache/network behavior
-- [ ] debug and experiment toggles respect environment constraints
-- [ ] settings persistence survives session recovery
-- [ ] `pnpm verify` run
+- [x] notification settings affect delivery eligibility
+- [x] privacy settings affect profile/relation/search exposure
+- [x] device settings affect media/cache/network behavior
+- [x] debug and experiment toggles respect environment constraints
+- [x] settings persistence survives session recovery
+- [x] `pnpm verify` run

@@ -9,7 +9,7 @@ import type {
   NotificationType,
   UnreadBadge,
 } from "@minix/contracts";
-import { createDefaultListPageState, type ListPageState } from "@minix/core";
+import { createDefaultListPageState, createDetailStatus, type ListPageState } from "@minix/core";
 
 export type MessagesState = Omit<ListPageState<NotificationItem>, "filters"> & {
   filters: NotificationFilterGroup[];
@@ -61,16 +61,7 @@ export function createDefaultMessagesState(
     reservedThreads: [],
     selectedThreadId: undefined,
     detailData: undefined,
-    detailStatus: {
-      loadState: "idle",
-      entryContext: "unknown",
-      refreshable: true,
-      invalidated: false,
-      deleted: false,
-      permissionDenied: false,
-      offline: false,
-      unpublished: false,
-    },
+    detailStatus: createDetailStatus("idle"),
     messageThread: undefined,
     messageItems: [],
     detailActions: undefined,

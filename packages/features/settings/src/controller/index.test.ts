@@ -50,6 +50,7 @@ function createKernelStub() {
         profileEntryLabel: "Edit profile",
         phoneEntryLabel: "Bind phone",
         unbindEntryLabel: "Bind WeChat",
+        providerEntryLabel: "Linked providers",
         cancellationEntryLabel: "Cancellation entry",
       },
       content: {
@@ -72,12 +73,92 @@ function createKernelStub() {
       experimentsEnabled: true,
     },
     privacyOptions: {
-      profileVisibilityLabel: "Private to signed-in session",
+      profileVisibility: "signed_in_only",
+      profileVisibilityLabel: "Visible inside signed-in surfaces only",
       personalizedRecommendations: true,
       searchHistoryEnabled: true,
       analyticsEnabled: true,
       screenshotFeedbackEnabled: true,
     },
+    effectivePolicy: {
+      notification: {
+        inAppEnabled: true,
+        subscriptionMessageEnabled: true,
+        pushEnabled: true,
+        smsEnabled: false,
+        emailEnabled: false,
+        eligibleChannels: ["in_app", "subscription_message", "push"],
+        stationFallbackEnabled: true,
+      },
+      privacy: {
+        profileVisibility: "signed_in_only",
+        profileSearchVisible: false,
+        relationSearchVisible: false,
+        personalizedRankingEnabled: true,
+        analyticsCollectionEnabled: true,
+      },
+      device: {
+        autoplayEnabled: true,
+        weakNetworkMode: false,
+        networkStrategy: "balanced",
+        uploadChunkSizeBytes: 65536,
+        diagnosticsEnabled: true,
+      },
+            developer: {
+              environment: "debug",
+              logsEditable: true,
+              experimentsEditable: true,
+              logsEnabled: true,
+              experimentsEnabled: true,
+      },
+    },
+    notificationChannels: [
+      {
+        channel: "subscription_message",
+        enabled: true,
+        unsubscribed: false,
+        providerKey: "wechat_subscription_sample",
+        providerLabel: "WeChat Subscription Provider",
+        locale: "zh-CN",
+        fallbackToInApp: true,
+        statusLabel: "WeChat Subscription Provider is active for subscription message delivery.",
+        unsubscribable: true,
+      },
+      {
+        channel: "sms",
+        enabled: false,
+        unsubscribed: false,
+        providerKey: "sms_sample",
+        providerLabel: "Sample SMS Provider",
+        locale: "zh-CN",
+        fallbackToInApp: true,
+        statusLabel: "sms delivery is paused by user preference.",
+        unsubscribable: true,
+      },
+      {
+        channel: "email",
+        enabled: false,
+        unsubscribed: false,
+        providerKey: "email_sample",
+        providerLabel: "Sample Email Provider",
+        locale: "zh-CN",
+        fallbackToInApp: true,
+        statusLabel: "email delivery is paused by user preference.",
+        unsubscribable: true,
+      },
+      {
+        channel: "push",
+        enabled: true,
+        unsubscribed: false,
+        providerKey: "push_sample",
+        providerLabel: "Sample Push Provider",
+        locale: "zh-CN",
+        fallbackToInApp: true,
+        statusLabel: "Sample Push Provider is active for push delivery.",
+        unsubscribable: false,
+      },
+    ],
+    lockedSettingKeys: [],
   };
 
   const kernel = {
@@ -124,8 +205,152 @@ function createKernelStub() {
       async get<T>() {
         return ok(settingsResponse as T);
       },
-      async post<T>() {
-        return ok({} as T);
+      async post<T>(_path: string, body?: unknown) {
+        const payload = body as {
+          preferences?: {
+            notificationsEnabled?: boolean;
+            device?: { networkStrategy?: SettingsResponse["preferences"]["device"]["networkStrategy"]; autoplay?: boolean; weakNetworkMode?: boolean };
+            developerOptions?: { logsEnabled?: boolean; experimentsEnabled?: boolean };
+          };
+          featureToggles?: { pushEnabled?: boolean; smsEnabled?: boolean; emailEnabled?: boolean };
+          notificationChannels?: Array<{
+            channel: "subscription_message" | "sms" | "email" | "push";
+            enabled?: boolean;
+            unsubscribed?: boolean;
+          }>;
+          privacyOptions?: {
+            profileVisibility?: SettingsResponse["privacyOptions"]["profileVisibility"];
+            personalizedRecommendations?: boolean;
+            searchHistoryEnabled?: boolean;
+            analyticsEnabled?: boolean;
+            screenshotFeedbackEnabled?: boolean;
+          };
+        };
+        const nextNotificationsEnabled =
+          payload.preferences?.notificationsEnabled ?? settingsResponse.preferences.notificationsEnabled;
+        const nextPushEnabled = payload.featureToggles?.pushEnabled ?? settingsResponse.featureToggles.pushEnabled;
+        const nextSmsEnabled = payload.featureToggles?.smsEnabled ?? settingsResponse.featureToggles.smsEnabled;
+        const nextEmailEnabled = payload.featureToggles?.emailEnabled ?? settingsResponse.featureToggles.emailEnabled;
+        const nextNetworkStrategy =
+          payload.preferences?.device?.networkStrategy ?? settingsResponse.preferences.device.networkStrategy;
+        const nextAutoplay = payload.preferences?.device?.autoplay ?? settingsResponse.preferences.device.autoplay;
+        const nextWeakNetworkMode =
+          payload.preferences?.device?.weakNetworkMode ?? settingsResponse.preferences.device.weakNetworkMode;
+        const nextLogsEnabled =
+          payload.preferences?.developerOptions?.logsEnabled ?? settingsResponse.preferences.developerOptions.logsEnabled;
+        const nextExperimentsEnabled =
+          payload.preferences?.developerOptions?.experimentsEnabled ??
+          settingsResponse.preferences.developerOptions.experimentsEnabled;
+        const nextNotificationChannels =
+          settingsResponse.notificationChannels?.map((channel) => {
+            const override = payload.notificationChannels?.find((item) => item.channel === channel.channel);
+            if (!override) {
+              return channel;
+            }
+            const enabled = override.enabled ?? channel.enabled;
+            const unsubscribed = override.unsubscribed ?? channel.unsubscribed;
+            return {
+              ...channel,
+              enabled,
+              unsubscribed,
+              statusLabel: unsubscribed
+                ? `Unsubscribed from ${channel.channel.replace("_", " ")} delivery.`
+                : enabled
+                  ? `${channel.providerLabel} is active for ${channel.channel.replace("_", " ")} delivery.`
+                  : `${channel.channel} delivery is paused by user preference.`,
+            };
+          }) ?? settingsResponse.notificationChannels;
+        const eligibleChannels: SettingsResponse["effectivePolicy"]["notification"]["eligibleChannels"] = [];
+        if (nextNotificationsEnabled) {
+          eligibleChannels.push("in_app", "subscription_message");
+          if (nextNotificationChannels?.find((item) => item.channel === "push")?.enabled) {
+            eligibleChannels.push("push");
+          }
+          if (nextNotificationChannels?.find((item) => item.channel === "sms")?.enabled) {
+            eligibleChannels.push("sms");
+          }
+          if (nextNotificationChannels?.find((item) => item.channel === "email")?.enabled) {
+            eligibleChannels.push("email");
+          }
+        }
+        const uploadChunkSizeBytes = nextWeakNetworkMode ? 8192 : nextNetworkStrategy === "data-saver" ? 16384 : 65536;
+        settingsResponse = {
+          ...settingsResponse,
+          preferences: {
+            ...settingsResponse.preferences,
+            ...(payload.preferences ?? {}),
+            device: {
+              ...settingsResponse.preferences.device,
+              ...(payload.preferences?.device ?? {}),
+            },
+            developerOptions: {
+              ...settingsResponse.preferences.developerOptions,
+              ...(payload.preferences?.developerOptions ?? {}),
+            },
+          },
+          featureToggles: {
+            ...settingsResponse.featureToggles,
+            ...(payload.featureToggles ?? {}),
+            ...(payload.preferences?.developerOptions?.experimentsEnabled !== undefined
+              ? { experimentsEnabled: payload.preferences.developerOptions.experimentsEnabled }
+              : {}),
+          },
+          privacyOptions: {
+            ...settingsResponse.privacyOptions,
+            ...(payload.privacyOptions ?? {}),
+            profileVisibility: payload.privacyOptions?.profileVisibility ?? settingsResponse.privacyOptions.profileVisibility,
+            profileVisibilityLabel:
+              payload.privacyOptions?.profileVisibility === "public"
+                ? "Public inside discovery and relation surfaces"
+                : payload.privacyOptions?.profileVisibility === "followers_only"
+                  ? "Visible to mutual and follower-driven discovery"
+                  : settingsResponse.privacyOptions.profileVisibilityLabel,
+          },
+          effectivePolicy: {
+            ...settingsResponse.effectivePolicy,
+            notification: {
+              ...settingsResponse.effectivePolicy.notification,
+              inAppEnabled: nextNotificationsEnabled,
+              subscriptionMessageEnabled: Boolean(nextNotificationsEnabled && nextNotificationChannels?.find((item) => item.channel === "subscription_message")?.enabled),
+              pushEnabled: Boolean(nextNotificationsEnabled && nextNotificationChannels?.find((item) => item.channel === "push")?.enabled),
+              smsEnabled: Boolean(nextNotificationsEnabled && nextNotificationChannels?.find((item) => item.channel === "sms")?.enabled),
+              emailEnabled: Boolean(nextNotificationsEnabled && nextNotificationChannels?.find((item) => item.channel === "email")?.enabled),
+              eligibleChannels,
+              stationFallbackEnabled: true,
+            },
+            privacy: {
+              ...settingsResponse.effectivePolicy.privacy,
+              ...(payload.privacyOptions?.profileVisibility
+                ? {
+                    profileVisibility: payload.privacyOptions.profileVisibility,
+                    profileSearchVisible: payload.privacyOptions.profileVisibility !== "signed_in_only",
+                    relationSearchVisible: payload.privacyOptions.profileVisibility !== "signed_in_only",
+                  }
+                : {}),
+              ...(payload.privacyOptions?.personalizedRecommendations !== undefined
+                ? { personalizedRankingEnabled: payload.privacyOptions.personalizedRecommendations }
+                : {}),
+              ...(payload.privacyOptions?.analyticsEnabled !== undefined
+                ? { analyticsCollectionEnabled: payload.privacyOptions.analyticsEnabled }
+                : {}),
+            },
+            device: {
+              ...settingsResponse.effectivePolicy.device,
+              autoplayEnabled: nextAutoplay && !nextWeakNetworkMode,
+              weakNetworkMode: nextWeakNetworkMode,
+              networkStrategy: nextNetworkStrategy,
+              uploadChunkSizeBytes,
+              diagnosticsEnabled: nextLogsEnabled,
+            },
+            developer: {
+              ...settingsResponse.effectivePolicy.developer,
+              logsEnabled: nextLogsEnabled,
+              experimentsEnabled: nextExperimentsEnabled,
+            },
+          },
+          ...(nextNotificationChannels ? { notificationChannels: nextNotificationChannels } : {}),
+        };
+        return ok(settingsResponse as T);
       },
       async put<T>() {
         return ok({} as T);
@@ -640,6 +865,10 @@ test("settings controller can exercise device privacy and debug operations beyon
   });
 
   await controller.ensureAuthenticated();
+  await controller.cycleProfileVisibility();
+  await controller.togglePushEnabled();
+  await controller.toggleSmsEnabled();
+  await controller.toggleEmailEnabled();
   await controller.toggleNotificationsEnabled();
   await controller.cycleNetworkStrategy();
   await controller.toggleAutoplay();
@@ -650,6 +879,14 @@ test("settings controller can exercise device privacy and debug operations beyon
   await controller.toggleExperimentsEnabled();
   await controller.clearLocalCache();
 
+  assert.equal(controller.store.getState().privacyOptions?.profileVisibility, "followers_only");
+  assert.equal(
+    controller.store.getState().privacyOptions?.profileVisibilityLabel,
+    "Visible to mutual and follower-driven discovery",
+  );
+  assert.equal(controller.store.getState().featureToggles?.pushEnabled, false);
+  assert.equal(controller.store.getState().featureToggles?.smsEnabled, true);
+  assert.equal(controller.store.getState().featureToggles?.emailEnabled, true);
   assert.equal(controller.store.getState().preferences?.notificationsEnabled, false);
   assert.equal(controller.store.getState().preferences?.device.networkStrategy, "wifi-first");
   assert.equal(controller.store.getState().preferences?.device.autoplay, false);
@@ -658,8 +895,36 @@ test("settings controller can exercise device privacy and debug operations beyon
   assert.equal(controller.store.getState().privacyOptions?.analyticsEnabled, false);
   assert.equal(controller.store.getState().preferences?.developerOptions.logsEnabled, false);
   assert.equal(controller.store.getState().preferences?.developerOptions.experimentsEnabled, false);
+  assert.equal(controller.store.getState().featureToggles?.experimentsEnabled, false);
   assert.equal(runtime.storageValues.has("reader.display"), false);
   assert.equal(runtime.storageValues.has("novel.reading-center"), false);
+});
+
+test("settings controller can manage notification channels and unsubscribe controls", async () => {
+  const runtime = createKernelStub();
+  const controller = createSettingsController({
+    kernel: runtime.kernel,
+    loginRouteId: APP_ROUTE_IDS.login,
+    model: createSettingsPageModel({
+      title: "Settings",
+      sectionKey: "account",
+      logoutLabel: "Logout",
+      logoutValue: "Sign out",
+    }),
+  });
+
+  await controller.ensureAuthenticated();
+  await controller.toggleNotificationChannel("sms");
+  await controller.toggleNotificationUnsubscribe("email");
+
+  const smsChannel = controller.store.getState().notificationChannels?.find((item) => item.channel === "sms");
+  const emailChannel = controller.store.getState().notificationChannels?.find((item) => item.channel === "email");
+  assert.equal(smsChannel?.enabled, true);
+  assert.equal(emailChannel?.unsubscribed, true);
+  assert.equal(
+    controller.store.getState().sections.find((section) => section.key === "notification-channels")?.items.some((item) => item.key === "channel-email-unsubscribed"),
+    true,
+  );
 });
 
 test("settings controller can route bounded account entries into the shared account center", async () => {

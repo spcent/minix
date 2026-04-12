@@ -4,6 +4,8 @@ This runbook defines the minimum operator path from local verification to `relea
 
 It exists because MiniX now has strong repo-level verification, but the final release still includes manual WeChat validation and Cloudflare promotion steps that should not live only in chat history.
 
+Coverage ownership by workflow is tracked in [`docs/PRODUCTION_REGRESSION_MATRIX.md`](/Users/bingrong.yan/projects/birdor/minix/docs/PRODUCTION_REGRESSION_MATRIX.md).
+
 ## Release Scope
 
 The frozen official `v1.0` sample surface is:
@@ -73,6 +75,8 @@ pnpm verify:official-integrations
 pnpm verify:h5:blackbox
 pnpm verify:release
 ```
+
+`pnpm verify:h5:blackbox` now runs the full local Playwright matrix under [`tests/e2e`](/Users/bingrong.yan/projects/birdor/minix/tests/e2e), not only the original smoke file.
 
 4. Verify Cloudflare access before any remote promotion.
 
@@ -152,9 +156,16 @@ Confirm all of the following:
 
 - app opens to login without runtime errors
 - sign in succeeds and unlocks the protected navigation path
+- protected deep-link entry returns to the intended route after sign-in instead of dropping back to home
 - overview renders after sign-in
 - `/items` loads protected data instead of a mock placeholder
 - marking progress or navigating through the lesson does not break state
+- account center renders real summary, status, and security sections
+- account identity entry points render correctly for the current session shape
+- search center query, filter changes, and route restoration behave consistently
+- inbox filters, unread toggles, and reserved thread summaries render without stale state
+- feedback submit, latest status refresh, and sample attachment capture succeed
+- media tools upload/share open the correct native or degraded flow without runtime errors
 - settings opens with authenticated state
 - logout clears session state and returns to login
 - relaunch after logout does not silently restore a revoked session
@@ -166,6 +177,7 @@ Confirm all of the following:
 - app opens without runtime errors
 - sign in succeeds against the intended API target
 - catalog loads real sample covers and not broken external placeholders
+- catalog search and recent or hot term reuse behave correctly
 - detail view opens from catalog
 - reader opens from detail or continue-reading affordances
 - saving reading progress succeeds
@@ -173,6 +185,7 @@ Confirm all of the following:
 - membership center opens for locked flows
 - membership purchase returns to the intended route context
 - returning from membership back into reader or TOC preserves the expected chapter target
+- preferences changes return cleanly to the reading flow that launched them
 
 ### Manual Gate Failure Rule
 

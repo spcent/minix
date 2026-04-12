@@ -1,4 +1,9 @@
-import type { SettingsFeatureToggles, SettingsPreferences, SettingsPrivacyOptions } from "@minix/contracts";
+import type {
+  SettingsFeatureToggles,
+  SettingsNotificationChannelPreference,
+  SettingsPreferences,
+  SettingsPrivacyOptions,
+} from "@minix/contracts";
 
 export interface SettingsItem {
   key: string;
@@ -21,4 +26,5 @@ export interface SettingsPageModel {
   preferences?: SettingsPreferences;
   featureToggles?: SettingsFeatureToggles;
   privacyOptions?: SettingsPrivacyOptions;
+  notificationChannels?: SettingsNotificationChannelPreference[];
 }

@@ -89,9 +89,9 @@ Provide list/detail/action coverage for user relationships rather than only acco
 
 ## Acceptance
 
-- [ ] following/follower/friend/blacklist lists are implemented
-- [ ] remark names are editable from relationship surfaces
-- [ ] relation actions update list and account summary counts
-- [ ] friend or mutual relationship semantics are explicit
-- [ ] tests cover list pagination and mutation refresh
-- [ ] `pnpm verify` run
+- [x] following/follower/friend/blacklist lists are implemented
+- [x] remark names are editable from relationship surfaces
+- [x] relation actions update list and account summary counts
+- [x] friend or mutual relationship semantics are explicit
+- [x] tests cover list pagination and mutation refresh
+- [x] `pnpm verify` run

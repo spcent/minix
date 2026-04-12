@@ -55,6 +55,9 @@ export interface CreateListPageStateOptions<TItem> {
   searchResults?: SearchResults<TItem>;
   loadState?: ListPageLoadState;
   partialData?: boolean;
+  restoredFromRoute?: boolean;
+  restoredQueryKeys?: string[];
+  restoredSelectionId?: string;
 }
 
 export interface CreateDefaultListPageStateOptions<TItem> {
@@ -68,6 +71,38 @@ export interface CreateDefaultListPageStateOptions<TItem> {
 
 function cloneItems<TItem>(items: TItem[]): TItem[] {
   return items.map((item) => ({ ...(item as object) }) as TItem);
+}
+
+export interface CreateListStatusOptions {
+  firstLoaded?: boolean;
+  retryable?: boolean;
+  partialData?: boolean;
+  stickyHeaderEnabled?: boolean;
+  restoredFromRoute?: boolean;
+  restoredQueryKeys?: string[];
+  restoredSelectionId?: string;
+  staleData?: boolean;
+}
+
+export function createListStatus(
+  loadState: ListPageLoadState,
+  options: CreateListStatusOptions = {},
+): ListStatus {
+  return {
+    loadState,
+    firstLoaded: options.firstLoaded ?? !["idle", "loading", "refreshing", "skeleton"].includes(loadState),
+    retryable: options.retryable ?? true,
+    partialData: options.partialData ?? loadState === "partial",
+    stickyHeaderEnabled: options.stickyHeaderEnabled ?? false,
+    empty: loadState === "empty",
+    skeleton: loadState === "skeleton",
+    staleData: options.staleData ?? loadState === "partial",
+    restoredFromRoute: options.restoredFromRoute ?? false,
+    ...(options.restoredQueryKeys && options.restoredQueryKeys.length > 0
+      ? { restoredQueryKeys: [...options.restoredQueryKeys] }
+      : {}),
+    ...(options.restoredSelectionId ? { restoredSelectionId: options.restoredSelectionId } : {}),
+  };
 }
 
 export function createListPageState<TItem>(options: CreateListPageStateOptions<TItem>): ListPageState<TItem> {
@@ -103,11 +138,14 @@ export function createListPageState<TItem>(options: CreateListPageStateOptions<T
       batchSelectable: options.batchSelectable ?? false,
     },
     status: {
-      loadState: options.loadState ?? "idle",
-      firstLoaded: false,
-      retryable: true,
-      partialData: options.partialData ?? false,
-      stickyHeaderEnabled: options.stickyHeaderEnabled ?? false,
+      ...createListStatus(options.loadState ?? "idle", {
+        firstLoaded: false,
+        partialData: options.partialData ?? false,
+        stickyHeaderEnabled: options.stickyHeaderEnabled ?? false,
+        ...(options.restoredFromRoute ? { restoredFromRoute: true } : {}),
+        ...(options.restoredQueryKeys ? { restoredQueryKeys: options.restoredQueryKeys } : {}),
+        ...(firstItemId ? { restoredSelectionId: firstItemId } : {}),
+      }),
     },
     hasMore: options.hasMore ?? false,
     nextCursor: options.nextCursor,

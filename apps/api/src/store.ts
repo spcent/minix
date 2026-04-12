@@ -1,6 +1,6 @@
-import { createDefaultUserState } from "./data";
+import { createDefaultOperationalState, createDefaultUserState } from "./data";
 import { buildSampleProfileAssetPath } from "./sample-assets";
-import type { ApiStore, CreateSessionInput, LoginProfile, SessionRecord, UserState } from "./types";
+import type { ApiStore, CreateSessionInput, LoginProfile, OperationalState, SessionRecord, UserState } from "./types";
 import type { AuthIdentity, AuthStatus, LoginPlatformKind, LoginMethod } from "@minix/contracts";
 
 const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -56,6 +56,7 @@ export function createMemoryApiStore(options: MemoryApiStoreOptions = {}): ApiSt
   const sessionsByAccessToken = new Map<string, StoredSessionRecord>();
   const refreshIndex = new Map<string, StoredSessionRecord>();
   const userStateByUserId = new Map<string, UserState>();
+  let operationalState: OperationalState = createDefaultOperationalState();
 
   function createSessionRecord(
     userId: string,
@@ -183,6 +184,14 @@ export function createMemoryApiStore(options: MemoryApiStoreOptions = {}): ApiSt
 
     async saveUserState(userId, userState) {
       userStateByUserId.set(userId, userState);
+    },
+
+    async getOperationalState() {
+      return operationalState;
+    },
+
+    async saveOperationalState(state) {
+      operationalState = state;
     },
   };
 }

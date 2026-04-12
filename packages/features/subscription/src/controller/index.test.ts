@@ -53,7 +53,88 @@ function createKernelStub(options?: {
         async isLoggedIn() { return ok(false); },
       },
       request: {
-        async get<T>() {
+        async get<T>(path?: string) {
+          if (path === "/orders/catalog") {
+            return ok({
+              products: [
+                {
+                  productId: "membership_access",
+                  productType: "membership",
+                  title: "Membership Access",
+                  summary: "Recurring membership packages that unlock premium reading and bundled benefits.",
+                  active: true,
+                  defaultSkuId: "membership_quarterly",
+                  fulfillmentLabel: "Membership entitlement",
+                  tagLabels: ["membership", "premium"],
+                },
+                {
+                  productId: "study_club_plus",
+                  productType: "subscription",
+                  title: "Study Club Plus",
+                  summary: "Auto-renewing subscription for premium consultation slots and discussion archives.",
+                  active: true,
+                  defaultSkuId: "study_club_plus_monthly",
+                  fulfillmentLabel: "Recurring subscription entitlement",
+                  tagLabels: ["subscription"],
+                },
+              ],
+              skus: [
+                {
+                  skuId: "membership_quarterly",
+                  productId: "membership_access",
+                  productType: "membership",
+                  title: "Quarterly Membership",
+                  billingCycle: "quarterly",
+                  autoRenew: true,
+                  amountCents: 4900,
+                  currency: "CNY",
+                  active: true,
+                  channelOptions: ["h5_pay"],
+                  entitlementKey: "membership:quarterly",
+                  statusLabel: "Renews quarterly",
+                },
+                {
+                  skuId: "study_club_plus_monthly",
+                  productId: "study_club_plus",
+                  productType: "subscription",
+                  title: "Study Club Plus Monthly",
+                  billingCycle: "monthly",
+                  autoRenew: true,
+                  amountCents: 2900,
+                  currency: "CNY",
+                  active: true,
+                  channelOptions: ["h5_pay"],
+                  entitlementKey: "subscription:study_club_plus",
+                  statusLabel: "Auto-renews monthly",
+                },
+              ],
+            } as T);
+          }
+
+          if (path === "/orders/list") {
+            return ok({
+              orderList: {
+                items: [],
+                total: 0,
+                page: 1,
+                pageSize: 20,
+                hasMore: false,
+              },
+            } as T);
+          }
+
+          if (path === "/subscriptions") {
+            return ok({
+              subscriptions: [],
+            } as T);
+          }
+
+          if (path === "/after-sales/list") {
+            return ok({
+              cases: [],
+            } as T);
+          }
+
           return ok({
             active: false,
             tier: "signed-in",
@@ -131,6 +212,11 @@ test("subscription controller loads overview and route context", async () => {
   assert.equal(controller.store.getState().title, "Membership Center");
   assert.equal(controller.store.getState().source, "reader");
   assert.equal(controller.store.getState().benefits.length, 1);
+  assert.equal(controller.store.getState().catalogProducts.length, 2);
+  assert.equal(controller.store.getState().catalogSkus.length, 2);
+  assert.equal(controller.store.getState().selectedSkuId, "membership_quarterly");
+  assert.equal(controller.store.getState().orderListStatus.loadState, "empty");
+  assert.equal(controller.store.getState().orderListStatus.firstLoaded, true);
   assert.equal(controller.store.getState().recommendedPlanId, "monthly");
   assert.equal(
     controller.store.getState().unlockOutcomeLabel,
@@ -307,6 +393,15 @@ test("subscription controller can purchase membership and continue back to the b
         callbackVerified: false,
         message: "Payment completed in the sample payment domain.",
       },
+      operationResult: {
+        operation: "verify_callback",
+        applied: true,
+        orderStatus: "paid",
+        paymentStatus: "success",
+        message: "Ledger entries recorded for the paid membership order.",
+        processedAt: "2026-04-08T10:00:00.000Z",
+        assetLedgerIds: ["asset_ledger_balance_1", "asset_ledger_membership_1"],
+      },
       entitlement: {
         entitlementId: "ent_membership_ord_reader_1",
         productType: "membership",
@@ -370,6 +465,7 @@ test("subscription controller can purchase membership and continue back to the b
   assert.equal(controller.store.getState().paymentResult?.status, "success");
   assert.equal(controller.store.getState().entitlement?.sourceOrderId, "ord_reader_1");
   assert.equal(controller.store.getState().lastPurchasedPlanId, "monthly");
+  assert.equal(controller.store.getState().transactionMessage, "Ledger entries recorded for the paid membership order.");
   assert.equal(
     controller.store.getState().purchaseSuccessMessage,
     "Membership unlocked. Return to the blocked chapter with your reading position intact.",
@@ -380,6 +476,36 @@ test("subscription controller can purchase membership and continue back to the b
     "Unlock happens immediately on the monthly plan, then the blocked chapter can reopen without losing reading position.",
   );
   assert.deepEqual(routeCalls, [`${APP_ROUTE_IDS.reader}:{"novelId":"novel_lantern","chapterId":"lantern_ch_04"}`]);
+});
+
+test("subscription controller marks missing order detail as unavailable", async () => {
+  const { kernel } = createKernelStub();
+  const originalGet = kernel.request.get.bind(kernel.request);
+  kernel.request.get = async <T>(path?: string, query?: Record<string, unknown>) => {
+    if (path === "/orders/detail") {
+      return {
+        ok: false as const,
+        error: {
+          code: "NOT_FOUND",
+          message: "Order not found",
+          recoverable: false,
+        },
+      };
+    }
+
+    return originalGet<T>(path ?? "/membership", query);
+  };
+
+  const controller = createSubscriptionController({
+    kernel,
+    catalogRouteId: "catalog.index",
+  });
+
+  await controller.load();
+  await controller.loadOrderDetail("ord_missing");
+
+  assert.equal(controller.store.getState().commerceDetailStatus.loadState, "unavailable");
+  assert.equal(controller.store.getState().commerceDetailStatus.requestedDetailId, "ord_missing");
 });
 
 test("subscription controller can continue back to toc when the unlock flow started from the directory", async () => {
@@ -494,6 +620,280 @@ test("subscription controller can continue back to toc when the unlock flow star
     "Return path will reopen the directory with lantern_ch_05 still in focus.",
   );
   assert.deepEqual(routeCalls, [`${APP_ROUTE_IDS.toc}:{"novelId":"novel_lantern","chapterId":"lantern_ch_05"}`]);
+});
+
+test("subscription controller can purchase a generic sku and manage subscription plus after-sales surfaces", async () => {
+  const { kernel } = createKernelStub();
+  let afterSalesCases: Array<{
+    caseId: string;
+    orderId: string;
+    kind: "cancel" | "refund";
+    status: "completed";
+    title: string;
+    resultLabel: string;
+    createdAt: string;
+    updatedAt: string;
+    completedAt: string;
+  }> = [];
+  let subscriptionRecord: any = {
+    subscriptionId: "sub_study_club",
+    productId: "study_club_plus",
+    skuId: "study_club_plus_monthly",
+    title: "Study Club Plus Monthly",
+    productType: "subscription" as const,
+    status: "active" as const,
+    statusLabel: "Auto-renews monthly",
+    autoRenew: true,
+    startedAt: "2026-04-08T10:00:00.000Z",
+    renewsAt: "2026-05-08T10:00:00.000Z",
+    latestOrderId: "ord_sub_1",
+    entitlementId: "ent_study_club_ord_sub_1",
+  };
+  let latestOrderDetail: any = {
+    order: {
+      orderId: "ord_sub_1",
+      title: "Study Club Plus Monthly",
+      status: "paid" as const,
+      productType: "subscription" as const,
+      channel: "h5_pay" as const,
+      currency: "CNY",
+      totalAmountCents: 2900,
+      duplicateProtected: false,
+      createdAt: "2026-04-08T10:00:00.000Z",
+      updatedAt: "2026-04-08T10:00:00.000Z",
+      lineItems: [
+        {
+          productId: "study_club_plus",
+          skuId: "study_club_plus_monthly",
+          productType: "subscription" as const,
+          title: "Study Club Plus Monthly",
+          quantity: 1,
+          unitAmountCents: 2900,
+          totalAmountCents: 2900,
+        },
+      ],
+    },
+    product: {
+      productId: "study_club_plus",
+      productType: "subscription" as const,
+      title: "Study Club Plus",
+      summary: "Auto-renewing subscription for premium consultation slots and discussion archives.",
+      active: true,
+      defaultSkuId: "study_club_plus_monthly",
+      fulfillmentLabel: "Recurring subscription entitlement",
+      tagLabels: ["subscription"],
+    },
+    sku: {
+      skuId: "study_club_plus_monthly",
+      productId: "study_club_plus",
+      productType: "subscription" as const,
+      title: "Study Club Plus Monthly",
+      billingCycle: "monthly" as const,
+      autoRenew: true,
+      amountCents: 2900,
+      currency: "CNY",
+      active: true,
+      channelOptions: ["h5_pay" as const],
+      entitlementKey: "subscription:study_club_plus",
+      statusLabel: "Auto-renews monthly",
+    },
+    paymentIntent: {
+      intentId: "pi_sub_1",
+      orderId: "ord_sub_1",
+      channel: "h5_pay" as const,
+      status: "succeeded" as const,
+      clientAction: "h5_redirect" as const,
+    },
+    paymentResult: {
+      orderId: "ord_sub_1",
+      status: "success" as const,
+      paid: true,
+      duplicateProtected: false,
+      callbackVerified: false,
+      message: "Study Club Plus Monthly completed in the sample payment domain.",
+    },
+    callbackVerification: {
+      status: "pending" as const,
+      message: "The sample gateway callback has not been verified yet.",
+    },
+    reconciliation: {
+      status: "pending" as const,
+      message: "The sample order has not been reconciled yet.",
+    },
+    entitlement: {
+      entitlementId: "ent_study_club_ord_sub_1",
+      productType: "subscription" as const,
+      active: true,
+      statusLabel: "Study Club Plus fulfilled",
+      sourceOrderId: "ord_sub_1",
+    },
+    subscription: subscriptionRecord,
+    afterSalesCases,
+  };
+
+  kernel.request.get = async <T>(path: string, query?: Record<string, string | number | boolean>) => {
+    if (path === "/orders/detail") {
+      return ok(latestOrderDetail as T);
+    }
+    if (path === "/orders/list") {
+      return ok({
+        orderList: {
+          items: [
+            {
+              orderId: latestOrderDetail.order.orderId,
+              title: latestOrderDetail.order.title,
+              status: latestOrderDetail.order.status,
+              productType: latestOrderDetail.order.productType,
+              skuId: latestOrderDetail.sku.skuId,
+              currency: latestOrderDetail.order.currency,
+              totalAmountCents: latestOrderDetail.order.totalAmountCents,
+              createdAt: latestOrderDetail.order.createdAt,
+              updatedAt: latestOrderDetail.order.updatedAt,
+            },
+          ],
+          total: 1,
+          page: 1,
+          pageSize: 20,
+          hasMore: false,
+          selectedOrderId: latestOrderDetail.order.orderId,
+        },
+      } as T);
+    }
+    if (path === "/subscriptions") {
+      return ok({
+        subscriptions: [subscriptionRecord],
+        selectedSubscriptionId: subscriptionRecord.subscriptionId,
+      } as T);
+    }
+    if (path === "/after-sales/list") {
+      return ok({
+        cases: afterSalesCases,
+        selectedCaseId: afterSalesCases[0]?.caseId,
+      } as T);
+    }
+    if (path === "/after-sales/detail") {
+      return ok({
+        caseItem: afterSalesCases.find((item) => item.caseId === query?.caseId) ?? afterSalesCases[0],
+        order: latestOrderDetail.order,
+        operationResult: {
+          operation: "refund",
+          applied: true,
+          orderStatus: "refunded",
+          paymentStatus: "refunded",
+          message: "Refund completed in the sample payment domain.",
+          processedAt: "2026-04-08T10:20:00.000Z",
+        },
+      } as T);
+    }
+    return createKernelStub().kernel.request.get<T>(path);
+  };
+
+  kernel.request.post = async <T>(path: string) => {
+    if (path === "/orders/purchase") {
+      return ok({
+        order: latestOrderDetail.order,
+        product: latestOrderDetail.product,
+        sku: latestOrderDetail.sku,
+        paymentIntent: latestOrderDetail.paymentIntent,
+        paymentResult: latestOrderDetail.paymentResult,
+        callbackVerification: latestOrderDetail.callbackVerification,
+        reconciliation: latestOrderDetail.reconciliation,
+        entitlement: latestOrderDetail.entitlement,
+        subscription: latestOrderDetail.subscription,
+      } as T);
+    }
+    if (path === "/subscriptions/cancel") {
+      subscriptionRecord = {
+        ...subscriptionRecord,
+        status: "cancelled",
+        statusLabel: "Auto-renew disabled. Access remains until the current term ends.",
+        autoRenew: false,
+        cancelledAt: "2026-04-08T10:10:00.000Z",
+        graceEndsAt: subscriptionRecord.renewsAt,
+      };
+      latestOrderDetail = {
+        ...latestOrderDetail,
+        subscription: subscriptionRecord,
+        operationResult: {
+          operation: "cancel",
+          applied: true,
+          orderStatus: "paid",
+          paymentStatus: "success",
+          message: "Subscription auto-renew was disabled for the current term.",
+          processedAt: "2026-04-08T10:10:00.000Z",
+        },
+      };
+      return ok(latestOrderDetail as T);
+    }
+    if (path === "/subscriptions/renew") {
+      subscriptionRecord = {
+        ...subscriptionRecord,
+        status: "active",
+        statusLabel: "Renewal succeeded for the next subscription term.",
+        autoRenew: true,
+      };
+      latestOrderDetail = {
+        ...latestOrderDetail,
+        order: { ...latestOrderDetail.order, orderId: "ord_sub_renewed", updatedAt: "2026-04-08T10:15:00.000Z" },
+        subscription: { ...subscriptionRecord, latestOrderId: "ord_sub_renewed" },
+        operationResult: {
+          operation: "reconcile",
+          applied: true,
+          orderStatus: "paid",
+          paymentStatus: "success",
+          message: "Subscription renewal created the next paid term.",
+          processedAt: "2026-04-08T10:15:00.000Z",
+        },
+      };
+      return ok({
+        order: latestOrderDetail.order,
+        product: latestOrderDetail.product,
+        sku: latestOrderDetail.sku,
+        paymentIntent: latestOrderDetail.paymentIntent,
+        paymentResult: latestOrderDetail.paymentResult,
+        callbackVerification: latestOrderDetail.callbackVerification,
+        reconciliation: latestOrderDetail.reconciliation,
+        operationResult: latestOrderDetail.operationResult,
+        entitlement: latestOrderDetail.entitlement,
+        subscription: latestOrderDetail.subscription,
+      } as T);
+    }
+    return ok({} as T);
+  };
+
+  const controller = createSubscriptionController({
+    kernel,
+    catalogRouteId: APP_ROUTE_IDS.catalog,
+  });
+
+  await controller.load();
+  await controller.selectSku("study_club_plus_monthly");
+  const purchaseResult = await controller.purchaseSku();
+  assert.equal(purchaseResult.ok, true);
+  assert.equal(controller.store.getState().order?.productType, "subscription");
+  assert.equal(controller.store.getState().subscriptions[0]?.status, "active");
+
+  await controller.cancelSubscription("sub_study_club");
+  assert.equal(controller.store.getState().canRenewSubscription, true);
+
+  await controller.renewSubscription("sub_study_club");
+  assert.equal(controller.store.getState().transactionMessage, "Subscription renewal created the next paid term.");
+
+  afterSalesCases = [
+    {
+      caseId: "as_refund_1",
+      orderId: latestOrderDetail.order.orderId,
+      kind: "refund",
+      status: "completed",
+      title: "Refund request",
+      resultLabel: "Refund completed in sample after-sales flow",
+      createdAt: "2026-04-08T10:20:00.000Z",
+      updatedAt: "2026-04-08T10:20:00.000Z",
+      completedAt: "2026-04-08T10:20:00.000Z",
+    },
+  ];
+  await controller.loadAfterSalesDetail("as_refund_1");
+  assert.equal(controller.store.getState().selectedAfterSalesCase?.caseId, "as_refund_1");
 });
 
 test("subscription controller can refresh, cancel, refund, and reconcile transaction state", async () => {

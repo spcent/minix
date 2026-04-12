@@ -98,6 +98,6 @@ test("feed feature manifest creates a reusable feed controller from host page da
   await controller.loadInitial();
 
   assert.equal(controller.store.getState().items.length, 1);
-  assert.equal(controller.store.getState().title, "Feed");
+  assert.equal(controller.store.getState().title, "Search Center");
   assert.equal(controller.store.getState().searchQuery?.mode, "global");
 });

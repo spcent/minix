@@ -89,9 +89,9 @@ Support one-time goods, subscription products, membership packages, value-added 
 
 ## Acceptance
 
-- [ ] product/SKU model supports required product types
-- [ ] order list and order detail are implemented
-- [ ] subscription lifecycle is implemented
-- [ ] after-sales/refund/cancel entry points are implemented
-- [ ] SKU fulfillment updates entitlement ledger
-- [ ] `pnpm verify` run
+- [x] product/SKU model supports required product types
+- [x] order list and order detail are implemented
+- [x] subscription lifecycle is implemented
+- [x] after-sales/refund/cancel entry points are implemented
+- [x] SKU fulfillment updates entitlement ledger
+- [x] `pnpm verify` run

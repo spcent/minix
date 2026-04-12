@@ -109,10 +109,22 @@ This card cannot be completed without the final release facts that are not deriv
 
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Record
+
+- final release record sources:
+  - [`CHANGELOG.md`](/Users/bingrong.yan/projects/birdor/minix/CHANGELOG.md)
+  - [`docs/VERIFICATION_LOG.md`](/Users/bingrong.yan/projects/birdor/minix/docs/VERIFICATION_LOG.md)
+  - [`docs/RELEASE_v1.0.0.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_v1.0.0.md)
+- explicit unavailable release facts:
+  - remote Worker URLs and final WeChat manual validation evidence were not recorded in tracked source
+  - those fields were converted from placeholders into explicit unavailable notes instead of being left ambiguous
+- verification note:
+  - `pnpm verify` and `pnpm verify:release` were already run in the surrounding release-closeout work and are referenced by the final release record

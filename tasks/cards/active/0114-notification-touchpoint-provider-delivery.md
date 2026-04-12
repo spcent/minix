@@ -88,9 +88,9 @@ Provide template management, dispatch, delivery receipts, failure handling, user
 
 ## Acceptance
 
-- [ ] subscription message, SMS, email, and push channels have provider abstractions
-- [ ] delivery templates and receipts are persisted
-- [ ] user preferences and unsubscribe controls are enforced
-- [ ] retries and provider failures are visible
-- [ ] station-message fallback remains available
-- [ ] `pnpm verify` run
+- [x] subscription message, SMS, email, and push channels have provider abstractions
+- [x] delivery templates and receipts are persisted
+- [x] user preferences and unsubscribe controls are enforced
+- [x] retries and provider failures are visible
+- [x] station-message fallback remains available
+- [x] `pnpm verify` run

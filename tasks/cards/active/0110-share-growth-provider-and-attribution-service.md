@@ -89,9 +89,9 @@ Move share from prepared sample payloads to a complete growth flow across channe
 
 ## Acceptance
 
-- [ ] short links are durable and resolvable
-- [ ] poster share produces an image asset or provider-backed URL
-- [ ] invite binding and conversion attribution are implemented
-- [ ] channel-specific share behavior is tested for H5 and WeChat
-- [ ] attribution report exposes share/click/return/conversion metrics
-- [ ] `pnpm verify` run
+- [x] short links are durable and resolvable
+- [x] poster share produces an image asset or provider-backed URL
+- [x] invite binding and conversion attribution are implemented
+- [x] channel-specific share behavior is tested for H5 and WeChat
+- [x] attribution report exposes share/click/return/conversion metrics
+- [x] `pnpm verify` run

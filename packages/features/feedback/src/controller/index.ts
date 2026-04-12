@@ -1,10 +1,17 @@
 import type {
   AppRouteId,
+  FeedbackTicketActionRequest,
+  FeedbackTicketActionResponse,
   FeedbackBootstrapResponse,
   FeedbackCategory,
   FeedbackFaqEntry,
+  ListFeedbackTicketsRequest,
+  ListFeedbackTicketsResponse,
   FeedbackRevisitResponse,
   FeedbackTicketDetailResponse,
+  FormApprovalNode,
+  FormFieldDefinition,
+  FormSchema,
   FormValidationError,
   SubmitFeedbackRequest,
   UploadAsset,
@@ -14,11 +21,22 @@ import type {
   UploadPipelineResponse,
   UploadSelectionResult,
 } from "@minix/contracts";
-import { createAuthRedirectParams, createStore, ok, type AppKernel, type Result } from "@minix/core";
+import {
+  beginFormSubmit,
+  createAuthRedirectParams,
+  createFormSubmissionKey,
+  createFormWorkflowState,
+  createStore,
+  finalizeFormSubmit,
+  ok,
+  type AppKernel,
+  type Result,
+} from "@minix/core";
 
 import {
   applyFeedbackBootstrap,
   createDefaultFeedbackState,
+  type FeedbackDraftSnapshot,
   type FeedbackState,
   type FeedbackValues,
 } from "../model";
@@ -33,6 +51,8 @@ export interface CreateFeedbackControllerOptions {
   bootstrapPath?: string;
   submitPath?: string;
   detailPath?: string;
+  listPath?: string;
+  actionPath?: string;
   revisitPath?: string;
   uploadRequestPath?: string;
   uploadSessionPath?: string;
@@ -45,7 +65,9 @@ export interface CreateFeedbackControllerOptions {
 type FailedFeedbackResult =
   | Extract<Result<FeedbackBootstrapResponse>, { ok: false }>
   | Extract<Result<FeedbackTicketDetailResponse>, { ok: false }>
-  | Extract<Result<FeedbackRevisitResponse>, { ok: false }>;
+  | Extract<Result<FeedbackRevisitResponse>, { ok: false }>
+  | Extract<Result<ListFeedbackTicketsResponse>, { ok: false }>
+  | Extract<Result<FeedbackTicketActionResponse>, { ok: false }>;
 
 function cloneState(state: FeedbackState): FeedbackState {
   return {
@@ -54,12 +76,20 @@ function cloneState(state: FeedbackState): FeedbackState {
     initialFormValues: structuredClone(state.initialFormValues),
     validationErrors: state.validationErrors.map((error) => ({ ...error })),
     submitState: { ...state.submitState },
+    schema: {
+      fields: state.schema.fields.map((field) => structuredClone(field)),
+      steps: state.schema.steps.map((step) => structuredClone(step)),
+    },
     workflow: {
       ...state.workflow,
       stepKeys: [...state.workflow.stepKeys],
       visibleFieldKeys: [...state.workflow.visibleFieldKeys],
       dynamicFieldKeys: [...state.workflow.dynamicFieldKeys],
       conditionalFieldKeys: [...state.workflow.conditionalFieldKeys],
+      ...(state.workflow.approvalNodes
+        ? { approvalNodes: state.workflow.approvalNodes.map((node) => structuredClone(node)) }
+        : {}),
+      ...(state.workflow.draft ? { draft: structuredClone(state.workflow.draft) } : {}),
     },
     values: structuredClone(state.values),
     initialValues: structuredClone(state.initialValues),
@@ -69,11 +99,158 @@ function cloneState(state: FeedbackState): FeedbackState {
     latestTicket: state.latestTicket ? structuredClone(state.latestTicket) : undefined,
     latestStatus: state.latestStatus ? structuredClone(state.latestStatus) : undefined,
     latestCategory: state.latestCategory ? structuredClone(state.latestCategory) : undefined,
+    ticketList: state.ticketList ? structuredClone(state.ticketList) : undefined,
+    selectedTicketId: state.selectedTicketId,
     recommendedFaqEntries: state.recommendedFaqEntries.map((entry) => structuredClone(entry)),
+    faqCatalog: state.faqCatalog.map((entry) => structuredClone(entry)),
+    supportEntries: state.supportEntries.map((entry) => structuredClone(entry)),
     supportEntry: state.supportEntry ? structuredClone(state.supportEntry) : undefined,
     revisitAction: state.revisitAction ? structuredClone(state.revisitAction) : undefined,
     serviceLoopSummary: state.serviceLoopSummary,
   };
+}
+
+const feedbackDraftStorageKey = "@minix/feedback/form-draft/v1";
+
+function createFeedbackDraftState(input: {
+  savedAt: number;
+  restored?: boolean;
+}): FeedbackState["workflow"]["draft"] {
+  return {
+    draftId: "feedback-form",
+    recoveryKey: feedbackDraftStorageKey,
+    lastSavedAt: input.savedAt,
+    ...(input.restored ? { restoredAt: Date.now() } : {}),
+  };
+}
+
+function createFeedbackSchema(values: FeedbackValues, categories: FeedbackCategory[]): FormSchema {
+  const typeOptions = Array.from(new Set(categories.map((category) => category.type))).map((type) => ({
+    key: type,
+    label: type.replaceAll("_", " "),
+  }));
+  const categoryOptions = categories.map((category) => ({
+    key: category.key,
+    label: category.label,
+    ...(category.description ? { description: category.description } : {}),
+  }));
+  const fields: FormFieldDefinition[] = [
+    {
+      key: "type",
+      label: "Feedback type",
+      type: "single_select",
+      required: true,
+      dynamic: true,
+      stepKey: "classify",
+      options: typeOptions,
+    },
+    {
+      key: "categoryKey",
+      label: "Category",
+      type: "single_select",
+      required: true,
+      dynamic: true,
+      stepKey: "classify",
+      options: categoryOptions,
+    },
+    {
+      key: "title",
+      label: "Title",
+      type: "text",
+      required: true,
+      stepKey: "details",
+      placeholder: "Short summary",
+    },
+    {
+      key: "description",
+      label: "Description",
+      type: "rich_text",
+      required: true,
+      stepKey: "details",
+      richTextToolbar: "placeholder",
+    },
+    {
+      key: "satisfactionScore",
+      label: "Satisfaction score",
+      type: "number",
+      dynamic: true,
+      stepKey: "details",
+      conditions: [{ field: "type", operator: "eq", value: "satisfaction" }],
+    },
+    {
+      key: "revisitRequested",
+      label: "Need follow-up",
+      type: "single_select",
+      dynamic: true,
+      stepKey: "followup",
+    },
+    {
+      key: "screenshotAssets",
+      label: "Screenshots",
+      type: "upload_reference",
+      dynamic: true,
+      stepKey: "attachments",
+      uploadRole: "feedback-screenshot",
+    },
+    {
+      key: "attachmentAssets",
+      label: "Attachments",
+      type: "upload_reference",
+      dynamic: true,
+      stepKey: "attachments",
+      uploadRole: "feedback-attachment",
+      conditions: [{ field: "categoryKey", operator: "neq", value: "satisfaction" }],
+    },
+  ];
+
+  return {
+    fields,
+    steps: [
+      { key: "classify", label: "Classify" },
+      { key: "details", label: "Details" },
+      { key: "attachments", label: "Attachments" },
+      { key: "followup", label: "Follow-up" },
+    ],
+  };
+}
+
+function createFeedbackApprovalNodes(
+  values: FeedbackValues,
+  latestStatus: FeedbackState["latestStatus"],
+): FormApprovalNode[] {
+  if (!values.revisitRequested && !latestStatus) {
+    return [];
+  }
+
+  const triageState =
+    latestStatus?.state === "submitted" || latestStatus?.state === "triaged" || latestStatus?.state === "in_progress"
+      ? "pending"
+      : latestStatus
+        ? "approved"
+        : "pending";
+  const resolutionState =
+    latestStatus?.revisitRequired || latestStatus?.state === "waiting_user"
+      ? "pending"
+      : latestStatus?.state === "resolved" || latestStatus?.state === "closed"
+        ? "approved"
+        : "not_started";
+
+  return [
+    {
+      nodeKey: "support-triage",
+      label: "Support triage",
+      state: triageState,
+      assigneeLabel: "Support Desk",
+      comment: latestStatus?.progressLabel ?? "Support reviews the submission and routes it into the handling queue.",
+    },
+    {
+      nodeKey: "resolution-followup",
+      label: "Resolution follow-up",
+      state: resolutionState,
+      assigneeLabel: "Case Owner",
+      comment: latestStatus?.nextStepLabel ?? "Additional user replies are collected before the ticket closes.",
+    },
+  ];
 }
 
 function buildDeviceSummary(value: unknown): string | undefined {
@@ -112,6 +289,102 @@ function resolveFaqEntries(category: FeedbackCategory | undefined, state: Feedba
   return [];
 }
 
+function createTicketListUpdate(
+  currentList: FeedbackState["ticketList"],
+  detail: FeedbackTicketDetailResponse,
+): FeedbackState["ticketList"] | undefined {
+  if (!currentList) {
+    return currentList;
+  }
+
+  const summary = {
+    ticketId: detail.feedbackTicket.ticketId,
+    title: detail.feedbackTicket.title,
+    categoryKey: detail.feedbackTicket.categoryKey,
+    categoryLabel: detail.feedbackCategory.label,
+    type: detail.feedbackTicket.type,
+    state: detail.feedbackStatus.state,
+    priority: detail.feedbackTicket.priority,
+    labels: [...detail.feedbackTicket.labels],
+    revisitRequired: detail.feedbackStatus.revisitRequired,
+    ...(detail.feedbackStatus.queueKey ? { queueKey: detail.feedbackStatus.queueKey } : {}),
+    ...(detail.feedbackStatus.queueLabel ? { queueLabel: detail.feedbackStatus.queueLabel } : {}),
+    ...(detail.feedbackStatus.assignee ? { assignee: structuredClone(detail.feedbackStatus.assignee) } : {}),
+    ...(detail.feedbackStatus.sla ? { sla: structuredClone(detail.feedbackStatus.sla) } : {}),
+    ...(detail.feedbackTicket.supportThreadId ? { supportThreadId: detail.feedbackTicket.supportThreadId } : {}),
+    lastUpdatedAt: detail.feedbackTicket.updatedAt,
+  };
+
+  const existingIndex = currentList.items.findIndex((item) => item.ticketId === summary.ticketId);
+  const items =
+    existingIndex >= 0
+      ? currentList.items.map((item, index) => (index === existingIndex ? summary : structuredClone(item)))
+      : [summary, ...currentList.items.map((item) => structuredClone(item))];
+
+  return {
+    ...structuredClone(currentList),
+    items,
+    total: existingIndex >= 0 ? currentList.total : currentList.total + 1,
+    selectedTicketId: summary.ticketId,
+  };
+}
+
+function createDetailStatePatch(
+  currentState: FeedbackState,
+  detail: FeedbackTicketDetailResponse,
+): Partial<FeedbackState> {
+  return {
+    latestTicket: structuredClone(detail.feedbackTicket),
+    latestStatus: structuredClone(detail.feedbackStatus),
+    latestCategory: structuredClone(detail.feedbackCategory),
+    selectedTicketId: detail.feedbackTicket.ticketId,
+    ticketList: createTicketListUpdate(currentState.ticketList, detail),
+    recommendedFaqEntries:
+      detail.feedbackStatus.faqEntries?.map((entry) => structuredClone(entry)) ??
+      (detail.feedbackCategory.faqEntries?.map((entry) => structuredClone(entry)) ??
+        (detail.feedbackCategory.faqEntry ? [structuredClone(detail.feedbackCategory.faqEntry)] : [])),
+    supportEntry:
+      detail.feedbackStatus.supportEntry
+        ? structuredClone(detail.feedbackStatus.supportEntry)
+        : detail.feedbackCategory.supportEntry
+          ? structuredClone(detail.feedbackCategory.supportEntry)
+          : undefined,
+    revisitAction: detail.feedbackStatus.revisitAction ? structuredClone(detail.feedbackStatus.revisitAction) : undefined,
+    serviceLoopSummary: detail.feedbackStatus.nextStepLabel ?? detail.feedbackStatus.progressLabel,
+    serviceHint:
+      detail.feedbackStatus.supportEntry?.label ??
+      detail.feedbackCategory.supportEntry?.label ??
+      detail.feedbackCategory.customerServiceEntryLabel,
+  };
+}
+
+function createFeedbackWorkflow(
+  values: FeedbackValues,
+  state: Pick<FeedbackState, "categories" | "latestStatus">,
+  currentStepKey?: string,
+  draft?: FeedbackState["workflow"]["draft"],
+) {
+  const schema = createFeedbackSchema(values, state.categories);
+  const approvalNodes = createFeedbackApprovalNodes(values, state.latestStatus);
+  const approvalState = approvalNodes.some((node) => node.state === "pending")
+    ? "pending"
+    : approvalNodes.some((node) => node.state === "approved")
+      ? "approved"
+      : "none";
+
+  return {
+    schema,
+    workflow: createFormWorkflowState({
+      values,
+      schema,
+      approvalState,
+      ...(currentStepKey ? { currentStepKey } : {}),
+      ...(approvalNodes.length > 0 ? { approvalNodes } : {}),
+      ...(draft ? { draft } : {}),
+    }),
+  };
+}
+
 export function createFeedbackController(options: CreateFeedbackControllerOptions) {
   const {
     kernel,
@@ -123,6 +396,8 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
     bootstrapPath = "/feedback/bootstrap",
     submitPath = "/feedback",
     detailPath = "/feedback/ticket",
+    listPath = "/feedback/tickets",
+    actionPath = "/feedback/ticket/action",
     revisitPath = "/feedback/ticket/revisit",
     uploadRequestPath = "/uploads",
     uploadSessionPath = "/uploads/session",
@@ -135,6 +410,56 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
     ...cloneState(createDefaultFeedbackState()),
     ...initialState,
   });
+
+  function applyFeedbackValues(
+    values: FeedbackValues,
+    options: {
+      dirty?: boolean;
+      currentStepKey?: string;
+      draft?: FeedbackState["workflow"]["draft"];
+      phase?: FeedbackState["submitState"]["phase"];
+    } = {},
+  ) {
+    const current = store.getState();
+    const { schema, workflow } = createFeedbackWorkflow(
+      values,
+      {
+        categories: current.categories,
+        latestStatus: current.latestStatus,
+      },
+      options.currentStepKey ?? current.workflow.currentStepKey,
+      options.draft,
+    );
+    store.setState({
+      dirty: options.dirty ?? current.dirty,
+      values,
+      formValues: structuredClone(values),
+      schema,
+      workflow,
+      fieldErrors: [],
+      validationErrors: [],
+      submitState: {
+        ...current.submitState,
+        phase: options.phase ?? current.submitState.phase,
+      },
+    });
+  }
+
+  async function loadDraftState() {
+    if (!kernel.storage) {
+      return ok<FeedbackDraftSnapshot | undefined>(undefined);
+    }
+
+    return kernel.storage.get<FeedbackDraftSnapshot>(feedbackDraftStorageKey);
+  }
+
+  async function clearDraftState() {
+    if (!kernel.storage) {
+      return ok(undefined);
+    }
+
+    return kernel.storage.remove(feedbackDraftStorageKey);
+  }
 
   async function routeToOptional(routeId?: AppRouteId, params?: Record<string, string | number | boolean>) {
     if (!routeId) {
@@ -358,19 +683,23 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
             attachmentAssets: [...store.getState().values.attachmentAssets, uploadedAsset],
           };
 
-    store.setState({
-      dirty: true,
-      loading: false,
-      errorCode: undefined,
-      errorText: undefined,
-      values: {
+    applyFeedbackValues(
+      {
         ...store.getState().values,
         ...nextValues,
       },
-      formValues: {
-        ...store.getState().formValues,
-        ...nextValues,
+      {
+        dirty: true,
+        ...(store.getState().workflow.currentStepKey
+          ? { currentStepKey: store.getState().workflow.currentStepKey }
+          : {}),
+        ...(store.getState().workflow.draft ? { draft: store.getState().workflow.draft } : {}),
       },
+    );
+    store.setState({
+      loading: false,
+      errorCode: undefined,
+      errorText: undefined,
     });
 
     return finalResponse;
@@ -416,8 +745,31 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
       }
 
       const nextState = applyFeedbackBootstrap(store.getState(), result.value);
+      const draftResult = await loadDraftState();
+      const draftSnapshot = draftResult.ok ? draftResult.value : undefined;
+      const restoredValues =
+        draftSnapshot?.values !== undefined
+          ? {
+              ...nextState.values,
+              ...structuredClone(draftSnapshot.values),
+            }
+          : nextState.values;
+      const { schema, workflow } = createFeedbackWorkflow(
+        restoredValues,
+        {
+          categories: nextState.categories,
+          latestStatus: nextState.latestStatus,
+        },
+        draftSnapshot?.currentStepKey,
+        draftSnapshot?.savedAt !== undefined
+          ? createFeedbackDraftState({
+              savedAt: draftSnapshot.savedAt,
+              restored: true,
+            })
+          : undefined,
+      );
       const defaultCategory =
-        result.value.feedbackCategories.find((category) => category.key === nextState.values.categoryKey) ??
+        result.value.feedbackCategories.find((category) => category.key === restoredValues.categoryKey) ??
         result.value.feedbackCategories[0];
 
       store.setState({
@@ -426,6 +778,17 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         loading: false,
         errorCode: undefined,
         errorText: undefined,
+        dirty: Boolean(draftSnapshot),
+        values: restoredValues,
+        formValues: structuredClone(restoredValues),
+        initialValues: structuredClone(nextState.values),
+        initialFormValues: structuredClone(nextState.values),
+        schema,
+        workflow,
+        submitState: {
+          ...nextState.submitState,
+          ...(draftSnapshot?.savedAt !== undefined ? { draftSavedAt: draftSnapshot.savedAt } : {}),
+        },
       });
       applyCategory(defaultCategory);
       return result;
@@ -436,17 +799,16 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
     },
 
     updateField(values: Partial<FeedbackValues>) {
-      store.setState({
-        dirty: true,
-        values: {
+      applyFeedbackValues(
+        {
           ...store.getState().values,
           ...values,
         },
-        formValues: {
-          ...store.getState().formValues,
-          ...values,
+        {
+          dirty: true,
+          ...(store.getState().workflow.draft ? { draft: store.getState().workflow.draft } : {}),
         },
-      });
+      );
     },
 
     updateValues(values: Partial<FeedbackValues>) {
@@ -459,18 +821,26 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         return;
       }
 
+      const nextValues = {
+        ...store.getState().values,
+        categoryKey: category.key,
+        type: category.type,
+      };
+      const nextDerived = createFeedbackWorkflow(
+        nextValues,
+        {
+          categories: store.getState().categories,
+          latestStatus: store.getState().latestStatus,
+        },
+        store.getState().workflow.currentStepKey,
+        store.getState().workflow.draft,
+      );
       store.setState({
         dirty: true,
-        values: {
-          ...store.getState().values,
-          categoryKey: category.key,
-          type: category.type,
-        },
-        formValues: {
-          ...store.getState().formValues,
-          categoryKey: category.key,
-          type: category.type,
-        },
+        values: nextValues,
+        formValues: structuredClone(nextValues),
+        schema: nextDerived.schema,
+        workflow: nextDerived.workflow,
         recommendedFaqEntries: resolveFaqEntries(category, store.getState()),
         supportEntry: category.supportEntry ? structuredClone(category.supportEntry) : store.getState().supportEntry,
         serviceLoopSummary: category.description ?? store.getState().serviceLoopSummary,
@@ -480,18 +850,26 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
 
     setType(type: FeedbackValues["type"]) {
       const category = store.getState().categories.find((entry) => entry.type === type);
+      const nextValues = {
+        ...store.getState().values,
+        type,
+        ...(category ? { categoryKey: category.key } : {}),
+      };
+      const nextDerived = createFeedbackWorkflow(
+        nextValues,
+        {
+          categories: store.getState().categories,
+          latestStatus: store.getState().latestStatus,
+        },
+        store.getState().workflow.currentStepKey,
+        store.getState().workflow.draft,
+      );
       store.setState({
         dirty: true,
-        values: {
-          ...store.getState().values,
-          type,
-          ...(category ? { categoryKey: category.key } : {}),
-        },
-        formValues: {
-          ...store.getState().formValues,
-          type,
-          ...(category ? { categoryKey: category.key } : {}),
-        },
+        values: nextValues,
+        formValues: structuredClone(nextValues),
+        schema: nextDerived.schema,
+        workflow: nextDerived.workflow,
         ...(category
           ? {
               recommendedFaqEntries: resolveFaqEntries(category, store.getState()),
@@ -504,31 +882,43 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
     },
 
     toggleRevisitRequested() {
-      store.setState({
-        dirty: true,
-        values: {
+      applyFeedbackValues(
+        {
           ...store.getState().values,
           revisitRequested: !store.getState().values.revisitRequested,
         },
-        formValues: {
-          ...store.getState().formValues,
-          revisitRequested: !store.getState().formValues.revisitRequested,
+        {
+          dirty: true,
+          ...(store.getState().workflow.draft ? { draft: store.getState().workflow.draft } : {}),
         },
-      });
+      );
     },
 
     setSatisfactionScore(score: number) {
-      store.setState({
-        dirty: true,
-        values: {
+      applyFeedbackValues(
+        {
           ...store.getState().values,
           satisfactionScore: score,
         },
-        formValues: {
-          ...store.getState().formValues,
-          satisfactionScore: score,
+        {
+          dirty: true,
+          ...(store.getState().workflow.draft ? { draft: store.getState().workflow.draft } : {}),
+        },
+      );
+    },
+
+    setStep(stepKey: string) {
+      if (!store.getState().workflow.stepKeys.includes(stepKey)) {
+        return ok(undefined);
+      }
+
+      store.setState({
+        workflow: {
+          ...store.getState().workflow,
+          currentStepKey: stepKey,
         },
       });
+      return ok(undefined);
     },
 
     addSampleScreenshot() {
@@ -554,6 +944,76 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
       return errors;
     },
 
+    async saveDraft() {
+      if (!kernel.storage) {
+        store.setState({
+          errorText: "Feedback drafts are unavailable on this host.",
+          submitState: {
+            ...store.getState().submitState,
+            phase: "failed",
+          },
+        });
+        return ok(undefined);
+      }
+
+      const snapshot: FeedbackDraftSnapshot = {
+        savedAt: Date.now(),
+        values: structuredClone(store.getState().values),
+        ...(store.getState().workflow.currentStepKey ? { currentStepKey: store.getState().workflow.currentStepKey } : {}),
+      };
+      const submissionKey = createFormSubmissionKey("feedback-form", "draft", snapshot.values);
+      const nextSubmit = beginFormSubmit(store.getState().submitState, {
+        mode: "draft",
+        submissionKey,
+      });
+      if (nextSubmit.blocked) {
+        store.setState({
+          submitState: nextSubmit.submitState,
+          serviceLoopSummary: "This feedback draft is already saved.",
+        });
+        return ok(undefined);
+      }
+
+      store.setState({
+        submitState: nextSubmit.submitState,
+      });
+      const result = await kernel.storage.set(feedbackDraftStorageKey, snapshot);
+      if (!result.ok) {
+        store.setState({
+          errorText: result.error.message,
+          submitState: {
+            ...store.getState().submitState,
+            phase: "failed",
+          },
+        });
+        return result;
+      }
+
+      const nextDraft = createFeedbackDraftState({
+        savedAt: snapshot.savedAt,
+      });
+      store.setState({
+        dirty: true,
+        workflow: createFeedbackWorkflow(
+          store.getState().values,
+          {
+            categories: store.getState().categories,
+            latestStatus: store.getState().latestStatus,
+          },
+          store.getState().workflow.currentStepKey,
+          nextDraft,
+        ).workflow,
+        submitState: finalizeFormSubmit(store.getState().submitState, {
+          mode: "draft",
+          submissionKey,
+          submittedAt: snapshot.savedAt,
+          draftSavedAt: snapshot.savedAt,
+        }),
+        serviceLoopSummary: "Feedback draft saved for recovery.",
+      });
+      return ok(undefined);
+    },
+
     async submit() {
       const errors = this.validateForm();
       if (errors.length > 0) {
@@ -561,6 +1021,19 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
       }
 
       const values = store.getState().values;
+      const submissionKey = createFormSubmissionKey("feedback-form", "submit", values);
+      const nextSubmit = beginFormSubmit(store.getState().submitState, {
+        mode: "submit",
+        submissionKey,
+      });
+      if (nextSubmit.blocked) {
+        store.setState({
+          submitState: nextSubmit.submitState,
+          serviceLoopSummary: "This feedback form was already submitted.",
+        });
+        return ok(undefined);
+      }
+
       const payload: SubmitFeedbackRequest = {
         type: values.type,
         categoryKey: values.categoryKey,
@@ -585,11 +1058,7 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         submitting: true,
         errorCode: undefined,
         errorText: undefined,
-        submitState: {
-          ...store.getState().submitState,
-          phase: "submitting",
-          mode: "submit",
-        },
+        submitState: nextSubmit.submitState,
       });
 
       const result = await kernel.request.post<FeedbackTicketDetailResponse>(submitPath, payload);
@@ -597,6 +1066,16 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         return handleFailure(result);
       }
 
+      await clearDraftState();
+      const submittedAt = Date.now();
+      const nextDerived = createFeedbackWorkflow(
+        store.getState().values,
+        {
+          categories: store.getState().categories,
+          latestStatus: result.value.feedbackStatus,
+        },
+        store.getState().workflow.currentStepKey,
+      );
       store.setState({
         ready: true,
         submitting: false,
@@ -605,45 +1084,26 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         errorText: undefined,
         fieldErrors: [],
         validationErrors: [],
-        latestTicket: structuredClone(result.value.feedbackTicket),
-        latestStatus: structuredClone(result.value.feedbackStatus),
-        latestCategory: structuredClone(result.value.feedbackCategory),
-        recommendedFaqEntries:
-          result.value.feedbackStatus.faqEntries?.map((entry) => structuredClone(entry)) ??
-          (result.value.feedbackCategory.faqEntries?.map((entry) => structuredClone(entry)) ??
-            (result.value.feedbackCategory.faqEntry ? [structuredClone(result.value.feedbackCategory.faqEntry)] : [])),
-        supportEntry:
-          result.value.feedbackStatus.supportEntry
-            ? structuredClone(result.value.feedbackStatus.supportEntry)
-            : result.value.feedbackCategory.supportEntry
-              ? structuredClone(result.value.feedbackCategory.supportEntry)
-              : undefined,
-        revisitAction: result.value.feedbackStatus.revisitAction
-          ? structuredClone(result.value.feedbackStatus.revisitAction)
-          : undefined,
-        serviceLoopSummary: result.value.feedbackStatus.nextStepLabel ?? result.value.feedbackStatus.progressLabel,
-        serviceHint:
-          result.value.feedbackStatus.supportEntry?.label ??
-          result.value.feedbackCategory.supportEntry?.label ??
-          result.value.feedbackCategory.customerServiceEntryLabel,
+        ...createDetailStatePatch(store.getState(), result.value),
+        schema: nextDerived.schema,
+        workflow: nextDerived.workflow,
         lastSubmission: {
-          submittedAt: Date.now(),
+          submittedAt,
           value: structuredClone(result.value),
         },
-        submitState: {
-          ...store.getState().submitState,
-          phase: "submitted",
+        submitState: finalizeFormSubmit(store.getState().submitState, {
           mode: "submit",
-          submittedAt: Date.now(),
+          submissionKey,
+          submittedAt,
           result: structuredClone(result.value),
-        },
+        }),
       });
 
       return ok(result.value);
     },
 
     async refreshLatestStatus(ticketId?: string) {
-      const targetTicketId = ticketId ?? store.getState().latestTicket?.ticketId;
+      const targetTicketId = ticketId ?? store.getState().selectedTicketId ?? store.getState().latestTicket?.ticketId;
       if (!targetTicketId) {
         return ok(undefined);
       }
@@ -653,30 +1113,54 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         return handleFailure(result);
       }
 
+      const nextDerived = createFeedbackWorkflow(
+        store.getState().values,
+        {
+          categories: store.getState().categories,
+          latestStatus: result.value.feedbackStatus,
+        },
+        store.getState().workflow.currentStepKey,
+        store.getState().workflow.draft,
+      );
       store.setState({
-        latestTicket: structuredClone(result.value.feedbackTicket),
-        latestStatus: structuredClone(result.value.feedbackStatus),
-        latestCategory: structuredClone(result.value.feedbackCategory),
-        recommendedFaqEntries:
-          result.value.feedbackStatus.faqEntries?.map((entry) => structuredClone(entry)) ??
-          (result.value.feedbackCategory.faqEntries?.map((entry) => structuredClone(entry)) ??
-            (result.value.feedbackCategory.faqEntry ? [structuredClone(result.value.feedbackCategory.faqEntry)] : [])),
-        supportEntry:
-          result.value.feedbackStatus.supportEntry
-            ? structuredClone(result.value.feedbackStatus.supportEntry)
-            : result.value.feedbackCategory.supportEntry
-              ? structuredClone(result.value.feedbackCategory.supportEntry)
-              : undefined,
-        revisitAction: result.value.feedbackStatus.revisitAction
-          ? structuredClone(result.value.feedbackStatus.revisitAction)
-          : undefined,
-        serviceLoopSummary: result.value.feedbackStatus.nextStepLabel ?? result.value.feedbackStatus.progressLabel,
-        serviceHint:
-          result.value.feedbackStatus.supportEntry?.label ??
-          result.value.feedbackCategory.supportEntry?.label ??
-          result.value.feedbackCategory.customerServiceEntryLabel,
+        ...createDetailStatePatch(store.getState(), result.value),
+        schema: nextDerived.schema,
+        workflow: nextDerived.workflow,
       });
 
+      return result;
+    },
+
+    async loadTickets(query: ListFeedbackTicketsRequest = {}) {
+      const result = await kernel.request.get<ListFeedbackTicketsResponse>(listPath, {
+        ...(query.page !== undefined ? { page: query.page } : {}),
+        ...(query.pageSize !== undefined ? { pageSize: query.pageSize } : {}),
+        ...(query.state !== undefined ? { state: query.state } : {}),
+        ...(query.categoryKey !== undefined ? { categoryKey: query.categoryKey } : {}),
+        ...(query.keyword !== undefined ? { keyword: query.keyword } : {}),
+      });
+      if (!result.ok) {
+        return handleFailure(result);
+      }
+
+      store.setState({
+        ticketList: structuredClone(result.value.ticketList),
+        selectedTicketId: result.value.ticketList.selectedTicketId ?? result.value.ticketList.items[0]?.ticketId,
+        faqCatalog: result.value.faqCatalog.map((entry) => structuredClone(entry)),
+        supportEntries: result.value.supportEntries.map((entry) => structuredClone(entry)),
+      });
+      return result;
+    },
+
+    async openTicket(ticketId: string) {
+      const result = await this.refreshLatestStatus(ticketId);
+      if (!result.ok) {
+        return result;
+      }
+
+      store.setState({
+        selectedTicketId: ticketId,
+      });
       return result;
     },
 
@@ -736,29 +1220,20 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         return handleFailure(result);
       }
 
+      const nextDerived = createFeedbackWorkflow(
+        store.getState().values,
+        {
+          categories: store.getState().categories,
+          latestStatus: result.value.feedbackStatus,
+        },
+        store.getState().workflow.currentStepKey,
+        store.getState().workflow.draft,
+      );
       store.setState({
         submitting: false,
-        latestTicket: structuredClone(result.value.feedbackTicket),
-        latestStatus: structuredClone(result.value.feedbackStatus),
-        latestCategory: structuredClone(result.value.feedbackCategory),
-        recommendedFaqEntries:
-          result.value.feedbackStatus.faqEntries?.map((entry) => structuredClone(entry)) ??
-          (result.value.feedbackCategory.faqEntries?.map((entry) => structuredClone(entry)) ??
-            (result.value.feedbackCategory.faqEntry ? [structuredClone(result.value.feedbackCategory.faqEntry)] : [])),
-        supportEntry:
-          result.value.feedbackStatus.supportEntry
-            ? structuredClone(result.value.feedbackStatus.supportEntry)
-            : result.value.feedbackCategory.supportEntry
-              ? structuredClone(result.value.feedbackCategory.supportEntry)
-              : undefined,
-        revisitAction: result.value.feedbackStatus.revisitAction
-          ? structuredClone(result.value.feedbackStatus.revisitAction)
-          : undefined,
-        serviceLoopSummary: result.value.feedbackStatus.nextStepLabel ?? result.value.feedbackStatus.progressLabel,
-        serviceHint:
-          result.value.feedbackStatus.supportEntry?.label ??
-          result.value.feedbackCategory.supportEntry?.label ??
-          result.value.feedbackCategory.customerServiceEntryLabel,
+        ...createDetailStatePatch(store.getState(), result.value),
+        schema: nextDerived.schema,
+        workflow: nextDerived.workflow,
         submitState: {
           ...store.getState().submitState,
           phase: "submitted",
@@ -768,6 +1243,44 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         },
       });
 
+      return ok(result.value);
+    },
+
+    async performTicketAction(input: FeedbackTicketActionRequest) {
+      store.setState({
+        submitting: true,
+        errorCode: undefined,
+        errorText: undefined,
+      });
+
+      const result = await kernel.request.post<FeedbackTicketActionResponse>(actionPath, input);
+      if (!result.ok) {
+        return handleFailure(result);
+      }
+
+      const nextDerived = createFeedbackWorkflow(
+        store.getState().values,
+        {
+          categories: store.getState().categories,
+          latestStatus: result.value.feedbackStatus,
+        },
+        store.getState().workflow.currentStepKey,
+        store.getState().workflow.draft,
+      );
+      store.setState({
+        submitting: false,
+        ...createDetailStatePatch(store.getState(), result.value),
+        ticketList: structuredClone(result.value.ticketList),
+        schema: nextDerived.schema,
+        workflow: nextDerived.workflow,
+        submitState: {
+          ...store.getState().submitState,
+          phase: "submitted",
+          mode: "submit",
+          submittedAt: Date.now(),
+          result: structuredClone(result.value),
+        },
+      });
       return ok(result.value);
     },
 

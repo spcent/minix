@@ -1,8 +1,13 @@
 import type {
   AccountOperation,
   AccountOperationKind,
+  AccountOperationRecord,
   AccountSummary,
   IdentityWorkflowSummary,
+  SecurityCenter,
+  UserAssetLedgerEntry,
+  UserRelationList,
+  UserRelationListKind,
   UserProfile,
   UserRelationTarget,
   UserStatus,
@@ -43,6 +48,8 @@ export interface AccountOperationFormValues extends Record<string, unknown> {
   bio: string;
   phoneNumber: string;
   verificationCode: string;
+  securityVerificationCode: string;
+  riskConfirmed: boolean;
   cancellationReason: "privacy" | "switching" | "other" | "";
   cancellationDetails: string;
   confirmCancellation: boolean;
@@ -51,6 +58,7 @@ export interface AccountOperationFormValues extends Record<string, unknown> {
 export interface AccountDraftSnapshot {
   savedAt: number;
   values: AccountOperationFormValues;
+  currentStepKey?: string;
 }
 
 export type AccountState = FormPageState<AccountOperationFormValues, unknown> & {
@@ -66,8 +74,14 @@ export type AccountState = FormPageState<AccountOperationFormValues, unknown> & 
   accountSummary?: AccountSummary;
   userStatus?: UserStatus;
   identityWorkflows?: IdentityWorkflowSummary;
+  securityCenter?: SecurityCenter;
   accountOperations?: AccountOperation[];
+  operationRecords?: AccountOperationRecord[];
+  assetLedgerEntries: UserAssetLedgerEntry[];
   relationTargets?: UserRelationTarget[];
+  activeRelationListKind: UserRelationListKind | undefined;
+  relationList?: UserRelationList;
+  relationKeyword: string;
   sessionLabel: string | undefined;
   authStatusLabel: string | undefined;
   transitionFeedback: string | undefined;
@@ -117,6 +131,8 @@ export function createDefaultAccountOperationValues(
     bio: values.bio ?? "",
     phoneNumber: values.phoneNumber ?? "",
     verificationCode: values.verificationCode ?? "",
+    securityVerificationCode: values.securityVerificationCode ?? "",
+    riskConfirmed: values.riskConfirmed ?? false,
     cancellationReason: values.cancellationReason ?? "",
     cancellationDetails: values.cancellationDetails ?? "",
     confirmCancellation: values.confirmCancellation ?? false,
@@ -145,6 +161,9 @@ export function createAccountState(options: CreateAccountStateOptions): AccountS
     transitionFeedback: undefined,
     selectedActionKey: undefined,
     operationFormOpen: false,
+    activeRelationListKind: undefined,
+    relationKeyword: "",
+    assetLedgerEntries: [],
     stats: cloneStats(options.stats ?? []),
     sections: cloneSections(options.sections ?? []),
     actions: cloneActions(

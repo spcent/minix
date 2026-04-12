@@ -87,9 +87,9 @@ Cover auth, payment, upload, messaging, content, search, account, settings, feed
 
 ## Acceptance
 
-- [ ] H5 E2E covers critical business workflows
-- [ ] API integration tests cover provider-like callbacks and jobs
-- [ ] route/session recovery matrix is automated where possible
-- [ ] WeChat manual or automated validation checklist is documented
-- [ ] new gates are wired into release verification when stable
-- [ ] `pnpm verify` run
+- [x] H5 E2E covers critical business workflows
+- [x] API integration tests cover provider-like callbacks and jobs
+- [x] route/session recovery matrix is automated where possible
+- [x] WeChat manual or automated validation checklist is documented
+- [x] new gates are wired into release verification when stable
+- [x] `pnpm verify` run

@@ -5,13 +5,38 @@ import type { ApiBindings, KVNamespaceLike } from "./types";
 const DEFAULT_WINDOW_SECONDS = 60;
 const DEFAULT_LOGIN_MAX_ATTEMPTS = 10;
 const DEFAULT_REFRESH_MAX_ATTEMPTS = 20;
+const DEFAULT_VERIFICATION_MAX_ATTEMPTS = 6;
+const DEFAULT_ACCOUNT_MAX_ATTEMPTS = 10;
+const DEFAULT_PAYMENT_MAX_ATTEMPTS = 6;
+const DEFAULT_UPLOAD_MAX_ATTEMPTS = 20;
+const DEFAULT_SHARE_MAX_ATTEMPTS = 20;
+const DEFAULT_FEEDBACK_MAX_ATTEMPTS = 10;
+const DEFAULT_MESSAGES_MAX_ATTEMPTS = 30;
 
-export type AuthRateLimitAction = "login" | "refresh";
+export type SecurityRateLimitAction =
+  | "login"
+  | "refresh"
+  | "verification"
+  | "account"
+  | "payment"
+  | "upload"
+  | "share"
+  | "feedback"
+  | "messages";
+
+export type AuthRateLimitAction = Extract<SecurityRateLimitAction, "login" | "refresh">;
 
 export interface AuthRateLimitConfig {
   windowSeconds: number;
   loginMaxAttempts: number;
   refreshMaxAttempts: number;
+  verificationMaxAttempts: number;
+  accountMaxAttempts: number;
+  paymentMaxAttempts: number;
+  uploadMaxAttempts: number;
+  shareMaxAttempts: number;
+  feedbackMaxAttempts: number;
+  messagesMaxAttempts: number;
 }
 
 export interface AuthRateLimitDecision {
@@ -40,6 +65,10 @@ export interface CheckAuthRateLimitInput {
   config?: Partial<AuthRateLimitConfig>;
   counterStore?: RateLimitCounterStore;
   now?: () => number;
+}
+
+export interface CheckSecurityRateLimitInput extends Omit<CheckAuthRateLimitInput, "action"> {
+  action: SecurityRateLimitAction;
 }
 
 function systemNow() {
@@ -81,6 +110,27 @@ function resolveAuthRateLimitConfig(
         env?.MINIX_AUTH_REFRESH_MAX_ATTEMPTS ?? processEnv?.MINIX_AUTH_REFRESH_MAX_ATTEMPTS,
         DEFAULT_REFRESH_MAX_ATTEMPTS,
       ),
+    verificationMaxAttempts:
+      overrides?.verificationMaxAttempts ??
+      readPositiveInteger(processEnv?.MINIX_SECURITY_VERIFICATION_MAX_ATTEMPTS, DEFAULT_VERIFICATION_MAX_ATTEMPTS),
+    accountMaxAttempts:
+      overrides?.accountMaxAttempts ??
+      readPositiveInteger(processEnv?.MINIX_SECURITY_ACCOUNT_MAX_ATTEMPTS, DEFAULT_ACCOUNT_MAX_ATTEMPTS),
+    paymentMaxAttempts:
+      overrides?.paymentMaxAttempts ??
+      readPositiveInteger(processEnv?.MINIX_SECURITY_PAYMENT_MAX_ATTEMPTS, DEFAULT_PAYMENT_MAX_ATTEMPTS),
+    uploadMaxAttempts:
+      overrides?.uploadMaxAttempts ??
+      readPositiveInteger(processEnv?.MINIX_SECURITY_UPLOAD_MAX_ATTEMPTS, DEFAULT_UPLOAD_MAX_ATTEMPTS),
+    shareMaxAttempts:
+      overrides?.shareMaxAttempts ??
+      readPositiveInteger(processEnv?.MINIX_SECURITY_SHARE_MAX_ATTEMPTS, DEFAULT_SHARE_MAX_ATTEMPTS),
+    feedbackMaxAttempts:
+      overrides?.feedbackMaxAttempts ??
+      readPositiveInteger(processEnv?.MINIX_SECURITY_FEEDBACK_MAX_ATTEMPTS, DEFAULT_FEEDBACK_MAX_ATTEMPTS),
+    messagesMaxAttempts:
+      overrides?.messagesMaxAttempts ??
+      readPositiveInteger(processEnv?.MINIX_SECURITY_MESSAGES_MAX_ATTEMPTS, DEFAULT_MESSAGES_MAX_ATTEMPTS),
   };
 }
 
@@ -157,16 +207,31 @@ function resolveCounterStore(
   return getGlobalMemoryCounterStore(now);
 }
 
-function getLimitForAction(config: AuthRateLimitConfig, action: AuthRateLimitAction): number {
-  if (action === "login") {
-    return config.loginMaxAttempts;
+function getLimitForAction(config: AuthRateLimitConfig, action: SecurityRateLimitAction): number {
+  switch (action) {
+    case "login":
+      return config.loginMaxAttempts;
+    case "refresh":
+      return config.refreshMaxAttempts;
+    case "verification":
+      return config.verificationMaxAttempts;
+    case "account":
+      return config.accountMaxAttempts;
+    case "payment":
+      return config.paymentMaxAttempts;
+    case "upload":
+      return config.uploadMaxAttempts;
+    case "share":
+      return config.shareMaxAttempts;
+    case "feedback":
+      return config.feedbackMaxAttempts;
+    case "messages":
+      return config.messagesMaxAttempts;
   }
-
-  return config.refreshMaxAttempts;
 }
 
 function createKey(input: {
-  action: AuthRateLimitAction;
+  action: SecurityRateLimitAction;
   platform: LoginPlatformKind;
   clientId: string;
 }): string {
@@ -177,7 +242,7 @@ export function createMemoryRateLimitCounterStore(now?: () => number): RateLimit
   return new MemoryRateLimitCounterStore(now);
 }
 
-export async function checkAuthRateLimit(input: CheckAuthRateLimitInput): Promise<AuthRateLimitDecision> {
+export async function checkSecurityRateLimit(input: CheckSecurityRateLimitInput): Promise<AuthRateLimitDecision> {
   const now = input.now ?? systemNow;
   const config = resolveAuthRateLimitConfig(input.env, input.config);
   const counterStore = resolveCounterStore(input.env, input.counterStore, now);
@@ -212,6 +277,10 @@ export async function checkAuthRateLimit(input: CheckAuthRateLimitInput): Promis
     resetAt: nextRecord.resetAt,
     retryAfterSeconds: ttlSeconds,
   };
+}
+
+export async function checkAuthRateLimit(input: CheckAuthRateLimitInput): Promise<AuthRateLimitDecision> {
+  return checkSecurityRateLimit(input);
 }
 
 export function resolveClientId(request: Request): string {

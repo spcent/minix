@@ -87,9 +87,9 @@ Make OAuth provider accounts first-class identities that can be used for login, 
 
 ## Acceptance
 
-- [ ] OAuth provider identities are persisted
-- [ ] provider binding and unbinding are implemented
-- [ ] conflicts route into identity merge guidance
-- [ ] revocation records are auditable
-- [ ] unlink safety prevents account lockout
-- [ ] `pnpm verify` run
+- [x] OAuth provider identities are persisted
+- [x] provider binding and unbinding are implemented
+- [x] conflicts route into identity merge guidance
+- [x] revocation records are auditable
+- [x] unlink safety prevents account lockout
+- [x] `pnpm verify` run

@@ -16,7 +16,13 @@ import {
   type ToastOptions,
   type UserSession,
 } from "@minix/core";
-import { SETTINGS_NETWORK_STRATEGIES, type AppRouteId, type SettingsResponse } from "@minix/contracts";
+import {
+  SETTINGS_NETWORK_STRATEGIES,
+  SETTINGS_PROFILE_VISIBILITIES,
+  type AppRouteId,
+  type SettingsResponse,
+  type UpdateSettingsRequest,
+} from "@minix/contracts";
 
 export interface CreateSettingsControllerOptions {
   kernel: AppKernel;
@@ -30,6 +36,7 @@ export interface CreateSettingsControllerOptions {
   displaySettingsStorageKey?: string;
   readingCenterStorageKey?: string;
   requestPath?: string;
+  updateRequestPath?: string;
   confirmLogout?: ModalOptions;
   successToast?: ToastOptions;
   showErrorToast?: boolean;
@@ -43,6 +50,7 @@ const SHELF_ORDERS: ReadingCenterPreferences["shelfOrder"][] = ["recent", "updat
 const DIGEST_MODES: ReadingCenterPreferences["digest"][] = ["weekly", "weekend", "important", "paused"];
 const SYNC_MODES: ReadingCenterPreferences["sync"][] = ["cross-host", "device-first"];
 const REMINDER_MODES: ReadingCenterPreferences["reminders"][] = ["nightly", "chapter-moves", "paused"];
+const PROFILE_VISIBILITIES = [...SETTINGS_PROFILE_VISIBILITIES];
 
 function hasActiveSession(session: UserSession | null | undefined): boolean {
   if (!session?.loggedIn || !session.token?.accessToken) {
@@ -163,6 +171,7 @@ function cloneModel(model: SettingsPageModel): SettingsPageModel {
     ...(model.preferences ? { preferences: structuredClone(model.preferences) } : {}),
     ...(model.featureToggles ? { featureToggles: structuredClone(model.featureToggles) } : {}),
     ...(model.privacyOptions ? { privacyOptions: structuredClone(model.privacyOptions) } : {}),
+    ...(model.notificationChannels ? { notificationChannels: structuredClone(model.notificationChannels) } : {}),
     sections: model.sections.map((section) => ({
       ...section,
       items: section.items.map((item) => ({ ...item })),
@@ -234,6 +243,7 @@ function createSettingsSections(response: SettingsResponse): SettingsSection[] {
         createTextItem("profile-entry", "Profile", response.preferences.account.profileEntryLabel),
         createTextItem("phone-entry", "Phone", response.preferences.account.phoneEntryLabel),
         createTextItem("unbind-entry", "Binding", response.preferences.account.unbindEntryLabel),
+        createTextItem("provider-entry", "Providers", response.preferences.account.providerEntryLabel),
         createTextItem("cancellation-entry", "Cancellation", response.preferences.account.cancellationEntryLabel),
       ],
     },
@@ -277,6 +287,21 @@ function createSettingsSections(response: SettingsResponse): SettingsSection[] {
         createTextItem("reading-sync-enabled", "Reading sync", response.featureToggles.readingSyncEnabled),
       ],
     },
+    ...(response.notificationChannels && response.notificationChannels.length > 0
+      ? [
+          {
+            key: "notification-channels",
+            title: "Notification channels",
+            items: response.notificationChannels.flatMap((channel) => [
+              createTextItem(`channel-${channel.channel}-enabled`, channel.channel, channel.enabled),
+              createTextItem(`channel-${channel.channel}-status`, `${channel.providerLabel}`, channel.statusLabel),
+              ...(channel.unsubscribable
+                ? [createTextItem(`channel-${channel.channel}-unsubscribed`, `${channel.channel} unsubscribe`, channel.unsubscribed)]
+                : []),
+            ]),
+          } satisfies SettingsSection,
+        ]
+      : []),
   ];
 }
 
@@ -344,6 +369,7 @@ function applyRemoteSettings(model: SettingsPageModel, response: SettingsRespons
     preferences: response.preferences,
     featureToggles: response.featureToggles,
     privacyOptions: response.privacyOptions,
+    ...(response.notificationChannels ? { notificationChannels: response.notificationChannels } : {}),
   };
 }
 
@@ -433,6 +459,7 @@ export function createSettingsController(options: CreateSettingsControllerOption
     displaySettingsStorageKey = READER_DISPLAY_STORAGE_KEY,
     readingCenterStorageKey = READING_CENTER_STORAGE_KEY,
     requestPath = "/settings",
+    updateRequestPath = "/settings",
     confirmLogout,
     successToast,
     showErrorToast = false,
@@ -456,6 +483,16 @@ export function createSettingsController(options: CreateSettingsControllerOption
 
   async function hydrateRemoteSettings() {
     const result = await kernel.request.get<SettingsResponse>(requestPath);
+    if (!result.ok) {
+      return result;
+    }
+
+    store.replaceState(applyRemoteSettings(store.getState(), result.value, kernel.env));
+    return ok(undefined);
+  }
+
+  async function persistRemoteSettings(update: UpdateSettingsRequest) {
+    const result = await kernel.request.post<SettingsResponse>(updateRequestPath, update);
     if (!result.ok) {
       return result;
     }
@@ -515,80 +552,54 @@ export function createSettingsController(options: CreateSettingsControllerOption
   }
 
   function setNotificationsEnabled(nextValue: boolean) {
-    const current = store.getState();
-    if (!current.preferences) {
-      return ok(undefined);
-    }
-    const nextModel = cloneModel(current);
-    nextModel.preferences = {
-      ...current.preferences,
-      notificationsEnabled: nextValue,
-    };
-    store.replaceState(updateSectionItemValue(nextModel, "common-preferences", "notifications", nextValue));
-    return ok(undefined);
+    return persistRemoteSettings({
+      preferences: {
+        notificationsEnabled: nextValue,
+      },
+    });
   }
 
-  function setDevicePreference<T extends keyof NonNullable<SettingsResponse["preferences"]>["device"]>(
+  function setDevicePreference<T extends keyof NonNullable<NonNullable<UpdateSettingsRequest["preferences"]>["device"]>>(
     key: T,
     itemKey: string,
-    value: NonNullable<SettingsResponse["preferences"]>["device"][T],
+    value: NonNullable<NonNullable<UpdateSettingsRequest["preferences"]>["device"]>[T],
   ) {
-    const current = store.getState();
-    if (!current.preferences) {
-      return ok(undefined);
-    }
+    void itemKey;
+    return persistRemoteSettings({
+      preferences: {
+        device: {
+          [key]: value,
+        },
+      },
+    });
+  }
 
-    const nextModel = cloneModel(current);
-    nextModel.preferences = {
-      ...current.preferences,
-      device: {
-        ...current.preferences.device,
+  function setPrivacyPreference<T extends keyof NonNullable<UpdateSettingsRequest["privacyOptions"]>>(
+    key: T,
+    itemKey: string,
+    value: NonNullable<UpdateSettingsRequest["privacyOptions"]>[T],
+  ) {
+    void itemKey;
+    return persistRemoteSettings({
+      privacyOptions: {
         [key]: value,
       },
-    };
-    store.replaceState(updateSectionItemValue(nextModel, "device-settings", itemKey, value));
-    return ok(undefined);
+    });
   }
 
-  function setPrivacyPreference<T extends keyof SettingsResponse["privacyOptions"]>(
+  function setDeveloperPreference<T extends keyof NonNullable<NonNullable<UpdateSettingsRequest["preferences"]>["developerOptions"]>>(
     key: T,
     itemKey: string,
-    value: SettingsResponse["privacyOptions"][T],
+    value: NonNullable<NonNullable<UpdateSettingsRequest["preferences"]>["developerOptions"]>[T],
   ) {
-    const current = store.getState();
-    if (!current.privacyOptions) {
-      return ok(undefined);
-    }
-
-    const nextModel = cloneModel(current);
-    nextModel.privacyOptions = {
-      ...current.privacyOptions,
-      [key]: value,
-    };
-    store.replaceState(updateSectionItemValue(nextModel, "privacy-options", itemKey, value));
-    return ok(undefined);
-  }
-
-  function setDeveloperPreference<T extends keyof NonNullable<SettingsResponse["preferences"]>["developerOptions"]>(
-    key: T,
-    itemKey: string,
-    value: NonNullable<SettingsResponse["preferences"]>["developerOptions"][T],
-  ) {
-    const current = store.getState();
-    if (!current.preferences) {
-      return ok(undefined);
-    }
-
-    const nextModel = cloneModel(current);
-    nextModel.preferences = {
-      ...current.preferences,
-      developerOptions: {
-        ...current.preferences.developerOptions,
-        [key]: value,
+    void itemKey;
+    return persistRemoteSettings({
+      preferences: {
+        developerOptions: {
+          [key]: value,
+        },
       },
-    };
-    store.replaceState(updateSectionItemValue(nextModel, "debug-settings", itemKey, value));
-    return ok(undefined);
+    });
   }
 
   async function routeToOptional(routeId?: AppRouteId, params?: Record<string, string | number | boolean>) {
@@ -771,6 +782,63 @@ export function createSettingsController(options: CreateSettingsControllerOption
       return setNotificationsEnabled(!(store.getState().preferences?.notificationsEnabled ?? true));
     },
 
+    async cycleProfileVisibility() {
+      const current = store.getState().privacyOptions?.profileVisibility ?? "signed_in_only";
+      return setPrivacyPreference(
+        "profileVisibility",
+        "profile-visibility",
+        createNextValue(PROFILE_VISIBILITIES, current),
+      );
+    },
+
+    async togglePushEnabled() {
+      return persistRemoteSettings({
+        featureToggles: {
+          pushEnabled: !(store.getState().featureToggles?.pushEnabled ?? true),
+        },
+      });
+    },
+
+    async toggleSmsEnabled() {
+      return persistRemoteSettings({
+        featureToggles: {
+          smsEnabled: !(store.getState().featureToggles?.smsEnabled ?? false),
+        },
+      });
+    },
+
+    async toggleEmailEnabled() {
+      return persistRemoteSettings({
+        featureToggles: {
+          emailEnabled: !(store.getState().featureToggles?.emailEnabled ?? false),
+        },
+      });
+    },
+
+    async toggleNotificationChannel(channel: "subscription_message" | "sms" | "email" | "push") {
+      const current = store.getState().notificationChannels?.find((item) => item.channel === channel);
+      return persistRemoteSettings({
+        notificationChannels: [
+          {
+            channel,
+            enabled: !(current?.enabled ?? false),
+          },
+        ],
+      });
+    },
+
+    async toggleNotificationUnsubscribe(channel: "subscription_message" | "sms" | "email" | "push") {
+      const current = store.getState().notificationChannels?.find((item) => item.channel === channel);
+      return persistRemoteSettings({
+        notificationChannels: [
+          {
+            channel,
+            unsubscribed: !(current?.unsubscribed ?? false),
+          },
+        ],
+      });
+    },
+
     async cycleNetworkStrategy() {
       const current = store.getState().preferences?.device.networkStrategy ?? "balanced";
       return setDevicePreference(
@@ -877,23 +945,7 @@ export function createSettingsController(options: CreateSettingsControllerOption
 
     async toggleExperimentsEnabled() {
       const nextValue = !(store.getState().preferences?.developerOptions.experimentsEnabled ?? true);
-      const developerResult = setDeveloperPreference("experimentsEnabled", "experiments-enabled", nextValue);
-      if (!developerResult.ok) {
-        return developerResult;
-      }
-
-      const current = store.getState();
-      if (!current.featureToggles) {
-        return ok(undefined);
-      }
-      store.replaceState({
-        ...current,
-        featureToggles: {
-          ...current.featureToggles,
-          experimentsEnabled: nextValue,
-        },
-      });
-      return ok(undefined);
+      return setDeveloperPreference("experimentsEnabled", "experiments-enabled", nextValue);
     },
 
     async openProfileEntry() {

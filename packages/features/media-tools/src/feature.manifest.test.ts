@@ -9,8 +9,13 @@ import { createDefaultMediaToolsState } from "./model";
 function createKernelStub() {
   return {
     capability: {
-      status() {
-        return ok(true);
+      status(capability: "clipboard" | "device" | "location" | "payment" | "share" | "subscription" | "upload") {
+        return ok({
+          capability,
+          available: true,
+          mode: "native",
+          detail: "Capability is available.",
+        });
       },
       async execute() {
         return ok({

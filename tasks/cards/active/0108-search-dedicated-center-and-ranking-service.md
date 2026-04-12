@@ -90,9 +90,9 @@ Provide global, content, user, and domain search through a unified search featur
 
 ## Acceptance
 
-- [ ] dedicated search center or explicit search-owned surface exists
-- [ ] suggestions, hot terms, history, and correction terms are implemented
-- [ ] user/content/domain result routing is implemented
-- [ ] no-result and typo recovery states are implemented
-- [ ] filters and sort write back to route params
-- [ ] `pnpm verify` run
+- [x] dedicated search center or explicit search-owned surface exists
+- [x] suggestions, hot terms, history, and correction terms are implemented
+- [x] user/content/domain result routing is implemented
+- [x] no-result and typo recovery states are implemented
+- [x] filters and sort write back to route params
+- [x] `pnpm verify` run

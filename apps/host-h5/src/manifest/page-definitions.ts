@@ -228,8 +228,9 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     routeId: APP_ROUTE_IDS.feed,
     routePath: "/discover",
     pageData: createDefaultFeedState({
-      title: "Discovery Feed",
-      subtitle: "Reusable search and discovery surface with keyword recall, hot searches, and filterable content lanes.",
+      title: "Search Center",
+      subtitle: "Cross-domain search with ranking, hot terms, typo recovery, and filterable result lanes.",
+      surface: "search",
       pageSize: 6,
       emptyText: "No discovery results are available yet.",
     }),
@@ -248,7 +249,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     },
     requiredCapabilities: [{ capability: "device" }],
     featureConfig: {
-      surface: "feed",
+      surface: "search",
     },
     renderMode: "custom",
   },

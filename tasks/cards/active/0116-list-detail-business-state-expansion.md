@@ -84,12 +84,17 @@ Ensure content, orders, messages, feedback, relationships, and account-related l
   - none unless pages are added
 - final verifier handoff:
   - include adoption matrix by feature
+  - adopted features in this slice:
+    - `feed`: route-restored query/sort/selection list state
+    - `messages`: deep-link recovery plus unavailable/offline/forbidden detail mapping
+    - `items`: empty and stale list handling on shared list status
+    - `subscription`: order list and commerce detail status normalization
 
 ## Acceptance
 
-- [ ] shared list states cover loading/empty/error/partial/skeleton/retry
-- [ ] shared detail states cover deleted/offline/permission/stale/deep-link recovery
-- [ ] at least three domain features adopt the common states
-- [ ] route restoration works for filters and selected detail ids
-- [ ] tests cover list/detail edge-state matrix
-- [ ] `pnpm verify` run
+- [x] shared list states cover loading/empty/error/partial/skeleton/retry
+- [x] shared detail states cover deleted/offline/permission/stale/deep-link recovery
+- [x] at least three domain features adopt the common states
+- [x] route restoration works for filters and selected detail ids
+- [x] tests cover list/detail edge-state matrix
+- [x] `pnpm verify` run

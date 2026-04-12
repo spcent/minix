@@ -75,8 +75,13 @@ test("createAppKernel preserves optional platform adapters on the kernel surface
     },
   };
   const capability: CapabilityAdapter = {
-    status() {
-      return ok(true);
+    status(capability) {
+      return ok({
+        capability,
+        available: true,
+        mode: "native",
+        detail: "Capability is available.",
+      });
     },
     async execute() {
       return ok({

@@ -88,9 +88,9 @@ Support production persistence, migrations, cleanup jobs, reconciliation jobs, r
 
 ## Acceptance
 
-- [ ] durable store schemas cover core business domains
-- [ ] migrations or backfills are defined
-- [ ] cleanup/reconciliation/retry jobs are idempotent
-- [ ] audit and monitoring hooks exist for critical operations
-- [ ] tests cover persistence and job retry behavior
-- [ ] `pnpm verify` run
+- [x] durable store schemas cover core business domains
+- [x] migrations or backfills are defined
+- [x] cleanup/reconciliation/retry jobs are idempotent
+- [x] audit and monitoring hooks exist for critical operations
+- [x] tests cover persistence and job retry behavior
+- [x] `pnpm verify` run

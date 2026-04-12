@@ -50,6 +50,12 @@ export interface ListStatus {
   retryable: boolean;
   partialData: boolean;
   stickyHeaderEnabled: boolean;
+  empty: boolean;
+  skeleton: boolean;
+  staleData: boolean;
+  restoredFromRoute: boolean;
+  restoredQueryKeys?: string[];
+  restoredSelectionId?: string;
 }
 
 export type DetailLoadState =
@@ -57,10 +63,12 @@ export type DetailLoadState =
   | "loading"
   | "refreshing"
   | "ready"
+  | "stale"
   | "invalidated"
   | "deleted"
   | "forbidden"
   | "offline"
+  | "unavailable"
   | "unpublished"
   | "error";
 
@@ -72,7 +80,11 @@ export interface DetailStatus {
   deleted: boolean;
   permissionDenied: boolean;
   offline: boolean;
+  stale: boolean;
+  unavailable: boolean;
   unpublished: boolean;
+  recoveredFromLink: boolean;
+  requestedDetailId?: string;
 }
 
 export interface DetailAction {
@@ -115,6 +127,65 @@ export interface FormValidationError extends FormFieldError {
   blocking?: boolean;
 }
 
+export interface FormFieldOption {
+  key: string;
+  label: string;
+  description?: string;
+}
+
+export type FormConditionOperator = "eq" | "neq" | "in" | "truthy" | "falsy";
+
+export interface FormFieldCondition {
+  field: string;
+  operator: FormConditionOperator;
+  value?: string | number | boolean | Array<string | number | boolean>;
+}
+
+export interface FormFieldDefinition {
+  key: string;
+  label: string;
+  type: FormFieldType;
+  stepKey?: string;
+  required?: boolean;
+  placeholder?: string;
+  helperText?: string;
+  dynamic?: boolean;
+  options?: FormFieldOption[];
+  conditions?: FormFieldCondition[];
+  uploadRole?: string;
+  richTextToolbar?: "basic" | "placeholder";
+}
+
+export interface FormStepDefinition {
+  key: string;
+  label: string;
+  description?: string;
+}
+
+export interface FormSchema {
+  fields: FormFieldDefinition[];
+  steps: FormStepDefinition[];
+}
+
+export type FormApprovalNodeState = "not_started" | "pending" | "approved" | "rejected";
+
+export interface FormApprovalNode {
+  nodeKey: string;
+  label: string;
+  state: FormApprovalNodeState;
+  assigneeId?: string;
+  assigneeLabel?: string;
+  actedAt?: number;
+  comment?: string;
+}
+
+export interface FormDraftState {
+  draftId?: string;
+  recoveryKey?: string;
+  restoredAt?: number;
+  lastSavedAt?: number;
+}
+
 export interface FormSubmissionResult<TResult = unknown> {
   submittedAt?: number;
   value?: TResult;
@@ -129,9 +200,12 @@ export interface FormSubmitState<TResult = unknown> {
   phase: FormSubmitPhase;
   mode?: FormSubmitMode;
   duplicateProtected: boolean;
+  duplicateBlocked?: boolean;
   draftCapable: boolean;
   draftSavedAt?: number;
   submittedAt?: number;
+  submissionKey?: string;
+  lastCompletedKey?: string;
   result?: TResult;
 }
 
@@ -142,4 +216,6 @@ export interface FormWorkflowState {
   visibleFieldKeys: string[];
   dynamicFieldKeys: string[];
   conditionalFieldKeys: string[];
+  approvalNodes?: FormApprovalNode[];
+  draft?: FormDraftState;
 }

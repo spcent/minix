@@ -87,9 +87,9 @@ Move beyond account/feedback-specific form adoption and support reusable busines
 
 ## Acceptance
 
-- [ ] schema-driven fields cover text, number, date, single/multi select, upload, and rich-text placeholder
-- [ ] conditional fields and steps are data-driven
-- [ ] drafts restore across route/session recovery
-- [ ] approval state has node and assignee metadata
-- [ ] duplicate-submit protection is centralized
-- [ ] `pnpm verify` run
+- [x] schema-driven fields cover text, number, date, single/multi select, upload, and rich-text placeholder
+- [x] conditional fields and steps are data-driven
+- [x] drafts restore across route/session recovery
+- [x] approval state has node and assignee metadata
+- [x] duplicate-submit protection is centralized
+- [x] `pnpm verify` run

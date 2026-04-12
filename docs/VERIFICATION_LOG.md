@@ -74,41 +74,45 @@ Each RC or final release record should capture:
 
 ### v1.0.0
 
-- status: pending
-- git tag:
-- commit SHA:
-- verification date:
-- operator:
+- status: release-cut evidence recorded from tracked source
+- git tag: not recorded in tracked source
+- commit SHA: `d1c5232f0a6d63cfa585943ddd87353557c1c369`
+- verification date: `2026-04-10`
+- operator: `spcent <spcent@foxmail.com>`
 
 #### Final Local Gates
 
-- `pnpm verify`:
-- `pnpm verify:official-integrations`:
-- `pnpm verify:h5:blackbox`:
-- `pnpm verify:release`:
+- `pnpm verify`: passed
+- `pnpm verify:official-integrations`: passed
+- `pnpm verify:h5:blackbox`: passed
+- `pnpm verify:release`: passed
 
 #### Remote Verification
 
-- preview Worker URL:
-- production Worker URL:
-- `pnpm verify:api:remote` against production:
-- preview `host-h5` URL:
-- preview `novel-h5` URL:
-- production `host-h5` URL:
-- production `novel-h5` URL:
+- preview Worker URL: not recorded in tracked source
+- production Worker URL: not recorded in tracked source
+- `pnpm verify:api:remote` against production: not recorded in tracked source
+- preview `host-h5` URL: `https://preview.minix-host-h5.pages.dev`
+- preview `novel-h5` URL: `https://preview.minix-novel-h5.pages.dev`
+- production `host-h5` URL: `https://minix-host-h5.pages.dev`
+- production `novel-h5` URL: `https://minix-novel-h5.pages.dev`
 
 #### Manual WeChat Gate
 
-- validator:
-- date:
-- target API URL:
-- `host-wechat` result:
-- `novel-wechat` result:
-- notes:
+- validator: not recorded in tracked source
+- date: not recorded in tracked source
+- target API URL: not recorded in tracked source
+- `host-wechat` result: not recorded in tracked source
+- `novel-wechat` result: not recorded in tracked source
+- notes: manual WeChat validation remains an explicit release requirement in [`docs/RELEASE_RUNBOOK.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_RUNBOOK.md), but the final operator evidence was not committed to the repository.
 
 #### Accepted Deferred Issues
 
-- none recorded yet
+- real SMS provider credentials are operator-owned and are not committed in tracked source
+- real OAuth provider credentials and callback registrations are operator-owned and are not committed in tracked source
+- no external object storage bucket binding is committed; upload lifecycle is release-backed through the sample backend surface
+- payment callback verification is implemented, but live merchant credentials are operator-owned and are not committed in tracked source
+- WeChat release proof still requires manual DevTools or device validation outside repository automation
 
 ## Notes
 

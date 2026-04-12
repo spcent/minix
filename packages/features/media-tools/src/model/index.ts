@@ -1,4 +1,5 @@
 import type {
+  CapabilityStatus,
   ShareAttribution,
   ShareChannel,
   SharePayload,
@@ -26,6 +27,9 @@ export interface MediaToolsState {
   usageExamples: string[];
   uploadAvailable: boolean;
   shareAvailable: boolean;
+  uploadCapabilityStatus: CapabilityStatus | undefined;
+  shareCapabilityStatus: CapabilityStatus | undefined;
+  clipboardCapabilityStatus: CapabilityStatus | undefined;
   uploadTask: UploadTask;
   uploadAsset: UploadAsset | undefined;
   uploadError: UploadError | undefined;
@@ -125,6 +129,7 @@ export function createDefaultShareAttribution(): ShareAttribution {
     returnFlowRecognized: false,
     shareCount: 0,
     clickCount: 0,
+    returnCount: 0,
     conversionCount: 0,
   };
 }
@@ -146,6 +151,9 @@ export function createDefaultMediaToolsState(
     usageExamples: options.usageExamples ?? ["upload", "share", "attribution"],
     uploadAvailable: false,
     shareAvailable: false,
+    uploadCapabilityStatus: undefined,
+    shareCapabilityStatus: undefined,
+    clipboardCapabilityStatus: undefined,
     uploadTask: createDefaultUploadTask(),
     uploadAsset: undefined,
     uploadError: undefined,
