@@ -1,6 +1,8 @@
 export type LoginPlatformKind = "wechat" | "h5";
 export const LOGIN_METHODS = ["wechat_code", "phone_code", "password", "guest", "oauth"] as const;
 export type LoginMethod = (typeof LOGIN_METHODS)[number];
+export const AUTH_PROVIDER_MODES = ["builtin", "sample", "production"] as const;
+export type AuthProviderMode = (typeof AUTH_PROVIDER_MODES)[number];
 export const AUTH_STATUSES = ["guest", "authenticated", "reauth_required"] as const;
 export type AuthStatus = (typeof AUTH_STATUSES)[number];
 export const AUTH_REDIRECT_REASONS = ["auth-required", "session-expired", "force-relogin"] as const;
@@ -156,6 +158,15 @@ export interface AuthProviderAction {
   available: boolean;
   blockedReason?: string;
   destructive?: boolean;
+}
+
+export interface AuthLoginMethodDescriptor {
+  method: LoginMethod;
+  label: string;
+  providerMode: AuthProviderMode;
+  availableOn: LoginPlatformKind[];
+  defaultOn?: LoginPlatformKind[];
+  summary: string;
 }
 
 export interface AuthProviderIdentity {
@@ -334,6 +345,8 @@ export interface AuthPhoneVerificationResponse {
   maxAttempts: number;
   delivery: {
     provider: "sms" | "simulated";
+    providerMode?: Extract<AuthProviderMode, "sample" | "production">;
+    providerLabel?: string;
     providerReference: string;
     maskedTarget: string;
     debugCode?: string;
@@ -370,9 +383,12 @@ export interface AuthOAuthAuthorizeRequest {
 export interface AuthOAuthAuthorizeResponse {
   provider: string;
   purpose?: "login" | "bind";
+  providerMode?: Extract<AuthProviderMode, "sample" | "production">;
+  providerLabel?: string;
   state: string;
   authorizationUrl: string;
   expiresAt: number;
+  message?: string;
 }
 
 export interface AuthOAuthCallbackRequest {

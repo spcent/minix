@@ -3,6 +3,7 @@ import type {
   AuthCredentialProtection,
   AuthDeviceIdentity,
   AuthIdentityFailureReason,
+  AuthLoginMethodDescriptor,
   AuthIdentityWorkflow,
   AuthRateLimitState,
   AuthRiskDecision,
@@ -10,6 +11,7 @@ import type {
   AuthRedirectReason,
   AuthStatus,
   AuthVerificationPurpose,
+  LoginPlatformKind,
   LoginMethod,
 } from "@minix/contracts";
 
@@ -35,6 +37,7 @@ export interface AuthPageState {
   authenticated: boolean;
   authStatus: AuthStatus | null;
   selectedLoginMethod: LoginMethod;
+  loginMethodDescriptors: AuthLoginMethodDescriptor[];
   lastLoginMethod: LoginMethod | null;
   noticeMessage: string | null;
   redirectTarget: AuthRedirectTarget;
@@ -59,11 +62,14 @@ export interface AuthPageState {
     | {
         verificationId: string;
         phoneNumberMasked: string;
-        purpose: AuthVerificationPurpose;
-        expiresAt: number;
-        retryAfterSeconds: number;
-        debugCode: string | null;
-      }
+      purpose: AuthVerificationPurpose;
+      expiresAt: number;
+      retryAfterSeconds: number;
+      debugCode: string | null;
+      providerMode?: "sample" | "production";
+      providerLabel?: string;
+      message?: string;
+    }
     | null;
   oauthAuthorization:
     | {
@@ -72,19 +78,74 @@ export interface AuthPageState {
         state: string;
         authorizationUrl: string;
         expiresAt: number;
+        providerMode?: "sample" | "production";
+        providerLabel?: string;
+        message?: string;
       }
     | null;
   identityWorkflow: AuthIdentityWorkflow | null;
   identityFailureReason: AuthIdentityFailureReason | null;
 }
 
-export function createInitialAuthPageState(): AuthPageState {
+export function createDefaultLoginMethod(platform?: LoginPlatformKind): LoginMethod {
+  return platform === "wechat" ? "wechat_code" : "guest";
+}
+
+export function createAuthLoginMethodDescriptors(platform?: LoginPlatformKind): AuthLoginMethodDescriptor[] {
+  const activePlatform = platform ?? "h5";
+  const defaultMethod = createDefaultLoginMethod(activePlatform);
+
+  return [
+    {
+      method: "wechat_code",
+      label: "WeChat Code",
+      providerMode: "production",
+      availableOn: ["wechat"],
+      ...(defaultMethod === "wechat_code" ? { defaultOn: ["wechat"] } : {}),
+      summary: "Official WeChat hosts use wx.login and exchange the returned platform code through /auth/login.",
+    },
+    {
+      method: "guest",
+      label: "Guest Session",
+      providerMode: "builtin",
+      availableOn: ["h5"],
+      ...(defaultMethod === "guest" ? { defaultOn: ["h5"] } : {}),
+      summary: "The official H5 host uses the built-in guest path for the primary Home sign-in action.",
+    },
+    {
+      method: "phone_code",
+      label: "Phone Verification",
+      providerMode: "sample",
+      availableOn: ["h5", "wechat"],
+      summary: "Phone login depends on /auth/verification-code/request. Local and sample deployments use the simulated SMS provider until operator SMS credentials are configured.",
+    },
+    {
+      method: "password",
+      label: "Password",
+      providerMode: "builtin",
+      availableOn: ["h5", "wechat"],
+      summary: "Password login verifies stored hashed credentials. Phone-based password setup and reset still depend on the verification provider.",
+    },
+    {
+      method: "oauth",
+      label: "OAuth",
+      providerMode: "sample",
+      availableOn: ["h5", "wechat"],
+      summary: "OAuth state, callback, and account binding flows are implemented, but the repo ships a sample authorization URL until production provider setup is supplied by the operator.",
+    },
+  ];
+}
+
+export function createInitialAuthPageState(platform?: LoginPlatformKind): AuthPageState {
+  const selectedLoginMethod = createDefaultLoginMethod(platform);
+
   return {
     loading: false,
     errorMessage: null,
     authenticated: false,
     authStatus: null,
-    selectedLoginMethod: "guest",
+    selectedLoginMethod,
+    loginMethodDescriptors: createAuthLoginMethodDescriptors(platform),
     lastLoginMethod: null,
     noticeMessage: null,
     redirectTarget: null,

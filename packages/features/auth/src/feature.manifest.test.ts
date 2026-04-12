@@ -6,10 +6,13 @@ import type { AppKernel } from "@minix/core";
 import { authFeatureManifest } from "./feature.manifest";
 import { createInitialAuthPageState } from "./model";
 
-function createKernelStub() {
+function createKernelStub(platform: "h5" | "wechat") {
   const toasts: Array<{ title: string; icon: string }> = [];
 
   const kernel = {
+    env: {
+      platform,
+    },
     ui: {
       async toast(options: { title: string; icon: string }) {
         toasts.push(options);
@@ -18,6 +21,15 @@ function createKernelStub() {
     },
     auth: {
       async login() {
+        return {
+          ok: false,
+          error: {
+            code: "AUTH_FAILED",
+            message: "login failed",
+          },
+        } as const;
+      },
+      async exchangeToken() {
         return {
           ok: false,
           error: {
@@ -49,7 +61,7 @@ function createKernelStub() {
 }
 
 test("auth feature manifest reports login errors through wechat toast mode", async () => {
-  const { kernel, toasts } = createKernelStub();
+  const { kernel, toasts } = createKernelStub("wechat");
   const controller = authFeatureManifest.createController(
     "wechat",
     kernel,
@@ -62,7 +74,7 @@ test("auth feature manifest reports login errors through wechat toast mode", asy
         });
       },
     },
-    createInitialAuthPageState(),
+    createInitialAuthPageState("wechat"),
   );
 
   const result = await controller.submitLogin();
@@ -72,14 +84,14 @@ test("auth feature manifest reports login errors through wechat toast mode", asy
 });
 
 test("auth feature manifest keeps h5 login flow free of toast reporting", async () => {
-  const { kernel, toasts } = createKernelStub();
+  const { kernel, toasts } = createKernelStub("h5");
   const controller = authFeatureManifest.createController(
     "h5",
     kernel,
     {
       successRouteId: "items.list",
     },
-    createInitialAuthPageState(),
+    createInitialAuthPageState("h5"),
   );
 
   const result = await controller.submitLogin();

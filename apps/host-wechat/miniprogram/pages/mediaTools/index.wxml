@@ -1,0 +1,33 @@
+<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Media Tools</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{subtitle || 'Shared upload and share capability proof now has a WeChat host entry.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Capability State</view>
+    <view class="subtitle">Upload: {{uploadCapabilityStatus ? (uploadCapabilityStatus.mode + ' · ' + (uploadCapabilityStatus.detail || 'available')) : 'unknown'}}</view>
+    <view class="subtitle">Share: {{shareCapabilityStatus ? (shareCapabilityStatus.mode + ' · ' + (shareCapabilityStatus.detail || 'available')) : 'unknown'}}</view>
+    <view class="subtitle" wx:if="{{clipboardCapabilityStatus}}">Clipboard: {{clipboardCapabilityStatus.mode}} · {{clipboardCapabilityStatus.detail || 'available'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Latest Result</view>
+    <view class="subtitle">Upload stage: {{uploadTask.stage}}</view>
+    <view class="subtitle" wx:if="{{uploadTask.reviewMessage}}">{{uploadTask.reviewMessage}}</view>
+    <view class="subtitle" wx:if="{{lastResult}}">{{lastResult.message}}</view>
+    <view class="subtitle" wx:if="{{lastResult && lastResult.detail}}">{{lastResult.detail}}</view>
+    <view class="status-chip">{{lastResult ? lastResult.status : 'idle'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Actions</view>
+    <button class="button" bindtap="onTapUpload">{{primaryActionLabel || 'Select Upload Asset'}}</button>
+    <button class="button" bindtap="onTapRetryPrimary">Retry Upload Flow</button>
+    <button class="button" bindtap="onTapShare">{{secondaryActionLabel || 'Dispatch Share Payload'}}</button>
+    <button class="button" bindtap="onTapLoadShareReport">Load Attribution Report</button>
+    <button class="button" bindtap="onTapClearResult">Clear Result</button>
+    <button class="button" bindtap="onTapSettings">Open Preferences</button>
+  </view>
+</view>

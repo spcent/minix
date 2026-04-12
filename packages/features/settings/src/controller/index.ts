@@ -30,6 +30,11 @@ export interface CreateSettingsControllerOptions {
   itemsRouteId?: AppRouteId;
   overviewRouteId?: AppRouteId;
   accountRouteId?: AppRouteId;
+  membershipRouteId?: AppRouteId;
+  feedRouteId?: AppRouteId;
+  messagesRouteId?: AppRouteId;
+  feedbackRouteId?: AppRouteId;
+  mediaToolsRouteId?: AppRouteId;
   readerRouteId?: AppRouteId;
   authRedirectSource?: "preferences";
   model: SettingsPageModel;
@@ -453,6 +458,11 @@ export function createSettingsController(options: CreateSettingsControllerOption
     itemsRouteId,
     overviewRouteId,
     accountRouteId,
+    membershipRouteId,
+    feedRouteId,
+    messagesRouteId,
+    feedbackRouteId,
+    mediaToolsRouteId,
     readerRouteId,
     authRedirectSource,
     model,
@@ -962,6 +972,30 @@ export function createSettingsController(options: CreateSettingsControllerOption
 
     async openCancellationEntry() {
       return routeToOptional(accountRouteId, { operation: "request_cancellation" });
+    },
+
+    async goToAccount() {
+      return routeToOptional(accountRouteId);
+    },
+
+    async goToMembership() {
+      return routeToOptional(membershipRouteId);
+    },
+
+    async goToFeed() {
+      return routeToOptional(feedRouteId);
+    },
+
+    async goToMessages() {
+      return routeToOptional(messagesRouteId);
+    },
+
+    async goToFeedback() {
+      return routeToOptional(feedbackRouteId);
+    },
+
+    async goToMediaTools() {
+      return routeToOptional(mediaToolsRouteId);
     },
 
     async goToItems() {

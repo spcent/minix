@@ -1,0 +1,38 @@
+<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Commerce Center</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{overview ? overview.subheadline : 'Membership unlock, order recovery, reconciliation, and after-sales stay on one shared commerce surface here.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Payment posture</view>
+    <view class="subtitle">This host reads normalized order state from the shared backend payment domain. Sample and production gateway behavior should remain explicit in the returned transaction copy.</view>
+    <view class="subtitle" wx:if="{{lockedMessage}}">{{lockedMessage}}</view>
+    <view class="subtitle" wx:if="{{entitlementSummary}}">{{entitlementSummary}}</view>
+    <view class="status-chip">{{paymentResult ? paymentResult.status : 'idle'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Membership plans</view>
+    <view class="subtitle">{{unlockOutcomeLabel || 'Choose a plan to unlock the shared commerce and entitlement path.'}}</view>
+    <button class="button" bindtap="onTapPurchaseMembership" data-value="monthly">Purchase Monthly</button>
+    <button class="button" bindtap="onTapPurchaseMembership" data-value="quarterly">Purchase Quarterly</button>
+    <button class="button" bindtap="onTapPurchaseMembership" data-value="annual">Purchase Annual</button>
+    <button wx:if="{{purchaseSuccessMessage}}" class="button" bindtap="onTapContinueAfterPurchase">Continue After Purchase</button>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Order operations</view>
+    <view class="subtitle" wx:if="{{transactionMessage}}">{{transactionMessage}}</view>
+    <view class="subtitle" wx:if="{{paymentExecutionDetail}}">{{paymentExecutionDetail}}</view>
+    <button class="button" bindtap="onTapRefreshTransaction">Refresh Transaction</button>
+    <button class="button" bindtap="onTapReconcileOrder">Reconcile Order</button>
+    <button wx:if="{{canCancelOrder}}" class="button" bindtap="onTapCancelOrder">Cancel Order</button>
+    <button wx:if="{{canRefundOrder}}" class="button" bindtap="onTapRefundOrder">Refund Order</button>
+    <button wx:if="{{canCancelSubscription}}" class="button" bindtap="onTapCancelSubscription">Cancel Subscription</button>
+    <button wx:if="{{canRenewSubscription}}" class="button" bindtap="onTapRenewSubscription">Renew Subscription</button>
+    <button wx:if="{{afterSalesCases && afterSalesCases.length > 0}}" class="button" bindtap="onTapAfterSalesDetail">Open After-Sales Detail</button>
+    <button class="button" bindtap="onTapCatalog">Back to Discover</button>
+  </view>
+</view>

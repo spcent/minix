@@ -356,9 +356,12 @@ function cloneMessageItems(messages: MessageBodyItem[], userState?: UserState): 
 function createThreadSyncState(cursor: string, lastSyncedAt?: string) {
   return {
     mode: "polling" as const,
+    modeLabel: "Polling sync",
     cursor,
     recommendedPollIntervalMs: MESSAGE_POLL_INTERVAL_MS,
     recoverable: true,
+    statusLabel: `Delivery receipts finalize through polling every ${Math.round(MESSAGE_POLL_INTERVAL_MS / 1000)} seconds.`,
+    providerSummary: "External touchpoints stay explicit about sample versus production mode; in-app delivery remains the durable fallback lane.",
     ...(lastSyncedAt ? { lastSyncedAt } : {}),
   };
 }
@@ -423,7 +426,10 @@ function getThreadMessages(userState: UserState, threadId: string): MessageBodyI
           return {
             ...touchpoint,
             delivered: true,
-            statusLabel: `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} delivered through ${touchpoint.channel.replace("_", " ")}.`,
+            statusLabel:
+              touchpoint.providerMode === "sample"
+                ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample delivery finalized after polling sync.`
+                : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} delivered through ${touchpoint.channel.replace("_", " ")}.`,
             receipt: {
               ...touchpoint.receipt,
               status: "delivered" as MessageTouchpointReceiptStatus,
@@ -828,7 +834,10 @@ export function sendThreadMessage(
     return {
       ...touchpoint,
       delivered: false,
-      statusLabel: `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} accepted the dispatch and is awaiting receipt.`,
+      statusLabel:
+        touchpoint.providerMode === "sample"
+          ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample dispatch accepted; polling sync will finalize the receipt.`
+          : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} accepted the dispatch and is awaiting receipt.`,
       receipt: sentReceipt,
     };
   });
@@ -869,9 +878,9 @@ export function sendThreadMessage(
     attemptCount: 1,
     retryable: failed,
     ...(failed
-      ? {
+        ? {
           failureCode: "DELIVERY_FAILED",
-          failureMessage: "Sample delivery intentionally failed and can be retried.",
+          failureMessage: "Sample delivery intentionally failed; retry and polling sync can advance the receipt.",
         }
       : {}),
     touchpoints: persistedTouchpoints,
@@ -949,7 +958,10 @@ export function retryThreadMessage(
     return {
       ...touchpoint,
       delivered: false,
-      statusLabel: `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} retry queued.`,
+      statusLabel:
+        touchpoint.providerMode === "sample"
+          ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample retry queued; polling sync will finalize the next receipt.`
+          : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} retry queued.`,
       receipt: {
         ...touchpoint.receipt,
         status: "sent" as MessageTouchpointReceiptStatus,

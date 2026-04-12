@@ -468,7 +468,13 @@ function createKernelStub(): AppKernel {
         return ok(undefined);
       },
       async exchangeToken() {
-        throw new Error("not implemented");
+        return ok({
+          identity: { userId: "host-h5-guest", anonymous: true, loginMethod: "guest" },
+          loggedIn: true,
+          authStatus: "guest",
+          platform: "h5",
+          token: { accessToken: "mock-h5-guest-token" },
+        });
       },
     },
     router: {
@@ -523,6 +529,7 @@ test("host h5 runtime creates page controllers on a shared kernel", () => {
     "messages",
     "mediaTools",
     "settings",
+    "membership",
     "account",
   ];
 
@@ -540,6 +547,7 @@ test("host h5 page entries delegate to runtime controllers", async () => {
   const feedbackEntry = createHostH5PageEntry(runtime, "feedback");
   const mediaToolsEntry = createHostH5PageEntry(runtime, "mediaTools");
   const messagesEntry = createHostH5PageEntry(runtime, "messages");
+  const membershipEntry = createHostH5PageEntry(runtime, "membership");
   const settingsEntry = createHostH5PageEntry(runtime, "settings");
   const accountEntry = createHostH5PageEntry(runtime, "account");
 
@@ -550,6 +558,7 @@ test("host h5 page entries delegate to runtime controllers", async () => {
   const feedbackResult = await feedbackEntry.onShow();
   const mediaToolsResult = await mediaToolsEntry.onShow();
   const messagesResult = await messagesEntry.onShow();
+  const membershipResult = await membershipEntry.onTapCatalog();
   const settingsResult = await settingsEntry.onTapLogout();
   const accountResult = await accountEntry.onShow();
 
@@ -560,6 +569,7 @@ test("host h5 page entries delegate to runtime controllers", async () => {
   assert.equal((feedbackResult as { ok?: boolean } | undefined)?.ok, true);
   assert.equal((mediaToolsResult as { ok?: boolean } | undefined)?.ok, true);
   assert.equal((messagesResult as { ok?: boolean } | undefined)?.ok, true);
+  assert.equal((membershipResult as { ok?: boolean } | undefined)?.ok, true);
   assert.deepEqual(settingsResult, { ok: true, value: undefined });
   assert.equal((accountResult as { ok?: boolean } | undefined)?.ok, true);
 });

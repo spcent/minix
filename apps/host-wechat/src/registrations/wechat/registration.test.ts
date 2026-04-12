@@ -48,7 +48,7 @@ test("miniprogram app shell registers a WeChat app config", async () => {
   assert.equal(appConfigs[0]?.globalData?.appName, "MiniX Host Wechat");
 });
 
-test("miniprogram page shells register home, overview, plan, and preferences pages", async () => {
+test("miniprogram page shells register the shared WeChat host pages", async () => {
   const pageConfigs: RegisteredPageConfig[] = [];
   const globals = globalThis as typeof globalThis & {
     Page?: unknown;
@@ -62,17 +62,29 @@ test("miniprogram page shells register home, overview, plan, and preferences pag
     await importFresh("apps/host-wechat/miniprogram/pages/login/index.ts");
     await importFresh("apps/host-wechat/miniprogram/pages/overview/index.ts");
     await importFresh("apps/host-wechat/miniprogram/pages/items/index.ts");
+    await importFresh("apps/host-wechat/miniprogram/pages/feed/index.ts");
+    await importFresh("apps/host-wechat/miniprogram/pages/feedback/index.ts");
+    await importFresh("apps/host-wechat/miniprogram/pages/messages/index.ts");
+    await importFresh("apps/host-wechat/miniprogram/pages/mediaTools/index.ts");
+    await importFresh("apps/host-wechat/miniprogram/pages/membership/index.ts");
     await importFresh("apps/host-wechat/miniprogram/pages/settings/index.ts");
+    await importFresh("apps/host-wechat/miniprogram/pages/account/index.ts");
   } finally {
     Reflect.deleteProperty(globals, "Page");
   }
 
-  assert.equal(pageConfigs.length, 4);
+  assert.equal(pageConfigs.length, 10);
   assert.equal(typeof pageConfigs[0]?.onShow, "function");
   assert.equal(typeof pageConfigs[0]?.onTapLogin, "function");
   assert.equal(typeof pageConfigs[1]?.onTapPlan, "function");
   assert.equal(typeof pageConfigs[1]?.onTapSettings, "function");
   assert.equal(typeof pageConfigs[2]?.onPullDownRefresh, "function");
   assert.equal(typeof pageConfigs[2]?.onTapSettings, "function");
-  assert.equal(typeof pageConfigs[3]?.onTapLogout, "function");
+  assert.equal(typeof pageConfigs[3]?.onTapOpenItem, "function");
+  assert.equal(typeof pageConfigs[4]?.onTapSupportEntry, "function");
+  assert.equal(typeof pageConfigs[5]?.onTapMarkVisibleRead, "function");
+  assert.equal(typeof pageConfigs[6]?.onTapUpload, "function");
+  assert.equal(typeof pageConfigs[7]?.onTapPurchaseMembership, "function");
+  assert.equal(typeof pageConfigs[8]?.onTapLogout, "function");
+  assert.equal(typeof pageConfigs[9]?.onTapIdentityUpgrade, "function");
 });

@@ -70,11 +70,19 @@ export const feedbackFeatureManifest = defineFeatureManifest<
     wechat: {
       entryActions: {
         onShow: "loadInitial",
+        onTapRefreshLatestStatus: "refreshLatestStatus",
+        onTapSupportEntry: "openSupportEntry",
+        onTapFaq: "openFaq",
+        onTapSettings: "goToSettings",
       },
     },
     h5: {
       entryActions: {
         onShow: "loadInitial",
+        onTapRefreshLatestStatus: "refreshLatestStatus",
+        onTapSupportEntry: "openSupportEntry",
+        onTapFaq: "openFaq",
+        onTapSettings: "goToSettings",
       },
     },
   },

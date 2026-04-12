@@ -1,0 +1,34 @@
+<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Feedback</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{subtitle || 'Feedback, FAQ, and support-loop state are now reachable from the WeChat host.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Latest Ticket</view>
+    <view class="subtitle" wx:if="{{!latestTicket}}">No recent feedback ticket is loaded yet.</view>
+    <view wx:if="{{latestTicket}}" class="item">
+      <view class="item-title">{{latestTicket.title}}</view>
+      <view class="subtitle">{{latestTicket.description}}</view>
+      <view class="subtitle" wx:if="{{latestStatus}}">{{latestStatus.label}} · {{latestStatus.progressLabel}}</view>
+      <view class="subtitle" wx:if="{{serviceLoopSummary}}">{{serviceLoopSummary}}</view>
+    </view>
+    <view wx:if="{{errorText}}" class="subtitle">{{errorText}}</view>
+    <view class="status-chip">{{submitState && submitState.phase ? submitState.phase : 'idle'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Support Guidance</view>
+    <view class="subtitle" wx:if="{{supportEntry}}">{{supportEntry.label}} · {{supportEntry.summary}}</view>
+    <view class="subtitle" wx:if="{{!supportEntry && serviceHint}}">{{serviceHint}}</view>
+    <view wx:if="{{recommendedFaqEntries && recommendedFaqEntries.length > 0}}" class="item">
+      <view class="item-title">{{recommendedFaqEntries[0].title}}</view>
+      <view class="subtitle">{{recommendedFaqEntries[0].summary}}</view>
+    </view>
+    <button class="button" bindtap="onTapRefreshLatestStatus">Refresh Latest Status</button>
+    <button class="button" wx:if="{{supportEntry}}" bindtap="onTapSupportEntry">Open Support Entry</button>
+    <button class="button" wx:if="{{recommendedFaqEntries && recommendedFaqEntries.length > 0}}" bindtap="onTapFaq" data-value="{{recommendedFaqEntries[0].entryId}}">Open Top FAQ</button>
+    <button class="button" bindtap="onTapSettings">Open Preferences</button>
+  </view>
+</view>

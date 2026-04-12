@@ -323,7 +323,13 @@ function createKernelStub(): AppKernel {
         return ok(undefined);
       },
       async exchangeToken() {
-        throw new Error("not implemented");
+        return ok({
+          identity: { userId: "novel-h5-guest", anonymous: true, loginMethod: "guest" },
+          loggedIn: true,
+          authStatus: "guest",
+          platform: "h5",
+          token: { accessToken: "mock-novel-h5-guest-token" },
+        });
       },
     },
     router: {

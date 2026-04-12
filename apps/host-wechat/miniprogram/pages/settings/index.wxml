@@ -32,6 +32,12 @@
   <view class="card profile-actions">
     <view class="section-title">Session Control</view>
     <view class="subtitle">Leave this page quiet and utility-focused. Use it for profile review, then move back into overview or today's plan when you are done.</view>
+    <button class="button" bindtap="onTapAccount">Open Account Center</button>
+    <button class="button" bindtap="onTapMembership">Open Commerce Center</button>
+    <button class="button" bindtap="onTapDiscover">Open Discover</button>
+    <button class="button" bindtap="onTapInbox">Open Inbox</button>
+    <button class="button" bindtap="onTapFeedback">Open Feedback</button>
+    <button class="button" bindtap="onTapMediaTools">Open Media Tools</button>
     <button class="button" bindtap="onTapOverview">Back to Overview</button>
     <button class="button" bindtap="onTapPlan">Back to Today's Plan</button>
     <button class="button" type="warn" bindtap="onTapLogout">Sign Out</button>

@@ -15,6 +15,7 @@
     "@minix/feature-media-tools": "workspace:*",
     "@minix/feature-messages": "workspace:*",
     "@minix/feature-settings": "workspace:*",
+    "@minix/feature-subscription": "workspace:*",
     "@minix/platform-h5": "workspace:*"
   }
 }

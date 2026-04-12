@@ -55,11 +55,23 @@ export const mediaToolsFeatureManifest = defineFeatureManifest<
     wechat: {
       entryActions: {
         onShow: "loadInitial",
+        onTapUpload: "startUpload",
+        onTapRetryPrimary: "retryPrimaryAction",
+        onTapShare: "startShare",
+        onTapLoadShareReport: "loadShareReport",
+        onTapClearResult: "clearLastResult",
+        onTapSettings: "goToSettings",
       },
     },
     h5: {
       entryActions: {
         onShow: "loadInitial",
+        onTapUpload: "startUpload",
+        onTapRetryPrimary: "retryPrimaryAction",
+        onTapShare: "startShare",
+        onTapLoadShareReport: "loadShareReport",
+        onTapClearResult: "clearLastResult",
+        onTapSettings: "goToSettings",
       },
     },
   },

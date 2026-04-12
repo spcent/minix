@@ -185,9 +185,12 @@ export interface MessageGroupState {
 
 export interface MessageSyncState {
   mode: MessageSyncMode;
+  modeLabel?: string;
   cursor: string;
   recommendedPollIntervalMs: number;
   recoverable: boolean;
+  statusLabel?: string;
+  providerSummary?: string;
   lastSyncedAt?: string;
 }
 

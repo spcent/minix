@@ -63,6 +63,7 @@ export const messagesFeatureManifest = defineFeatureManifest<
         onPullDownRefresh: "refresh",
         onReachBottom: "loadMore",
         onTapLoadMore: "loadMore",
+        onTapMarkVisibleRead: "markVisibleRead",
         onTapSettings: "goToSettings",
       },
     },
@@ -70,6 +71,7 @@ export const messagesFeatureManifest = defineFeatureManifest<
       entryActions: {
         onShow: "loadInitial",
         onTapLoadMore: "loadMore",
+        onTapMarkVisibleRead: "markVisibleRead",
         onTapSettings: "goToSettings",
       },
     },

@@ -100,6 +100,30 @@
   </view>
 
   <view class="card landing-card">
+    <view class="section-label">Official auth entry</view>
+    <view class="title">{{loginMethodDescriptors[0] ? loginMethodDescriptors[0].label : 'Home sign-in'}}</view>
+    <view class="subtitle">{{loginMethodDescriptors[0] ? loginMethodDescriptors[0].summary : 'Home keeps one explicit auth entry per host.'}}</view>
+    <view class="subtitle" wx:if="{{redirectTarget}}">
+      Preserved return target: {{redirectLabel || redirectRouteId || redirectPath || redirectTarget}}{{redirectSource ? ' from ' + redirectSource : ''}}.
+    </view>
+    <view class="subtitle" wx:if="{{redirectReason}}">
+      Return reason: {{redirectReason === 'force-relogin' ? 'Force re-login' : (redirectReason === 'session-expired' ? 'Session expired' : 'Authentication required')}}.
+    </view>
+  </view>
+
+  <view class="card landing-card">
+    <view class="section-label">Provider backing</view>
+    <view wx:for="{{loginMethodDescriptors}}" wx:key="method" class="item">
+      <view class="item-meta">
+        <view class="item-badge">{{item.providerMode === 'production' ? 'Production-backed' : (item.providerMode === 'sample' ? 'Sample-backed' : 'Built-in')}}</view>
+      </view>
+      <view class="item-title">{{item.label}}</view>
+      <view class="subtitle">{{item.defaultOn && item.defaultOn.length > 0 ? (item.defaultOn[0] === 'wechat' ? 'Primary on WeChat' : 'Primary on H5') : 'Manual path'}}</view>
+      <view class="reason-text">{{item.summary}}</view>
+    </view>
+  </view>
+
+  <view class="card landing-card">
     <view class="section-label">Built for short study windows</view>
     <view class="summary-row">
       <view class="summary-stat">

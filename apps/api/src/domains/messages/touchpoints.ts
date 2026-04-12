@@ -26,7 +26,7 @@ function createBaseTouchpoint(
       executable: true,
       enabled: true,
       delivered: true,
-      statusLabel: "Visible in the in-app inbox",
+      statusLabel: mode === "sample" ? "Visible in the in-app inbox as the durable fallback lane." : "Visible in the in-app inbox.",
       providerKey: "station_inbox",
       providerLabel: "Station Inbox",
       providerMode: mode,
@@ -54,7 +54,10 @@ function createBaseTouchpoint(
     channel,
     executable: true,
     enabled: provider.defaultEnabled,
-    statusLabel: `${provider.providerLabel} is available for ${channel.replace("_", " ")} delivery.`,
+    statusLabel:
+      mode === "sample"
+        ? `${provider.providerLabel} is running in explicit sample mode for ${channel.replace("_", " ")} delivery.`
+        : `${provider.providerLabel} is available for ${channel.replace("_", " ")} delivery.`,
     providerKey: provider.providerKey,
     providerLabel: provider.providerLabel,
     providerMode: mode,
@@ -162,7 +165,7 @@ function createDispatchTouchpoint(
       executable: true,
       enabled: true,
       delivered: true,
-      statusLabel: "Visible in the in-app inbox",
+      statusLabel: "Visible in the in-app inbox as the durable fallback lane.",
       receipt: {
         receiptId: input.existingReceipt?.receiptId ?? `receipt_${input.resourceId}_in_app`,
         status: "delivered",
@@ -219,10 +222,12 @@ function createDispatchTouchpoint(
     ...touchpoint,
     enabled: true,
     delivered: preferredStatus === "delivered",
-    statusLabel:
-      preferredStatus === "failed"
-        ? `${touchpoint.providerLabel ?? providerKey} is temporarily unavailable.`
-        : `${touchpoint.providerLabel ?? providerKey} delivered through ${touchpoint.channel.replace("_", " ")}.`,
+      statusLabel:
+        preferredStatus === "failed"
+          ? `${touchpoint.providerLabel ?? providerKey} sample delivery is temporarily unavailable.`
+          : touchpoint.providerMode === "sample"
+            ? `${touchpoint.providerLabel ?? providerKey} sample delivery completed through ${touchpoint.channel.replace("_", " ")}.`
+            : `${touchpoint.providerLabel ?? providerKey} delivered through ${touchpoint.channel.replace("_", " ")}.`,
     templateKey,
     template: {
       templateKey,
@@ -238,7 +243,7 @@ function createDispatchTouchpoint(
       ...(preferredStatus === "failed" ? { failedAt: input.createdAt ?? attemptedAt } : {}),
       ...(preferredStatus === "failed" ? { failureCode: "PROVIDER_UNAVAILABLE" } : {}),
       ...(preferredStatus === "failed"
-        ? { failureMessage: `${touchpoint.providerLabel ?? providerKey} is unavailable.` }
+        ? { failureMessage: `${touchpoint.providerLabel ?? providerKey} sample delivery is unavailable.` }
         : {}),
       retryCount: input.existingReceipt?.retryCount ?? 0,
       retryable: preferredStatus === "failed",

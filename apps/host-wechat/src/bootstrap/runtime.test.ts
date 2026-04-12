@@ -144,7 +144,13 @@ test("host runtime creates page controllers on a shared kernel", () => {
     "identityMerge",
     "overview",
     "items",
+    "feed",
+    "feedback",
+    "messages",
+    "mediaTools",
+    "membership",
     "settings",
+    "account",
   ];
 
   assert.equal(runtime.kernel, kernel);
@@ -158,15 +164,33 @@ test("page entries delegate to page controllers", async () => {
   const loginEntry = createHostWechatPageEntry(runtime, "login");
   const overviewEntry = createHostWechatPageEntry(runtime, "overview");
   const itemsEntry = createHostWechatPageEntry(runtime, "items");
+  const feedEntry = createHostWechatPageEntry(runtime, "feed");
+  const feedbackEntry = createHostWechatPageEntry(runtime, "feedback");
+  const messagesEntry = createHostWechatPageEntry(runtime, "messages");
+  const mediaToolsEntry = createHostWechatPageEntry(runtime, "mediaTools");
+  const membershipEntry = createHostWechatPageEntry(runtime, "membership");
   const settingsEntry = createHostWechatPageEntry(runtime, "settings");
+  const accountEntry = createHostWechatPageEntry(runtime, "account");
 
   const loginResult = await loginEntry.onTapLogin();
   const overviewResult = await overviewEntry.onShow();
   const itemsResult = await itemsEntry.onShow();
+  const feedResult = await feedEntry.onTapSettings();
+  const feedbackResult = await feedbackEntry.onTapSettings();
+  const messagesResult = await messagesEntry.onTapSettings();
+  const mediaToolsResult = await mediaToolsEntry.onTapSettings();
+  const membershipResult = await membershipEntry.onTapCatalog();
   const logoutResult = await settingsEntry.onTapLogout();
+  const accountResult = await accountEntry.onTapSettings();
 
   assert.deepEqual(loginResult, { ok: true, value: undefined });
   assert.equal((overviewResult as { ok?: boolean } | undefined)?.ok, true);
   assert.equal((itemsResult as { ok?: boolean } | undefined)?.ok, true);
+  assert.equal((feedResult as { ok?: boolean } | undefined)?.ok, true);
+  assert.equal((feedbackResult as { ok?: boolean } | undefined)?.ok, true);
+  assert.equal((messagesResult as { ok?: boolean } | undefined)?.ok, true);
+  assert.equal((mediaToolsResult as { ok?: boolean } | undefined)?.ok, true);
+  assert.equal((membershipResult as { ok?: boolean } | undefined)?.ok, true);
   assert.deepEqual(logoutResult, { ok: true, value: undefined });
+  assert.equal((accountResult as { ok?: boolean } | undefined)?.ok, true);
 });

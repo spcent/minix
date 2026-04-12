@@ -62,12 +62,24 @@ importers:
       '@minix/feature-feed':
         specifier: workspace:*
         version: link:../../packages/features/feed
+      '@minix/feature-feedback':
+        specifier: workspace:*
+        version: link:../../packages/features/feedback
       '@minix/feature-items':
         specifier: workspace:*
         version: link:../../packages/features/items
+      '@minix/feature-media-tools':
+        specifier: workspace:*
+        version: link:../../packages/features/media-tools
+      '@minix/feature-messages':
+        specifier: workspace:*
+        version: link:../../packages/features/messages
       '@minix/feature-settings':
         specifier: workspace:*
         version: link:../../packages/features/settings
+      '@minix/feature-subscription':
+        specifier: workspace:*
+        version: link:../../packages/features/subscription
       '@minix/platform-h5':
         specifier: workspace:*
         version: link:../../packages/platform-h5
@@ -80,15 +92,33 @@ importers:
       '@minix/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@minix/feature-account':
+        specifier: workspace:*
+        version: link:../../packages/features/account
       '@minix/feature-auth':
         specifier: workspace:*
         version: link:../../packages/features/auth
+      '@minix/feature-feed':
+        specifier: workspace:*
+        version: link:../../packages/features/feed
+      '@minix/feature-feedback':
+        specifier: workspace:*
+        version: link:../../packages/features/feedback
       '@minix/feature-items':
         specifier: workspace:*
         version: link:../../packages/features/items
+      '@minix/feature-media-tools':
+        specifier: workspace:*
+        version: link:../../packages/features/media-tools
+      '@minix/feature-messages':
+        specifier: workspace:*
+        version: link:../../packages/features/messages
       '@minix/feature-settings':
         specifier: workspace:*
         version: link:../../packages/features/settings
+      '@minix/feature-subscription':
+        specifier: workspace:*
+        version: link:../../packages/features/subscription
       '@minix/platform-wechat':
         specifier: workspace:*
         version: link:../../packages/platform-wechat
@@ -218,7 +248,34 @@ importers:
         specifier: workspace:*
         version: link:../../core
 
+  packages/features/feedback:
+    dependencies:
+      '@minix/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@minix/core':
+        specifier: workspace:*
+        version: link:../../core
+
   packages/features/items:
+    dependencies:
+      '@minix/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@minix/core':
+        specifier: workspace:*
+        version: link:../../core
+
+  packages/features/media-tools:
+    dependencies:
+      '@minix/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@minix/core':
+        specifier: workspace:*
+        version: link:../../core
+
+  packages/features/messages:
     dependencies:
       '@minix/contracts':
         specifier: workspace:*

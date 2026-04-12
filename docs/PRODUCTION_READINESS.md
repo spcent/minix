@@ -56,6 +56,8 @@ The repo ships safe templates and sample-compatible defaults only. Real ids, sec
 
 - Keep real Cloudflare ids in the ignored [`apps/api/wrangler.private.jsonc`](/Users/bingrong.yan/projects/birdor/minix/apps/api/wrangler.private.jsonc), not the committed template.
 - Payment production-mode callback verification is implemented, but operators must provide the real `MINIX_PAYMENT_WEBHOOK_SECRET` and gateway routing outside the repo.
+- Official host commerce entry is now exposed at [`apps/host-h5:/membership`](/Users/bingrong.yan/projects/birdor/minix/apps/host-h5/src/manifest/page-definitions.ts) and [`apps/host-wechat:/pages/membership/index`](/Users/bingrong.yan/projects/birdor/minix/apps/host-wechat/src/manifest/page-definitions.ts). These surfaces read normalized order, reconciliation, and after-sales state from the backend; if operators do not switch to real gateway credentials, transaction copy remains sample-mode by design.
+- Official host inbox entry is now exposed at [`apps/host-h5:/inbox`](/Users/bingrong.yan/projects/birdor/minix/apps/host-h5/src/manifest/page-definitions.ts) and [`apps/host-wechat:/pages/messages/index`](/Users/bingrong.yan/projects/birdor/minix/apps/host-wechat/src/manifest/page-definitions.ts). The current delivery contract is explicitly polling-first; external `subscription_message`, `sms`, `email`, and `push` touchpoints may remain in `sample` mode unless operators wire real providers outside tracked source.
 - OAuth state, callback validation, provider binding, revoke, and merge guidance are implemented, but real provider client ids, client secrets, and callback registration live outside the repo.
 - Phone verification, password reset, and account-security challenges are modeled end to end; local sample mode exposes debug codes and does not ship a real SMS provider credential.
 
@@ -128,6 +130,12 @@ Do not ship when any of the following are true:
 - callback verification or auth throttling bindings are missing for the intended deployment mode
 - WeChat allowlists, app ids, or callback domains are still placeholder values
 - a deferred issue silently blocks a documented release-critical flow
+
+Official auth entry posture:
+
+- official H5 hosts treat Home sign-in as the built-in guest path unless a host injects another credential provider deliberately
+- official WeChat hosts treat Home sign-in as the `wx.login` to `wechat_code` exchange path
+- phone verification and OAuth must keep their sample versus production backing explicit in user-visible copy and release notes
 
 ## Accepted Deferred Issues
 

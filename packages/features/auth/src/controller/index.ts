@@ -27,7 +27,13 @@ import type {
   LoginMethod,
 } from "@minix/contracts";
 
-import { createInitialAuthPageState, type AuthCredentialState, type AuthRedirectTarget } from "../model";
+import {
+  createAuthLoginMethodDescriptors,
+  createDefaultLoginMethod,
+  createInitialAuthPageState,
+  type AuthCredentialState,
+  type AuthRedirectTarget,
+} from "../model";
 
 export interface CreateAuthControllerOptions {
   kernel: AppKernel;
@@ -71,10 +77,6 @@ function formatForceReauthNotice(label?: string | null): string {
 
 function createAnonymousId(): string {
   return `guest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function createDefaultMethod(_platform: AppKernel["env"]["platform"] | undefined): LoginMethod {
-  return "wechat_code";
 }
 
 function createMethodValidation(
@@ -203,12 +205,14 @@ export function createAuthController(options: CreateAuthControllerOptions) {
     settingsRouteId,
     reportError,
   } = options;
-  const initialMethod = createDefaultMethod(kernel.env?.platform);
+  const baseState = createInitialAuthPageState(kernel.env?.platform);
+  const initialMethod = createDefaultLoginMethod(kernel.env?.platform);
   const store = createStore({
-    ...createInitialAuthPageState(),
+    ...baseState,
     selectedLoginMethod: initialMethod,
+    loginMethodDescriptors: createAuthLoginMethodDescriptors(kernel.env?.platform),
     credentials: {
-      ...createInitialAuthPageState().credentials,
+      ...baseState.credentials,
       ...(initialMethod === "guest" ? { anonymousId: createAnonymousId() } : {}),
     },
   });
@@ -415,7 +419,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
     const redirectTarget = createWorkflowRedirectTarget(current);
     const result = await kernel.auth.exchangeToken({
       credential,
-      platform: kernel.env.platform,
+      platform: kernel.env?.platform ?? "h5",
       ...(redirectTarget ? { redirectTarget } : {}),
     });
     if (!result.ok) {
@@ -519,6 +523,9 @@ export function createAuthController(options: CreateAuthControllerOptions) {
           expiresAt: result.value.expiresAt,
           retryAfterSeconds: result.value.retryAfterSeconds,
           debugCode: result.value.delivery.debugCode ?? null,
+          ...(result.value.delivery.providerMode ? { providerMode: result.value.delivery.providerMode } : {}),
+          ...(result.value.delivery.providerLabel ? { providerLabel: result.value.delivery.providerLabel } : {}),
+          ...(result.value.delivery.message ? { message: result.value.delivery.message } : {}),
         },
         riskDecision: result.value.riskDecision ?? null,
         deviceIdentity: result.value.deviceIdentity ?? null,
@@ -684,7 +691,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         state: credentials.oauthState.trim(),
         providerToken: credentials.providerToken.trim(),
         providerUserId: credentials.providerUserId.trim(),
-        platform: kernel.env.platform,
+        platform: kernel.env?.platform ?? "h5",
         ...(createWorkflowRedirectTarget(store.getState()) ? { redirectTarget: createWorkflowRedirectTarget(store.getState()) } : {}),
       });
       if (!result.ok) {

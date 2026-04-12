@@ -144,7 +144,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
     feature: authFeatureManifest,
     routeId: APP_ROUTE_IDS.login,
     routePath: "/pages/login/index",
-    pageData: createInitialAuthPageState(),
+    pageData: createInitialAuthPageState("wechat"),
     controller: {
       successRouteId: APP_ROUTE_IDS.catalog,
       overviewRouteId: APP_ROUTE_IDS.catalog,

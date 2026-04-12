@@ -168,6 +168,30 @@ function buildHostWechatIndexWxml(entry: HostWechatPageShellConfig): string {
   </view>
 
   <view class="card landing-card">
+    <view class="section-label">Official auth entry</view>
+    <view class="title">{{loginMethodDescriptors[0] ? loginMethodDescriptors[0].label : 'Home sign-in'}}</view>
+    <view class="subtitle">{{loginMethodDescriptors[0] ? loginMethodDescriptors[0].summary : 'Home keeps one explicit auth entry per host.'}}</view>
+    <view class="subtitle" wx:if="{{redirectTarget}}">
+      Preserved return target: {{redirectLabel || redirectRouteId || redirectPath || redirectTarget}}{{redirectSource ? ' from ' + redirectSource : ''}}.
+    </view>
+    <view class="subtitle" wx:if="{{redirectReason}}">
+      Return reason: {{redirectReason === 'force-relogin' ? 'Force re-login' : (redirectReason === 'session-expired' ? 'Session expired' : 'Authentication required')}}.
+    </view>
+  </view>
+
+  <view class="card landing-card">
+    <view class="section-label">Provider backing</view>
+    <view wx:for="{{loginMethodDescriptors}}" wx:key="method" class="item">
+      <view class="item-meta">
+        <view class="item-badge">{{item.providerMode === 'production' ? 'Production-backed' : (item.providerMode === 'sample' ? 'Sample-backed' : 'Built-in')}}</view>
+      </view>
+      <view class="item-title">{{item.label}}</view>
+      <view class="subtitle">{{item.defaultOn && item.defaultOn.length > 0 ? (item.defaultOn[0] === 'wechat' ? 'Primary on WeChat' : 'Primary on H5') : 'Manual path'}}</view>
+      <view class="reason-text">{{item.summary}}</view>
+    </view>
+  </view>
+
+  <view class="card landing-card">
     <view class="section-label">Built for short study windows</view>
     <view class="summary-row">
       <view class="summary-stat">
@@ -402,6 +426,12 @@ function buildHostWechatIndexWxml(entry: HostWechatPageShellConfig): string {
   <view class="card profile-actions">
     <view class="section-title">Session Control</view>
     <view class="subtitle">Leave this page quiet and utility-focused. Use it for profile review, then move back into overview or today's plan when you are done.</view>
+    <button class="button" bindtap="onTapAccount">Open Account Center</button>
+    <button class="button" bindtap="onTapMembership">Open Commerce Center</button>
+    <button class="button" bindtap="onTapDiscover">Open Discover</button>
+    <button class="button" bindtap="onTapInbox">Open Inbox</button>
+    <button class="button" bindtap="onTapFeedback">Open Feedback</button>
+    <button class="button" bindtap="onTapMediaTools">Open Media Tools</button>
     <button class="button" bindtap="onTapOverview">Back to Overview</button>
     <button class="button" bindtap="onTapPlan">Back to Today's Plan</button>
     <button class="button" type="warn" bindtap="onTapLogout">Sign Out</button>
@@ -416,6 +446,232 @@ function buildHostWechatIndexWxml(entry: HostWechatPageShellConfig): string {
       <view class="nav-chip nav-chip-link" bindtap="onTapPlan">Today's Plan</view>
       <view class="nav-chip nav-chip-active">Preferences</view>
     </view>
+  </view>
+</view>
+`;
+    case "account-basic":
+      return `<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Account Center</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{subtitle || 'Profile, bindings, and recovery-safe identity operations stay visible here.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="title">{{nickname || 'Signed-in user'}}</view>
+    <view class="subtitle">{{userId ? ('User ID: ' + userId) : 'Waiting for account context...'}}</view>
+    <view class="subtitle" wx:if="{{authStatusLabel}}">{{authStatusLabel}}</view>
+    <view class="subtitle" wx:if="{{sessionLabel}}">{{sessionLabel}}</view>
+    <view wx:if="{{copyFeedback}}" class="subtitle">{{copyFeedback}}</view>
+    <view wx:if="{{transitionFeedback}}" class="subtitle">{{transitionFeedback}}</view>
+    <view class="status-chip">{{authenticated ? 'Authenticated' : 'Session unavailable'}}</view>
+  </view>
+
+  <view class="card" wx:if="{{stats && stats.length > 0}}">
+    <view class="section-title">Summary</view>
+    <view wx:for="{{stats}}" wx:key="key" class="item">
+      <view class="item-title">{{item.label}}</view>
+      <view class="subtitle">{{item.value}}</view>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{sections && sections.length > 0}}">
+    <view wx:for="{{sections}}" wx:for-item="section" wx:key="key">
+      <view class="section-title" wx:if="{{section.title}}">{{section.title}}</view>
+      <view wx:for="{{section.items}}" wx:key="key" class="item">
+        <view class="item-title">{{item.label}}</view>
+        <view class="subtitle">{{item.value}}</view>
+        <view wx:if="{{item.hint}}" class="subtitle">{{item.hint}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Actions</view>
+    <button class="button" bindtap="onTapCopyUserId">Copy User ID</button>
+    <button class="button" bindtap="onTapIdentityUpgrade">Open Guest Upgrade</button>
+    <button class="button" bindtap="onTapPhoneBinding">Open Phone Binding</button>
+    <button class="button" bindtap="onTapIdentityMerge">Open Merge Flow</button>
+    <button class="button" bindtap="onTapSettings">Open Preferences</button>
+    <button class="button" bindtap="onTapOverview">Back to Overview</button>
+  </view>
+</view>
+`;
+    case "feed-basic":
+      return `<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Discover</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{subtitle || 'Cross-domain discovery now has a bounded host entry on WeChat.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Search State</view>
+    <view class="subtitle">{{query && query.keyword ? ('Current keyword: ' + query.keyword) : 'No keyword applied yet. Pull down to refresh or use the shared discover defaults.'}}</view>
+    <view class="subtitle" wx:if="{{searchResults && searchResults.featuredReason}}">{{searchResults.featuredReason}}</view>
+    <view wx:if="{{errorText}}" class="subtitle">{{errorText}}</view>
+    <view class="status-chip">{{status && status.loadState ? status.loadState : 'idle'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Result Preview</view>
+    <view class="subtitle" wx:if="{{loading}}">Loading discovery results...</view>
+    <view class="subtitle" wx:if="{{!loading && items.length === 0}}">{{emptyText || 'No results available yet.'}}</view>
+    <view wx:for="{{items}}" wx:key="id" class="item">
+      <view class="item-title">{{item.title}}</view>
+      <view wx:if="{{item.subtitle}}" class="subtitle">{{item.subtitle}}</view>
+      <view wx:if="{{item.recommendedReason}}" class="subtitle">{{item.recommendedReason}}</view>
+      <button class="button" size="mini" bindtap="onTapOpenItem" data-value="{{item.id}}">Open Item</button>
+    </view>
+    <button wx:if="{{hasMore}}" class="button" bindtap="onTapLoadMore">Load More</button>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Navigation</view>
+    <button class="button" bindtap="onTapSettings">Open Preferences</button>
+  </view>
+</view>
+`;
+    case "feedback-basic":
+      return `<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Feedback</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{subtitle || 'Feedback, FAQ, and support-loop state are now reachable from the WeChat host.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Latest Ticket</view>
+    <view class="subtitle" wx:if="{{!latestTicket}}">No recent feedback ticket is loaded yet.</view>
+    <view wx:if="{{latestTicket}}" class="item">
+      <view class="item-title">{{latestTicket.title}}</view>
+      <view class="subtitle">{{latestTicket.description}}</view>
+      <view class="subtitle" wx:if="{{latestStatus}}">{{latestStatus.label}} · {{latestStatus.progressLabel}}</view>
+      <view class="subtitle" wx:if="{{serviceLoopSummary}}">{{serviceLoopSummary}}</view>
+    </view>
+    <view wx:if="{{errorText}}" class="subtitle">{{errorText}}</view>
+    <view class="status-chip">{{submitState && submitState.phase ? submitState.phase : 'idle'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Support Guidance</view>
+    <view class="subtitle" wx:if="{{supportEntry}}">{{supportEntry.label}} · {{supportEntry.summary}}</view>
+    <view class="subtitle" wx:if="{{!supportEntry && serviceHint}}">{{serviceHint}}</view>
+    <view wx:if="{{recommendedFaqEntries && recommendedFaqEntries.length > 0}}" class="item">
+      <view class="item-title">{{recommendedFaqEntries[0].title}}</view>
+      <view class="subtitle">{{recommendedFaqEntries[0].summary}}</view>
+    </view>
+    <button class="button" bindtap="onTapRefreshLatestStatus">Refresh Latest Status</button>
+    <button class="button" wx:if="{{supportEntry}}" bindtap="onTapSupportEntry">Open Support Entry</button>
+    <button class="button" wx:if="{{recommendedFaqEntries && recommendedFaqEntries.length > 0}}" bindtap="onTapFaq" data-value="{{recommendedFaqEntries[0].entryId}}">Open Top FAQ</button>
+    <button class="button" bindtap="onTapSettings">Open Preferences</button>
+  </view>
+</view>
+`;
+    case "messages-basic":
+      return `<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Inbox</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{subtitle || 'Notifications and message threads now have a bounded WeChat host entry.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Unread State</view>
+    <view class="subtitle">Total unread: {{unreadBadge.totalUnread}}</view>
+    <view class="subtitle">Notifications: {{unreadBadge.notificationUnread}} · Threads: {{unreadBadge.threadUnread}}</view>
+    <view class="status-chip">{{status && status.loadState ? status.loadState : 'idle'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Notification Preview</view>
+    <view class="subtitle" wx:if="{{loading}}">Loading inbox data...</view>
+    <view class="subtitle" wx:if="{{!loading && items.length === 0}}">{{emptyText || 'No inbox activity is available yet.'}}</view>
+    <view class="subtitle" wx:if="{{messageThread && messageThread.syncState}}">{{messageThread.syncState.modeLabel || messageThread.syncState.mode}} · {{messageThread.syncState.statusLabel || ('Poll every ' + messageThread.syncState.recommendedPollIntervalMs + 'ms')}}</view>
+    <view class="subtitle" wx:if="{{messageThread && messageThread.syncState && messageThread.syncState.providerSummary}}">{{messageThread.syncState.providerSummary}}</view>
+    <view wx:for="{{items}}" wx:key="id" class="item">
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle">{{item.summary}}</view>
+      <view wx:if="{{item.thread}}" class="subtitle">{{item.thread.title}}</view>
+    </view>
+    <button class="button" bindtap="onTapMarkVisibleRead">Mark Visible Read</button>
+    <button wx:if="{{hasMore}}" class="button" bindtap="onTapLoadMore">Load More</button>
+    <button class="button" bindtap="onTapSettings">Open Preferences</button>
+  </view>
+</view>
+`;
+    case "media-tools-basic":
+      return `<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Media Tools</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{subtitle || 'Shared upload and share capability proof now has a WeChat host entry.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Capability State</view>
+    <view class="subtitle">Upload: {{uploadCapabilityStatus ? (uploadCapabilityStatus.mode + ' · ' + (uploadCapabilityStatus.detail || 'available')) : 'unknown'}}</view>
+    <view class="subtitle">Share: {{shareCapabilityStatus ? (shareCapabilityStatus.mode + ' · ' + (shareCapabilityStatus.detail || 'available')) : 'unknown'}}</view>
+    <view class="subtitle" wx:if="{{clipboardCapabilityStatus}}">Clipboard: {{clipboardCapabilityStatus.mode}} · {{clipboardCapabilityStatus.detail || 'available'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Latest Result</view>
+    <view class="subtitle">Upload stage: {{uploadTask.stage}}</view>
+    <view class="subtitle" wx:if="{{uploadTask.reviewMessage}}">{{uploadTask.reviewMessage}}</view>
+    <view class="subtitle" wx:if="{{lastResult}}">{{lastResult.message}}</view>
+    <view class="subtitle" wx:if="{{lastResult && lastResult.detail}}">{{lastResult.detail}}</view>
+    <view class="status-chip">{{lastResult ? lastResult.status : 'idle'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Actions</view>
+    <button class="button" bindtap="onTapUpload">{{primaryActionLabel || 'Select Upload Asset'}}</button>
+    <button class="button" bindtap="onTapRetryPrimary">Retry Upload Flow</button>
+    <button class="button" bindtap="onTapShare">{{secondaryActionLabel || 'Dispatch Share Payload'}}</button>
+    <button class="button" bindtap="onTapLoadShareReport">Load Attribution Report</button>
+    <button class="button" bindtap="onTapClearResult">Clear Result</button>
+    <button class="button" bindtap="onTapSettings">Open Preferences</button>
+  </view>
+</view>
+`;
+    case "membership-basic":
+      return `<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Commerce Center</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{overview ? overview.subheadline : 'Membership unlock, order recovery, reconciliation, and after-sales stay on one shared commerce surface here.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Payment posture</view>
+    <view class="subtitle">This host reads normalized order state from the shared backend payment domain. Sample and production gateway behavior should remain explicit in the returned transaction copy.</view>
+    <view class="subtitle" wx:if="{{lockedMessage}}">{{lockedMessage}}</view>
+    <view class="subtitle" wx:if="{{entitlementSummary}}">{{entitlementSummary}}</view>
+    <view class="status-chip">{{paymentResult ? paymentResult.status : 'idle'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Membership plans</view>
+    <view class="subtitle">{{unlockOutcomeLabel || 'Choose a plan to unlock the shared commerce and entitlement path.'}}</view>
+    <button class="button" bindtap="onTapPurchaseMembership" data-value="monthly">Purchase Monthly</button>
+    <button class="button" bindtap="onTapPurchaseMembership" data-value="quarterly">Purchase Quarterly</button>
+    <button class="button" bindtap="onTapPurchaseMembership" data-value="annual">Purchase Annual</button>
+    <button wx:if="{{purchaseSuccessMessage}}" class="button" bindtap="onTapContinueAfterPurchase">Continue After Purchase</button>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Order operations</view>
+    <view class="subtitle" wx:if="{{transactionMessage}}">{{transactionMessage}}</view>
+    <view class="subtitle" wx:if="{{paymentExecutionDetail}}">{{paymentExecutionDetail}}</view>
+    <button class="button" bindtap="onTapRefreshTransaction">Refresh Transaction</button>
+    <button class="button" bindtap="onTapReconcileOrder">Reconcile Order</button>
+    <button wx:if="{{canCancelOrder}}" class="button" bindtap="onTapCancelOrder">Cancel Order</button>
+    <button wx:if="{{canRefundOrder}}" class="button" bindtap="onTapRefundOrder">Refund Order</button>
+    <button wx:if="{{canCancelSubscription}}" class="button" bindtap="onTapCancelSubscription">Cancel Subscription</button>
+    <button wx:if="{{canRenewSubscription}}" class="button" bindtap="onTapRenewSubscription">Renew Subscription</button>
+    <button wx:if="{{afterSalesCases && afterSalesCases.length > 0}}" class="button" bindtap="onTapAfterSalesDetail">Open After-Sales Detail</button>
+    <button class="button" bindtap="onTapCatalog">Back to Discover</button>
   </view>
 </view>
 `;

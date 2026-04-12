@@ -60,6 +60,8 @@ Request:
 
 Supported login methods are `wechat_code`, `guest`, `phone_code`, `password`, and `oauth`.
 
+- official H5 hosts use the built-in `guest` path as the primary Home sign-in action unless a host injects another credential provider explicitly
+- official WeChat hosts use `wx.login` and submit the returned platform code through `wechat_code`
 - `phone_code` must use a dynamic challenge issued by `POST /auth/verification-code/request`; static demo codes are no longer part of the default login path.
 - `password` must match a stored hashed credential configured through `POST /auth/password/register` or `POST /auth/password/reset`.
 - `oauth` must include a provider token, provider user id, and a valid state issued by `POST /auth/oauth/authorize`, or complete through `POST /auth/oauth/callback`.
@@ -90,6 +92,7 @@ Response semantics:
 
 - returns `verificationId`, masked phone number, expiry timestamp, retry interval, max attempts, and delivery metadata
 - `account_security` challenges are attached to the current signed-in account when an access token is present so high-risk account operations can verify the existing owner
+- `delivery.providerMode = "sample" | "production"` makes the current SMS backing explicit to the host
 - local/sample deployments use the built-in simulated SMS provider and may expose `delivery.debugCode` for automated tests
 - consuming login and account flows must submit the returned code before it expires or before the attempt limit is exhausted
 - responses may also carry `riskDecision`, `deviceIdentity`, `rateLimitState`, and recent `securityAuditEvents`
@@ -112,7 +115,8 @@ Resets a phone-based password credential after a valid `password_reset` verifica
 Creates a short-lived OAuth state record and returns a provider authorization URL.
 
 - accepts `purpose = login | bind`; `bind` states are bound to the current authenticated session when an access token is present
-- returns the normalized provider state, expiry, and authorization URL that the client must preserve through callback or bind completion
+- returns the normalized provider state, provider label, provider mode, expiry, and authorization URL that the client must preserve through callback or bind completion
+- the repo keeps `providerMode = "sample"` explicit until operator-owned production callback domains and provider credentials are configured
 
 ### `POST /auth/oauth/callback`
 
@@ -324,6 +328,9 @@ Returns the latest attribution report for a prepared share, including:
 
 Returns the durable conversation list with unread sorting, type filtering, and polling sync metadata.
 
+- `messageThread.syncState.mode` is currently fixed to `polling`
+- `modeLabel`, `statusLabel`, and `providerSummary` make the polling-first delivery posture explicit for host UX instead of implying a real-time transport
+
 ### `GET /messages/thread`
 
 Returns a conversation-capable message thread including:
@@ -350,6 +357,7 @@ Appends an outbound message into a bounded sample conversation surface for priva
 
 - outbound delivery is polling-backed and progresses through `pending`, `delivered`, or `failed`
 - each external touchpoint returns provider metadata, template selection, delivery receipt state, retryability, and unsubscribe hints alongside the in-app fallback touchpoint
+- when `providerMode = "sample"`, status labels and failure messages stay explicit that delivery is sample-backed and finalized through polling sync rather than a live provider callback
 - user notification-channel preferences are enforced before dispatch; opted-out or disabled channels return `opted_out` or `skipped` receipts while in-app delivery remains available
 - the same centralized security audit and rate-limit baseline used by thread creation also applies here
 - group reply permissions are enforced by `replyPolicy`, `members`, and `groupState`
@@ -360,12 +368,14 @@ Appends an outbound message into a bounded sample conversation surface for priva
 Retries a failed outbound message and returns the refreshed thread detail plus unread aggregate.
 
 - failed external touchpoints move back to `sent`, increment their retry counters, and remain polling-backed until sync finalizes provider receipts
+- retry labels remain explicit that sample-backed receipts will not settle until the next polling cycle
 
 ### `GET /messages/thread/sync`
 
 Polling endpoint that accepts the last seen cursor and returns `changed = false` when the durable thread state is unchanged.
 
 - successful polling also advances queued or sent external delivery receipts to `delivered` in the sample provider model
+- there is no real-time transport in the current official-sample message surface; host UX should treat polling as the only synchronization contract
 
 ### `GET /settings`
 

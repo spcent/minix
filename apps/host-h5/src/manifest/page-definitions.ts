@@ -8,6 +8,7 @@ import { createDefaultItemsPageModel, itemsFeatureManifest } from "@minix/featur
 import { createDefaultMediaToolsState, mediaToolsFeatureManifest } from "@minix/feature-media-tools";
 import { createDefaultMessagesState, messagesFeatureManifest } from "@minix/feature-messages";
 import { settingsFeatureManifest } from "@minix/feature-settings";
+import { createInitialSubscriptionState, subscriptionFeatureManifest } from "@minix/feature-subscription";
 
 function createMinuteEnglishSettingsPageModel(): SettingsPageModel {
   return {
@@ -76,7 +77,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     feature: authFeatureManifest,
     routeId: APP_ROUTE_IDS.login,
     routePath: "/",
-    pageData: createInitialAuthPageState(),
+    pageData: createInitialAuthPageState("h5"),
     controller: {
       successRouteId: APP_ROUTE_IDS.login,
       stayOnSuccess: true,
@@ -91,7 +92,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     routeId: APP_ROUTE_IDS.identityUpgrade,
     routePath: "/auth/identity/upgrade",
     pageData: {
-      ...createInitialAuthPageState(),
+      ...createInitialAuthPageState("h5"),
       selectedLoginMethod: "phone_code",
       noticeMessage: "Upgrade a guest session with phone verification or password credentials.",
     },
@@ -118,7 +119,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     routeId: APP_ROUTE_IDS.identityBindPhone,
     routePath: "/auth/identity/bind-phone",
     pageData: {
-      ...createInitialAuthPageState(),
+      ...createInitialAuthPageState("h5"),
       selectedLoginMethod: "phone_code",
       noticeMessage: "Bind a verified phone to the current WeChat account and resolve merge conflicts before completion.",
     },
@@ -145,7 +146,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     routeId: APP_ROUTE_IDS.identityMerge,
     routePath: "/auth/identity/merge",
     pageData: {
-      ...createInitialAuthPageState(),
+      ...createInitialAuthPageState("h5"),
       noticeMessage: "Review account merge impact, confirm explicitly, or cancel without changing account data.",
     },
     controller: {
@@ -345,6 +346,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     controller: {
       loginRouteId: APP_ROUTE_IDS.login,
       overviewRouteId: APP_ROUTE_IDS.overview,
+      membershipRouteId: APP_ROUTE_IDS.membership,
       authRedirectSource: "preferences",
       showErrorToast: false,
     },
@@ -358,6 +360,26 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     featureConfig: {
       sectionDensity: "comfortable",
     },
+    renderMode: "custom",
+  },
+  membership: {
+    feature: subscriptionFeatureManifest,
+    routeId: APP_ROUTE_IDS.membership,
+    routePath: "/membership",
+    pageData: createInitialSubscriptionState({
+      title: "Commerce Center",
+    }),
+    controller: {
+      loginRouteId: APP_ROUTE_IDS.login,
+      catalogRouteId: APP_ROUTE_IDS.feed,
+    },
+    guardPolicy: {
+      name: "authenticated-membership",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    requiredCapabilities: [{ capability: "payment", required: false }],
     renderMode: "custom",
   },
   account: {

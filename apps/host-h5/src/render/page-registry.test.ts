@@ -12,6 +12,7 @@ test("resolveHostH5PageKey resolves known routes and falls back to login", () =>
   assert.equal(resolveHostH5PageKey("/plan"), "items");
   assert.equal(resolveHostH5PageKey("/discover"), "feed");
   assert.equal(resolveHostH5PageKey("/feedback"), "feedback");
+  assert.equal(resolveHostH5PageKey("/membership"), "membership");
   assert.equal(resolveHostH5PageKey("/preferences"), "settings");
   assert.equal(resolveHostH5PageKey("/account"), "account");
   assert.equal(resolveHostH5PageKey("/unknown"), "login");

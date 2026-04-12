@@ -262,7 +262,27 @@ test("auth controller shows a protected-page notice after redirecting back home"
   assert.equal(controller.store.getState().authenticated, false);
   assert.equal(controller.store.getState().noticeMessage, "Return to Home and sign in to open Overview.");
   assert.equal(controller.store.getState().redirectTarget, "overview");
+  assert.equal(controller.store.getState().selectedLoginMethod, "guest");
+  assert.equal(
+    controller.store.getState().loginMethodDescriptors.find((descriptor) => descriptor.defaultOn?.includes("h5"))?.method,
+    "guest",
+  );
+});
+
+test("auth controller keeps wechat code as the official entry method on wechat hosts", async () => {
+  const runtime = createKernelStub();
+  runtime.kernel.env.platform = "wechat";
+  const controller = createAuthController({
+    kernel: runtime.kernel,
+    successRouteId: "auth.login",
+    stayOnSuccess: true,
+  });
+
   assert.equal(controller.store.getState().selectedLoginMethod, "wechat_code");
+  assert.equal(
+    controller.store.getState().loginMethodDescriptors.find((descriptor) => descriptor.defaultOn?.includes("wechat"))?.method,
+    "wechat_code",
+  );
 });
 
 test("auth controller silently refreshes an expired session before routing to the protected destination", async () => {

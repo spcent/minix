@@ -195,6 +195,8 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
       maxAttempts: PHONE_VERIFICATION_MAX_ATTEMPTS,
       delivery: {
         provider: "simulated",
+        providerMode: "sample",
+        providerLabel: "Built-in simulated SMS",
         providerReference: `sms_${challenge.verificationId}`,
         maskedTarget,
         debugCode: challenge.code,
@@ -384,9 +386,12 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
     const response: AuthOAuthAuthorizeResponse = {
       provider: payload.provider,
       ...(payload.purpose ? { purpose: payload.purpose } : {}),
+      providerMode: "sample",
+      providerLabel: createOAuthProviderLabel(payload.provider),
       state,
       authorizationUrl: `https://auth.example.test/${providerKey}/authorize?state=${encodeURIComponent(state)}`,
       expiresAt,
+      message: "OAuth authorize URLs stay sample-backed until production provider credentials and callback domains are configured.",
     };
     return c.json(response);
   });

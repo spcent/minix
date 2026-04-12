@@ -6,7 +6,13 @@
     "pages/identityMerge/index",
     "pages/overview/index",
     "pages/items/index",
-    "pages/settings/index"
+    "pages/feed/index",
+    "pages/feedback/index",
+    "pages/messages/index",
+    "pages/mediaTools/index",
+    "pages/membership/index",
+    "pages/settings/index",
+    "pages/account/index"
   ],
   "window": {
     "navigationBarTitleText": "MiniX Host",

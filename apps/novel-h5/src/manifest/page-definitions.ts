@@ -155,7 +155,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
     feature: authFeatureManifest,
     routeId: APP_ROUTE_IDS.login,
     routePath: "/login",
-    pageData: createInitialAuthPageState(),
+    pageData: createInitialAuthPageState("h5"),
     controller: {
       successRouteId: APP_ROUTE_IDS.home,
       overviewRouteId: APP_ROUTE_IDS.home,

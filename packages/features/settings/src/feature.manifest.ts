@@ -14,6 +14,11 @@ export interface SettingsFeatureControllerOptions {
   itemsRouteId?: AppRouteId;
   overviewRouteId?: AppRouteId;
   accountRouteId?: AppRouteId;
+  membershipRouteId?: AppRouteId;
+  feedRouteId?: AppRouteId;
+  messagesRouteId?: AppRouteId;
+  feedbackRouteId?: AppRouteId;
+  mediaToolsRouteId?: AppRouteId;
   readerRouteId?: AppRouteId;
   authRedirectSource?: "preferences";
   requestPath?: string;
@@ -43,6 +48,11 @@ export const settingsFeatureManifest = defineFeatureManifest<
       ...(options.itemsRouteId ? { itemsRouteId: options.itemsRouteId } : {}),
       ...(options.overviewRouteId ? { overviewRouteId: options.overviewRouteId } : {}),
       ...(options.accountRouteId ? { accountRouteId: options.accountRouteId } : {}),
+      ...(options.membershipRouteId ? { membershipRouteId: options.membershipRouteId } : {}),
+      ...(options.feedRouteId ? { feedRouteId: options.feedRouteId } : {}),
+      ...(options.messagesRouteId ? { messagesRouteId: options.messagesRouteId } : {}),
+      ...(options.feedbackRouteId ? { feedbackRouteId: options.feedbackRouteId } : {}),
+      ...(options.mediaToolsRouteId ? { mediaToolsRouteId: options.mediaToolsRouteId } : {}),
       ...(options.readerRouteId ? { readerRouteId: options.readerRouteId } : {}),
       ...(options.authRedirectSource ? { authRedirectSource: options.authRedirectSource } : {}),
       ...(options.requestPath ? { requestPath: options.requestPath } : {}),
@@ -58,6 +68,12 @@ export const settingsFeatureManifest = defineFeatureManifest<
         onShow: "ensureAuthenticated",
         onTapOverview: "goToOverview",
         onTapPlan: "goToItems",
+        onTapAccount: "goToAccount",
+        onTapMembership: "goToMembership",
+        onTapDiscover: "goToFeed",
+        onTapInbox: "goToMessages",
+        onTapFeedback: "goToFeedback",
+        onTapMediaTools: "goToMediaTools",
         onTapReader: "goToReader",
         onTapApplyReader: "applyReaderSettingsAndReturn",
         onTapCycleReaderTheme: "cycleReaderTheme",
@@ -78,6 +94,12 @@ export const settingsFeatureManifest = defineFeatureManifest<
         onShow: "ensureAuthenticated",
         onTapOverview: "goToOverview",
         onTapPlan: "goToItems",
+        onTapAccount: "goToAccount",
+        onTapMembership: "goToMembership",
+        onTapDiscover: "goToFeed",
+        onTapInbox: "goToMessages",
+        onTapFeedback: "goToFeedback",
+        onTapMediaTools: "goToMediaTools",
         onTapReader: "goToReader",
         onTapApplyReader: "applyReaderSettingsAndReturn",
         onTapCycleReaderTheme: "cycleReaderTheme",

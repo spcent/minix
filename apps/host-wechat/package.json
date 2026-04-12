@@ -5,11 +5,17 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "dependencies": {
+    "@minix/feature-account": "workspace:*",
     "@minix/contracts": "workspace:*",
     "@minix/core": "workspace:*",
     "@minix/feature-auth": "workspace:*",
+    "@minix/feature-feedback": "workspace:*",
+    "@minix/feature-feed": "workspace:*",
     "@minix/feature-items": "workspace:*",
+    "@minix/feature-media-tools": "workspace:*",
+    "@minix/feature-messages": "workspace:*",
     "@minix/feature-settings": "workspace:*",
+    "@minix/feature-subscription": "workspace:*",
     "@minix/platform-wechat": "workspace:*"
   }
 }

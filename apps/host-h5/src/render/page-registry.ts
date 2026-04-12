@@ -5,6 +5,7 @@ import type { FeedState } from "@minix/feature-feed";
 import type { ItemsFilterValue, ItemsPageItem } from "@minix/feature-items";
 import type { MediaToolsState } from "@minix/feature-media-tools";
 import type { MessagesState } from "@minix/feature-messages";
+import type { SubscriptionState } from "@minix/feature-subscription";
 import type { SettingsPageModel, Store } from "@minix/core";
 
 import type { HostH5Runtime } from "../manifest/app.manifest";
@@ -1190,6 +1191,8 @@ function resolvePageLabel(pageKey: HostH5PageKey): string {
       return "Media Tools";
     case "messages":
       return "Inbox";
+    case "membership":
+      return "Commerce Center";
     case "settings":
       return "Preferences";
     case "account":
@@ -1200,7 +1203,7 @@ function resolvePageLabel(pageKey: HostH5PageKey): string {
 }
 
 function renderGlobalNavigation(pageKey: HostH5PageKey, authenticated: boolean): string {
-  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "feedback.form" | "media-tools.workspace" | "messages.index" | "settings.index" | "account.index"; label: string }> = [
+  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "feedback.form" | "media-tools.workspace" | "messages.index" | "membership.center" | "settings.index" | "account.index"; label: string }> = [
     { key: "login", routeId: "auth.login", label: "Home" },
     { key: "overview", routeId: "overview.index", label: "Overview" },
     { key: "items", routeId: "items.list", label: "Today's Plan" },
@@ -1208,6 +1211,7 @@ function renderGlobalNavigation(pageKey: HostH5PageKey, authenticated: boolean):
     { key: "feedback", routeId: "feedback.form", label: "Feedback" },
     { key: "mediaTools", routeId: "media-tools.workspace", label: "Media Tools" },
     { key: "messages", routeId: "messages.index", label: "Inbox" },
+    { key: "membership", routeId: "membership.center", label: "Commerce" },
     { key: "settings", routeId: "settings.index", label: "Preferences" },
     { key: "account", routeId: "account.index", label: "Account" },
   ];
@@ -1222,7 +1226,7 @@ function renderGlobalNavigation(pageKey: HostH5PageKey, authenticated: boolean):
 }
 
 function renderFooterLinks(pageKey: HostH5PageKey, authenticated: boolean): string {
-  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "feedback.form" | "media-tools.workspace" | "messages.index" | "settings.index" | "account.index"; label: string }> = [
+  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "feedback.form" | "media-tools.workspace" | "messages.index" | "membership.center" | "settings.index" | "account.index"; label: string }> = [
     { key: "login", routeId: "auth.login", label: "Home" },
     { key: "overview", routeId: "overview.index", label: "Overview" },
     { key: "items", routeId: "items.list", label: "Today's Plan" },
@@ -1230,6 +1234,7 @@ function renderFooterLinks(pageKey: HostH5PageKey, authenticated: boolean): stri
     { key: "feedback", routeId: "feedback.form", label: "Feedback" },
     { key: "mediaTools", routeId: "media-tools.workspace", label: "Media Tools" },
     { key: "messages", routeId: "messages.index", label: "Inbox" },
+    { key: "membership", routeId: "membership.center", label: "Commerce" },
     { key: "settings", routeId: "settings.index", label: "Preferences" },
     { key: "account", routeId: "account.index", label: "Account" },
   ];
@@ -1257,6 +1262,7 @@ function resolveShellTone(pageKey: HostH5PageKey): ShellTone {
     case "feedback":
     case "mediaTools":
     case "messages":
+    case "membership":
       return "dashboard";
     case "items":
       return "execution";
@@ -1894,6 +1900,21 @@ function renderIdentityWorkflowPage(
 function renderLoginPage({ root, runtime, sync }: HostH5PageRenderContext) {
   const state = runtime.pages.login.store.getState();
   const redirectDestinationLabel = state.redirectLabel ?? (state.redirectTarget ? buildGenericTitle(String(state.redirectTarget)) : null);
+  const primaryEntry =
+    state.loginMethodDescriptors.find((descriptor) => descriptor.defaultOn?.includes("h5")) ??
+    state.loginMethodDescriptors[0] ??
+    null;
+  const redirectReasonLabel =
+    state.redirectReason === "force-relogin"
+      ? "Force re-login"
+      : state.redirectReason === "session-expired"
+        ? "Session expired"
+        : state.redirectReason === "auth-required"
+          ? "Authentication required"
+          : null;
+  const redirectSummary = state.redirectTarget
+    ? `Preserved return target: ${redirectDestinationLabel ?? state.redirectRouteId ?? state.redirectPath ?? String(state.redirectTarget)}${state.redirectRouteId ? ` (route ${state.redirectRouteId})` : state.redirectPath ? ` (path ${state.redirectPath})` : ""}${state.redirectSource ? ` from ${state.redirectSource}` : ""}.`
+    : "No protected return target is waiting on this session.";
   const statusText = state.loading
     ? "Preparing your lesson..."
     : state.authStatus === "reauth_required"
@@ -2046,6 +2067,57 @@ function renderLoginPage({ root, runtime, sync }: HostH5PageRenderContext) {
               ? `<div class="me-empty-state">${escapeHtml(state.noticeMessage)}</div>`
               : ""
           }
+        </section>
+
+        <section class="me-grid me-grid-columns">
+          <section class="me-surface me-card me-home-note">
+            <p class="me-section-kicker">Official Auth Entry</p>
+            <h2 class="me-card-title">${escapeHtml(primaryEntry?.label ?? "Home sign-in")}</h2>
+            <p class="me-card-subtitle">
+              ${escapeHtml(primaryEntry?.summary ?? "Home keeps one explicit auth entry per host.")}
+            </p>
+            <p class="me-card-subtitle">
+              ${escapeHtml(redirectSummary)}
+            </p>
+            ${
+              redirectReasonLabel
+                ? `<p class="me-card-subtitle">${escapeHtml(`Return reason: ${redirectReasonLabel}.`)}</p>`
+                : ""
+            }
+          </section>
+
+          <section class="me-surface me-card me-home-note">
+            <p class="me-section-kicker">Provider Backing</p>
+            <h2 class="me-card-title">Login methods stay explicit about real versus sample paths</h2>
+            <div class="me-lesson-list">
+              ${state.loginMethodDescriptors
+                .map((descriptor) => {
+                  const modeLabel =
+                    descriptor.providerMode === "production"
+                      ? "Production-backed"
+                      : descriptor.providerMode === "sample"
+                        ? "Sample-backed"
+                        : "Built-in";
+                  const hostLabel =
+                    descriptor.defaultOn?.includes("h5")
+                      ? "Primary on H5"
+                      : descriptor.defaultOn?.includes("wechat")
+                        ? "Primary on WeChat"
+                        : "Manual path";
+                  return `
+                    <article class="me-lesson-card">
+                      <div class="me-lesson-meta">
+                        <span class="me-lesson-index">${escapeHtml(descriptor.label)}</span>
+                        <span class="me-lesson-badge">${escapeHtml(`${modeLabel} | ${hostLabel}`)}</span>
+                      </div>
+                      <p class="me-lesson-subtitle">${escapeHtml(descriptor.summary)}</p>
+                    </article>
+                  `;
+                })
+                .join("")}
+            </div>
+          </section>
+
         </section>
 
         <section class="me-grid me-grid-columns">
@@ -2746,6 +2818,7 @@ function renderSettingsPage({ root, runtime, sync }: HostH5PageRenderContext) {
               Sign out to end this session and return to Home without losing the saved study snapshot.
             </p>
             <div class="me-action-group">
+              ${renderButton("open-membership", "Open Commerce Center", "secondary")}
               ${renderButton("clear-learning-progress", "Clear Saved Progress", "ghost")}
               ${renderButton("logout", "Sign Out", "danger")}
             </div>
@@ -2756,6 +2829,9 @@ function renderSettingsPage({ root, runtime, sync }: HostH5PageRenderContext) {
   );
 
   bindRouteButtons(root, runtime, sync);
+  bindButton(root, "open-membership", () => {
+    void runtime.pages.settings.goToMembership().then(sync);
+  });
   bindButton(root, "clear-learning-progress", () => {
     void runtime.pages.items.clearProgress().then(sync);
   });
@@ -3387,6 +3463,17 @@ function renderMessagesPage({ root, runtime, sync }: HostH5PageRenderContext) {
                       <p class="me-settings-label">Latest message</p>
                       <p class="me-settings-value">${escapeHtml(selectedThread.lastMessagePreview ?? "No preview available.")}</p>
                     </div>
+                    ${
+                      selectedThread.syncState
+                        ? `
+                          <div class="me-settings-item">
+                            <p class="me-settings-label">${escapeHtml(selectedThread.syncState.modeLabel ?? selectedThread.syncState.mode)}</p>
+                            <p class="me-settings-value">${escapeHtml(selectedThread.syncState.statusLabel ?? `Recommended poll interval: ${selectedThread.syncState.recommendedPollIntervalMs}ms`)}</p>
+                            <p class="me-settings-value">${escapeHtml(selectedThread.syncState.providerSummary ?? "External touchpoints and in-app fallback share one normalized delivery state.")}</p>
+                          </div>
+                        `
+                        : ""
+                    }
                   </section>
                 `
                 : `<p class="me-empty">No reserved threads available.</p>`
@@ -3607,6 +3694,146 @@ function renderAccountPage({ root, runtime, sync }: HostH5PageRenderContext) {
   });
 }
 
+function renderMembershipPage({ root, runtime, sync }: HostH5PageRenderContext) {
+  const state = runtime.pages.membership.store.getState() as SubscriptionState;
+  const benefits = state.benefits.slice(0, 4);
+
+  renderApp(
+    root,
+    "Commerce Center",
+    runtime,
+    "membership",
+    `
+      <section class="me-screen">
+        <section class="me-surface me-hero">
+          <div class="me-hero-copy">
+            <p class="me-eyebrow">Commerce Center</p>
+            <h1 class="me-title">${escapeHtml(state.title)}</h1>
+            <p class="me-subtitle">${escapeHtml(state.overview?.subheadline ?? "Shared order, entitlement, reconciliation, and after-sales state now has an official host entry outside the novel-only membership flow.")}</p>
+            <div class="me-chip-row">
+              <span class="me-chip">${escapeHtml(state.paymentResult?.status ?? "idle")}</span>
+              <span class="me-chip me-chip-accent">${escapeHtml(state.reconciliation?.status ?? "not reconciled")}</span>
+              <span class="me-chip me-chip-warm">${escapeHtml(state.overview?.statusLabel ?? "Guest mode")}</span>
+            </div>
+          </div>
+          <aside class="me-panel">
+            <p class="me-panel-kicker">Provider posture</p>
+            <h2 class="me-panel-title">Backend payment mode stays explicit</h2>
+            <ul class="me-panel-list">
+              <li>Order state comes from the shared backend payment domain.</li>
+              <li>Sample and production gateway behavior should remain visible in transaction copy.</li>
+              <li>Host payment capability may be native, degraded, or unavailable by environment.</li>
+            </ul>
+          </aside>
+        </section>
+
+        <section class="me-grid me-grid-columns">
+          <section class="me-surface me-card me-summary-card">
+            <p class="me-section-kicker">Membership</p>
+            <h2 class="me-card-title">${escapeHtml(state.overview?.headline ?? "Membership unlock")}</h2>
+            <p class="me-card-subtitle">${escapeHtml(state.entitlementSummary ?? state.lockedMessage ?? "Choose a plan to unlock premium entitlements and persist order state through the shared commerce model.")}</p>
+            <div class="me-inline-metrics">
+              <div class="me-inline-metric">
+                <p class="me-inline-metric-value">${escapeHtml(String(state.orderList?.total ?? 0))}</p>
+                <p class="me-inline-metric-label">Orders</p>
+              </div>
+              <div class="me-inline-metric">
+                <p class="me-inline-metric-value">${escapeHtml(String(state.subscriptions.length))}</p>
+                <p class="me-inline-metric-label">Subscriptions</p>
+              </div>
+              <div class="me-inline-metric">
+                <p class="me-inline-metric-value">${escapeHtml(String(state.afterSalesCases.length))}</p>
+                <p class="me-inline-metric-label">After-sales cases</p>
+              </div>
+            </div>
+            ${state.transactionMessage ? `<p class="me-detail-note">${escapeHtml(state.transactionMessage)}</p>` : ""}
+            ${state.paymentExecutionDetail ? `<p class="me-detail-note">${escapeHtml(state.paymentExecutionDetail)}</p>` : ""}
+            <div class="me-action-group">
+              ${renderButton("membership-buy-monthly", "Purchase Monthly", "ghost")}
+              ${renderButton("membership-buy-quarterly", "Purchase Quarterly", "primary")}
+              ${renderButton("membership-buy-annual", "Purchase Annual", "ghost")}
+              ${state.purchaseSuccessMessage ? renderButton("membership-continue", "Continue After Purchase", "secondary") : ""}
+              ${renderButton("membership-refresh", "Refresh Transaction", "ghost")}
+              ${renderButton("membership-reconcile", "Reconcile Order", "ghost")}
+              ${state.canCancelOrder ? renderButton("membership-cancel-order", "Cancel Order", "danger") : ""}
+              ${state.canRefundOrder ? renderButton("membership-refund-order", "Refund Order", "danger") : ""}
+              ${state.canCancelSubscription ? renderButton("membership-cancel-subscription", "Cancel Subscription", "ghost") : ""}
+              ${state.canRenewSubscription ? renderButton("membership-renew-subscription", "Renew Subscription", "secondary") : ""}
+              ${state.afterSalesCases.length > 0 ? renderButton("membership-after-sales", "Open After-Sales Detail", "ghost") : ""}
+              ${renderButton("membership-back-discover", "Back to Discover", "secondary")}
+            </div>
+          </section>
+
+          <section class="me-surface me-card me-summary-card">
+            <p class="me-section-kicker">Commerce detail</p>
+            <h2 class="me-card-title">Orders, entitlements, and benefits</h2>
+            <ul class="me-detail-list">
+              <li>${escapeHtml(`Selected order: ${state.order?.orderId ?? "None"}`)}</li>
+              <li>${escapeHtml(`Payment result: ${state.paymentResult?.message ?? "No payment result loaded yet."}`)}</li>
+              <li>${escapeHtml(`Reconciliation: ${state.reconciliation?.message ?? "Run reconciliation after callback confirmation when needed."}`)}</li>
+              <li>${escapeHtml(`Return path: ${state.returnContextLabel ?? "Back to discover when no blocked source is attached."}`)}</li>
+            </ul>
+            ${benefits.length > 0
+              ? `
+                <div class="me-settings-group">
+                  ${benefits
+                    .map(
+                      (benefit) => `
+                        <section class="me-settings-section">
+                          <h3 class="me-settings-title">${escapeHtml(benefit.label)}</h3>
+                          <p class="me-settings-value">${escapeHtml(benefit.description)}</p>
+                        </section>
+                      `,
+                    )
+                    .join("")}
+                </div>
+              `
+              : `<p class="me-empty">Benefits appear here after overview and entitlement data load.</p>`}
+          </section>
+        </section>
+      </section>
+    `,
+  );
+
+  bindRouteButtons(root, runtime, sync);
+  bindButton(root, "membership-buy-monthly", () => {
+    void runtime.pages.membership.purchaseMembership("monthly").then(sync);
+  });
+  bindButton(root, "membership-buy-quarterly", () => {
+    void runtime.pages.membership.purchaseMembership("quarterly").then(sync);
+  });
+  bindButton(root, "membership-buy-annual", () => {
+    void runtime.pages.membership.purchaseMembership("annual").then(sync);
+  });
+  bindButton(root, "membership-continue", () => {
+    void runtime.pages.membership.continueAfterPurchase().then(sync);
+  });
+  bindButton(root, "membership-refresh", () => {
+    void runtime.pages.membership.refreshTransaction().then(sync);
+  });
+  bindButton(root, "membership-reconcile", () => {
+    void runtime.pages.membership.reconcileOrder().then(sync);
+  });
+  bindButton(root, "membership-cancel-order", () => {
+    void runtime.pages.membership.cancelOrder().then(sync);
+  });
+  bindButton(root, "membership-refund-order", () => {
+    void runtime.pages.membership.refundOrder().then(sync);
+  });
+  bindButton(root, "membership-cancel-subscription", () => {
+    void runtime.pages.membership.cancelSubscription().then(sync);
+  });
+  bindButton(root, "membership-renew-subscription", () => {
+    void runtime.pages.membership.renewSubscription().then(sync);
+  });
+  bindButton(root, "membership-after-sales", () => {
+    void runtime.pages.membership.loadAfterSalesDetail().then(sync);
+  });
+  bindButton(root, "membership-back-discover", () => {
+    void runtime.pages.membership.goToCatalog().then(sync);
+  });
+}
+
 export const hostH5PageRenderers: Partial<Record<HostH5PageKey, HostH5PageRenderer>> = {
   login: {
     render(context) {
@@ -3680,6 +3907,11 @@ export const hostH5PageRenderers: Partial<Record<HostH5PageKey, HostH5PageRender
   messages: {
     render(context) {
       renderMessagesPage(context);
+    },
+  },
+  membership: {
+    render(context) {
+      renderMembershipPage(context);
     },
   },
   settings: {
