@@ -104,6 +104,7 @@ export function renderCatalogPage(context: NovelH5PageRenderContext, state: Cata
                 selected.id,
                 "primary",
               )}
+              ${renderRouteLink("Editorial discover", routePath("feed"), "button")}
               ${renderRouteLink("Membership", routePath("membership"), "ghost")}
             </div>
           </div>

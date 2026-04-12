@@ -143,6 +143,53 @@ function createKernelStub(): AppKernel {
           } as T);
         }
 
+        if (path === "/feed") {
+          return ok({
+            items: [
+              {
+                id: "content_editorial_1",
+                title: "Editorial Note · Why Quiet Frontlists Convert Better",
+                subtitle: "A shared managed-content card rendered through the feed contract.",
+                tag: "content",
+                recommendedReason: "Shared editorial discovery should remain distinct from the novel-specific catalog and reader flow.",
+                updatedAt: "2026-03-22T08:00:00.000Z",
+              },
+            ],
+            hasMore: false,
+            page: 1,
+            pageSize: 6,
+            searchQuery: {
+              keyword: "",
+              mode: "global",
+              domain: "feed",
+              page: 1,
+              pageSize: 6,
+            },
+            searchFilters: [],
+            searchResults: {
+              items: [
+                {
+                  id: "content_editorial_1",
+                  title: "Editorial Note · Why Quiet Frontlists Convert Better",
+                  subtitle: "A shared managed-content card rendered through the feed contract.",
+                  tag: "content",
+                  recommendedReason: "Shared editorial discovery should remain distinct from the novel-specific catalog and reader flow.",
+                  updatedAt: "2026-03-22T08:00:00.000Z",
+                },
+              ],
+              total: 1,
+              hasMore: false,
+              emptyText: "No editorial discover results are available yet.",
+              suggestionTerms: ["editorial"],
+              hotKeywords: ["editorial"],
+              recentKeywords: [],
+              sortOptions: [{ key: "recommended", label: "Recommended" }],
+              activeSortKey: "recommended",
+              featuredReason: "Shared editorial discovery now has an explicit route on the novel host.",
+            },
+          } as T);
+        }
+
         if (path === "/novels/detail") {
           return ok({
             id: "novel_lantern",
@@ -378,8 +425,8 @@ test("novel wechat runtime creates page controllers on a shared kernel", () => {
   const runtime = createNovelWechatRuntime(kernel);
 
   assert.equal(runtime.kernel, kernel);
-  assert.deepEqual(Object.keys(runtime.registry), ["login", "catalog", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"]);
-  assert.deepEqual(Object.keys(runtime.pages), ["login", "catalog", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"]);
+  assert.deepEqual(Object.keys(runtime.registry), ["login", "catalog", "feed", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"]);
+  assert.deepEqual(Object.keys(runtime.pages), ["login", "catalog", "feed", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"]);
 });
 
 test("novel wechat page entries delegate to page controllers", async () => {
@@ -387,6 +434,7 @@ test("novel wechat page entries delegate to page controllers", async () => {
 
   const loginEntry = createNovelWechatPageEntry(runtime, "login");
   const catalogEntry = createNovelWechatPageEntry(runtime, "catalog");
+  const feedEntry = createNovelWechatPageEntry(runtime, "feed");
   const detailEntry = createNovelWechatPageEntry(runtime, "novelDetail");
   const tocEntry = createNovelWechatPageEntry(runtime, "toc");
   const readerEntry = createNovelWechatPageEntry(runtime, "reader");
@@ -396,6 +444,7 @@ test("novel wechat page entries delegate to page controllers", async () => {
 
   const loginResult = await invokeEntryAction(loginEntry, "onTapLogin");
   const catalogResult = await invokeEntryAction(catalogEntry, "onShow");
+  const feedResult = await invokeEntryAction(feedEntry, "onShow");
   const detailResult = await invokeEntryAction(detailEntry, "onShow");
   const tocResult = await invokeEntryAction(tocEntry, "onShow");
   const readerResult = await invokeEntryAction(readerEntry, "onShow");
@@ -405,6 +454,7 @@ test("novel wechat page entries delegate to page controllers", async () => {
 
   assert.deepEqual(loginResult, { ok: true, value: undefined });
   assert.equal((catalogResult as { ok?: boolean }).ok, true);
+  assert.equal((feedResult as { ok?: boolean }).ok, true);
   assert.equal((detailResult as { ok?: boolean }).ok, true);
   assert.equal((tocResult as { ok?: boolean }).ok, true);
   assert.equal((readerResult as { ok?: boolean }).ok, true);
@@ -412,6 +462,7 @@ test("novel wechat page entries delegate to page controllers", async () => {
   assert.equal((membershipResult as { ok?: boolean }).ok, true);
   assert.deepEqual(logoutResult, { ok: true, value: undefined });
   assert.equal(runtime.pages.catalog.store.getState().items.length, 1);
+  assert.equal(runtime.pages.feed.store.getState().items.length, 1);
   assert.equal(runtime.pages.novelDetail.store.getState().detail?.id, "novel_lantern");
   assert.equal(runtime.pages.toc.store.getState().volumes.length, 1);
   assert.equal(runtime.pages.reader.store.getState().chapter?.id, "lantern_ch_01");

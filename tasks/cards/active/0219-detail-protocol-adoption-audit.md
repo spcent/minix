@@ -84,10 +84,17 @@ Confirm that official detail surfaces consistently express availability, deletio
 
 ## Acceptance
 
-- [ ] detail adoption is audited across official hosts
-- [ ] deep-link and unavailable-state handling stays explicit in shared code
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] boundaries still match specs
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run
+- [x] detail adoption is audited across official hosts
+- [x] deep-link and unavailable-state handling stays explicit in shared code
+- [x] host wiring remains manifest- and registry-driven
+- [x] boundaries still match specs
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run
+
+## Execution Notes
+
+- `novel-detail` remains the direct routeable `DetailPageState` adoption for canonical content-detail handling.
+- `messages` and `subscription` are documented as embedded detail surfaces that still use shared `DetailStatus` semantics for availability, recovery, and refresh behavior.
+- `reader` is explicitly documented as an immersive runtime exception rather than a missing detail-page adoption.
+- No host manifest changes were required for this audit slice; the outcome is a host-by-host detail adoption matrix with explicit exceptions.

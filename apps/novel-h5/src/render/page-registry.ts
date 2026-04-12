@@ -3,6 +3,7 @@ import type { SettingsPageModel } from "@minix/core";
 import type { AuthPageState } from "@minix/feature-auth";
 import type { BookshelfState } from "@minix/feature-bookshelf";
 import type { CatalogState } from "@minix/feature-catalog";
+import type { FeedState } from "@minix/feature-feed";
 import type { NovelDetailState } from "@minix/feature-novel-detail";
 import type { ReaderState } from "@minix/feature-reader";
 import type { SubscriptionState } from "@minix/feature-subscription";
@@ -12,6 +13,7 @@ import type { NovelH5Runtime } from "../manifest/app.manifest";
 import { NOVEL_H5_ROUTES } from "../manifest/routes";
 import { renderBookshelfPage } from "./pages/bookshelf";
 import { renderCatalogPage } from "./pages/catalog";
+import { renderFeedPage } from "./pages/feed";
 import { renderHomePage } from "./pages/home";
 import { renderLoginPage } from "./pages/login";
 import { renderMembershipPage } from "./pages/membership";
@@ -72,6 +74,8 @@ function renderByPageKey(context: NovelH5PageRenderContext): string {
       return renderLoginPage(state as AuthPageState);
     case "catalog":
       return renderCatalogPage(context, state as CatalogState);
+    case "feed":
+      return renderFeedPage(state as FeedState);
     case "novelDetail":
       return renderNovelDetailPage(context, state as NovelDetailState);
     case "toc":
@@ -287,6 +291,10 @@ export function resolveNovelH5PageKey(pathname: string): NovelH5PageKey {
     return "catalog";
   }
 
+  if (normalizedPath === NOVEL_H5_ROUTES.feed) {
+    return "feed";
+  }
+
   if (normalizedPath === NOVEL_H5_ROUTES.novelDetail) {
     return "novelDetail";
   }
@@ -349,6 +357,11 @@ export const novelH5PageRenderers: Record<NovelH5PageKey, NovelH5PageRenderer> =
     },
   },
   catalog: {
+    render(context) {
+      renderNovelH5Page(context);
+    },
+  },
+  feed: {
     render(context) {
       renderNovelH5Page(context);
     },

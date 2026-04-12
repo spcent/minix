@@ -2,6 +2,7 @@ import type { SettingsPageModel, Store } from "@minix/core";
 import type { AuthPageState } from "@minix/feature-auth";
 import type { BookshelfState } from "@minix/feature-bookshelf";
 import type { CatalogState } from "@minix/feature-catalog";
+import type { FeedState } from "@minix/feature-feed";
 import type { NovelDetailState } from "@minix/feature-novel-detail";
 import type { ReaderState } from "@minix/feature-reader";
 import type { SubscriptionState } from "@minix/feature-subscription";
@@ -32,6 +33,7 @@ export type NovelH5PageState =
   | AuthPageState
   | BookshelfState
   | CatalogState
+  | FeedState
   | NovelDetailState
   | ReaderState
   | SettingsPageModel

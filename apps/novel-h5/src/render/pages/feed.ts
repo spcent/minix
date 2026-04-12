@@ -1,0 +1,116 @@
+import type { FeedState } from "@minix/feature-feed";
+
+import { renderSectionHeading } from "../components/section-heading";
+import { renderAppShell } from "../layout/app-shell";
+import { escapeHtml, renderActionButton, renderRouteLink, routePath } from "../utils";
+
+export function renderFeedPage(state: FeedState): string {
+  const topItems = state.items.slice(0, 4);
+  const resultCount = state.searchResults?.total ?? state.items.length;
+  const reviewCount = state.reviewQueue.length;
+
+  return renderAppShell(
+    "feed",
+    `
+      <section class="nh-card nh-hero-grid">
+        <div class="nh-grid nh-hero-copy">
+          <div class="nh-kicker">Editorial discover</div>
+          <h1 class="nh-title">${escapeHtml(state.title)}</h1>
+          <p class="nh-copy">${escapeHtml(state.subtitle)}</p>
+          <div class="nh-stat-strip">
+            <article class="nh-stat-panel">
+              <p class="nh-meta-label">Visible results</p>
+              <p class="nh-stat-value">${String(resultCount).padStart(2, "0")}</p>
+              <p class="nh-item-copy">Shared discovery results returned through the feed contract.</p>
+            </article>
+            <article class="nh-stat-panel">
+              <p class="nh-meta-label">Active lane</p>
+              <p class="nh-stat-value">${escapeHtml(state.query.domain)}</p>
+              <p class="nh-item-copy">Discovery stays bounded instead of hiding inside the novel-only storefront.</p>
+            </article>
+            <article class="nh-stat-panel">
+              <p class="nh-meta-label">Review queue</p>
+              <p class="nh-stat-value">${String(reviewCount).padStart(2, "0")}</p>
+              <p class="nh-item-copy">Managed-content lifecycle remains owned by the shared feed feature.</p>
+            </article>
+          </div>
+          <div class="nh-actions">
+            ${renderActionButton("Refresh discover", "entry", "onShow", undefined, "primary")}
+            ${renderActionButton("Open preferences", "entry", "onTapSettings", undefined, "secondary")}
+            ${renderRouteLink("Back to library", routePath("catalog"), "ghost")}
+          </div>
+        </div>
+        <aside class="nh-grid">
+          <div class="nh-cover">
+            <p class="nh-cover-kicker">Why this page exists</p>
+            <h2 class="nh-cover-title">Novel reading stays on the catalog and reader extension layer.</h2>
+            <p class="nh-cover-copy">Discover carries shared editorial search and managed-content entry so the standalone novel hosts do not bury cross-domain content behind library-only routes.</p>
+          </div>
+          <article class="nh-panel nh-issue-panel">
+            <p class="nh-meta-label">CMS boundary</p>
+            <p class="nh-item-copy">Drafting, lifecycle actions, and review queue state still live in the shared feed controller. This host only exposes the entry surface deliberately.</p>
+          </article>
+        </aside>
+      </section>
+      <section class="nh-sidebar-grid">
+        <section class="nh-card">
+          ${renderSectionHeading({
+            kicker: "Discover preview",
+            title: "Shared editorial results now have an explicit route on the novel hosts.",
+            copy: state.searchResults?.featuredReason ?? "The discover surface should explain why a result is visible before the reader commits to a deeper route.",
+          })}
+          <div class="nh-section-grid">
+            ${
+              topItems.length > 0
+                ? topItems
+                    .map(
+                      (item) => `
+                        <article class="nh-item">
+                          <div class="nh-kicker">${escapeHtml(item.tag ?? "content")}</div>
+                          <h2 class="nh-item-title">${escapeHtml(item.title)}</h2>
+                          <p class="nh-item-copy">${escapeHtml(item.subtitle ?? item.recommendedReason ?? "Shared editorial content preview.")}</p>
+                          ${
+                            item.recommendedReason
+                              ? `<p class="nh-item-copy">${escapeHtml(item.recommendedReason)}</p>`
+                              : ""
+                          }
+                        </article>
+                      `,
+                    )
+                    .join("")
+                : `
+                  <article class="nh-item">
+                    <div class="nh-kicker">Discover state</div>
+                    <h2 class="nh-item-title">No results are loaded yet.</h2>
+                    <p class="nh-item-copy">${escapeHtml(state.errorText ?? state.emptyText ?? "Refresh discover to load the shared editorial lane.")}</p>
+                  </article>
+                `
+            }
+          </div>
+        </section>
+        <aside class="nh-card">
+          ${renderSectionHeading({
+            kicker: "Managed content",
+            title: "Shared CMS actions stay visible as shared state, not novel-local logic.",
+            copy: "This route clarifies where editorial discovery ends and novel-specific consumption begins.",
+            compact: true,
+          })}
+          <div class="nh-grid">
+            <article class="nh-panel">
+              <p class="nh-meta-label">Draft workflow</p>
+              <p class="nh-item-copy">${escapeHtml(state.contentDraftForm.subtitle ?? "Authoring workflow for managed content.")}</p>
+            </article>
+            <article class="nh-panel">
+              <p class="nh-meta-label">Search posture</p>
+              <p class="nh-item-copy">${escapeHtml(state.query.keyword ? `Current keyword: ${state.query.keyword}` : "No keyword applied yet. The bounded discover route is ready for editorial and recommendation search.")}</p>
+            </article>
+            <article class="nh-panel">
+              <p class="nh-meta-label">Return path</p>
+              <p class="nh-item-copy">Use Discover for shared editorial search, then return to Library, Detail, or Reader for the novel-specific extension flow.</p>
+            </article>
+          </div>
+        </aside>
+      </section>
+    `,
+  );
+}

@@ -100,4 +100,5 @@ Expose cross-domain search on the agreed official hosts with clear route recover
 
 - 2026-04-12: added shared `feed` route wiring to `apps/host-wechat/src/manifest/page-definitions.ts` as the official WeChat search-center entry
 - 2026-04-12: generated the corresponding WeChat shell and kept route ownership inside the shared feed feature
+- 2026-04-12: extended the same shared `feed` route to `apps/novel-h5` and `apps/novel-wechat` so the standalone novel hosts also expose the shared discover/search center deliberately
 - 2026-04-12: verified with `pnpm verify`

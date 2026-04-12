@@ -3,6 +3,7 @@ import { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags, ty
 import { authFeatureManifest, createInitialAuthPageState } from "@minix/feature-auth";
 import { bookshelfFeatureManifest, createInitialBookshelfState } from "@minix/feature-bookshelf";
 import { catalogFeatureManifest, createInitialCatalogState } from "@minix/feature-catalog";
+import { createDefaultFeedState, feedFeatureManifest } from "@minix/feature-feed";
 import { createInitialNovelDetailState, novelDetailFeatureManifest } from "@minix/feature-novel-detail";
 import { createInitialReaderState, readerFeatureManifest } from "@minix/feature-reader";
 import { settingsFeatureManifest } from "@minix/feature-settings";
@@ -180,6 +181,35 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
     shellStyle: "novel",
     shellTemplate: "novel-catalog",
   },
+  feed: {
+    feature: feedFeatureManifest,
+    routeId: APP_ROUTE_IDS.feed,
+    routePath: "/pages/feed/index",
+    pageData: createDefaultFeedState({
+      title: "Editorial Discover",
+      subtitle: "Shared discovery and managed-content entry for editorial content, recommendations, and lifecycle review.",
+      surface: "feed",
+      pageSize: 6,
+      emptyText: "No editorial discover results are available yet.",
+    }),
+    controller: {
+      loginRouteId: APP_ROUTE_IDS.login,
+      feedRouteId: APP_ROUTE_IDS.feed,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+      authRedirectSource: "feed",
+    },
+    guardPolicy: {
+      name: "authenticated-feed",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    miniprogramPage: "pages/feed/index",
+    registrationModule: "../../../src/registrations/wechat/pages/feed",
+    navigationBarTitleText: "Discover",
+    shellTemplate: "novel-feed",
+    shellStyle: "novel",
+  },
   novelDetail: {
     feature: novelDetailFeatureManifest,
     routeId: APP_ROUTE_IDS.novelDetail,
@@ -298,6 +328,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       loginRouteId: APP_ROUTE_IDS.login,
       itemsRouteId: APP_ROUTE_IDS.bookshelf,
       overviewRouteId: APP_ROUTE_IDS.catalog,
+      feedRouteId: APP_ROUTE_IDS.feed,
       readerRouteId: APP_ROUTE_IDS.reader,
       authRedirectSource: "preferences",
       confirmLogout: {

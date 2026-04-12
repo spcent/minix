@@ -85,6 +85,7 @@
   <view class="card">
     <view class="section-label">Quick actions</view>
     <button class="button" bindtap="onTapOverview">Open Home</button>
+    <button class="button" bindtap="onTapDiscover">Open Discover</button>
     <button class="button" bindtap="onTapReader">Back to Reader</button>
     <button class="button" bindtap="onTapPlan">Open Bookshelf</button>
     <button class="button" type="warn" bindtap="onTapLogout">Sign Out</button>

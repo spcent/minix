@@ -54,6 +54,7 @@ export function renderHomePage(context: NovelH5PageRenderContext, state: Catalog
           <div class="nh-actions">
             ${renderActionButton(featuredPrimaryLabel, "controller", featuredPrimaryAction, featured.id, "primary")}
             ${renderRouteLink("Browse all books", routePath("catalog"), "button")}
+            ${renderRouteLink("Editorial discover", routePath("feed"), "ghost")}
             ${renderRouteLink("Open shelf", routePath("bookshelf"), "ghost")}
           </div>
           ${

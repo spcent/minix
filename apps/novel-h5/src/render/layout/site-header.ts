@@ -5,6 +5,7 @@ export function renderSiteHeader(activePage: NovelH5PageKey): string {
   const navItems: Array<{ key: NovelH5PageKey; label: string }> = [
     { key: "home", label: "Home" },
     { key: "catalog", label: "Library" },
+    { key: "feed", label: "Discover" },
     { key: "bookshelf", label: "Shelf" },
     { key: "membership", label: "Membership" },
     { key: "settings", label: "Preferences" },

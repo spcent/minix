@@ -1736,9 +1736,53 @@ function buildHostWechatIndexWxml(entry: HostWechatPageShellConfig): string {
   <view class="card">
     <view class="section-label">Quick actions</view>
     <button class="button" bindtap="onTapOverview">Open Home</button>
+    <button class="button" bindtap="onTapDiscover">Open Discover</button>
     <button class="button" bindtap="onTapReader">Back to Reader</button>
     <button class="button" bindtap="onTapPlan">Open Bookshelf</button>
     <button class="button" type="warn" bindtap="onTapLogout">Sign Out</button>
+  </view>
+</view>
+`;
+    case "novel-feed":
+      return `<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Discover</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{subtitle || 'Shared editorial discovery and managed-content entry now has an explicit route on the novel hosts.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Discover posture</view>
+    <view class="subtitle">Novel reading remains on catalog, detail, TOC, and reader. This page exposes the shared discovery and editorial lane deliberately.</view>
+    <view class="summary-row">
+      <view class="summary-stat">
+        <view class="summary-value">{{items.length}}</view>
+        <view class="summary-label">Visible results</view>
+      </view>
+      <view class="summary-stat">
+        <view class="summary-value">{{query.domain || 'feed'}}</view>
+        <view class="summary-label">Active domain</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Result preview</view>
+    <view class="subtitle" wx:if="{{loading}}">Loading discover results...</view>
+    <view class="subtitle" wx:if="{{errorText}}">{{errorText}}</view>
+    <view class="subtitle" wx:if="{{!loading && items.length === 0}}">{{emptyText || 'No editorial discover results are available yet.'}}</view>
+    <view wx:for="{{items}}" wx:key="id" class="item">
+      <view class="item-title">{{item.title}}</view>
+      <view wx:if="{{item.subtitle}}" class="subtitle">{{item.subtitle}}</view>
+      <view wx:if="{{item.recommendedReason}}" class="subtitle">{{item.recommendedReason}}</view>
+    </view>
+    <button wx:if="{{hasMore}}" class="button" bindtap="onTapLoadMore">Load More</button>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Quick actions</view>
+    <button class="button" type="primary" bindtap="onShow">Refresh Discover</button>
+    <button class="button" bindtap="onTapSettings">Open Preferences</button>
   </view>
 </view>
 `;

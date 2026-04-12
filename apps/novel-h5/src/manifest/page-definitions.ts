@@ -3,6 +3,7 @@ import { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags, ty
 import { authFeatureManifest, createInitialAuthPageState } from "@minix/feature-auth";
 import { bookshelfFeatureManifest, createInitialBookshelfState } from "@minix/feature-bookshelf";
 import { catalogFeatureManifest, createInitialCatalogState } from "@minix/feature-catalog";
+import { createDefaultFeedState, feedFeatureManifest } from "@minix/feature-feed";
 import { createInitialNovelDetailState, novelDetailFeatureManifest } from "@minix/feature-novel-detail";
 import { createInitialReaderState, readerFeatureManifest } from "@minix/feature-reader";
 import { settingsFeatureManifest } from "@minix/feature-settings";
@@ -182,6 +183,31 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
     },
     renderMode: "custom",
   },
+  feed: {
+    feature: feedFeatureManifest,
+    routeId: APP_ROUTE_IDS.feed,
+    routePath: "/discover",
+    pageData: createDefaultFeedState({
+      title: "Editorial Discover",
+      subtitle: "Shared discovery and managed-content entry for editorial content, recommendations, and lifecycle review.",
+      surface: "feed",
+      pageSize: 6,
+      emptyText: "No editorial discover results are available yet.",
+    }),
+    controller: {
+      loginRouteId: APP_ROUTE_IDS.login,
+      feedRouteId: APP_ROUTE_IDS.feed,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+      authRedirectSource: "feed",
+    },
+    guardPolicy: {
+      name: "authenticated-feed",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    renderMode: "custom",
+  },
   novelDetail: {
     feature: novelDetailFeatureManifest,
     routeId: APP_ROUTE_IDS.novelDetail,
@@ -284,6 +310,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       loginRouteId: APP_ROUTE_IDS.login,
       overviewRouteId: APP_ROUTE_IDS.home,
       itemsRouteId: APP_ROUTE_IDS.bookshelf,
+      feedRouteId: APP_ROUTE_IDS.feed,
       readerRouteId: APP_ROUTE_IDS.reader,
       authRedirectSource: "preferences",
       showErrorToast: false,

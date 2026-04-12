@@ -26,7 +26,11 @@ Feature controllers consuming shared list/detail protocols should normalize busi
 
 - `ListStatus` now covers `loading`, `refreshing`, `appending`, `empty`, `error`, `partial`, and `skeleton`, plus `staleData`, retry capability, and route-recovery metadata through `restoredQueryKeys` and `restoredSelectionId`.
 - `DetailStatus` now covers `ready`, `stale`, `deleted`, `forbidden`, `offline`, `unavailable`, `unpublished`, and deep-link recovery via `recoveredFromLink` and `requestedDetailId`.
-- Official sample adoptions in `v1.0` include feed search/list surfaces, message inbox/thread surfaces, items progress lists, subscription order lists, and commerce detail surfaces.
+- Official sample adoptions in `v1.0` include items progress lists, feed/search lists, inbox notification lists, novel detail pages, message-thread detail states, subscription commerce detail states, account operation forms, feedback forms, and managed-content draft forms.
+- Explicit exceptions in `v1.0` are also part of the contract posture:
+  - auth login and identity handoff remain provider-aware credential workflows instead of generic `FormPageState` flows
+  - reader remains an immersive chapter runtime instead of a shared `DetailPageState`
+  - subscription order history remains an embedded list collection inside the commerce center instead of a standalone `ListPageState`
 
 ## Platform Capability Baseline
 
@@ -753,6 +757,7 @@ The novel endpoints now expose two layers at once:
 
 - a generic content layer through `contentCard`, `contentDetail`, and `contentAccess`
 - a novel-specific extension layer through chapter, reading-progress, and serialized-reading fields
+- the standalone novel hosts now expose the shared discover/feed route in addition to catalog, detail, TOC, reader, and bookshelf so shared editorial discovery is visible without collapsing the novel-specific extension layer
 
 Future content products should reuse the generic layer instead of treating the novel sample as the only content model.
 

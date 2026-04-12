@@ -140,6 +140,9 @@ importers:
       '@minix/feature-catalog':
         specifier: workspace:*
         version: link:../../packages/features/catalog
+      '@minix/feature-feed':
+        specifier: workspace:*
+        version: link:../../packages/features/feed
       '@minix/feature-novel-detail':
         specifier: workspace:*
         version: link:../../packages/features/novel-detail
@@ -176,6 +179,9 @@ importers:
       '@minix/feature-catalog':
         specifier: workspace:*
         version: link:../../packages/features/catalog
+      '@minix/feature-feed':
+        specifier: workspace:*
+        version: link:../../packages/features/feed
       '@minix/feature-novel-detail':
         specifier: workspace:*
         version: link:../../packages/features/novel-detail

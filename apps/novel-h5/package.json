@@ -10,6 +10,7 @@
     "@minix/feature-auth": "workspace:*",
     "@minix/feature-bookshelf": "workspace:*",
     "@minix/feature-catalog": "workspace:*",
+    "@minix/feature-feed": "workspace:*",
     "@minix/feature-novel-detail": "workspace:*",
     "@minix/feature-reader": "workspace:*",
     "@minix/feature-settings": "workspace:*",

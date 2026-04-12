@@ -91,9 +91,9 @@ Make the content domain deliberately reachable on official hosts instead of bein
 
 ## Acceptance
 
-- [ ] official hosts expose deliberate content entry points instead of accidental scattered access
-- [ ] managed-content lifecycle flows remain shared and manifest-driven
-- [ ] novel-specific content continues to sit on an explicit extension layer
+- [x] official hosts expose deliberate content entry points instead of accidental scattered access
+- [x] managed-content lifecycle flows remain shared and manifest-driven
+- [x] novel-specific content continues to sit on an explicit extension layer
 - [x] boundaries still match specs
 - [x] generated files were regenerated, not manually authored as source
 - [x] docs updated if behavior or workflow changed
@@ -102,4 +102,6 @@ Make the content domain deliberately reachable on official hosts instead of bein
 ## Execution Notes
 
 - 2026-04-12: added the shared `feed` page to `host-wechat`, which closes the accidental H5-only gap for the discover/content-search surface
-- 2026-04-12: remaining scope is the CMS-entry decision and novel-host parity, not base host-wechat adoption
+- 2026-04-12: added the shared `feed` page to `novel-h5` and `novel-wechat` so shared editorial discover/content entry is explicit on standalone novel hosts
+- 2026-04-12: wired novel settings and H5 navigation surfaces into the new discover route while keeping catalog/detail/reader as the novel-specific extension layer
+- 2026-04-12: kept managed-content lifecycle ownership inside the shared `@minix/feature-feed` controller rather than creating a host-local CMS page

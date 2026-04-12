@@ -2,6 +2,7 @@
   "pages": [
     "pages/login/index",
     "pages/catalog/index",
+    "pages/feed/index",
     "pages/novelDetail/index",
     "pages/toc/index",
     "pages/reader/index",

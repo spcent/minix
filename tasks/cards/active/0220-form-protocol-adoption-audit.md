@@ -85,10 +85,17 @@ Confirm that official form flows consistently use shared form semantics for vali
 
 ## Acceptance
 
-- [ ] shared form semantics remain the default for official form flows
-- [ ] audit identifies entry-point or adoption gaps concretely
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] boundaries still match specs
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run
+- [x] shared form semantics remain the default for official form flows
+- [x] audit identifies entry-point or adoption gaps concretely
+- [x] host wiring remains manifest- and registry-driven
+- [x] boundaries still match specs
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run
+
+## Execution Notes
+
+- Direct `FormPageState` adoption remains canonical for `account`, `feedback`, and managed-content draft workflows in `feed`.
+- `auth` is now documented as an explicit credential-workflow exception instead of being incorrectly implied as a generic shared-form adopter.
+- commerce purchase/cancel/refund/renew flows are documented as action-confirmation exceptions over selected detail state, not missing shared-form adoption.
+- No host manifest changes were required for this audit slice; the outcome is a form adoption matrix with explicit exceptions and entry-point notes.

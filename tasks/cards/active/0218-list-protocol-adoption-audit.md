@@ -85,10 +85,17 @@ Confirm that official host list surfaces consistently use the shared list protoc
 
 ## Acceptance
 
-- [ ] list adoption is audited across official hosts
-- [ ] protocol gaps are concrete and local, not hypothetical
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] boundaries still match specs
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run
+- [x] list adoption is audited across official hosts
+- [x] protocol gaps are concrete and local, not hypothetical
+- [x] host wiring remains manifest- and registry-driven
+- [x] boundaries still match specs
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run
+
+## Execution Notes
+
+- Direct `ListPageState` adoption remains the canonical posture for `items`, `feed`, and `messages`.
+- `subscription` is now documented as an explicit embedded-list exception: order history uses shared `ListStatus` inside the commerce center instead of a standalone list page.
+- `account` relation and ledger collections are documented as nested-domain exceptions rather than missing protocol adoption.
+- No host manifest changes were required for this audit slice; the outcome is an adoption matrix and explicit exception inventory.
