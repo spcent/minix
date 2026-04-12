@@ -7,7 +7,7 @@ import type {
 } from "@minix/contracts";
 import type { Context, Hono, MiddlewareHandler } from "hono";
 
-import { parseJsonBody } from "../../http/parsing";
+import { loadRouteUserState, parseRouteBody } from "../../http/route-context";
 import { jsonError } from "../../http/response";
 import type { ApiBindings, ApiStore, UserState } from "../../types";
 import {
@@ -96,15 +96,12 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
   app.use("/uploads/*", requireSession);
 
   app.post("/uploads", async (c) => {
-    const traceId = c.get("traceId");
-    const payload = await parseJsonBody(c.req.raw, uploadSessionRequestSchema, traceId);
+    const payload = await parseRouteBody(c, uploadSessionRequestSchema);
     if (payload instanceof Response) {
       return payload;
     }
 
-    const session = c.get("session");
-    const store = resolveStore(c.env);
-    const userState = await store.getUserState(session.userId);
+    const { session, store, userState } = await loadRouteUserState(c, resolveStore);
     let record = createUploadSessionRecord(normalizeUploadSessionRequest(payload), c.req.url, userState);
     const initialTransfer = record.transfer;
     const initialSession = record.session;
@@ -147,15 +144,12 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
   });
 
   app.post("/uploads/session", async (c) => {
-    const traceId = c.get("traceId");
-    const payload = await parseJsonBody(c.req.raw, uploadSessionRequestSchema, traceId);
+    const payload = await parseRouteBody(c, uploadSessionRequestSchema);
     if (payload instanceof Response) {
       return payload;
     }
 
-    const session = c.get("session");
-    const store = resolveStore(c.env);
-    const userState = await store.getUserState(session.userId);
+    const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
     const clientId = resolveClientId(c.req.raw);
     const deviceId = resolveRequestDeviceId(c);
     const rateLimitGuard = await guardUploadSessionRateLimit({
@@ -186,15 +180,12 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
   });
 
   app.post("/uploads/chunk", async (c) => {
-    const traceId = c.get("traceId");
-    const payload = await parseJsonBody(c.req.raw, uploadChunkRequestSchema, traceId);
+    const payload = await parseRouteBody(c, uploadChunkRequestSchema);
     if (payload instanceof Response) {
       return payload;
     }
 
-    const session = c.get("session");
-    const store = resolveStore(c.env);
-    const userState = await store.getUserState(session.userId);
+    const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
     const existing = userState.uploadsByTaskId[payload.taskId];
     if (!existing) {
       return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
@@ -208,15 +199,12 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
   });
 
   app.post("/uploads/complete", async (c) => {
-    const traceId = c.get("traceId");
-    const payload = await parseJsonBody(c.req.raw, uploadCompleteSchema, traceId);
+    const payload = await parseRouteBody(c, uploadCompleteSchema);
     if (payload instanceof Response) {
       return payload;
     }
 
-    const session = c.get("session");
-    const store = resolveStore(c.env);
-    const userState = await store.getUserState(session.userId);
+    const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
     const existing = userState.uploadsByTaskId[payload.taskId];
     if (!existing) {
       return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
@@ -247,15 +235,12 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
   });
 
   app.post("/uploads/attach", async (c) => {
-    const traceId = c.get("traceId");
-    const payload = await parseJsonBody(c.req.raw, uploadAttachSchema, traceId);
+    const payload = await parseRouteBody(c, uploadAttachSchema);
     if (payload instanceof Response) {
       return payload;
     }
 
-    const session = c.get("session");
-    const store = resolveStore(c.env);
-    const userState = await store.getUserState(session.userId);
+    const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
     const existing = payload.taskId
       ? userState.uploadsByTaskId[payload.taskId]
       : payload.assetId
@@ -287,15 +272,12 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
   });
 
   app.post("/uploads/retry", async (c) => {
-    const traceId = c.get("traceId");
-    const payload = await parseJsonBody(c.req.raw, uploadRetrySchema, traceId);
+    const payload = await parseRouteBody(c, uploadRetrySchema);
     if (payload instanceof Response) {
       return payload;
     }
 
-    const session = c.get("session");
-    const store = resolveStore(c.env);
-    const userState = await store.getUserState(session.userId);
+    const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
     const existing = userState.uploadsByTaskId[payload.taskId];
     if (!existing) {
       return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
@@ -309,15 +291,12 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
   });
 
   app.post("/uploads/cancel", async (c) => {
-    const traceId = c.get("traceId");
-    const payload = await parseJsonBody(c.req.raw, uploadCancelSchema, traceId);
+    const payload = await parseRouteBody(c, uploadCancelSchema);
     if (payload instanceof Response) {
       return payload;
     }
 
-    const session = c.get("session");
-    const store = resolveStore(c.env);
-    const userState = await store.getUserState(session.userId);
+    const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
     const existing = userState.uploadsByTaskId[payload.taskId];
     if (!existing) {
       return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
@@ -341,9 +320,7 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
   });
 
   app.get("/uploads/assets/:assetId", async (c) => {
-    const session = c.get("session");
-    const store = resolveStore(c.env);
-    const userState = await store.getUserState(session.userId);
+    const { userState } = await loadRouteUserState(c, resolveStore);
     const assetId = c.req.param("assetId");
     const binary = readUploadedAssetBinary(userState, assetId);
     if (!binary) {
@@ -358,9 +335,7 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
   });
 
   app.get("/uploads/assets/:assetId/thumb", async (c) => {
-    const session = c.get("session");
-    const store = resolveStore(c.env);
-    const userState = await store.getUserState(session.userId);
+    const { userState } = await loadRouteUserState(c, resolveStore);
     const assetId = c.req.param("assetId");
     const asset = resolveUploadAssetForUser(userState, assetId);
     if (!asset) {

@@ -239,6 +239,35 @@ Stable shared contracts live in `packages/contracts`:
 
 ### Core
 
+### Sample API Structure
+
+The sample API under `apps/api/src` now follows the same explicit-boundary rule as the runtime packages.
+
+Use these layers:
+
+- `app.ts`: app creation plus top-level middleware only
+- `app-composition*.ts`: route-group wiring, security wiring, and job wiring
+- `http/*`: shared request parsing, auth header helpers, CORS, response helpers, and route-context loaders
+- `domains/*/routes.ts`: the public domain entry that mounts that domain's route tree
+- `domains/*/routes.*.ts`: domain-internal route slices split by business concern
+- `domains/*/route-options.ts`: the domain's route registration option type
+- `domains/*/route-helpers.ts`: domain-local helper wiring when a route family shares repeated orchestration
+
+The practical rule is:
+
+- composition layers import only each domain's `routes.ts`
+- `routes.ts` stays an assembly file
+- business HTTP handlers live in `routes.*.ts`
+- shared HTTP concerns go in `http/*`
+- cross-domain business derivation belongs in the existing domain modules, not back in `app.ts`
+
+Current reference examples:
+
+- `apps/api/src/domains/payment/routes.ts` assembles `routes.commerce.ts`, `routes.after-sales.ts`, and `routes.callbacks.ts`
+- `apps/api/src/domains/account/routes.ts` assembles `routes.identity.ts`, `routes.security.ts`, and `routes.relations.ts`
+
+When adding new API behavior, do not reopen a monolithic `routes.ts`, `app.ts`, or `data.ts` file. Extend the relevant domain slice or add a new `routes.*.ts` module under that domain instead.
+
 Shared business runtime lives in `packages/core`:
 
 - `src/ports/*`: host-facing contracts and adapter interfaces

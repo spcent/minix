@@ -93,6 +93,47 @@ Use [apps/host-h5](apps/host-h5) for:
 - H5 mock backend integration
 - minimal DOM bootstrap shell
 
+### Sample API behavior
+
+Use [apps/api/src/http](/Users/bingrong.yan/projects/birdor/minix/apps/api/src/http) for:
+
+- auth header helpers
+- body and query parsing
+- CORS helpers
+- shared response helpers
+- route-context loading helpers
+
+Use [apps/api/src/app.ts](/Users/bingrong.yan/projects/birdor/minix/apps/api/src/app.ts) only for:
+
+- app creation
+- top-level middleware
+- calling the composition entry
+
+Use [apps/api/src/app-composition.ts](/Users/bingrong.yan/projects/birdor/minix/apps/api/src/app-composition.ts) and sibling `app-composition.*.ts` files for:
+
+- route-group assembly
+- security wiring
+- job wiring
+
+Use [apps/api/src/domains](apps/api/src/domains) for sample backend business domains:
+
+- keep each domain's public API entry in `routes.ts`
+- keep domain-specific registration input types in `route-options.ts`
+- keep repeated domain-only orchestration in `route-helpers.ts`
+- split large route families into `routes.<concern>.ts`
+
+Current examples:
+
+- `domains/payment/routes.ts` only assembles `routes.commerce.ts`, `routes.after-sales.ts`, and `routes.callbacks.ts`
+- `domains/account/routes.ts` only assembles `routes.identity.ts`, `routes.security.ts`, and `routes.relations.ts`
+
+Do not:
+
+- add new inline business route handlers back into `app.ts`
+- move domain handlers back into one large `domains/*/routes.ts`
+- recreate a new catch-all `data.ts` or `helpers.ts` monolith for API behavior
+- import domain-internal `routes.*.ts` files from composition code; composition should depend on `routes.ts` only
+
 ## Preferred Change Pattern
 
 When adding behavior, prefer this order:
@@ -108,13 +149,19 @@ When adding behavior, prefer this order:
 8. add tests
 9. update docs if behavior or setup changed
 
+For sample API changes, insert this decision rule before adding a route:
+
+1. extend an existing `domains/<name>/routes.<concern>.ts` file if the concern already exists
+2. add a new `routes.<concern>.ts` file if the domain exists but the concern is materially separate
+3. add a new domain only when the behavior does not belong to an existing business domain
+
 When behavior affects deployment, provider setup, capability support, release gates, or accepted deferred limits, sync:
 
 - [`docs/BACKEND_CONTRACT.md`](/Users/bingrong.yan/projects/birdor/minix/docs/BACKEND_CONTRACT.md)
 - [`docs/PRODUCTION_READINESS.md`](/Users/bingrong.yan/projects/birdor/minix/docs/PRODUCTION_READINESS.md)
 - [`docs/RELEASE_RUNBOOK.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_RUNBOOK.md)
 
-`pnpm verify` enforces this by checking shared production code for direct platform calls, for `throw`-based failure paths outside the manifest assertion layer, for core service and adapter interfaces that drift away from `Promise<Result<...>>` or approved synchronous `Result<...>` query methods, for `contracts` code that tries to import runtime-only types from `@minix/core`, for `contracts` shapes that start declaring host/runtime configuration fields, for behavior-shaped contract types such as method signatures or function-typed members, for managed workspace packages that drift away from the canonical `src/index.ts` public entry, and for feature packages that try to widen their public surface beyond `src/index.ts`.
+`pnpm verify` enforces this by checking shared production code for direct platform calls, for `throw`-based failure paths outside the manifest assertion layer, for core service and adapter interfaces that drift away from `Promise<Result<...>>` or approved synchronous `Result<...>` query methods, for `contracts` code that tries to import runtime-only types from `@minix/core`, for `contracts` shapes that start declaring host/runtime configuration fields, for behavior-shaped contract types such as method signatures or function-typed members, for managed workspace packages that drift away from the canonical `src/index.ts` public entry, for feature packages that try to widen their public surface beyond `src/index.ts`, and for the guarded sample API assembly files that must stay small and delegated rather than regrowing into route monoliths.
 
 ## What To Avoid
 
