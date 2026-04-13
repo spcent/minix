@@ -48,6 +48,7 @@ export function renderSettingsPage(state: SettingsPageModel): string {
             ${renderActionButton("Back home", "entry", "onTapOverview", undefined, "secondary")}
             ${renderActionButton("Open discover", "entry", "onTapDiscover", undefined, "secondary")}
             ${renderActionButton("Open account", "entry", "onTapAccount", undefined, "secondary")}
+            ${renderActionButton("Open inbox", "entry", "onTapInbox", undefined, "secondary")}
             ${renderActionButton("Support", "entry", "onTapFeedback", undefined, "secondary")}
             ${renderActionButton("Media tools", "entry", "onTapMediaTools", undefined, "ghost")}
             ${renderActionButton("Back to reader", "entry", "onTapReader", undefined, "secondary")}

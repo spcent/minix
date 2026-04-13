@@ -374,6 +374,146 @@ function createKernelStub(): AppKernel {
           } as T);
         }
 
+        if (path === "/notifications") {
+          return ok({
+            notificationList: {
+              items: [
+                {
+                  id: "notice_novel_wechat_1",
+                  type: "system",
+                  groupKey: "reading",
+                  groupLabel: "Reading",
+                  title: "Inbox ready",
+                  summary: "Novel WeChat inbox state is available.",
+                  createdAt: "2026-03-22T08:00:00.000Z",
+                  pinned: false,
+                  doNotDisturb: false,
+                  receipt: {
+                    read: false,
+                    readReceiptRequired: true,
+                  },
+                  touchpoints: [],
+                  tagLabels: ["reading"],
+                },
+              ],
+              page: 1,
+              pageSize: 6,
+              total: 1,
+              hasMore: false,
+              grouping: "type",
+              groups: [{ key: "reading", label: "Reading", count: 1 }],
+              filters: [],
+              onlyUnread: false,
+              selectedNotificationId: "notice_novel_wechat_1",
+            },
+            messageThread: {
+              threadId: "thread_novel_wechat",
+              type: "private",
+              title: "Reading Desk",
+              participantLabels: ["Reading Desk", "You"],
+              pinned: false,
+              doNotDisturb: false,
+              unreadCount: 1,
+              reserved: true,
+              touchpoints: [],
+              syncState: {
+                mode: "polling",
+                modeLabel: "Polling sync",
+                cursor: "novel-wechat-cursor",
+                recommendedPollIntervalMs: 15000,
+                recoverable: true,
+                statusLabel: "Polling finalizes the inbox state for the novel host.",
+                providerSummary: "Sample in-app delivery remains visible until operators wire production touchpoints.",
+                lastSyncedAt: "2026-03-22T08:00:00.000Z",
+              },
+            },
+            unreadBadge: {
+              totalUnread: 2,
+              notificationUnread: 1,
+              threadUnread: 1,
+              breakdown: [{ key: "system", label: "System", count: 1 }],
+            },
+            reservedThreads: [
+              {
+                threadId: "thread_novel_wechat",
+                type: "private",
+                title: "Reading Desk",
+                participantLabels: ["Reading Desk", "You"],
+                pinned: false,
+                doNotDisturb: false,
+                unreadCount: 1,
+                reserved: true,
+                touchpoints: [],
+                syncState: {
+                  mode: "polling",
+                  modeLabel: "Polling sync",
+                  cursor: "novel-wechat-cursor",
+                  recommendedPollIntervalMs: 15000,
+                  recoverable: true,
+                  statusLabel: "Polling finalizes the inbox state for the novel host.",
+                  providerSummary: "Sample in-app delivery remains visible until operators wire production touchpoints.",
+                  lastSyncedAt: "2026-03-22T08:00:00.000Z",
+                },
+              },
+            ],
+          } as T);
+        }
+
+        if (path === "/messages/thread") {
+          return ok({
+            messageThread: {
+              threadId: "thread_novel_wechat",
+              type: "private",
+              title: "Reading Desk",
+              participantLabels: ["Reading Desk", "You"],
+              pinned: false,
+              doNotDisturb: false,
+              unreadCount: 1,
+              reserved: true,
+              touchpoints: [],
+              syncState: {
+                mode: "polling",
+                modeLabel: "Polling sync",
+                cursor: "novel-wechat-cursor",
+                recommendedPollIntervalMs: 15000,
+                recoverable: true,
+                statusLabel: "Polling finalizes the inbox state for the novel host.",
+                providerSummary: "Sample in-app delivery remains visible until operators wire production touchpoints.",
+                lastSyncedAt: "2026-03-22T08:00:00.000Z",
+              },
+            },
+            messageItems: [
+              {
+                messageId: "msg_novel_wechat_1",
+                threadId: "thread_novel_wechat",
+                direction: "inbound",
+                senderRole: "support",
+                senderLabel: "Reading Desk",
+                body: "Novel WeChat inbox thread detail is available.",
+                createdAt: "2026-03-22T08:00:00.000Z",
+                deliveryStatus: "delivered",
+                deliveredAt: "2026-03-22T08:00:01.000Z",
+                attemptCount: 1,
+                retryable: false,
+                touchpoints: [],
+              },
+            ],
+            detailActions: {
+              canReply: true,
+              canMarkRead: true,
+              canRetryFailed: false,
+              canCreateThread: true,
+              deliveryLabel: "Reader support lane",
+            },
+            unreadBadge: {
+              totalUnread: 2,
+              notificationUnread: 1,
+              threadUnread: 1,
+              breakdown: [{ key: "system", label: "System", count: 1 }],
+            },
+          } as T);
+        }
+
         if (path === "/novels/detail") {
           return ok({
             id: "novel_lantern",
@@ -609,8 +749,8 @@ test("novel wechat runtime creates page controllers on a shared kernel", () => {
   const runtime = createNovelWechatRuntime(kernel);
 
   assert.equal(runtime.kernel, kernel);
-  assert.deepEqual(Object.keys(runtime.registry), ["login", "catalog", "feed", "account", "feedback", "mediaTools", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"]);
-  assert.deepEqual(Object.keys(runtime.pages), ["login", "catalog", "feed", "account", "feedback", "mediaTools", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"]);
+  assert.deepEqual(Object.keys(runtime.registry), ["login", "catalog", "feed", "account", "feedback", "messages", "mediaTools", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"]);
+  assert.deepEqual(Object.keys(runtime.pages), ["login", "catalog", "feed", "account", "feedback", "messages", "mediaTools", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"]);
 });
 
 test("novel wechat page entries delegate to page controllers", async () => {
@@ -621,6 +761,7 @@ test("novel wechat page entries delegate to page controllers", async () => {
   const feedEntry = createNovelWechatPageEntry(runtime, "feed");
   const accountEntry = createNovelWechatPageEntry(runtime, "account");
   const feedbackEntry = createNovelWechatPageEntry(runtime, "feedback");
+  const messagesEntry = createNovelWechatPageEntry(runtime, "messages");
   const mediaToolsEntry = createNovelWechatPageEntry(runtime, "mediaTools");
   const detailEntry = createNovelWechatPageEntry(runtime, "novelDetail");
   const tocEntry = createNovelWechatPageEntry(runtime, "toc");
@@ -634,6 +775,7 @@ test("novel wechat page entries delegate to page controllers", async () => {
   const feedResult = await invokeEntryAction(feedEntry, "onShow");
   const accountResult = await invokeEntryAction(accountEntry, "onShow");
   const feedbackResult = await invokeEntryAction(feedbackEntry, "onShow");
+  const messagesResult = await invokeEntryAction(messagesEntry, "onShow");
   const mediaToolsResult = await invokeEntryAction(mediaToolsEntry, "onShow");
   const detailResult = await invokeEntryAction(detailEntry, "onShow");
   const tocResult = await invokeEntryAction(tocEntry, "onShow");
@@ -647,6 +789,7 @@ test("novel wechat page entries delegate to page controllers", async () => {
   assert.equal((feedResult as { ok?: boolean }).ok, true);
   assert.equal((accountResult as { ok?: boolean }).ok, true);
   assert.equal((feedbackResult as { ok?: boolean }).ok, true);
+  assert.equal((messagesResult as { ok?: boolean }).ok, true);
   assert.equal((mediaToolsResult as { ok?: boolean }).ok, true);
   assert.equal((detailResult as { ok?: boolean }).ok, true);
   assert.equal((tocResult as { ok?: boolean }).ok, true);
@@ -659,6 +802,8 @@ test("novel wechat page entries delegate to page controllers", async () => {
   assert.equal(runtime.pages.account.store.getState().accountSummary?.userId, "novel-wechat-user");
   assert.equal(runtime.pages.account.store.getState().authenticated, true);
   assert.equal(runtime.pages.feedback.store.getState().categories.length, 2);
+  assert.equal(runtime.pages.messages.store.getState().items.length, 1);
+  assert.equal(runtime.pages.messages.store.getState().messageThread?.syncState?.mode, "polling");
   assert.equal(runtime.pages.mediaTools.store.getState().title, "Reader Media Tools");
   assert.equal(runtime.pages.novelDetail.store.getState().detail?.id, "novel_lantern");
   assert.equal(runtime.pages.toc.store.getState().volumes.length, 1);

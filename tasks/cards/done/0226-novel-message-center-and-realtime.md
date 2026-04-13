@@ -45,7 +45,7 @@ Expose the shared inbox on the novel hosts and make an explicit product decision
 - depends on:
   - `tasks/cards/done/0214-messages-host-adoption-and-sync-hardening.md`
 - blocked by:
-  - transport decision for real-time delivery
+  - none
 - integration notes:
   - if polling remains the chosen transport, document it as intentional rather than incidental
 
@@ -85,7 +85,7 @@ Expose the shared inbox on the novel hosts and make an explicit product decision
 
 ## Acceptance
 
-- [ ] message-center host exposure on novel hosts is decided and implemented or explicitly declined
-- [ ] transport posture is explicit as either polling-only or realtime-capable
-- [ ] host-visible sync metadata matches the actual transport behavior
-- [ ] `pnpm verify` run if code changes
+- [x] message-center host exposure on novel hosts is decided and implemented
+- [x] transport posture is explicit as polling-only
+- [x] host-visible sync metadata matches the actual transport behavior
+- [x] `pnpm verify` run after code changes

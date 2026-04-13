@@ -6,6 +6,7 @@ import type { BookshelfState } from "@minix/feature-bookshelf";
 import type { CatalogState } from "@minix/feature-catalog";
 import type { FeedbackState } from "@minix/feature-feedback";
 import type { FeedState } from "@minix/feature-feed";
+import type { MessagesState } from "@minix/feature-messages";
 import type { MediaToolsState } from "@minix/feature-media-tools";
 import type { NovelDetailState } from "@minix/feature-novel-detail";
 import type { ReaderState } from "@minix/feature-reader";
@@ -23,6 +24,7 @@ import { renderHomePage } from "./pages/home";
 import { renderLoginPage } from "./pages/login";
 import { renderMediaToolsPage } from "./pages/media-tools";
 import { renderMembershipPage } from "./pages/membership";
+import { renderMessagesPage } from "./pages/messages";
 import { renderNovelDetailPage } from "./pages/novel-detail";
 import { renderReaderPage } from "./pages/reader";
 import { renderSettingsPage } from "./pages/settings";
@@ -86,6 +88,8 @@ function renderByPageKey(context: NovelH5PageRenderContext): string {
       return renderAccountPage(state as AccountState);
     case "feedback":
       return renderFeedbackPage(state as FeedbackState);
+    case "messages":
+      return renderMessagesPage(state as MessagesState);
     case "mediaTools":
       return renderMediaToolsPage(state as MediaToolsState);
     case "novelDetail":
@@ -337,6 +341,10 @@ export function resolveNovelH5PageKey(pathname: string): NovelH5PageKey {
     return "feedback";
   }
 
+  if (normalizedPath === NOVEL_H5_ROUTES.messages) {
+    return "messages";
+  }
+
   if (normalizedPath === NOVEL_H5_ROUTES.mediaTools) {
     return "mediaTools";
   }
@@ -419,6 +427,11 @@ export const novelH5PageRenderers: Record<NovelH5PageKey, NovelH5PageRenderer> =
     },
   },
   feedback: {
+    render(context) {
+      renderNovelH5Page(context);
+    },
+  },
+  messages: {
     render(context) {
       renderNovelH5Page(context);
     },

@@ -13,6 +13,7 @@
     "@minix/feature-catalog": "workspace:*",
     "@minix/feature-feedback": "workspace:*",
     "@minix/feature-feed": "workspace:*",
+    "@minix/feature-messages": "workspace:*",
     "@minix/feature-media-tools": "workspace:*",
     "@minix/feature-novel-detail": "workspace:*",
     "@minix/feature-reader": "workspace:*",

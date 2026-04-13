@@ -152,6 +152,9 @@ importers:
       '@minix/feature-media-tools':
         specifier: workspace:*
         version: link:../../packages/features/media-tools
+      '@minix/feature-messages':
+        specifier: workspace:*
+        version: link:../../packages/features/messages
       '@minix/feature-novel-detail':
         specifier: workspace:*
         version: link:../../packages/features/novel-detail
@@ -200,6 +203,9 @@ importers:
       '@minix/feature-media-tools':
         specifier: workspace:*
         version: link:../../packages/features/media-tools
+      '@minix/feature-messages':
+        specifier: workspace:*
+        version: link:../../packages/features/messages
       '@minix/feature-novel-detail':
         specifier: workspace:*
         version: link:../../packages/features/novel-detail

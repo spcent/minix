@@ -5,6 +5,7 @@
     "pages/feed/index",
     "pages/account/index",
     "pages/feedback/index",
+    "pages/messages/index",
     "pages/mediaTools/index",
     "pages/novelDetail/index",
     "pages/toc/index",

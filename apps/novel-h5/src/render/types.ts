@@ -5,6 +5,7 @@ import type { BookshelfState } from "@minix/feature-bookshelf";
 import type { CatalogState } from "@minix/feature-catalog";
 import type { FeedbackState } from "@minix/feature-feedback";
 import type { FeedState } from "@minix/feature-feed";
+import type { MessagesState } from "@minix/feature-messages";
 import type { MediaToolsState } from "@minix/feature-media-tools";
 import type { NovelDetailState } from "@minix/feature-novel-detail";
 import type { ReaderState } from "@minix/feature-reader";
@@ -39,6 +40,7 @@ export type NovelH5PageState =
   | CatalogState
   | FeedbackState
   | FeedState
+  | MessagesState
   | MediaToolsState
   | NovelDetailState
   | ReaderState

@@ -7,6 +7,7 @@ export function renderSiteHeader(activePage: NovelH5PageKey): string {
     { key: "catalog", label: "Library" },
     { key: "feed", label: "Discover" },
     { key: "account", label: "Account" },
+    { key: "messages", label: "Inbox" },
     { key: "bookshelf", label: "Shelf" },
     { key: "membership", label: "Membership" },
     { key: "feedback", label: "Support" },

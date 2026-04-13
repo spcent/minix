@@ -1,0 +1,30 @@
+<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Inbox</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{subtitle || 'Notifications and message threads now have a bounded WeChat host entry.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Unread State</view>
+    <view class="subtitle">Total unread: {{unreadBadge.totalUnread}}</view>
+    <view class="subtitle">Notifications: {{unreadBadge.notificationUnread}} · Threads: {{unreadBadge.threadUnread}}</view>
+    <view class="status-chip">{{status && status.loadState ? status.loadState : 'idle'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Notification Preview</view>
+    <view class="subtitle" wx:if="{{loading}}">Loading inbox data...</view>
+    <view class="subtitle" wx:if="{{!loading && items.length === 0}}">{{emptyText || 'No inbox activity is available yet.'}}</view>
+    <view class="subtitle" wx:if="{{messageThread && messageThread.syncState}}">{{messageThread.syncState.modeLabel || messageThread.syncState.mode}} · {{messageThread.syncState.statusLabel || ('Poll every ' + messageThread.syncState.recommendedPollIntervalMs + 'ms')}}</view>
+    <view class="subtitle" wx:if="{{messageThread && messageThread.syncState && messageThread.syncState.providerSummary}}">{{messageThread.syncState.providerSummary}}</view>
+    <view wx:for="{{items}}" wx:key="id" class="item">
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle">{{item.summary}}</view>
+      <view wx:if="{{item.thread}}" class="subtitle">{{item.thread.title}}</view>
+    </view>
+    <button class="button" bindtap="onTapMarkVisibleRead">Mark Visible Read</button>
+    <button wx:if="{{hasMore}}" class="button" bindtap="onTapLoadMore">Load More</button>
+    <button class="button" bindtap="onTapSettings">Open Preferences</button>
+  </view>
+</view>

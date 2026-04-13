@@ -6,6 +6,7 @@ import { bookshelfFeatureManifest, createInitialBookshelfState } from "@minix/fe
 import { catalogFeatureManifest, createInitialCatalogState } from "@minix/feature-catalog";
 import { createDefaultFeedbackState, feedbackFeatureManifest } from "@minix/feature-feedback";
 import { createDefaultFeedState, feedFeatureManifest } from "@minix/feature-feed";
+import { createDefaultMessagesState, messagesFeatureManifest } from "@minix/feature-messages";
 import { createDefaultMediaToolsState, mediaToolsFeatureManifest } from "@minix/feature-media-tools";
 import { createInitialNovelDetailState, novelDetailFeatureManifest } from "@minix/feature-novel-detail";
 import { createInitialReaderState, readerFeatureManifest } from "@minix/feature-reader";
@@ -249,6 +250,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       feedbackRouteId: APP_ROUTE_IDS.feedback,
       loginRouteId: APP_ROUTE_IDS.login,
       settingsRouteId: APP_ROUTE_IDS.settings,
+      messagesRouteId: APP_ROUTE_IDS.messages,
       cancelRouteId: APP_ROUTE_IDS.account,
       authRedirectSource: "feedback",
     },
@@ -261,6 +263,33 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
     featureConfig: {
       surface: "feedback",
       template: "form",
+    },
+    renderMode: "custom",
+  },
+  messages: {
+    feature: messagesFeatureManifest,
+    routeId: APP_ROUTE_IDS.messages,
+    routePath: "/inbox",
+    pageData: createDefaultMessagesState({
+      title: "Reader Inbox",
+      subtitle: "Shared notifications and support-adjacent message threads stay visible without leaving the novel host.",
+      pageSize: 6,
+      emptyText: "No inbox activity is available for this reader session yet.",
+    }),
+    controller: {
+      messagesRouteId: APP_ROUTE_IDS.messages,
+      loginRouteId: APP_ROUTE_IDS.login,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+      authRedirectSource: "messages",
+    },
+    guardPolicy: {
+      name: "authenticated-messages",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    featureConfig: {
+      surface: "messages",
     },
     renderMode: "custom",
   },
@@ -399,6 +428,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       accountRouteId: APP_ROUTE_IDS.account,
       feedRouteId: APP_ROUTE_IDS.feed,
       feedbackRouteId: APP_ROUTE_IDS.feedback,
+      messagesRouteId: APP_ROUTE_IDS.messages,
       mediaToolsRouteId: APP_ROUTE_IDS.mediaTools,
       readerRouteId: APP_ROUTE_IDS.reader,
       authRedirectSource: "preferences",

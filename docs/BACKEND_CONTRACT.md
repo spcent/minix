@@ -27,6 +27,7 @@ Feature controllers consuming shared list/detail protocols should normalize busi
 - `ListStatus` now covers `loading`, `refreshing`, `appending`, `empty`, `error`, `partial`, and `skeleton`, plus `staleData`, retry capability, and route-recovery metadata through `restoredQueryKeys` and `restoredSelectionId`.
 - `DetailStatus` now covers `ready`, `stale`, `deleted`, `forbidden`, `offline`, `unavailable`, `unpublished`, and deep-link recovery via `recoveredFromLink` and `requestedDetailId`.
 - Official sample adoptions in `v1.0` include items progress lists, feed/search lists, inbox notification lists, novel detail pages, message-thread detail states, subscription commerce detail states, account operation forms, feedback forms, and managed-content draft forms.
+- Inbox notification and thread-detail consumers now include all four sample hosts, and they intentionally expose `MessageSyncState.mode = "polling"` rather than implying an unimplemented realtime transport.
 - Explicit exceptions in `v1.0` are also part of the contract posture:
   - auth login and identity handoff remain provider-aware credential workflows instead of generic `FormPageState` flows
   - reader remains an immersive chapter runtime instead of a shared `DetailPageState`
