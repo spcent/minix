@@ -1,9 +1,12 @@
 import { APP_ROUTE_IDS } from "@minix/contracts";
 import { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags, type AppKernel, type SettingsPageModel } from "@minix/core";
+import { accountFeatureManifest, createDefaultAccountState } from "@minix/feature-account";
 import { authFeatureManifest, createInitialAuthPageState } from "@minix/feature-auth";
 import { bookshelfFeatureManifest, createInitialBookshelfState } from "@minix/feature-bookshelf";
 import { catalogFeatureManifest, createInitialCatalogState } from "@minix/feature-catalog";
+import { createDefaultFeedbackState, feedbackFeatureManifest } from "@minix/feature-feedback";
 import { createDefaultFeedState, feedFeatureManifest } from "@minix/feature-feed";
+import { createDefaultMediaToolsState, mediaToolsFeatureManifest } from "@minix/feature-media-tools";
 import { createInitialNovelDetailState, novelDetailFeatureManifest } from "@minix/feature-novel-detail";
 import { createInitialReaderState, readerFeatureManifest } from "@minix/feature-reader";
 import { settingsFeatureManifest } from "@minix/feature-settings";
@@ -210,6 +213,105 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
     shellTemplate: "novel-feed",
     shellStyle: "novel",
   },
+  account: {
+    feature: accountFeatureManifest,
+    routeId: APP_ROUTE_IDS.account,
+    routePath: "/pages/account/index",
+    pageData: createDefaultAccountState({
+      title: "Reader Account",
+      subtitle: "Profile, bindings, recovery posture, and shared session context for the current reading identity.",
+    }),
+    controller: {
+      loginRouteId: APP_ROUTE_IDS.login,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+      overviewRouteId: APP_ROUTE_IDS.catalog,
+      authRedirectSource: "account",
+    },
+    guardPolicy: {
+      name: "authenticated-account",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    requiredCapabilities: [{ capability: "clipboard", required: false }],
+    featureConfig: {
+      surface: "account",
+    },
+    miniprogramPage: "pages/account/index",
+    registrationModule: "../../../src/registrations/wechat/pages/account",
+    navigationBarTitleText: "Account",
+    enablePullDownRefresh: true,
+    shellTemplate: "account-basic",
+    shellStyle: "generic",
+  },
+  feedback: {
+    feature: feedbackFeatureManifest,
+    routeId: APP_ROUTE_IDS.feedback,
+    routePath: "/pages/feedback/index",
+    pageData: createDefaultFeedbackState({
+      title: "Reader Feedback",
+      subtitle: "Issue reports, support follow-up, and product suggestions stay available without leaving the novel host.",
+      values: {
+        platform: "wechat",
+      },
+    }),
+    controller: {
+      feedbackRouteId: APP_ROUTE_IDS.feedback,
+      loginRouteId: APP_ROUTE_IDS.login,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+      cancelRouteId: APP_ROUTE_IDS.account,
+      authRedirectSource: "feedback",
+    },
+    guardPolicy: {
+      name: "authenticated-feedback",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    featureConfig: {
+      surface: "feedback",
+      template: "form",
+    },
+    miniprogramPage: "pages/feedback/index",
+    registrationModule: "../../../src/registrations/wechat/pages/feedback",
+    navigationBarTitleText: "Support",
+    shellTemplate: "feedback-basic",
+    shellStyle: "generic",
+  },
+  mediaTools: {
+    feature: mediaToolsFeatureManifest,
+    routeId: APP_ROUTE_IDS.mediaTools,
+    routePath: "/pages/mediaTools/index",
+    pageData: createDefaultMediaToolsState({
+      title: "Reader Media Tools",
+      subtitle: "Shared upload and share workflows for screenshots, invite payloads, and reader-facing attachments.",
+      primaryActionLabel: "Select Reader Asset",
+      secondaryActionLabel: "Dispatch Share Payload",
+    }),
+    controller: {
+      loginRouteId: APP_ROUTE_IDS.login,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+    },
+    guardPolicy: {
+      name: "authenticated-media-tools",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    requiredCapabilities: [
+      { capability: "upload", required: false },
+      { capability: "share", required: false },
+    ],
+    featureConfig: {
+      surface: "media-tools",
+      template: "workspace",
+    },
+    miniprogramPage: "pages/mediaTools/index",
+    registrationModule: "../../../src/registrations/wechat/pages/mediaTools",
+    navigationBarTitleText: "Media Tools",
+    shellTemplate: "media-tools-basic",
+    shellStyle: "generic",
+  },
   novelDetail: {
     feature: novelDetailFeatureManifest,
     routeId: APP_ROUTE_IDS.novelDetail,
@@ -328,7 +430,10 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       loginRouteId: APP_ROUTE_IDS.login,
       itemsRouteId: APP_ROUTE_IDS.bookshelf,
       overviewRouteId: APP_ROUTE_IDS.catalog,
+      accountRouteId: APP_ROUTE_IDS.account,
       feedRouteId: APP_ROUTE_IDS.feed,
+      feedbackRouteId: APP_ROUTE_IDS.feedback,
+      mediaToolsRouteId: APP_ROUTE_IDS.mediaTools,
       readerRouteId: APP_ROUTE_IDS.reader,
       authRedirectSource: "preferences",
       confirmLogout: {

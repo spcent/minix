@@ -7,10 +7,13 @@
   "dependencies": {
     "@minix/contracts": "workspace:*",
     "@minix/core": "workspace:*",
+    "@minix/feature-account": "workspace:*",
     "@minix/feature-auth": "workspace:*",
     "@minix/feature-bookshelf": "workspace:*",
     "@minix/feature-catalog": "workspace:*",
+    "@minix/feature-feedback": "workspace:*",
     "@minix/feature-feed": "workspace:*",
+    "@minix/feature-media-tools": "workspace:*",
     "@minix/feature-novel-detail": "workspace:*",
     "@minix/feature-reader": "workspace:*",
     "@minix/feature-settings": "workspace:*",

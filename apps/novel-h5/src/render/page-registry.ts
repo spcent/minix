@@ -1,9 +1,12 @@
 import type { ChapterListResponse } from "@minix/contracts";
 import type { SettingsPageModel } from "@minix/core";
+import type { AccountState } from "@minix/feature-account";
 import type { AuthPageState } from "@minix/feature-auth";
 import type { BookshelfState } from "@minix/feature-bookshelf";
 import type { CatalogState } from "@minix/feature-catalog";
+import type { FeedbackState } from "@minix/feature-feedback";
 import type { FeedState } from "@minix/feature-feed";
+import type { MediaToolsState } from "@minix/feature-media-tools";
 import type { NovelDetailState } from "@minix/feature-novel-detail";
 import type { ReaderState } from "@minix/feature-reader";
 import type { SubscriptionState } from "@minix/feature-subscription";
@@ -11,11 +14,14 @@ import type { TocState } from "@minix/feature-toc";
 
 import type { NovelH5Runtime } from "../manifest/app.manifest";
 import { NOVEL_H5_ROUTES } from "../manifest/routes";
+import { renderAccountPage } from "./pages/account";
 import { renderBookshelfPage } from "./pages/bookshelf";
 import { renderCatalogPage } from "./pages/catalog";
+import { renderFeedbackPage } from "./pages/feedback";
 import { renderFeedPage } from "./pages/feed";
 import { renderHomePage } from "./pages/home";
 import { renderLoginPage } from "./pages/login";
+import { renderMediaToolsPage } from "./pages/media-tools";
 import { renderMembershipPage } from "./pages/membership";
 import { renderNovelDetailPage } from "./pages/novel-detail";
 import { renderReaderPage } from "./pages/reader";
@@ -76,6 +82,12 @@ function renderByPageKey(context: NovelH5PageRenderContext): string {
       return renderCatalogPage(context, state as CatalogState);
     case "feed":
       return renderFeedPage(state as FeedState);
+    case "account":
+      return renderAccountPage(state as AccountState);
+    case "feedback":
+      return renderFeedbackPage(state as FeedbackState);
+    case "mediaTools":
+      return renderMediaToolsPage(state as MediaToolsState);
     case "novelDetail":
       return renderNovelDetailPage(context, state as NovelDetailState);
     case "toc":
@@ -276,6 +288,28 @@ function bindCatalogKeywordInput(context: NovelH5PageRenderContext) {
   });
 }
 
+function bindFeedbackDraftInputs(context: NovelH5PageRenderContext) {
+  if (context.pageKey !== "feedback") {
+    return;
+  }
+
+  const titleInput = context.root.querySelector<HTMLInputElement>("[data-feedback-input='title']");
+  const descriptionInput = context.root.querySelector<HTMLTextAreaElement>("[data-feedback-input='description']");
+  if (!titleInput || !descriptionInput) {
+    return;
+  }
+
+  const applyDraftValues = () => {
+    context.runtime.pages.feedback.updateValues({
+      title: titleInput.value,
+      description: descriptionInput.value,
+    });
+  };
+
+  titleInput.addEventListener("input", applyDraftValues);
+  descriptionInput.addEventListener("input", applyDraftValues);
+}
+
 export function resolveNovelH5PageKey(pathname: string): NovelH5PageKey {
   const normalizedPath = normalizePath(pathname);
 
@@ -293,6 +327,18 @@ export function resolveNovelH5PageKey(pathname: string): NovelH5PageKey {
 
   if (normalizedPath === NOVEL_H5_ROUTES.feed) {
     return "feed";
+  }
+
+  if (normalizedPath === NOVEL_H5_ROUTES.account) {
+    return "account";
+  }
+
+  if (normalizedPath === NOVEL_H5_ROUTES.feedback) {
+    return "feedback";
+  }
+
+  if (normalizedPath === NOVEL_H5_ROUTES.mediaTools) {
+    return "mediaTools";
   }
 
   if (normalizedPath === NOVEL_H5_ROUTES.novelDetail) {
@@ -342,6 +388,7 @@ export function renderNovelH5Page(context: NovelH5PageRenderContext) {
   bindRouteLinks(context);
   bindActionButtons(context);
   bindCatalogKeywordInput(context);
+  bindFeedbackDraftInputs(context);
   bindReaderPanels(context);
 }
 
@@ -362,6 +409,21 @@ export const novelH5PageRenderers: Record<NovelH5PageKey, NovelH5PageRenderer> =
     },
   },
   feed: {
+    render(context) {
+      renderNovelH5Page(context);
+    },
+  },
+  account: {
+    render(context) {
+      renderNovelH5Page(context);
+    },
+  },
+  feedback: {
+    render(context) {
+      renderNovelH5Page(context);
+    },
+  },
+  mediaTools: {
     render(context) {
       renderNovelH5Page(context);
     },

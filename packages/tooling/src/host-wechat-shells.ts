@@ -1739,6 +1739,9 @@ function buildHostWechatIndexWxml(entry: HostWechatPageShellConfig): string {
     <view class="section-label">Quick actions</view>
     <button class="button" bindtap="onTapOverview">Open Home</button>
     <button class="button" bindtap="onTapDiscover">Open Discover</button>
+    <button class="button" bindtap="onTapAccount">Open Account</button>
+    <button class="button" bindtap="onTapFeedback">Open Support</button>
+    <button class="button" bindtap="onTapMediaTools">Open Media Tools</button>
     <button class="button" bindtap="onTapReader">Back to Reader</button>
     <button class="button" bindtap="onTapPlan">Open Bookshelf</button>
     <button class="button" type="warn" bindtap="onTapLogout">Sign Out</button>

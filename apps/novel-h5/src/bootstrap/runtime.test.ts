@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { APP_ROUTE_IDS } from "@minix/contracts";
 import { ok, type AppKernel } from "@minix/core";
 
 import { createNovelH5PageEntry } from "../registrations/page-entries";
@@ -44,7 +45,12 @@ function createKernelStub(): AppKernel {
     },
     session: {
       async get() {
-        return ok(null);
+        return ok({
+          identity: { userId: "novel-h5-user" },
+          loggedIn: true,
+          platform: "h5",
+          token: { accessToken: "mock-novel-h5-access-token" },
+        });
       },
       async set() {
         return ok(undefined);
@@ -53,7 +59,7 @@ function createKernelStub(): AppKernel {
         return ok(undefined);
       },
       async isLoggedIn() {
-        return ok(false);
+        return ok(true);
       },
     },
     request: {
@@ -184,6 +190,184 @@ function createKernelStub(): AppKernel {
               sortOptions: [{ key: "recommended", label: "Recommended" }],
               activeSortKey: "recommended",
               featuredReason: "Shared editorial discovery now has an explicit route on the novel host.",
+            },
+          } as T);
+        }
+
+        if (path === "/me") {
+          return ok({
+            userProfile: {
+              nickname: "Lantern Reader",
+              avatarUrl: "https://img.test/lantern-reader.png",
+              gender: "unknown",
+              region: "Hangzhou, CN",
+              bio: "Cross-host novel profile with support-facing recovery context.",
+              tags: ["serial", "cross-host"],
+            },
+            accountSummary: {
+              userId: "novel-h5-user",
+              phoneBound: false,
+              wechatBound: false,
+              providerIdentities: [],
+              realNameStatus: "unverified",
+              assets: {
+                points: 120,
+                level: 3,
+                entitlementLabels: ["discover", "bookshelf"],
+                balanceCents: 0,
+                availableBalanceCents: 0,
+                frozenBalanceCents: 0,
+                activeEntitlements: [],
+              },
+              relations: {
+                followingCount: 2,
+                followerCount: 5,
+                friendCount: 1,
+                blockedCount: 0,
+              },
+            },
+            userStatus: {
+              availability: "enabled",
+              enabled: true,
+              frozen: false,
+              cancellationInProgress: false,
+              blacklisted: false,
+              guest: false,
+            },
+            identityWorkflows: {
+              canUpgradeGuest: false,
+              canBindPhone: true,
+              mergePending: false,
+            },
+            securityCenter: {
+              deviceIdentities: [],
+              riskLevel: "low",
+              auditEvents: [],
+            },
+            accountOperations: [],
+            operationRecords: [],
+            relationTargets: [],
+          } as T);
+        }
+
+        if (path.startsWith("/account/assets/history")) {
+          return ok({
+            accountSummary: {
+              userId: "novel-h5-user",
+              phoneBound: false,
+              wechatBound: false,
+              providerIdentities: [],
+              realNameStatus: "unverified",
+              assets: {
+                points: 120,
+                level: 3,
+                entitlementLabels: ["discover", "bookshelf"],
+                balanceCents: 0,
+                availableBalanceCents: 0,
+                frozenBalanceCents: 0,
+                activeEntitlements: [],
+              },
+              relations: {
+                followingCount: 2,
+                followerCount: 5,
+                friendCount: 1,
+                blockedCount: 0,
+              },
+            },
+            ledgerEntries: [
+              {
+                ledgerId: "ledger_reader_1",
+                subject: "points",
+                kind: "grant",
+                title: "Daily reading streak",
+                message: "Reader session earned points through steady reading.",
+                createdAt: "2026-03-22T08:00:00.000Z",
+                sourceType: "system",
+                pointsDelta: 12,
+              },
+            ],
+            pagination: {
+              page: 1,
+              pageSize: 20,
+              total: 1,
+              hasMore: false,
+            },
+          } as T);
+        }
+
+        if (path === "/feedback/bootstrap") {
+          return ok({
+            feedbackCategories: [
+              {
+                key: "product_issue",
+                label: "Reader Issue",
+                type: "issue_report",
+                defaultPriority: "high",
+                labels: ["reader", "support"],
+                supportsAttachments: true,
+                customerServiceEntryLabel: "Open Reading Center",
+                supportEntry: {
+                  entryId: "support_reading_center",
+                  label: "Open Reading Center",
+                  summary: "Return to preferences for reading-account help.",
+                  channel: "settings",
+                  routeId: APP_ROUTE_IDS.settings,
+                },
+              },
+              {
+                key: "content_issue",
+                label: "Content Issue",
+                type: "issue_report",
+                defaultPriority: "medium",
+                labels: ["content"],
+                supportsAttachments: true,
+              },
+            ],
+            recommendedFaqEntries: [
+              {
+                entryId: "faq_reader_sync",
+                title: "Reader Sync FAQ",
+                summary: "Use the account and reading-center surfaces to verify sync posture first.",
+              },
+            ],
+            faqCatalog: [
+              {
+                entryId: "faq_reader_sync",
+                title: "Reader Sync FAQ",
+                summary: "Use the account and reading-center surfaces to verify sync posture first.",
+                categoryKeys: ["product_issue"],
+                enabled: true,
+                updatedAt: "2026-03-22T08:00:00.000Z",
+              },
+            ],
+            supportEntries: [
+              {
+                entryId: "support_reading_center",
+                label: "Open Reading Center",
+                summary: "Return to preferences for reading-account help.",
+                channel: "settings",
+                routeId: APP_ROUTE_IDS.settings,
+                queueKey: "reader_support",
+                queueLabel: "Reader Support",
+                handlerLabel: "Reading Desk",
+                enabled: true,
+                updatedAt: "2026-03-22T08:00:00.000Z",
+              },
+            ],
+            supportEntry: {
+              entryId: "support_reading_center",
+              label: "Open Reading Center",
+              summary: "Return to preferences for reading-account help.",
+              channel: "settings",
+              routeId: APP_ROUTE_IDS.settings,
+            },
+            serviceLoopSummary: "Use Reader Feedback to capture product issues without leaving the novel host.",
+            ticketList: {
+              items: [],
+              page: 1,
+              pageSize: 10,
+              total: 0,
+              hasMore: false,
             },
           } as T);
         }
@@ -429,8 +613,8 @@ test("novel h5 runtime creates page controllers on a shared kernel", () => {
   const runtime = createNovelH5Runtime(kernel);
 
   assert.equal(runtime.kernel, kernel);
-  assert.deepEqual(Object.keys(runtime.registry), ["home", "login", "catalog", "feed", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"]);
-  assert.deepEqual(Object.keys(runtime.pages), ["home", "login", "catalog", "feed", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"]);
+  assert.deepEqual(Object.keys(runtime.registry), ["home", "login", "catalog", "feed", "account", "feedback", "mediaTools", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"]);
+  assert.deepEqual(Object.keys(runtime.pages), ["home", "login", "catalog", "feed", "account", "feedback", "mediaTools", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"]);
 });
 
 test("novel h5 page entries delegate to runtime controllers", async () => {
@@ -439,6 +623,9 @@ test("novel h5 page entries delegate to runtime controllers", async () => {
   const loginEntry = createNovelH5PageEntry(runtime, "login");
   const catalogEntry = createNovelH5PageEntry(runtime, "catalog");
   const feedEntry = createNovelH5PageEntry(runtime, "feed");
+  const accountEntry = createNovelH5PageEntry(runtime, "account");
+  const feedbackEntry = createNovelH5PageEntry(runtime, "feedback");
+  const mediaToolsEntry = createNovelH5PageEntry(runtime, "mediaTools");
   const detailEntry = createNovelH5PageEntry(runtime, "novelDetail");
   const tocEntry = createNovelH5PageEntry(runtime, "toc");
   const readerEntry = createNovelH5PageEntry(runtime, "reader");
@@ -450,6 +637,9 @@ test("novel h5 page entries delegate to runtime controllers", async () => {
   const loginResult = await invokeEntryAction(loginEntry, "onTapLogin");
   const catalogResult = await invokeEntryAction(catalogEntry, "onShow");
   const feedResult = await invokeEntryAction(feedEntry, "onShow");
+  const accountResult = await invokeEntryAction(accountEntry, "onShow");
+  const feedbackResult = await invokeEntryAction(feedbackEntry, "onShow");
+  const mediaToolsResult = await invokeEntryAction(mediaToolsEntry, "onShow");
   const detailResult = await invokeEntryAction(detailEntry, "onShow");
   const tocResult = await invokeEntryAction(tocEntry, "onShow");
   const readerResult = await invokeEntryAction(readerEntry, "onShow");
@@ -461,6 +651,9 @@ test("novel h5 page entries delegate to runtime controllers", async () => {
   assert.deepEqual(loginResult, { ok: true, value: undefined });
   assert.equal((catalogResult as { ok?: boolean }).ok, true);
   assert.equal((feedResult as { ok?: boolean }).ok, true);
+  assert.equal((accountResult as { ok?: boolean }).ok, true);
+  assert.equal((feedbackResult as { ok?: boolean }).ok, true);
+  assert.equal((mediaToolsResult as { ok?: boolean }).ok, true);
   assert.equal((detailResult as { ok?: boolean }).ok, true);
   assert.equal((tocResult as { ok?: boolean }).ok, true);
   assert.equal((readerResult as { ok?: boolean }).ok, true);
@@ -470,6 +663,10 @@ test("novel h5 page entries delegate to runtime controllers", async () => {
   assert.equal(runtime.pages.home.store.getState().items.length, 1);
   assert.equal(runtime.pages.catalog.store.getState().items.length, 1);
   assert.equal(runtime.pages.feed.store.getState().items.length, 1);
+  assert.equal(runtime.pages.account.store.getState().accountSummary?.userId, "novel-h5-user");
+  assert.equal(runtime.pages.account.store.getState().authenticated, true);
+  assert.equal(runtime.pages.feedback.store.getState().categories.length, 2);
+  assert.equal(runtime.pages.mediaTools.store.getState().title, "Reader Media Tools");
   assert.equal(runtime.pages.novelDetail.store.getState().detail?.id, "novel_lantern");
   assert.equal(runtime.pages.toc.store.getState().volumes.length, 1);
   assert.equal(runtime.pages.reader.store.getState().chapter?.id, "lantern_ch_01");

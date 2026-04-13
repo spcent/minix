@@ -1,8 +1,11 @@
 import type { SettingsPageModel, Store } from "@minix/core";
+import type { AccountState } from "@minix/feature-account";
 import type { AuthPageState } from "@minix/feature-auth";
 import type { BookshelfState } from "@minix/feature-bookshelf";
 import type { CatalogState } from "@minix/feature-catalog";
+import type { FeedbackState } from "@minix/feature-feedback";
 import type { FeedState } from "@minix/feature-feed";
+import type { MediaToolsState } from "@minix/feature-media-tools";
 import type { NovelDetailState } from "@minix/feature-novel-detail";
 import type { ReaderState } from "@minix/feature-reader";
 import type { SubscriptionState } from "@minix/feature-subscription";
@@ -30,10 +33,13 @@ export interface PageEntryWithShow {
 }
 
 export type NovelH5PageState =
+  | AccountState
   | AuthPageState
   | BookshelfState
   | CatalogState
+  | FeedbackState
   | FeedState
+  | MediaToolsState
   | NovelDetailState
   | ReaderState
   | SettingsPageModel

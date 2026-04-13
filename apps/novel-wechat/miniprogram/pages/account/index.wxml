@@ -1,0 +1,46 @@
+<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Account Center</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{subtitle || 'Profile, bindings, and recovery-safe identity operations stay visible here.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="title">{{nickname || 'Signed-in user'}}</view>
+    <view class="subtitle">{{userId ? ('User ID: ' + userId) : 'Waiting for account context...'}}</view>
+    <view class="subtitle" wx:if="{{authStatusLabel}}">{{authStatusLabel}}</view>
+    <view class="subtitle" wx:if="{{sessionLabel}}">{{sessionLabel}}</view>
+    <view wx:if="{{copyFeedback}}" class="subtitle">{{copyFeedback}}</view>
+    <view wx:if="{{transitionFeedback}}" class="subtitle">{{transitionFeedback}}</view>
+    <view class="status-chip">{{authenticated ? 'Authenticated' : 'Session unavailable'}}</view>
+  </view>
+
+  <view class="card" wx:if="{{stats && stats.length > 0}}">
+    <view class="section-title">Summary</view>
+    <view wx:for="{{stats}}" wx:key="key" class="item">
+      <view class="item-title">{{item.label}}</view>
+      <view class="subtitle">{{item.value}}</view>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{sections && sections.length > 0}}">
+    <view wx:for="{{sections}}" wx:for-item="section" wx:key="key">
+      <view class="section-title" wx:if="{{section.title}}">{{section.title}}</view>
+      <view wx:for="{{section.items}}" wx:key="key" class="item">
+        <view class="item-title">{{item.label}}</view>
+        <view class="subtitle">{{item.value}}</view>
+        <view wx:if="{{item.hint}}" class="subtitle">{{item.hint}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Actions</view>
+    <button class="button" bindtap="onTapCopyUserId">Copy User ID</button>
+    <button class="button" bindtap="onTapIdentityUpgrade">Open Guest Upgrade</button>
+    <button class="button" bindtap="onTapPhoneBinding">Open Phone Binding</button>
+    <button class="button" bindtap="onTapIdentityMerge">Open Merge Flow</button>
+    <button class="button" bindtap="onTapSettings">Open Preferences</button>
+    <button class="button" bindtap="onTapOverview">Back to Overview</button>
+  </view>
+</view>

@@ -131,6 +131,9 @@ importers:
       '@minix/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@minix/feature-account':
+        specifier: workspace:*
+        version: link:../../packages/features/account
       '@minix/feature-auth':
         specifier: workspace:*
         version: link:../../packages/features/auth
@@ -143,6 +146,12 @@ importers:
       '@minix/feature-feed':
         specifier: workspace:*
         version: link:../../packages/features/feed
+      '@minix/feature-feedback':
+        specifier: workspace:*
+        version: link:../../packages/features/feedback
+      '@minix/feature-media-tools':
+        specifier: workspace:*
+        version: link:../../packages/features/media-tools
       '@minix/feature-novel-detail':
         specifier: workspace:*
         version: link:../../packages/features/novel-detail
@@ -170,6 +179,9 @@ importers:
       '@minix/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@minix/feature-account':
+        specifier: workspace:*
+        version: link:../../packages/features/account
       '@minix/feature-auth':
         specifier: workspace:*
         version: link:../../packages/features/auth
@@ -182,6 +194,12 @@ importers:
       '@minix/feature-feed':
         specifier: workspace:*
         version: link:../../packages/features/feed
+      '@minix/feature-feedback':
+        specifier: workspace:*
+        version: link:../../packages/features/feedback
+      '@minix/feature-media-tools':
+        specifier: workspace:*
+        version: link:../../packages/features/media-tools
       '@minix/feature-novel-detail':
         specifier: workspace:*
         version: link:../../packages/features/novel-detail

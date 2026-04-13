@@ -197,6 +197,24 @@ export const APP_STYLES = `
     outline: 2px solid rgba(138, 93, 59, 0.2);
     border-color: rgba(138, 93, 59, 0.3);
   }
+  .nh-textarea {
+    min-height: 148px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid var(--nh-line);
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--nh-ink);
+    font-family: "Avenir Next", "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    resize: vertical;
+    box-sizing: border-box;
+    width: 100%;
+  }
+  .nh-textarea:focus {
+    outline: 2px solid rgba(138, 93, 59, 0.2);
+    border-color: rgba(138, 93, 59, 0.3);
+  }
   .nh-cover {
     min-height: 320px;
     display: grid;
