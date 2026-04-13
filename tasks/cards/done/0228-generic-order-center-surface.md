@@ -43,8 +43,9 @@ Provide a first-class order list and order detail surface so payment and after-s
 - depends on:
   - `tasks/cards/done/0215-payment-host-entry-and-provider-closure.md`
 - blocked by:
-  - product decision on whether order center should be generic-host only or also present on novel hosts
+  - none
 - integration notes:
+  - decision: generic hosts expose the dedicated order-center route; novel hosts stay on the reading-oriented membership flow
   - reuse the shared commerce contracts and detail status semantics already present in `subscription`
 
 ## Affected Paths
@@ -84,7 +85,7 @@ Provide a first-class order list and order detail surface so payment and after-s
 
 ## Acceptance
 
-- [ ] dedicated order-center route decision is explicit
-- [ ] generic order list/detail exposure is implemented where justified
-- [ ] shared commerce state remains the source of truth
-- [ ] `pnpm verify` run if code changes
+- [x] dedicated order-center route decision is explicit
+- [x] generic order list/detail exposure is implemented where justified
+- [x] shared commerce state remains the source of truth
+- [x] `pnpm verify` run if code changes

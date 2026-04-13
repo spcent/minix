@@ -17,6 +17,7 @@ export const APP_ROUTE_IDS = {
   reader: "reader.chapter",
   bookshelf: "bookshelf.index",
   membership: "membership.center",
+  orders: "orders.center",
   settings: "settings.index",
 } as const;
 

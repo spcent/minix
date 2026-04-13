@@ -347,6 +347,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       loginRouteId: APP_ROUTE_IDS.login,
       overviewRouteId: APP_ROUTE_IDS.overview,
       membershipRouteId: APP_ROUTE_IDS.membership,
+      ordersRouteId: APP_ROUTE_IDS.orders,
       authRedirectSource: "preferences",
       showErrorToast: false,
     },
@@ -372,9 +373,33 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     controller: {
       loginRouteId: APP_ROUTE_IDS.login,
       catalogRouteId: APP_ROUTE_IDS.feed,
+      membershipRouteId: APP_ROUTE_IDS.membership,
+      ordersRouteId: APP_ROUTE_IDS.orders,
     },
     guardPolicy: {
       name: "authenticated-membership",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    requiredCapabilities: [{ capability: "payment", required: false }],
+    renderMode: "custom",
+  },
+  orders: {
+    feature: subscriptionFeatureManifest,
+    routeId: APP_ROUTE_IDS.orders,
+    routePath: "/orders",
+    pageData: createInitialSubscriptionState({
+      title: "Order Center",
+    }),
+    controller: {
+      loginRouteId: APP_ROUTE_IDS.login,
+      catalogRouteId: APP_ROUTE_IDS.feed,
+      membershipRouteId: APP_ROUTE_IDS.membership,
+      ordersRouteId: APP_ROUTE_IDS.orders,
+    },
+    guardPolicy: {
+      name: "authenticated-orders",
       requirements: {
         authenticated: true,
       },

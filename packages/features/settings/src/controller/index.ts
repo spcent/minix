@@ -31,6 +31,7 @@ export interface CreateSettingsControllerOptions {
   overviewRouteId?: AppRouteId;
   accountRouteId?: AppRouteId;
   membershipRouteId?: AppRouteId;
+  ordersRouteId?: AppRouteId;
   feedRouteId?: AppRouteId;
   messagesRouteId?: AppRouteId;
   feedbackRouteId?: AppRouteId;
@@ -459,6 +460,7 @@ export function createSettingsController(options: CreateSettingsControllerOption
     overviewRouteId,
     accountRouteId,
     membershipRouteId,
+    ordersRouteId,
     feedRouteId,
     messagesRouteId,
     feedbackRouteId,
@@ -980,6 +982,10 @@ export function createSettingsController(options: CreateSettingsControllerOption
 
     async goToMembership() {
       return routeToOptional(membershipRouteId);
+    },
+
+    async goToOrders() {
+      return routeToOptional(ordersRouteId);
     },
 
     async goToFeed() {

@@ -34,6 +34,7 @@
     <view class="subtitle">Leave this page quiet and utility-focused. Use it for profile review, then move back into overview or today's plan when you are done.</view>
     <button class="button" bindtap="onTapAccount">Open Account Center</button>
     <button class="button" bindtap="onTapMembership">Open Commerce Center</button>
+    <button class="button" bindtap="onTapOrders">Open Order Center</button>
     <button class="button" bindtap="onTapDiscover">Open Discover</button>
     <button class="button" bindtap="onTapInbox">Open Inbox</button>
     <button class="button" bindtap="onTapFeedback">Open Feedback</button>

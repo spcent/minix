@@ -45,9 +45,9 @@ Make auth provider posture and recovery handling complete enough that official h
 - depends on:
   - `tasks/cards/done/0211-login-host-and-provider-closure.md`
 - blocked by:
-  - operator SMS and OAuth provider choice
+  - none
 - integration notes:
-  - preserve the current host-specific default login posture while closing provider-readiness gaps
+  - preserve the current host-specific default login posture and keep SMS/OAuth recovery on the bounded login or identity surfaces rather than adding a dedicated callback-only page
 
 ## Affected Paths
 
@@ -88,8 +88,8 @@ Make auth provider posture and recovery handling complete enough that official h
 
 ## Acceptance
 
-- [ ] SMS verification posture is explicit and host-visible
-- [ ] OAuth callback and recovery posture is explicit and host-visible
-- [ ] any required auth recovery or callback surface is manifest-driven
-- [ ] docs distinguish repo-owned behavior from operator-owned provider setup
+- [x] SMS verification posture is explicit and host-visible
+- [x] OAuth callback and recovery posture is explicit and host-visible
+- [x] any required auth recovery or callback surface is manifest-driven
+- [x] docs distinguish repo-owned behavior from operator-owned provider setup
 - [ ] `pnpm verify` run if code changes

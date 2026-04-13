@@ -56,6 +56,7 @@ export const feedFeatureManifest = defineFeatureManifest<
         onShow: "loadInitial",
         onPullDownRefresh: "refresh",
         onReachBottom: "loadMore",
+        onTapRefreshReviewQueue: "loadReviewQueue",
         onTapLoadMore: "loadMore",
         onTapSearch: "submitSearch",
         onTapClearSearch: "clearSearch",
@@ -66,6 +67,7 @@ export const feedFeatureManifest = defineFeatureManifest<
     h5: {
       entryActions: {
         onShow: "loadInitial",
+        onTapRefreshReviewQueue: "loadReviewQueue",
         onTapLoadMore: "loadMore",
         onTapSearch: "submitSearch",
         onTapClearSearch: "clearSearch",

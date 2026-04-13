@@ -7,6 +7,8 @@ import { createInitialSubscriptionState, type SubscriptionState } from "./model"
 export interface SubscriptionFeatureControllerOptions {
   loginRouteId?: AppRouteId;
   catalogRouteId: AppRouteId;
+  membershipRouteId?: AppRouteId;
+  ordersRouteId?: AppRouteId;
   novelDetailRouteId?: AppRouteId;
   readerRouteId?: AppRouteId;
   tocRouteId?: AppRouteId;
@@ -33,6 +35,8 @@ export const subscriptionFeatureManifest = defineFeatureManifest<
       kernel,
       catalogRouteId: options.catalogRouteId,
       ...(options.loginRouteId ? { loginRouteId: options.loginRouteId } : {}),
+      ...(options.membershipRouteId ? { membershipRouteId: options.membershipRouteId } : {}),
+      ...(options.ordersRouteId ? { ordersRouteId: options.ordersRouteId } : {}),
       ...(options.novelDetailRouteId ? { novelDetailRouteId: options.novelDetailRouteId } : {}),
       ...(options.readerRouteId ? { readerRouteId: options.readerRouteId } : {}),
       ...(options.tocRouteId ? { tocRouteId: options.tocRouteId } : {}),
@@ -55,6 +59,10 @@ export const subscriptionFeatureManifest = defineFeatureManifest<
         onTapCancelSubscription: "cancelSubscription",
         onTapRenewSubscription: "renewSubscription",
         onTapAfterSalesDetail: "loadAfterSalesDetail",
+        onTapOpenOrder: "loadOrderDetail",
+        onTapOpenAfterSalesCase: "loadAfterSalesDetail",
+        onTapMembership: "goToMembership",
+        onTapOrders: "goToOrders",
         onTapContinueAfterPurchase: "continueAfterPurchase",
         onTapLatestMilestone: "openLatestMilestone",
         onTapMilestoneHistoryItem: "openMilestoneHistoryItem",
@@ -72,6 +80,10 @@ export const subscriptionFeatureManifest = defineFeatureManifest<
         onTapCancelSubscription: "cancelSubscription",
         onTapRenewSubscription: "renewSubscription",
         onTapAfterSalesDetail: "loadAfterSalesDetail",
+        onTapOpenOrder: "loadOrderDetail",
+        onTapOpenAfterSalesCase: "loadAfterSalesDetail",
+        onTapMembership: "goToMembership",
+        onTapOrders: "goToOrders",
         onTapContinueAfterPurchase: "continueAfterPurchase",
         onTapLatestMilestone: "openLatestMilestone",
         onTapMilestoneHistoryItem: "openMilestoneHistoryItem",

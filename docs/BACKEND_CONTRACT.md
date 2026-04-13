@@ -28,10 +28,12 @@ Feature controllers consuming shared list/detail protocols should normalize busi
 - `DetailStatus` now covers `ready`, `stale`, `deleted`, `forbidden`, `offline`, `unavailable`, `unpublished`, and deep-link recovery via `recoveredFromLink` and `requestedDetailId`.
 - Official sample adoptions in `v1.0` include items progress lists, feed/search lists, inbox notification lists, novel detail pages, message-thread detail states, subscription commerce detail states, account operation forms, feedback forms, and managed-content draft forms.
 - Inbox notification and thread-detail consumers now include all four sample hosts, and they intentionally expose `MessageSyncState.mode = "polling"` rather than implying an unimplemented realtime transport.
+- Generic hosts may expose a dedicated order-center route backed by the same shared subscription controller, while novel hosts intentionally keep order follow-up on the membership-centered reading flow.
+- Managed-content authoring and review remain embedded in the shared discover/feed route on official hosts; the sample stance is an explicit bounded studio lane, not a missing host-local CMS.
 - Explicit exceptions in `v1.0` are also part of the contract posture:
   - auth login and identity handoff remain provider-aware credential workflows instead of generic `FormPageState` flows
   - reader remains an immersive chapter runtime instead of a shared `DetailPageState`
-  - subscription order history remains an embedded list collection inside the commerce center instead of a standalone `ListPageState`
+  - subscription order history remains an embedded list collection on the shared commerce controller even when a generic host exposes it through a dedicated order-center route
 
 ## Platform Capability Baseline
 
@@ -99,6 +101,7 @@ Response semantics:
 - `account_security` challenges are attached to the current signed-in account when an access token is present so high-risk account operations can verify the existing owner
 - `delivery.providerMode = "sample" | "production"` makes the current SMS backing explicit to the host
 - local/sample deployments use the built-in simulated SMS provider and may expose `delivery.debugCode` for automated tests
+- verification-code issue, retry, and password-recovery handoff stay on the current login or identity page; official hosts do not require a dedicated SMS recovery route
 - consuming login and account flows must submit the returned code before it expires or before the attempt limit is exhausted
 - responses may also carry `riskDecision`, `deviceIdentity`, `rateLimitState`, and recent `securityAuditEvents`
 
@@ -122,6 +125,7 @@ Creates a short-lived OAuth state record and returns a provider authorization UR
 - accepts `purpose = login | bind`; `bind` states are bound to the current authenticated session when an access token is present
 - returns the normalized provider state, provider label, provider mode, expiry, and authorization URL that the client must preserve through callback or bind completion
 - the repo keeps `providerMode = "sample"` explicit until operator-owned production callback domains and provider credentials are configured
+- OAuth authorize and callback stay bound to the current login or bind page; official hosts do not require a separate callback-only route
 
 ### `POST /auth/oauth/callback`
 

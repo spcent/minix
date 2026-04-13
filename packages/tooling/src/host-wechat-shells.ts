@@ -188,7 +188,16 @@ function buildHostWechatIndexWxml(entry: HostWechatPageShellConfig): string {
       <view class="item-title">{{item.label}}</view>
       <view class="subtitle">{{item.defaultOn && item.defaultOn.length > 0 ? (item.defaultOn[0] === 'wechat' ? 'Primary on WeChat' : 'Primary on H5') : 'Manual path'}}</view>
       <view class="reason-text">{{item.summary}}</view>
+      <view wx:if="{{item.recoverySummary}}" class="subtitle">{{item.recoverySummary}}</view>
     </view>
+  </view>
+
+  <view class="card landing-card">
+    <view class="section-label">Recovery and callback</view>
+    <view class="subtitle">{{phoneVerification && phoneVerification.message ? phoneVerification.message : 'Verification-code issue, retry, and password recovery stay on the current login or identity page.'}}</view>
+    <view class="subtitle" wx:if="{{phoneVerification}}">{{phoneVerification.phoneNumberMasked}} · {{phoneVerification.providerLabel || phoneVerification.providerMode || 'provider pending'}}</view>
+    <view class="subtitle">{{oauthAuthorization && oauthAuthorization.message ? oauthAuthorization.message : 'OAuth authorize and callback return to the current login or bind page; no dedicated callback route is required.'}}</view>
+    <view class="subtitle" wx:if="{{oauthAuthorization}}">{{oauthAuthorization.providerLabel || oauthAuthorization.provider}} · state {{oauthAuthorization.state}}</view>
   </view>
 
   <view class="card landing-card">
@@ -428,6 +437,7 @@ function buildHostWechatIndexWxml(entry: HostWechatPageShellConfig): string {
     <view class="subtitle">Leave this page quiet and utility-focused. Use it for profile review, then move back into overview or today's plan when you are done.</view>
     <button class="button" bindtap="onTapAccount">Open Account Center</button>
     <button class="button" bindtap="onTapMembership">Open Commerce Center</button>
+    <button class="button" bindtap="onTapOrders">Open Order Center</button>
     <button class="button" bindtap="onTapDiscover">Open Discover</button>
     <button class="button" bindtap="onTapInbox">Open Inbox</button>
     <button class="button" bindtap="onTapFeedback">Open Feedback</button>
@@ -524,6 +534,21 @@ function buildHostWechatIndexWxml(entry: HostWechatPageShellConfig): string {
       <button class="button" size="mini" bindtap="onTapOpenItem" data-value="{{item.id}}">Open Item</button>
     </view>
     <button wx:if="{{hasMore}}" class="button" bindtap="onTapLoadMore">Load More</button>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Studio Lane</view>
+    <view class="subtitle">{{contentDraftForm.subtitle || 'Managed-content authoring stays on this shared discover route.'}}</view>
+    <view class="subtitle">Current step: {{contentDraftForm.workflow.currentStepKey || 'basics'}}</view>
+    <view class="subtitle">{{contentDraftForm.workflow.draft ? 'Local draft recovery is available on this host.' : 'No local draft snapshot is saved yet.'}}</view>
+    <view class="subtitle">Review queue items: {{reviewQueue.length}}</view>
+    <view wx:if="{{reviewQueue.length > 0}}" class="item">
+      <view class="item-title">{{reviewQueue[0].title}}</view>
+      <view class="subtitle">{{reviewQueue[0].queueLabel}}</view>
+      <view class="subtitle">{{reviewQueue[0].reviewerLabel || 'Reviewer assignment pending'}}</view>
+    </view>
+    <view wx:if="{{contentTransitionFeedback}}" class="subtitle">{{contentTransitionFeedback}}</view>
+    <button class="button" bindtap="onTapRefreshReviewQueue">Refresh Review Queue</button>
   </view>
 
   <view class="card">
@@ -673,6 +698,57 @@ function buildHostWechatIndexWxml(entry: HostWechatPageShellConfig): string {
     <button wx:if="{{canCancelSubscription}}" class="button" bindtap="onTapCancelSubscription">Cancel Subscription</button>
     <button wx:if="{{canRenewSubscription}}" class="button" bindtap="onTapRenewSubscription">Renew Subscription</button>
     <button wx:if="{{afterSalesCases && afterSalesCases.length > 0}}" class="button" bindtap="onTapAfterSalesDetail">Open After-Sales Detail</button>
+    <button class="button" bindtap="onTapOrders">Open Order Center</button>
+    <button class="button" bindtap="onTapCatalog">Back to Discover</button>
+  </view>
+</view>
+`;
+    case "orders-basic":
+      return `<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Order Center</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{transactionMessage || 'Routeable order history and after-sales detail now live outside the purchase-focused commerce page.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Order state</view>
+    <view class="subtitle">List state: {{orderListStatus ? orderListStatus.loadState : 'idle'}}</view>
+    <view class="subtitle">Selected order: {{order ? order.orderId : (selectedOrderId || 'none')}}</view>
+    <view class="subtitle" wx:if="{{paymentResult}}">{{paymentResult.message}}</view>
+    <view class="subtitle" wx:if="{{reconciliation}}">{{reconciliation.message}}</view>
+    <view class="status-chip">{{order ? order.status : 'no-order-selected'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Recent orders</view>
+    <view class="subtitle" wx:if="{{!orderList || !orderList.items || orderList.items.length === 0}}">{{errorText || 'No order history is available yet.'}}</view>
+    <view wx:for="{{orderList.items}}" wx:key="orderId" class="item">
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle">{{item.statusLabel}} · {{item.amountLabel}}</view>
+      <button class="button" size="mini" bindtap="onTapOpenOrder" data-value="{{item.orderId}}">Open Order</button>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">After-sales</view>
+    <view class="subtitle" wx:if="{{!afterSalesCases || afterSalesCases.length === 0}}">No after-sales cases are attached to the selected order yet.</view>
+    <view wx:for="{{afterSalesCases}}" wx:key="caseId" class="item">
+      <view class="item-title">{{item.caseId}}</view>
+      <view class="subtitle">{{item.statusLabel}}</view>
+      <button class="button" size="mini" bindtap="onTapOpenAfterSalesCase" data-value="{{item.caseId}}">Open Case</button>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Actions</view>
+    <button class="button" bindtap="onTapMembership">Open Commerce Center</button>
+    <button class="button" bindtap="onTapRefreshTransaction">Refresh Order State</button>
+    <button class="button" bindtap="onTapReconcileOrder">Reconcile Order</button>
+    <button wx:if="{{canCancelOrder}}" class="button" bindtap="onTapCancelOrder">Cancel Order</button>
+    <button wx:if="{{canRefundOrder}}" class="button" bindtap="onTapRefundOrder">Refund Order</button>
+    <button wx:if="{{canCancelSubscription}}" class="button" bindtap="onTapCancelSubscription">Cancel Subscription</button>
+    <button wx:if="{{canRenewSubscription}}" class="button" bindtap="onTapRenewSubscription">Renew Subscription</button>
     <button class="button" bindtap="onTapCatalog">Back to Discover</button>
   </view>
 </view>
@@ -1783,6 +1859,21 @@ function buildHostWechatIndexWxml(entry: HostWechatPageShellConfig): string {
       <view wx:if="{{item.recommendedReason}}" class="subtitle">{{item.recommendedReason}}</view>
     </view>
     <button wx:if="{{hasMore}}" class="button" bindtap="onTapLoadMore">Load More</button>
+  </view>
+
+  <view class="card">
+    <view class="section-label">Studio lane</view>
+    <view class="subtitle">{{contentDraftForm.subtitle || 'Managed-content authoring stays on the shared feed route.'}}</view>
+    <view class="subtitle">Current step: {{contentDraftForm.workflow.currentStepKey || 'basics'}}</view>
+    <view class="subtitle">{{contentDraftForm.workflow.draft ? 'Local draft recovery is available on this host.' : 'No local draft snapshot is saved yet.'}}</view>
+    <view class="subtitle">Review queue items: {{reviewQueue.length}}</view>
+    <view wx:if="{{reviewQueue.length > 0}}" class="item">
+      <view class="item-title">{{reviewQueue[0].title}}</view>
+      <view class="subtitle">{{reviewQueue[0].queueLabel}}</view>
+      <view class="subtitle">{{reviewQueue[0].reviewerLabel || 'Reviewer assignment pending'}}</view>
+    </view>
+    <view wx:if="{{contentTransitionFeedback}}" class="subtitle">{{contentTransitionFeedback}}</view>
+    <button class="button" bindtap="onTapRefreshReviewQueue">Refresh Review Queue</button>
   </view>
 
   <view class="card">

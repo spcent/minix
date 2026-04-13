@@ -8,6 +8,7 @@ export function renderFeedPage(state: FeedState): string {
   const topItems = state.items.slice(0, 4);
   const resultCount = state.searchResults?.total ?? state.items.length;
   const reviewCount = state.reviewQueue.length;
+  const reviewPreview = state.reviewQueue.slice(0, 3);
 
   return renderAppShell(
     "feed",
@@ -91,14 +92,18 @@ export function renderFeedPage(state: FeedState): string {
         <aside class="nh-card">
           ${renderSectionHeading({
             kicker: "Managed content",
-            title: "Shared CMS actions stay visible as shared state, not novel-local logic.",
-            copy: "This route clarifies where editorial discovery ends and novel-specific consumption begins.",
+            title: "Shared authoring and review stay visible without creating a host-local CMS.",
+            copy: "This route is the deliberate studio entry for the official sample surface, while the shared feed feature remains the source of truth.",
             compact: true,
           })}
           <div class="nh-grid">
             <article class="nh-panel">
               <p class="nh-meta-label">Draft workflow</p>
               <p class="nh-item-copy">${escapeHtml(state.contentDraftForm.subtitle ?? "Authoring workflow for managed content.")}</p>
+            </article>
+            <article class="nh-panel">
+              <p class="nh-meta-label">Draft recovery</p>
+              <p class="nh-item-copy">${escapeHtml(state.contentDraftForm.workflow.draft ? "Local draft recovery is available on this host." : "No local draft snapshot is saved yet.")}</p>
             </article>
             <article class="nh-panel">
               <p class="nh-meta-label">Search posture</p>
@@ -109,6 +114,30 @@ export function renderFeedPage(state: FeedState): string {
               <p class="nh-item-copy">Use Discover for shared editorial search, then return to Library, Detail, or Reader for the novel-specific extension flow.</p>
             </article>
           </div>
+          <div class="nh-actions">
+            ${renderActionButton("Refresh review queue", "controller", "loadReviewQueue", undefined, "secondary")}
+            ${renderActionButton("Save local draft snapshot", "controller", "saveContentDraftSnapshot", undefined, "ghost")}
+          </div>
+          ${
+            reviewPreview.length > 0
+              ? `
+                <div class="nh-section-grid">
+                  ${reviewPreview
+                    .map(
+                      (item) => `
+                        <article class="nh-item">
+                          <div class="nh-kicker">${escapeHtml(item.lifecycleState)}</div>
+                          <h2 class="nh-item-title">${escapeHtml(item.title)}</h2>
+                          <p class="nh-item-copy">${escapeHtml(item.queueLabel)}</p>
+                          <p class="nh-item-copy">${escapeHtml(item.reviewerLabel ?? "Reviewer assignment pending")}</p>
+                        </article>
+                      `,
+                    )
+                    .join("")}
+                </div>
+              `
+              : `<p class="nh-copy">${escapeHtml(state.contentTransitionFeedback ?? "Refresh the shared review queue when editorial work is active.")}</p>`
+          }
         </aside>
       </section>
     `,

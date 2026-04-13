@@ -43,9 +43,9 @@ Decide whether the official hosts need a routeable studio console for managed-co
 - depends on:
   - `tasks/cards/done/0216-content-surface-and-cms-entry-closure.md`
 - blocked by:
-  - product decision on whether v1 sample needs a bounded studio console
+  - none
 - integration notes:
-  - if no studio route is added, document embedded feed authoring as intentional rather than incomplete by accident
+  - official hosts keep managed-content draft and review on the shared discover/feed route; do not add a host-local CMS store or separate studio-only route
 
 ## Affected Paths
 
@@ -84,7 +84,7 @@ Decide whether the official hosts need a routeable studio console for managed-co
 
 ## Acceptance
 
-- [ ] dedicated content-studio route decision is explicit
-- [ ] managed-content draft/review entry is routeable where justified
-- [ ] feed remains the shared source of truth for content authoring
-- [ ] `pnpm verify` run if code changes
+- [x] dedicated content-studio route decision is explicit
+- [x] managed-content draft/review entry is routeable where justified
+- [x] feed remains the shared source of truth for content authoring
+- [x] `pnpm verify` run if code changes

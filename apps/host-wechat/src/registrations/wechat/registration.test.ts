@@ -67,13 +67,14 @@ test("miniprogram page shells register the shared WeChat host pages", async () =
     await importFresh("apps/host-wechat/miniprogram/pages/messages/index.ts");
     await importFresh("apps/host-wechat/miniprogram/pages/mediaTools/index.ts");
     await importFresh("apps/host-wechat/miniprogram/pages/membership/index.ts");
+    await importFresh("apps/host-wechat/miniprogram/pages/orders/index.ts");
     await importFresh("apps/host-wechat/miniprogram/pages/settings/index.ts");
     await importFresh("apps/host-wechat/miniprogram/pages/account/index.ts");
   } finally {
     Reflect.deleteProperty(globals, "Page");
   }
 
-  assert.equal(pageConfigs.length, 10);
+  assert.equal(pageConfigs.length, 11);
   assert.equal(typeof pageConfigs[0]?.onShow, "function");
   assert.equal(typeof pageConfigs[0]?.onTapLogin, "function");
   assert.equal(typeof pageConfigs[1]?.onTapPlan, "function");
@@ -85,6 +86,7 @@ test("miniprogram page shells register the shared WeChat host pages", async () =
   assert.equal(typeof pageConfigs[5]?.onTapMarkVisibleRead, "function");
   assert.equal(typeof pageConfigs[6]?.onTapUpload, "function");
   assert.equal(typeof pageConfigs[7]?.onTapPurchaseMembership, "function");
-  assert.equal(typeof pageConfigs[8]?.onTapLogout, "function");
-  assert.equal(typeof pageConfigs[9]?.onTapIdentityUpgrade, "function");
+  assert.equal(typeof pageConfigs[8]?.onTapOpenOrder, "function");
+  assert.equal(typeof pageConfigs[9]?.onTapLogout, "function");
+  assert.equal(typeof pageConfigs[10]?.onTapIdentityUpgrade, "function");
 });

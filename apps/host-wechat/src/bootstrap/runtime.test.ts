@@ -149,6 +149,7 @@ test("host runtime creates page controllers on a shared kernel", () => {
     "messages",
     "mediaTools",
     "membership",
+    "orders",
     "settings",
     "account",
   ];
@@ -169,6 +170,7 @@ test("page entries delegate to page controllers", async () => {
   const messagesEntry = createHostWechatPageEntry(runtime, "messages");
   const mediaToolsEntry = createHostWechatPageEntry(runtime, "mediaTools");
   const membershipEntry = createHostWechatPageEntry(runtime, "membership");
+  const ordersEntry = createHostWechatPageEntry(runtime, "orders");
   const settingsEntry = createHostWechatPageEntry(runtime, "settings");
   const accountEntry = createHostWechatPageEntry(runtime, "account");
 
@@ -180,6 +182,7 @@ test("page entries delegate to page controllers", async () => {
   const messagesResult = await messagesEntry.onTapSettings();
   const mediaToolsResult = await mediaToolsEntry.onTapSettings();
   const membershipResult = await membershipEntry.onTapCatalog();
+  const ordersResult = await ordersEntry.onShow();
   const logoutResult = await settingsEntry.onTapLogout();
   const accountResult = await accountEntry.onTapSettings();
 
@@ -191,6 +194,7 @@ test("page entries delegate to page controllers", async () => {
   assert.equal((messagesResult as { ok?: boolean } | undefined)?.ok, true);
   assert.equal((mediaToolsResult as { ok?: boolean } | undefined)?.ok, true);
   assert.equal((membershipResult as { ok?: boolean } | undefined)?.ok, true);
+  assert.equal((ordersResult as { ok?: boolean } | undefined)?.ok, true);
   assert.deepEqual(logoutResult, { ok: true, value: undefined });
   assert.equal((accountResult as { ok?: boolean } | undefined)?.ok, true);
 });

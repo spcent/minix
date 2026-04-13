@@ -33,6 +33,7 @@
     <button wx:if="{{canCancelSubscription}}" class="button" bindtap="onTapCancelSubscription">Cancel Subscription</button>
     <button wx:if="{{canRenewSubscription}}" class="button" bindtap="onTapRenewSubscription">Renew Subscription</button>
     <button wx:if="{{afterSalesCases && afterSalesCases.length > 0}}" class="button" bindtap="onTapAfterSalesDetail">Open After-Sales Detail</button>
+    <button class="button" bindtap="onTapOrders">Open Order Center</button>
     <button class="button" bindtap="onTapCatalog">Back to Discover</button>
   </view>
 </view>

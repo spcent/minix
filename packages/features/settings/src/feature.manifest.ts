@@ -15,6 +15,7 @@ export interface SettingsFeatureControllerOptions {
   overviewRouteId?: AppRouteId;
   accountRouteId?: AppRouteId;
   membershipRouteId?: AppRouteId;
+  ordersRouteId?: AppRouteId;
   feedRouteId?: AppRouteId;
   messagesRouteId?: AppRouteId;
   feedbackRouteId?: AppRouteId;
@@ -49,6 +50,7 @@ export const settingsFeatureManifest = defineFeatureManifest<
       ...(options.overviewRouteId ? { overviewRouteId: options.overviewRouteId } : {}),
       ...(options.accountRouteId ? { accountRouteId: options.accountRouteId } : {}),
       ...(options.membershipRouteId ? { membershipRouteId: options.membershipRouteId } : {}),
+      ...(options.ordersRouteId ? { ordersRouteId: options.ordersRouteId } : {}),
       ...(options.feedRouteId ? { feedRouteId: options.feedRouteId } : {}),
       ...(options.messagesRouteId ? { messagesRouteId: options.messagesRouteId } : {}),
       ...(options.feedbackRouteId ? { feedbackRouteId: options.feedbackRouteId } : {}),
@@ -70,6 +72,7 @@ export const settingsFeatureManifest = defineFeatureManifest<
         onTapPlan: "goToItems",
         onTapAccount: "goToAccount",
         onTapMembership: "goToMembership",
+        onTapOrders: "goToOrders",
         onTapDiscover: "goToFeed",
         onTapInbox: "goToMessages",
         onTapFeedback: "goToFeedback",
@@ -96,6 +99,7 @@ export const settingsFeatureManifest = defineFeatureManifest<
         onTapPlan: "goToItems",
         onTapAccount: "goToAccount",
         onTapMembership: "goToMembership",
+        onTapOrders: "goToOrders",
         onTapDiscover: "goToFeed",
         onTapInbox: "goToMessages",
         onTapFeedback: "goToFeedback",

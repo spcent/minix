@@ -1193,6 +1193,8 @@ function resolvePageLabel(pageKey: HostH5PageKey): string {
       return "Inbox";
     case "membership":
       return "Commerce Center";
+    case "orders":
+      return "Order Center";
     case "settings":
       return "Preferences";
     case "account":
@@ -1203,7 +1205,7 @@ function resolvePageLabel(pageKey: HostH5PageKey): string {
 }
 
 function renderGlobalNavigation(pageKey: HostH5PageKey, authenticated: boolean): string {
-  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "feedback.form" | "media-tools.workspace" | "messages.index" | "membership.center" | "settings.index" | "account.index"; label: string }> = [
+  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "feedback.form" | "media-tools.workspace" | "messages.index" | "membership.center" | "orders.center" | "settings.index" | "account.index"; label: string }> = [
     { key: "login", routeId: "auth.login", label: "Home" },
     { key: "overview", routeId: "overview.index", label: "Overview" },
     { key: "items", routeId: "items.list", label: "Today's Plan" },
@@ -1212,6 +1214,7 @@ function renderGlobalNavigation(pageKey: HostH5PageKey, authenticated: boolean):
     { key: "mediaTools", routeId: "media-tools.workspace", label: "Media Tools" },
     { key: "messages", routeId: "messages.index", label: "Inbox" },
     { key: "membership", routeId: "membership.center", label: "Commerce" },
+    { key: "orders", routeId: "orders.center", label: "Orders" },
     { key: "settings", routeId: "settings.index", label: "Preferences" },
     { key: "account", routeId: "account.index", label: "Account" },
   ];
@@ -1226,7 +1229,7 @@ function renderGlobalNavigation(pageKey: HostH5PageKey, authenticated: boolean):
 }
 
 function renderFooterLinks(pageKey: HostH5PageKey, authenticated: boolean): string {
-  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "feedback.form" | "media-tools.workspace" | "messages.index" | "membership.center" | "settings.index" | "account.index"; label: string }> = [
+  const entries: Array<{ key: HostH5PageKey; routeId: "auth.login" | "overview.index" | "items.list" | "feed.index" | "feedback.form" | "media-tools.workspace" | "messages.index" | "membership.center" | "orders.center" | "settings.index" | "account.index"; label: string }> = [
     { key: "login", routeId: "auth.login", label: "Home" },
     { key: "overview", routeId: "overview.index", label: "Overview" },
     { key: "items", routeId: "items.list", label: "Today's Plan" },
@@ -1235,6 +1238,7 @@ function renderFooterLinks(pageKey: HostH5PageKey, authenticated: boolean): stri
     { key: "mediaTools", routeId: "media-tools.workspace", label: "Media Tools" },
     { key: "messages", routeId: "messages.index", label: "Inbox" },
     { key: "membership", routeId: "membership.center", label: "Commerce" },
+    { key: "orders", routeId: "orders.center", label: "Orders" },
     { key: "settings", routeId: "settings.index", label: "Preferences" },
     { key: "account", routeId: "account.index", label: "Account" },
   ];
@@ -1263,6 +1267,7 @@ function resolveShellTone(pageKey: HostH5PageKey): ShellTone {
     case "mediaTools":
     case "messages":
     case "membership":
+    case "orders":
       return "dashboard";
     case "items":
       return "execution";
@@ -1926,6 +1931,8 @@ function renderLoginPage({ root, runtime, sync }: HostH5PageRenderContext) {
         ? `Signed in. Continue to ${redirectDestinationLabel}, or choose another page from Home.`
         : "Signed in. Use the menu or the actions below to open the rest of the product."
       : "Ready for today's practice";
+  const phoneDescriptor = state.loginMethodDescriptors.find((descriptor) => descriptor.method === "phone_code");
+  const oauthDescriptor = state.loginMethodDescriptors.find((descriptor) => descriptor.method === "oauth");
 
   renderApp(
     root,
@@ -2111,6 +2118,11 @@ function renderLoginPage({ root, runtime, sync }: HostH5PageRenderContext) {
                         <span class="me-lesson-badge">${escapeHtml(`${modeLabel} | ${hostLabel}`)}</span>
                       </div>
                       <p class="me-lesson-subtitle">${escapeHtml(descriptor.summary)}</p>
+                      ${
+                        descriptor.recoverySummary
+                          ? `<p class="me-copy-muted">${escapeHtml(descriptor.recoverySummary)}</p>`
+                          : ""
+                      }
                     </article>
                   `;
                 })
@@ -2118,6 +2130,34 @@ function renderLoginPage({ root, runtime, sync }: HostH5PageRenderContext) {
             </div>
           </section>
 
+        </section>
+
+        <section class="me-grid me-grid-columns">
+          <section class="me-surface me-card me-home-note">
+            <p class="me-section-kicker">SMS Recovery</p>
+            <h2 class="me-card-title">Verification and password recovery stay on the current auth surface</h2>
+            <p class="me-card-subtitle">
+              ${escapeHtml(state.phoneVerification?.message ?? phoneDescriptor?.recoverySummary ?? "Verification codes, retries, and password recovery stay on the current login or identity page.")} 
+            </p>
+            ${
+              state.phoneVerification
+                ? `<p class="me-copy-muted">${escapeHtml(`${state.phoneVerification.phoneNumberMasked} · ${state.phoneVerification.providerLabel ?? state.phoneVerification.providerMode ?? "provider pending"}`)}</p>`
+                : `<p class="me-copy-muted">No verification code has been requested in this session.</p>`
+            }
+          </section>
+
+          <section class="me-surface me-card me-home-note">
+            <p class="me-section-kicker">OAuth Callback</p>
+            <h2 class="me-card-title">OAuth returns to the current login or bind page</h2>
+            <p class="me-card-subtitle">
+              ${escapeHtml(state.oauthAuthorization?.message ?? oauthDescriptor?.recoverySummary ?? "OAuth callback and recovery stay on the current login or bind page; no dedicated callback route is required.")}
+            </p>
+            ${
+              state.oauthAuthorization
+                ? `<p class="me-copy-muted">${escapeHtml(`${state.oauthAuthorization.providerLabel ?? state.oauthAuthorization.provider} · state ${state.oauthAuthorization.state}`)}</p>`
+                : `<p class="me-copy-muted">No OAuth authorization handshake is active in this session.</p>`
+            }
+          </section>
         </section>
 
         <section class="me-grid me-grid-columns">
@@ -2819,6 +2859,7 @@ function renderSettingsPage({ root, runtime, sync }: HostH5PageRenderContext) {
             </p>
             <div class="me-action-group">
               ${renderButton("open-membership", "Open Commerce Center", "secondary")}
+              ${renderButton("open-orders", "Open Order Center", "ghost")}
               ${renderButton("clear-learning-progress", "Clear Saved Progress", "ghost")}
               ${renderButton("logout", "Sign Out", "danger")}
             </div>
@@ -2831,6 +2872,9 @@ function renderSettingsPage({ root, runtime, sync }: HostH5PageRenderContext) {
   bindRouteButtons(root, runtime, sync);
   bindButton(root, "open-membership", () => {
     void runtime.pages.settings.goToMembership().then(sync);
+  });
+  bindButton(root, "open-orders", () => {
+    void runtime.pages.settings.goToOrders().then(sync);
   });
   bindButton(root, "clear-learning-progress", () => {
     void runtime.pages.items.clearProgress().then(sync);
@@ -2845,6 +2889,8 @@ function renderFeedPage({ root, runtime, sync }: HostH5PageRenderContext) {
   const recentKeywords = state.searchResults?.recentKeywords ?? state.recentKeywords;
   const hotKeywords = state.searchResults?.hotKeywords ?? [];
   const suggestionTerms = state.searchResults?.suggestionTerms ?? [];
+  const draftState = state.contentDraftForm.workflow.draft;
+  const reviewPreview = state.reviewQueue.slice(0, 3);
 
   renderApp(
     root,
@@ -2948,6 +2994,61 @@ function renderFeedPage({ root, runtime, sync }: HostH5PageRenderContext) {
           }
           ${state.hasMore ? `<div class="me-action-group"><button id="feed-load-more" class="me-button me-button-ghost">Load more</button></div>` : ""}
         </section>
+
+        <section class="me-grid me-grid-columns">
+          <section class="me-surface me-card">
+            <p class="me-section-kicker">Studio Lane</p>
+            <h2 class="me-card-title">Managed content stays on this shared route</h2>
+            <section class="me-settings-section">
+              <div class="me-settings-item">
+                <p class="me-settings-label">Draft workflow</p>
+                <p class="me-settings-value">${escapeHtml(state.contentDraftForm.subtitle ?? "Authoring workflow for managed content.")}</p>
+              </div>
+              <div class="me-settings-item">
+                <p class="me-settings-label">Current step</p>
+                <p class="me-settings-value">${escapeHtml(state.contentDraftForm.workflow.currentStepKey ?? "basics")}</p>
+              </div>
+              <div class="me-settings-item">
+                <p class="me-settings-label">Local recovery</p>
+                <p class="me-settings-value">${escapeHtml(draftState ? "Draft snapshot saved for this host." : "No local draft snapshot saved yet.")}</p>
+              </div>
+              <div class="me-settings-item">
+                <p class="me-settings-label">Review queue</p>
+                <p class="me-settings-value">${escapeHtml(`${String(state.reviewQueue.length)} items${state.selectedReviewContentId ? ` · selected ${state.selectedReviewContentId}` : ""}`)}</p>
+              </div>
+            </section>
+            ${state.contentTransitionFeedback ? `<p class="me-copy-muted">${escapeHtml(state.contentTransitionFeedback)}</p>` : ""}
+            <div class="me-action-group">
+              <button id="feed-review-queue" class="me-button me-button-secondary">Refresh review queue</button>
+              <button id="feed-save-snapshot" class="me-button me-button-ghost">Save local draft snapshot</button>
+            </div>
+          </section>
+
+          <section class="me-surface me-card">
+            <p class="me-section-kicker">Review Queue</p>
+            <h2 class="me-card-title">Editorial review preview</h2>
+            ${
+              reviewPreview.length > 0
+                ? `
+                  <div class="me-task-list">
+                    ${reviewPreview
+                      .map(
+                        (item) => `
+                          <article class="me-task-card">
+                            <p class="me-task-meta">${escapeHtml(`${item.lifecycleState} · ${item.visibility}`)}</p>
+                            <h3 class="me-task-title">${escapeHtml(item.title)}</h3>
+                            <p class="me-task-copy">${escapeHtml(item.queueLabel)}</p>
+                            <p class="me-task-copy">${escapeHtml(item.reviewerLabel ?? "Reviewer assignment pending")}</p>
+                          </article>
+                        `,
+                      )
+                      .join("")}
+                  </div>
+                `
+                : `<p class="me-empty">No review-queue items are loaded yet. Refresh this bounded studio lane when editorial work is active.</p>`
+            }
+          </section>
+        </section>
       </section>
     `,
   );
@@ -2963,6 +3064,12 @@ function renderFeedPage({ root, runtime, sync }: HostH5PageRenderContext) {
   });
   bindButton(root, "feed-load-more", () => {
     void runtime.pages.feed.loadMore().then(sync);
+  });
+  bindButton(root, "feed-review-queue", () => {
+    void runtime.pages.feed.loadReviewQueue().then(sync);
+  });
+  bindButton(root, "feed-save-snapshot", () => {
+    void runtime.pages.feed.saveContentDraftSnapshot().then(sync);
   });
   root.querySelectorAll<HTMLElement>("[data-feed-tag]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -3761,6 +3868,7 @@ function renderMembershipPage({ root, runtime, sync }: HostH5PageRenderContext) 
               ${renderButton("membership-buy-quarterly", "Purchase Quarterly", "primary")}
               ${renderButton("membership-buy-annual", "Purchase Annual", "ghost")}
               ${state.purchaseSuccessMessage ? renderButton("membership-continue", "Continue After Purchase", "secondary") : ""}
+              ${renderButton("membership-open-orders", "Open Order Center", "secondary")}
               ${renderButton("membership-refresh", "Refresh Transaction", "ghost")}
               ${renderButton("membership-reconcile", "Reconcile Order", "ghost")}
               ${state.canCancelOrder ? renderButton("membership-cancel-order", "Cancel Order", "danger") : ""}
@@ -3816,6 +3924,9 @@ function renderMembershipPage({ root, runtime, sync }: HostH5PageRenderContext) 
   bindButton(root, "membership-continue", () => {
     void runtime.pages.membership.continueAfterPurchase().then(sync);
   });
+  bindButton(root, "membership-open-orders", () => {
+    void runtime.pages.membership.goToOrders().then(sync);
+  });
   bindButton(root, "membership-refresh", () => {
     void runtime.pages.membership.refreshTransaction().then(sync);
   });
@@ -3839,6 +3950,136 @@ function renderMembershipPage({ root, runtime, sync }: HostH5PageRenderContext) 
   });
   bindButton(root, "membership-back-discover", () => {
     void runtime.pages.membership.goToCatalog().then(sync);
+  });
+}
+
+function renderOrdersPage({ root, runtime, sync }: HostH5PageRenderContext) {
+  const state = runtime.pages.orders.store.getState() as SubscriptionState;
+  const selectedOrder =
+    state.order ?? state.orderList?.items.find((item) => item.orderId === state.selectedOrderId) ?? state.orderList?.items[0];
+  const selectedAfterSalesCase =
+    state.selectedAfterSalesCase ??
+    (selectedOrder ? state.afterSalesCases.find((item) => item.orderId === selectedOrder.orderId) : undefined) ??
+    state.afterSalesCases[0];
+
+  renderApp(
+    root,
+    "Order Center",
+    runtime,
+    "orders",
+    `
+      <section class="me-screen">
+        <section class="me-surface me-hero">
+          <div class="me-hero-copy">
+            <p class="me-eyebrow">Order Center</p>
+            <h1 class="me-title">${escapeHtml(state.title)}</h1>
+            <p class="me-subtitle">${escapeHtml(state.transactionMessage ?? "Routeable order history, detail recovery, and after-sales state now live outside the membership purchase entry.")}</p>
+            <div class="me-chip-row">
+              <span class="me-chip">${escapeHtml(state.orderListStatus.loadState)}</span>
+              <span class="me-chip me-chip-accent">${escapeHtml(selectedOrder?.status ?? "No selected order")}</span>
+              <span class="me-chip me-chip-warm">${escapeHtml(`${state.afterSalesCases.length} after-sales cases`)}</span>
+            </div>
+          </div>
+          <aside class="me-panel">
+            <p class="me-panel-kicker">Route decision</p>
+            <h2 class="me-panel-title">Generic hosts get a dedicated order lane</h2>
+            <ul class="me-panel-list">
+              <li>Order list and detail stay on the shared subscription controller.</li>
+              <li>Novel hosts remain on the membership-centered reading paywall flow.</li>
+              <li>Gateway posture still comes from shared payment responses.</li>
+            </ul>
+          </aside>
+        </section>
+
+        <section class="me-grid me-grid-columns">
+          <section class="me-surface me-card">
+            <p class="me-section-kicker">Order history</p>
+            <h2 class="me-card-title">Recent orders</h2>
+            ${
+              state.orderList?.items.length
+                ? `
+                  <div class="me-settings-group">
+                    ${state.orderList.items
+                      .slice(0, 6)
+                      .map(
+                        (item) => `
+                          <section class="me-settings-section">
+                            <h3 class="me-settings-title">${escapeHtml(item.title)}</h3>
+                            <p class="me-settings-value">${escapeHtml(`${item.status} · ${item.productType} · ${item.currency} ${(item.totalAmountCents / 100).toFixed(2)}`)}</p>
+                            <div class="me-action-group">
+                              ${renderButton(`orders-open-${item.orderId}`, item.orderId === state.selectedOrderId ? "Selected" : "Open Order Detail", item.orderId === state.selectedOrderId ? "primary" : "secondary")}
+                            </div>
+                          </section>
+                        `,
+                      )
+                      .join("")}
+                  </div>
+                `
+                : `<p class="me-empty">${escapeHtml(state.errorText ?? "No orders are available yet.")}</p>`
+            }
+          </section>
+
+          <section class="me-surface me-card me-summary-card">
+            <p class="me-section-kicker">Selected detail</p>
+            <h2 class="me-card-title">${escapeHtml(selectedOrder?.title ?? "Order detail")}</h2>
+            <ul class="me-detail-list">
+              <li>${escapeHtml(`Order id: ${selectedOrder?.orderId ?? "None selected"}`)}</li>
+              <li>${escapeHtml(`Status: ${selectedOrder?.status ?? "No order status loaded yet."}`)}</li>
+              <li>${escapeHtml(`Payment result: ${state.paymentResult?.message ?? "Open an order to hydrate payment detail."}`)}</li>
+              <li>${escapeHtml(`Reconciliation: ${state.reconciliation?.message ?? "Reconciliation remains available when operators need it."}`)}</li>
+              <li>${escapeHtml(`After-sales: ${selectedAfterSalesCase?.resultLabel ?? (selectedAfterSalesCase?.status ?? "No case selected.")}`)}</li>
+            </ul>
+            <div class="me-action-group">
+              ${renderButton("orders-open-membership", "Open Commerce Center", "secondary")}
+              ${renderButton("orders-refresh", "Refresh Order State", "ghost")}
+              ${renderButton("orders-reconcile", "Reconcile Order", "ghost")}
+              ${state.canCancelOrder ? renderButton("orders-cancel-order", "Cancel Order", "danger") : ""}
+              ${state.canRefundOrder ? renderButton("orders-refund-order", "Refund Order", "danger") : ""}
+              ${state.canCancelSubscription ? renderButton("orders-cancel-subscription", "Cancel Subscription", "ghost") : ""}
+              ${state.canRenewSubscription ? renderButton("orders-renew-subscription", "Renew Subscription", "secondary") : ""}
+              ${selectedAfterSalesCase ? renderButton(`orders-case-${selectedAfterSalesCase.caseId}`, "Open After-Sales Detail", "ghost") : ""}
+              ${renderButton("orders-back-discover", "Back to Discover", "secondary")}
+            </div>
+          </section>
+        </section>
+      </section>
+    `,
+  );
+
+  bindRouteButtons(root, runtime, sync);
+  state.orderList?.items.slice(0, 6).forEach((item) => {
+    bindButton(root, `orders-open-${item.orderId}`, () => {
+      void runtime.pages.orders.loadOrderDetail(item.orderId).then(sync);
+    });
+  });
+  state.afterSalesCases.forEach((item) => {
+    bindButton(root, `orders-case-${item.caseId}`, () => {
+      void runtime.pages.orders.loadAfterSalesDetail(item.caseId).then(sync);
+    });
+  });
+  bindButton(root, "orders-open-membership", () => {
+    void runtime.pages.orders.goToMembership().then(sync);
+  });
+  bindButton(root, "orders-refresh", () => {
+    void runtime.pages.orders.refreshTransaction().then(sync);
+  });
+  bindButton(root, "orders-reconcile", () => {
+    void runtime.pages.orders.reconcileOrder().then(sync);
+  });
+  bindButton(root, "orders-cancel-order", () => {
+    void runtime.pages.orders.cancelOrder().then(sync);
+  });
+  bindButton(root, "orders-refund-order", () => {
+    void runtime.pages.orders.refundOrder().then(sync);
+  });
+  bindButton(root, "orders-cancel-subscription", () => {
+    void runtime.pages.orders.cancelSubscription().then(sync);
+  });
+  bindButton(root, "orders-renew-subscription", () => {
+    void runtime.pages.orders.renewSubscription().then(sync);
+  });
+  bindButton(root, "orders-back-discover", () => {
+    void runtime.pages.orders.goToCatalog().then(sync);
   });
 }
 
@@ -3920,6 +4161,11 @@ export const hostH5PageRenderers: Partial<Record<HostH5PageKey, HostH5PageRender
   membership: {
     render(context) {
       renderMembershipPage(context);
+    },
+  },
+  orders: {
+    render(context) {
+      renderOrdersPage(context);
     },
   },
   settings: {

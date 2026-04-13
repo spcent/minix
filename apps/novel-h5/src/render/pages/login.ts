@@ -4,6 +4,9 @@ import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, renderActionButton, renderRouteLink, routePath } from "../utils";
 
 export function renderLoginPage(state: AuthPageState): string {
+  const phoneDescriptor = state.loginMethodDescriptors.find((descriptor) => descriptor.method === "phone_code");
+  const oauthDescriptor = state.loginMethodDescriptors.find((descriptor) => descriptor.method === "oauth");
+
   return renderAppShell(
     "login",
     `
@@ -29,6 +32,20 @@ export function renderLoginPage(state: AuthPageState): string {
           <p class="nh-cover-copy">
             Use sign-in when the product needs identity. Do not force it before discovery.
           </p>
+        </aside>
+      </section>
+      <section class="nh-sidebar-grid">
+        <section class="nh-card">
+          <div class="nh-kicker">Provider posture</div>
+          <h2 class="nh-item-title">SMS and OAuth stay explicit about operator-owned setup.</h2>
+          <p class="nh-item-copy">${escapeHtml(phoneDescriptor?.summary ?? "Phone verification remains provider-backed.")}</p>
+          <p class="nh-item-copy">${escapeHtml(oauthDescriptor?.summary ?? "OAuth remains provider-backed.")}</p>
+        </section>
+        <aside class="nh-card">
+          <div class="nh-kicker">Recovery and callback</div>
+          <p class="nh-item-copy">${escapeHtml(state.phoneVerification?.message ?? phoneDescriptor?.recoverySummary ?? "Verification-code recovery stays on the current login surface.")}</p>
+          <p class="nh-item-copy">${escapeHtml(state.oauthAuthorization?.message ?? oauthDescriptor?.recoverySummary ?? "OAuth callback returns to the current login or bind page.")}</p>
+          ${state.oauthAuthorization ? `<p class="nh-item-copy">${escapeHtml(`Active OAuth state: ${state.oauthAuthorization.state}`)}</p>` : ""}
         </aside>
       </section>
     `,

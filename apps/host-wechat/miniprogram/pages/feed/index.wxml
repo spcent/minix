@@ -27,6 +27,21 @@
   </view>
 
   <view class="card">
+    <view class="section-title">Studio Lane</view>
+    <view class="subtitle">{{contentDraftForm.subtitle || 'Managed-content authoring stays on this shared discover route.'}}</view>
+    <view class="subtitle">Current step: {{contentDraftForm.workflow.currentStepKey || 'basics'}}</view>
+    <view class="subtitle">{{contentDraftForm.workflow.draft ? 'Local draft recovery is available on this host.' : 'No local draft snapshot is saved yet.'}}</view>
+    <view class="subtitle">Review queue items: {{reviewQueue.length}}</view>
+    <view wx:if="{{reviewQueue.length > 0}}" class="item">
+      <view class="item-title">{{reviewQueue[0].title}}</view>
+      <view class="subtitle">{{reviewQueue[0].queueLabel}}</view>
+      <view class="subtitle">{{reviewQueue[0].reviewerLabel || 'Reviewer assignment pending'}}</view>
+    </view>
+    <view wx:if="{{contentTransitionFeedback}}" class="subtitle">{{contentTransitionFeedback}}</view>
+    <button class="button" bindtap="onTapRefreshReviewQueue">Refresh Review Queue</button>
+  </view>
+
+  <view class="card">
     <view class="section-title">Navigation</view>
     <button class="button" bindtap="onTapSettings">Open Preferences</button>
   </view>

@@ -167,6 +167,7 @@ export interface AuthLoginMethodDescriptor {
   availableOn: LoginPlatformKind[];
   defaultOn?: LoginPlatformKind[];
   summary: string;
+  recoverySummary?: string;
 }
 
 export interface AuthProviderIdentity {

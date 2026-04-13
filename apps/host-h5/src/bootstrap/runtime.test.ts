@@ -530,6 +530,7 @@ test("host h5 runtime creates page controllers on a shared kernel", () => {
     "mediaTools",
     "settings",
     "membership",
+    "orders",
     "account",
   ];
 
@@ -548,6 +549,7 @@ test("host h5 page entries delegate to runtime controllers", async () => {
   const mediaToolsEntry = createHostH5PageEntry(runtime, "mediaTools");
   const messagesEntry = createHostH5PageEntry(runtime, "messages");
   const membershipEntry = createHostH5PageEntry(runtime, "membership");
+  const ordersEntry = createHostH5PageEntry(runtime, "orders");
   const settingsEntry = createHostH5PageEntry(runtime, "settings");
   const accountEntry = createHostH5PageEntry(runtime, "account");
 
@@ -559,6 +561,7 @@ test("host h5 page entries delegate to runtime controllers", async () => {
   const mediaToolsResult = await mediaToolsEntry.onShow();
   const messagesResult = await messagesEntry.onShow();
   const membershipResult = await membershipEntry.onTapCatalog();
+  const ordersResult = await ordersEntry.onShow();
   const settingsResult = await settingsEntry.onTapLogout();
   const accountResult = await accountEntry.onShow();
 
@@ -570,6 +573,7 @@ test("host h5 page entries delegate to runtime controllers", async () => {
   assert.equal((mediaToolsResult as { ok?: boolean } | undefined)?.ok, true);
   assert.equal((messagesResult as { ok?: boolean } | undefined)?.ok, true);
   assert.equal((membershipResult as { ok?: boolean } | undefined)?.ok, true);
+  assert.equal((ordersResult as { ok?: boolean } | undefined)?.ok, true);
   assert.deepEqual(settingsResult, { ok: true, value: undefined });
   assert.equal((accountResult as { ok?: boolean } | undefined)?.ok, true);
 });

@@ -402,6 +402,8 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
     controller: {
       loginRouteId: APP_ROUTE_IDS.login,
       catalogRouteId: APP_ROUTE_IDS.feed,
+      membershipRouteId: APP_ROUTE_IDS.membership,
+      ordersRouteId: APP_ROUTE_IDS.orders,
     },
     guardPolicy: {
       name: "authenticated-membership",
@@ -416,6 +418,32 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
     shellTemplate: "membership-basic",
     shellStyle: "generic",
   },
+  orders: {
+    feature: subscriptionFeatureManifest,
+    routeId: APP_ROUTE_IDS.orders,
+    routePath: "/pages/orders/index",
+    pageData: createInitialSubscriptionState({
+      title: "Order Center",
+    }),
+    controller: {
+      loginRouteId: APP_ROUTE_IDS.login,
+      catalogRouteId: APP_ROUTE_IDS.feed,
+      membershipRouteId: APP_ROUTE_IDS.membership,
+      ordersRouteId: APP_ROUTE_IDS.orders,
+    },
+    guardPolicy: {
+      name: "authenticated-orders",
+      requirements: {
+        authenticated: true,
+      },
+    },
+    requiredCapabilities: [{ capability: "payment", required: false }],
+    miniprogramPage: "pages/orders/index",
+    registrationModule: "../../../src/registrations/wechat/pages/orders",
+    navigationBarTitleText: "Order Center",
+    shellTemplate: "orders-basic",
+    shellStyle: "generic",
+  },
   settings: {
     feature: settingsFeatureManifest,
     routeId: APP_ROUTE_IDS.settings,
@@ -427,6 +455,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       overviewRouteId: APP_ROUTE_IDS.overview,
       accountRouteId: APP_ROUTE_IDS.account,
       membershipRouteId: APP_ROUTE_IDS.membership,
+      ordersRouteId: APP_ROUTE_IDS.orders,
       feedRouteId: APP_ROUTE_IDS.feed,
       messagesRouteId: APP_ROUTE_IDS.messages,
       feedbackRouteId: APP_ROUTE_IDS.feedback,

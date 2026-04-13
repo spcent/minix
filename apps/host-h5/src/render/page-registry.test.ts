@@ -13,6 +13,7 @@ test("resolveHostH5PageKey resolves known routes and falls back to login", () =>
   assert.equal(resolveHostH5PageKey("/discover"), "feed");
   assert.equal(resolveHostH5PageKey("/feedback"), "feedback");
   assert.equal(resolveHostH5PageKey("/membership"), "membership");
+  assert.equal(resolveHostH5PageKey("/orders"), "orders");
   assert.equal(resolveHostH5PageKey("/preferences"), "settings");
   assert.equal(resolveHostH5PageKey("/account"), "account");
   assert.equal(resolveHostH5PageKey("/unknown"), "login");
@@ -57,6 +58,12 @@ test("subscribeHostH5Pages subscribes every store-backed page", () => {
       mediaTools: {
         store: createStore({ ready: false }),
       },
+      membership: {
+        store: createStore({ ready: false }),
+      },
+      orders: {
+        store: createStore({ ready: false }),
+      },
       settings: {
         store: createStore({ ready: false }),
       },
@@ -77,11 +84,13 @@ test("subscribeHostH5Pages subscribes every store-backed page", () => {
   runtime.pages.feedback.store.replaceState(runtime.pages.feedback.store.getState());
   runtime.pages.messages.store.replaceState(runtime.pages.messages.store.getState());
   runtime.pages.mediaTools.store.replaceState(runtime.pages.mediaTools.store.getState());
+  runtime.pages.membership.store.replaceState(runtime.pages.membership.store.getState());
+  runtime.pages.orders.store.replaceState(runtime.pages.orders.store.getState());
   runtime.pages.settings.store.replaceState(runtime.pages.settings.store.getState());
   runtime.pages.account.store.replaceState(runtime.pages.account.store.getState());
 
-  assert.equal(cleanups.length, 9);
-  assert.equal(calls, 9);
+  assert.equal(cleanups.length, 11);
+  assert.equal(calls, 11);
 
   cleanups.forEach((cleanup) => cleanup());
 });

@@ -83,6 +83,8 @@ function createKernelStub() {
 test("feed feature manifest wires host entry actions by platform", () => {
   assert.ok("onPullDownRefresh" in feedFeatureManifest.hosts.wechat.entryActions);
   assert.ok(!("onPullDownRefresh" in feedFeatureManifest.hosts.h5.entryActions));
+  assert.ok("onTapRefreshReviewQueue" in feedFeatureManifest.hosts.wechat.entryActions);
+  assert.ok("onTapRefreshReviewQueue" in feedFeatureManifest.hosts.h5.entryActions);
 });
 
 test("feed feature manifest creates a reusable feed controller from host page data", async () => {

@@ -1,0 +1,48 @@
+<view class="page">
+  <view class="hero">
+    <view class="eyebrow">Order Center</view>
+    <view class="title">{{title}}</view>
+    <view class="subtitle">{{transactionMessage || 'Routeable order history and after-sales detail now live outside the purchase-focused commerce page.'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Order state</view>
+    <view class="subtitle">List state: {{orderListStatus ? orderListStatus.loadState : 'idle'}}</view>
+    <view class="subtitle">Selected order: {{order ? order.orderId : (selectedOrderId || 'none')}}</view>
+    <view class="subtitle" wx:if="{{paymentResult}}">{{paymentResult.message}}</view>
+    <view class="subtitle" wx:if="{{reconciliation}}">{{reconciliation.message}}</view>
+    <view class="status-chip">{{order ? order.status : 'no-order-selected'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Recent orders</view>
+    <view class="subtitle" wx:if="{{!orderList || !orderList.items || orderList.items.length === 0}}">{{errorText || 'No order history is available yet.'}}</view>
+    <view wx:for="{{orderList.items}}" wx:key="orderId" class="item">
+      <view class="item-title">{{item.title}}</view>
+      <view class="subtitle">{{item.statusLabel}} · {{item.amountLabel}}</view>
+      <button class="button" size="mini" bindtap="onTapOpenOrder" data-value="{{item.orderId}}">Open Order</button>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">After-sales</view>
+    <view class="subtitle" wx:if="{{!afterSalesCases || afterSalesCases.length === 0}}">No after-sales cases are attached to the selected order yet.</view>
+    <view wx:for="{{afterSalesCases}}" wx:key="caseId" class="item">
+      <view class="item-title">{{item.caseId}}</view>
+      <view class="subtitle">{{item.statusLabel}}</view>
+      <button class="button" size="mini" bindtap="onTapOpenAfterSalesCase" data-value="{{item.caseId}}">Open Case</button>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">Actions</view>
+    <button class="button" bindtap="onTapMembership">Open Commerce Center</button>
+    <button class="button" bindtap="onTapRefreshTransaction">Refresh Order State</button>
+    <button class="button" bindtap="onTapReconcileOrder">Reconcile Order</button>
+    <button wx:if="{{canCancelOrder}}" class="button" bindtap="onTapCancelOrder">Cancel Order</button>
+    <button wx:if="{{canRefundOrder}}" class="button" bindtap="onTapRefundOrder">Refund Order</button>
+    <button wx:if="{{canCancelSubscription}}" class="button" bindtap="onTapCancelSubscription">Cancel Subscription</button>
+    <button wx:if="{{canRenewSubscription}}" class="button" bindtap="onTapRenewSubscription">Renew Subscription</button>
+    <button class="button" bindtap="onTapCatalog">Back to Discover</button>
+  </view>
+</view>

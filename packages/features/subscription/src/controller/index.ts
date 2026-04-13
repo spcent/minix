@@ -34,6 +34,8 @@ export interface CreateSubscriptionControllerOptions {
   kernel: AppKernel;
   loginRouteId?: AppRouteId;
   catalogRouteId: AppRouteId;
+  membershipRouteId?: AppRouteId;
+  ordersRouteId?: AppRouteId;
   novelDetailRouteId?: AppRouteId;
   readerRouteId?: AppRouteId;
   tocRouteId?: AppRouteId;
@@ -63,6 +65,8 @@ export function createSubscriptionController(options: CreateSubscriptionControll
     kernel,
     loginRouteId,
     catalogRouteId,
+    membershipRouteId,
+    ordersRouteId,
     novelDetailRouteId,
     readerRouteId,
     tocRouteId,
@@ -946,6 +950,22 @@ export function createSubscriptionController(options: CreateSubscriptionControll
 
     async goToCatalog() {
       return kernel.router.toRoute(catalogRouteId);
+    },
+
+    async goToMembership() {
+      if (!membershipRouteId) {
+        return ok(undefined);
+      }
+
+      return kernel.router.toRoute(membershipRouteId);
+    },
+
+    async goToOrders() {
+      if (!ordersRouteId) {
+        return ok(undefined);
+      }
+
+      return kernel.router.toRoute(ordersRouteId);
     },
   };
 }

@@ -11,6 +11,7 @@
     "pages/messages/index",
     "pages/mediaTools/index",
     "pages/membership/index",
+    "pages/orders/index",
     "pages/settings/index",
     "pages/account/index"
   ],
