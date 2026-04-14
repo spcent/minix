@@ -113,6 +113,57 @@ export function createSearchRankingSummary(activeSortKey: string) {
   };
 }
 
+function createFreshnessScore(updatedAt: string | undefined): number {
+  if (!updatedAt) {
+    return 0;
+  }
+
+  const timestamp = Date.parse(updatedAt);
+  return Number.isFinite(timestamp) ? Math.floor(timestamp / 10_000_000_000) : 0;
+}
+
+function createFeedItemSearchScore(item: FeedItem, activeSortKey: string, keyword: string | undefined): number {
+  const normalizedKeyword = keyword?.trim().toLowerCase() ?? "";
+  let score = createFreshnessScore(item.updatedAt);
+
+  if (normalizedKeyword.length > 0) {
+    const title = item.title.toLowerCase();
+    const subtitle = item.subtitle?.toLowerCase();
+    const eyebrow = item.eyebrow?.toLowerCase();
+    const reason = item.recommendedReason?.toLowerCase();
+    const tag = item.tag?.toLowerCase();
+
+    if (title === normalizedKeyword) {
+      score += 120;
+    } else if (title.startsWith(normalizedKeyword)) {
+      score += 90;
+    } else if (title.includes(normalizedKeyword)) {
+      score += 70;
+    }
+
+    if (subtitle?.includes(normalizedKeyword)) {
+      score += 35;
+    }
+    if (eyebrow?.includes(normalizedKeyword)) {
+      score += 20;
+    }
+    if (reason?.includes(normalizedKeyword)) {
+      score += 25;
+    }
+    if (tag === normalizedKeyword) {
+      score += 15;
+    }
+  }
+
+  if (activeSortKey === "popular") {
+    score += (item.recommendedReason?.length ?? 0) * 2;
+  } else if (activeSortKey === "recommended") {
+    score += item.recommendedReason?.length ?? 0;
+  }
+
+  return score;
+}
+
 export function createFeedItemRouteTarget(item: FeedItem): FeedItem["routeTarget"] {
   if (item.tag === "user") {
     return {
@@ -142,7 +193,7 @@ export function createFeedItemRanking(item: FeedItem, index: number, activeSortK
   ].filter((value): value is string => Boolean(value));
 
   return {
-    score: Math.max(1, 100 - index * 7),
+    score: Math.max(1, createFeedItemSearchScore(item, activeSortKey, keyword) - index),
     label: index === 0 ? "Top match" : `Rank ${index + 1}`,
     strategy: activeSortKey,
     matchedFields: matchedFields.length > 0 ? matchedFields : ["recommendation"],
@@ -164,16 +215,44 @@ export function resolveFeedSortKey(sortKey: string | undefined): string {
   return sortKey === "updatedAt" || sortKey === "popular" ? sortKey : "recommended";
 }
 
-export function sortFeedItems(items: FeedItem[], activeSortKey: string): FeedItem[] {
+export function sortFeedItems(items: FeedItem[], activeSortKey: string, keyword?: string): FeedItem[] {
   if (activeSortKey === "updatedAt") {
     return [...items].sort((left, right) => (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""));
   }
 
   if (activeSortKey === "popular") {
-    return [...items].sort((left, right) => (right.recommendedReason?.length ?? 0) - (left.recommendedReason?.length ?? 0));
+    return [...items].sort(
+      (left, right) =>
+        createFeedItemSearchScore(right, activeSortKey, keyword) -
+          createFeedItemSearchScore(left, activeSortKey, keyword) ||
+        (right.updatedAt ?? "").localeCompare(left.updatedAt ?? "") ||
+        left.title.localeCompare(right.title),
+    );
   }
 
-  return items;
+  return [...items].sort(
+    (left, right) =>
+      createFeedItemSearchScore(right, activeSortKey, keyword) -
+        createFeedItemSearchScore(left, activeSortKey, keyword) ||
+      (right.updatedAt ?? "").localeCompare(left.updatedAt ?? "") ||
+      left.title.localeCompare(right.title),
+  );
+}
+
+export function interleaveSearchGroups<T extends { items: FeedItem[] }>(groups: T[]): FeedItem[] {
+  const queues = groups.map((group) => [...group.items]);
+  const flattened: FeedItem[] = [];
+
+  while (queues.some((queue) => queue.length > 0)) {
+    for (const queue of queues) {
+      const next = queue.shift();
+      if (next) {
+        flattened.push(next);
+      }
+    }
+  }
+
+  return flattened;
 }
 
 export function createFeedSearchFilters(items: FeedItem[], activeTag?: string): SearchFilterGroup[] {

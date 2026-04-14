@@ -27,6 +27,7 @@ import type {
 } from "@minix/contracts";
 
 import type { StoredMessageThreadRecord, UserState } from "../../types";
+import type { NotificationChannelProviderRuntimeEnv } from "../settings/state";
 import { cloneTouchpoints, DEFAULT_MESSAGE_TOUCHPOINTS, cloneMessageTouchpointsForItem } from "./touchpoints";
 
 const MESSAGE_POLL_INTERVAL_MS = 5_000;
@@ -318,7 +319,11 @@ function cloneThreadMembers(members: MessageThreadMember[]): MessageThreadMember
   }));
 }
 
-function cloneMessageThread(thread: MessageThread, userState?: UserState): MessageThread {
+function cloneMessageThread(
+  thread: MessageThread,
+  userState?: UserState,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+): MessageThread {
   return {
     ...thread,
     participantLabels: [...thread.participantLabels],
@@ -326,7 +331,7 @@ function cloneMessageThread(thread: MessageThread, userState?: UserState): Messa
       resourceId: `thread:${thread.threadId}`,
       resourceLabel: `thread.${thread.type}`,
       ...(thread.lastMessageAt ? { createdAt: thread.lastMessageAt } : {}),
-    }),
+    }, runtimeEnv),
     ...(thread.replyPolicy ? { replyPolicy: thread.replyPolicy } : {}),
     ...(thread.members ? { members: cloneThreadMembers(thread.members) } : {}),
     ...(thread.assignment ? { assignment: { ...thread.assignment } } : {}),
@@ -337,7 +342,11 @@ function cloneMessageThread(thread: MessageThread, userState?: UserState): Messa
   };
 }
 
-function cloneMessageBodyItem(message: MessageBodyItem, userState?: UserState): MessageBodyItem {
+function cloneMessageBodyItem(
+  message: MessageBodyItem,
+  userState?: UserState,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+): MessageBodyItem {
   return {
     ...message,
     ...(message.updatedAt ? { updatedAt: message.updatedAt } : {}),
@@ -345,23 +354,34 @@ function cloneMessageBodyItem(message: MessageBodyItem, userState?: UserState): 
     ...(message.deliveredAt ? { deliveredAt: message.deliveredAt } : {}),
     ...(message.failureCode ? { failureCode: message.failureCode } : {}),
     ...(message.failureMessage ? { failureMessage: message.failureMessage } : {}),
-    touchpoints: cloneMessageTouchpointsForItem(message, userState),
+    touchpoints: cloneMessageTouchpointsForItem(message, userState, runtimeEnv),
   };
 }
 
-function cloneMessageItems(messages: MessageBodyItem[], userState?: UserState): MessageBodyItem[] {
-  return messages.map((message) => cloneMessageBodyItem(message, userState));
+function cloneMessageItems(
+  messages: MessageBodyItem[],
+  userState?: UserState,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+): MessageBodyItem[] {
+  return messages.map((message) => cloneMessageBodyItem(message, userState, runtimeEnv));
 }
 
-function createThreadSyncState(cursor: string, lastSyncedAt?: string) {
+function createThreadSyncState(
+  cursor: string,
+  lastSyncedAt?: string,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+) {
+  const production = runtimeEnv?.MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE === "production";
   return {
     mode: "polling" as const,
-    modeLabel: "Polling sync",
+    modeLabel: "Polling-only sync",
     cursor,
     recommendedPollIntervalMs: MESSAGE_POLL_INTERVAL_MS,
     recoverable: true,
-    statusLabel: `Delivery receipts finalize through polling every ${Math.round(MESSAGE_POLL_INTERVAL_MS / 1000)} seconds.`,
-    providerSummary: "External touchpoints stay explicit about sample versus production mode; in-app delivery remains the durable fallback lane.",
+    statusLabel: `Delivery receipts finalize through polling every ${Math.round(MESSAGE_POLL_INTERVAL_MS / 1000)} seconds; no realtime transport is provisioned on the shared contract.`,
+    providerSummary: production
+      ? "External touchpoints use operator-configured provider posture where available; in-app delivery remains the durable fallback lane."
+      : "External touchpoints remain explicit about sample provider posture; in-app delivery remains the durable fallback lane until operators wire production providers.",
     ...(lastSyncedAt ? { lastSyncedAt } : {}),
   };
 }
@@ -402,15 +422,19 @@ function getAllThreadRecords(userState: UserState): StoredMessageThreadRecord[] 
   return Object.values(userState.threadRecordsById);
 }
 
-function getThreadMessages(userState: UserState, threadId: string): MessageBodyItem[] {
+function getThreadMessages(
+  userState: UserState,
+  threadId: string,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+): MessageBodyItem[] {
   const record = getStoredThreadRecord(userState, threadId);
   if (!record) {
     return [];
   }
   const seeded = THREAD_MESSAGE_SEEDS[threadId]
-    ? cloneMessageItems(THREAD_MESSAGE_SEEDS[threadId], userState)
+    ? cloneMessageItems(THREAD_MESSAGE_SEEDS[threadId], userState, runtimeEnv)
     : [];
-  const storedMessages = cloneMessageItems(record.messages, userState);
+  const storedMessages = cloneMessageItems(record.messages, userState, runtimeEnv);
   const lastReadAt = userState.threadReadAtById[threadId];
   const now = new Date().toISOString();
   let storedChanged = false;
@@ -428,7 +452,7 @@ function getThreadMessages(userState: UserState, threadId: string): MessageBodyI
             delivered: true,
             statusLabel:
               touchpoint.providerMode === "sample"
-                ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample delivery finalized after polling sync.`
+                ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample delivery finalized after polling-only sync.`
                 : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} delivered through ${touchpoint.channel.replace("_", " ")}.`,
             receipt: {
               ...touchpoint.receipt,
@@ -453,8 +477,8 @@ function getThreadMessages(userState: UserState, threadId: string): MessageBodyI
   });
 
   if (storedChanged) {
-    record.messages = cloneMessageItems(nextStoredMessages, userState);
-    userState.threadMessagesByThreadId[threadId] = cloneMessageItems(nextStoredMessages, userState);
+    record.messages = cloneMessageItems(nextStoredMessages, userState, runtimeEnv);
+    userState.threadMessagesByThreadId[threadId] = cloneMessageItems(nextStoredMessages, userState, runtimeEnv);
     record.updatedAt = now;
   }
 
@@ -472,9 +496,13 @@ function getThreadMessages(userState: UserState, threadId: string): MessageBodyI
     });
 }
 
-function countUnreadThreadMessages(userState: UserState, threadId: string): number {
+function countUnreadThreadMessages(
+  userState: UserState,
+  threadId: string,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+): number {
   const lastReadAt = userState.threadReadAtById[threadId];
-  const messages = getThreadMessages(userState, threadId);
+  const messages = getThreadMessages(userState, threadId, runtimeEnv);
   return messages.filter((message) => {
     if (message.direction !== "inbound") {
       return false;
@@ -521,16 +549,17 @@ function createMessageThreadActions(
 export function deriveThreadState(
   userState: UserState,
   threadId: string,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): MessageThread | undefined {
   const record = getStoredThreadRecord(userState, threadId);
   if (!record) {
     return undefined;
   }
-  const messages = getThreadMessages(userState, threadId);
+  const messages = getThreadMessages(userState, threadId, runtimeEnv);
   const lastMessage = messages[messages.length - 1];
-  const unreadCount = countUnreadThreadMessages(userState, threadId);
+  const unreadCount = countUnreadThreadMessages(userState, threadId, runtimeEnv);
   const nextThread: MessageThread = {
-    ...cloneMessageThread(record.thread, userState),
+    ...cloneMessageThread(record.thread, userState, runtimeEnv),
     unreadCount,
     ...(lastMessage ? { lastMessagePreview: lastMessage.body } : {}),
     ...(lastMessage ? { lastMessageAt: lastMessage.createdAt } : {}),
@@ -539,10 +568,10 @@ export function deriveThreadState(
       : {}),
   };
   const cursor = createThreadCursor(messages, nextThread, record.updatedAt);
-  nextThread.syncState = createThreadSyncState(cursor, record.updatedAt);
-  record.thread = cloneMessageThread(nextThread, userState);
+  nextThread.syncState = createThreadSyncState(cursor, record.updatedAt, runtimeEnv);
+  record.thread = cloneMessageThread(nextThread, userState, runtimeEnv);
   record.syncCursor = cursor;
-  return cloneMessageThread(nextThread, userState);
+  return cloneMessageThread(nextThread, userState, runtimeEnv);
 }
 
 export function listMessageThreads(
@@ -555,9 +584,10 @@ export function listMessageThreads(
     sort?: MessageThreadListSort;
     sourceTicketId?: string;
   } = {},
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): MessageThreadList {
   const allThreads = getAllThreadRecords(userState)
-    .map((record) => deriveThreadState(userState, record.thread.threadId))
+    .map((record) => deriveThreadState(userState, record.thread.threadId, runtimeEnv))
     .filter((thread): thread is MessageThread => Boolean(thread));
   const filtered = allThreads
     .filter((thread) =>
@@ -597,6 +627,7 @@ export function listMessageThreads(
     syncState: createThreadSyncState(
       `${filtered.length}:${filtered[0]?.syncState?.cursor ?? "none"}`,
       latestUpdatedAt,
+      runtimeEnv,
     ),
   };
 }
@@ -604,8 +635,9 @@ export function listMessageThreads(
 export function createUnreadBadge(
   userState: UserState,
   notificationUnread: number,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): UnreadBadge {
-  const threadUnread = listMessageThreads(userState, { page: 1, pageSize: 100 }).items.reduce(
+  const threadUnread = listMessageThreads(userState, { page: 1, pageSize: 100 }, runtimeEnv).items.reduce(
     (total, thread) => total + thread.unreadCount,
     0,
   );
@@ -644,23 +676,25 @@ export function listMessageThreadResponse(
     sort?: MessageThreadListSort;
     sourceTicketId?: string;
   } = {},
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): MessageThreadListResponse {
   return {
-    threadList: listMessageThreads(userState, input),
-    unreadBadge: createUnreadBadge(userState, 0),
+    threadList: listMessageThreads(userState, input, runtimeEnv),
+    unreadBadge: createUnreadBadge(userState, 0, runtimeEnv),
   };
 }
 
 export function getMessageThread(
   userState: UserState,
   input: string | GetMessageThreadRequest,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): MessageThreadResponse | null {
   const request = typeof input === "string" ? { threadId: input } : input;
-  const messageThread = deriveThreadState(userState, request.threadId);
+  const messageThread = deriveThreadState(userState, request.threadId, runtimeEnv);
   if (!messageThread) {
     return null;
   }
-  const messageItems = getThreadMessages(userState, request.threadId);
+  const messageItems = getThreadMessages(userState, request.threadId, runtimeEnv);
   const detailActions = createMessageThreadActions(messageThread, messageItems);
   const changed = request.cursor ? request.cursor !== messageThread.syncState?.cursor : true;
 
@@ -668,8 +702,8 @@ export function getMessageThread(
     messageThread,
     messageItems,
     detailActions,
-    unreadBadge: createUnreadBadge(userState, 0),
-    threadList: listMessageThreads(userState, { page: 1, pageSize: 20 }),
+    unreadBadge: createUnreadBadge(userState, 0, runtimeEnv),
+    threadList: listMessageThreads(userState, { page: 1, pageSize: 20 }, runtimeEnv),
     changed,
   };
 }
@@ -677,8 +711,9 @@ export function getMessageThread(
 export function markThreadRead(
   userState: UserState,
   input: MarkThreadReadRequest,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): MessageThreadResponse | null {
-  const existing = getMessageThread(userState, input.threadId);
+  const existing = getMessageThread(userState, input.threadId, runtimeEnv);
   if (!existing) {
     return null;
   }
@@ -689,13 +724,14 @@ export function markThreadRead(
   if (record) {
     record.updatedAt = now;
   }
-  return getMessageThread(userState, input.threadId);
+  return getMessageThread(userState, input.threadId, runtimeEnv);
 }
 
 export function createMessageThread(
   userState: UserState,
   input: CreateMessageThreadRequest,
   now = new Date().toISOString(),
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): CreateMessageThreadResponse {
   ensureMessageRuntimeState(userState);
   const threadId = `thread_${crypto.randomUUID()}`;
@@ -722,7 +758,7 @@ export function createMessageThread(
       joinedAt: now,
     })),
   ];
-  const syncState = createThreadSyncState(`${now}:0:0`, now);
+  const syncState = createThreadSyncState(`${now}:0:0`, now, runtimeEnv);
   const thread: MessageThread = {
     threadId,
     type: input.type,
@@ -775,7 +811,7 @@ export function createMessageThread(
     syncState,
   };
   userState.threadRecordsById[threadId] = {
-    thread: cloneMessageThread(thread, userState),
+    thread: cloneMessageThread(thread, userState, runtimeEnv),
     messages: [],
     syncCursor: syncState.cursor,
     updatedAt: now,
@@ -784,16 +820,17 @@ export function createMessageThread(
   return {
     messageThread: thread,
     detailActions: createMessageThreadActions(thread, []),
-    unreadBadge: createUnreadBadge(userState, 0),
-    threadList: listMessageThreads(userState, { page: 1, pageSize: 20 }),
+    unreadBadge: createUnreadBadge(userState, 0, runtimeEnv),
+    threadList: listMessageThreads(userState, { page: 1, pageSize: 20 }, runtimeEnv),
   };
 }
 
 export function sendThreadMessage(
   userState: UserState,
   input: SendMessageRequest,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): SendMessageResponse | null {
-  const thread = deriveThreadState(userState, input.threadId);
+  const thread = deriveThreadState(userState, input.threadId, runtimeEnv);
   if (!thread) {
     return null;
   }
@@ -816,6 +853,7 @@ export function sendThreadMessage(
       createdAt: sentAt,
       body: input.body,
     },
+    runtimeEnv,
   ).map((touchpoint) => {
     if (!touchpoint.receipt || touchpoint.channel === "in_app" || touchpoint.receipt.status !== "delivered") {
       return touchpoint;
@@ -836,8 +874,8 @@ export function sendThreadMessage(
       delivered: false,
       statusLabel:
         touchpoint.providerMode === "sample"
-          ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample dispatch accepted; polling sync will finalize the receipt.`
-          : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} accepted the dispatch and is awaiting receipt.`,
+          ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample dispatch accepted; polling-only sync will finalize the receipt.`
+          : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} accepted the dispatch; polling-only sync will finalize the receipt.`,
       receipt: sentReceipt,
     };
   });
@@ -878,9 +916,12 @@ export function sendThreadMessage(
     attemptCount: 1,
     retryable: failed,
     ...(failed
-        ? {
+      ? {
           failureCode: "DELIVERY_FAILED",
-          failureMessage: "Sample delivery intentionally failed; retry and polling sync can advance the receipt.",
+          failureMessage:
+            dispatchTouchpoints.some((touchpoint) => touchpoint.providerMode === "production")
+              ? "Provider delivery failed; retry and polling-only sync can advance the receipt."
+              : "Sample delivery intentionally failed; retry and polling-only sync can advance the receipt.",
         }
       : {}),
     touchpoints: persistedTouchpoints,
@@ -889,7 +930,7 @@ export function sendThreadMessage(
   if (!record) {
     return null;
   }
-  const existingMessages = cloneMessageItems(record.messages, userState);
+  const existingMessages = cloneMessageItems(record.messages, userState, runtimeEnv);
   const nextMessages = [...existingMessages, messageItem];
   record.messages = nextMessages;
   userState.threadMessagesByThreadId[input.threadId] = nextMessages;
@@ -918,7 +959,7 @@ export function sendThreadMessage(
       nextStepLabel: failed ? "Retry this support reply." : "Support will continue in the same thread.",
     };
   }
-  const messageThread = deriveThreadState(userState, input.threadId);
+  const messageThread = deriveThreadState(userState, input.threadId, runtimeEnv);
   if (!messageThread) {
     return null;
   }
@@ -926,15 +967,16 @@ export function sendThreadMessage(
   return {
     messageThread,
     messageItem,
-    detailActions: createMessageThreadActions(messageThread, getThreadMessages(userState, input.threadId)),
-    unreadBadge: createUnreadBadge(userState, 0),
-    threadList: listMessageThreads(userState, { page: 1, pageSize: 20 }),
+    detailActions: createMessageThreadActions(messageThread, getThreadMessages(userState, input.threadId, runtimeEnv)),
+    unreadBadge: createUnreadBadge(userState, 0, runtimeEnv),
+    threadList: listMessageThreads(userState, { page: 1, pageSize: 20 }, runtimeEnv),
   };
 }
 
 export function retryThreadMessage(
   userState: UserState,
   input: RetryMessageRequest,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): RetryMessageResponse | null {
   const record = getStoredThreadRecord(userState, input.threadId);
   if (!record) {
@@ -960,8 +1002,8 @@ export function retryThreadMessage(
       delivered: false,
       statusLabel:
         touchpoint.providerMode === "sample"
-          ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample retry queued; polling sync will finalize the next receipt.`
-          : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} retry queued.`,
+          ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample retry queued; polling-only sync will finalize the next receipt.`
+          : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} retry queued; polling-only sync will finalize the next receipt.`,
       receipt: {
         ...touchpoint.receipt,
         status: "sent" as MessageTouchpointReceiptStatus,
@@ -973,27 +1015,28 @@ export function retryThreadMessage(
     };
   });
   record.updatedAt = retriedAt;
-  userState.threadMessagesByThreadId[input.threadId] = cloneMessageItems(record.messages, userState);
-  const messageThread = deriveThreadState(userState, input.threadId);
+  userState.threadMessagesByThreadId[input.threadId] = cloneMessageItems(record.messages, userState, runtimeEnv);
+  const messageThread = deriveThreadState(userState, input.threadId, runtimeEnv);
   if (!messageThread) {
     return null;
   }
-  const messageItem = cloneMessageBodyItem(target, userState);
+  const messageItem = cloneMessageBodyItem(target, userState, runtimeEnv);
   return {
     messageThread,
     messageItem,
-    detailActions: createMessageThreadActions(messageThread, getThreadMessages(userState, input.threadId)),
-    unreadBadge: createUnreadBadge(userState, 0),
-    threadList: listMessageThreads(userState, { page: 1, pageSize: 20 }),
+    detailActions: createMessageThreadActions(messageThread, getThreadMessages(userState, input.threadId, runtimeEnv)),
+    unreadBadge: createUnreadBadge(userState, 0, runtimeEnv),
+    threadList: listMessageThreads(userState, { page: 1, pageSize: 20 }, runtimeEnv),
   };
 }
 
 export function syncMessageThread(
   userState: UserState,
   input: SyncMessageThreadRequest,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): MessageThreadResponse | null {
   return getMessageThread(userState, {
     threadId: input.threadId,
     ...(input.cursor !== undefined ? { cursor: input.cursor } : {}),
-  });
+  }, runtimeEnv);
 }

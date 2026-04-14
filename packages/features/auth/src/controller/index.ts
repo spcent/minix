@@ -531,7 +531,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
         deviceIdentity: result.value.deviceIdentity ?? null,
         rateLimitState: result.value.rateLimitState ?? null,
         securityAuditEvents: result.value.securityAuditEvents ?? [],
-        noticeMessage: `Verification code sent to ${result.value.phoneNumberMasked}.`,
+        noticeMessage: result.value.delivery.message ?? `Verification code sent to ${result.value.phoneNumberMasked}.`,
       });
       return result;
     },
@@ -669,7 +669,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
           ...store.getState().credentials,
           oauthState: result.value.state,
         },
-        noticeMessage: "OAuth authorization started.",
+        noticeMessage: result.value.message ?? "OAuth authorization started.",
       });
       return result;
     },

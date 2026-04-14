@@ -146,6 +146,8 @@ export interface UploadSession {
 export interface UploadReviewRecord {
   status: UploadReviewStatus;
   provider: string;
+  providerMode?: "sample" | "production";
+  storageProvider?: string;
   reviewedAt?: string;
   message?: string;
   reasonCodes?: string[];

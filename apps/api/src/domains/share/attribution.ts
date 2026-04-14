@@ -8,13 +8,75 @@ import type {
   ShareShortLinkResolveResponse,
 } from "@minix/contracts";
 
+export interface ShareProviderRuntimeEnv {
+  MINIX_SHARE_PROVIDER_MODE?: string;
+  MINIX_SHARE_SHORT_LINK_PROVIDER?: string;
+  MINIX_SHARE_POSTER_PROVIDER?: string;
+  MINIX_SHARE_SHORT_LINK_BASE_URL?: string;
+  MINIX_SHARE_POSTER_BASE_URL?: string;
+}
+
+function resolveShareProviderMode(runtimeEnv?: ShareProviderRuntimeEnv): "sample" | "production" {
+  return runtimeEnv?.MINIX_SHARE_PROVIDER_MODE === "production" ? "production" : "sample";
+}
+
+function resolveShareShortLinkProvider(runtimeEnv?: ShareProviderRuntimeEnv): string {
+  const provider = runtimeEnv?.MINIX_SHARE_SHORT_LINK_PROVIDER?.trim();
+  if (provider) {
+    return provider;
+  }
+
+  return resolveShareProviderMode(runtimeEnv) === "production" ? "configured-short-link-provider" : "sample-short-link";
+}
+
+function resolveSharePosterProvider(runtimeEnv?: ShareProviderRuntimeEnv): string {
+  const provider = runtimeEnv?.MINIX_SHARE_POSTER_PROVIDER?.trim();
+  if (provider) {
+    return provider;
+  }
+
+  return resolveShareProviderMode(runtimeEnv) === "production" ? "configured-poster-provider" : "sample-poster-provider";
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+}
+
+const buildShareShortLinkUrl = (
+  shortCode: string,
+  requestUrl: string,
+  runtimeEnv?: ShareProviderRuntimeEnv,
+): string => {
+  const configuredBaseUrl = runtimeEnv?.MINIX_SHARE_SHORT_LINK_BASE_URL?.trim();
+  if (configuredBaseUrl) {
+    return new URL(shortCode, normalizeBaseUrl(configuredBaseUrl)).toString();
+  }
+
+  return new URL(`/share/resolve?shortCode=${shortCode}`, requestUrl).toString();
+};
+
+function resolveSharePosterAssetUrl(
+  shortCode: string,
+  requestUrl: string,
+  runtimeEnv?: ShareProviderRuntimeEnv,
+): string {
+  const configuredBaseUrl = runtimeEnv?.MINIX_SHARE_POSTER_BASE_URL?.trim();
+  if (configuredBaseUrl) {
+    return new URL(`${shortCode}.svg`, normalizeBaseUrl(configuredBaseUrl)).toString();
+  }
+
+  return new URL(`/share-posters/${shortCode}.svg`, requestUrl).toString();
+}
+
 export function createSharePrepareResponse(
   request: SharePrepareRequest,
   requestUrl: string,
   now = new Date().toISOString(),
+  runtimeEnv?: ShareProviderRuntimeEnv,
 ): SharePrepareResponse {
   const attributionId = request.shareAttribution.attributionId ?? `share_${crypto.randomUUID()}`;
   const shortCode = attributionId.slice(-8);
+  const providerMode = resolveShareProviderMode(runtimeEnv);
   const channelMarker =
     request.shareChannel.channelMarker ??
     request.sharePayload.channelMarker ??
@@ -22,13 +84,14 @@ export function createSharePrepareResponse(
     "minix-share";
   const landingPath = request.sharePayload.landingPath ?? "/login";
   const landingUrl = request.sharePayload.landingUrl ?? new URL(landingPath, requestUrl).toString();
-  const shortLink = request.sharePayload.shortLink ?? new URL(`/share/resolve?shortCode=${shortCode}`, requestUrl).toString();
+  const shortLink = request.sharePayload.shortLink ?? buildShareShortLinkUrl(shortCode, requestUrl, runtimeEnv);
   const posterAsset =
     request.sharePayload.scenario === "poster" || request.shareChannel.kind === "poster_image"
       ? {
           assetId: `share_poster_${shortCode}`,
-          provider: "sample" as const,
-          url: new URL(`/share-posters/${shortCode}.svg`, requestUrl).toString(),
+          provider: resolveSharePosterProvider(runtimeEnv),
+          providerMode,
+          url: resolveSharePosterAssetUrl(shortCode, requestUrl, runtimeEnv),
           createdAt: now,
           expiresAt: new Date(Date.parse(now) + 30 * 24 * 60 * 60 * 1000).toISOString(),
         }
@@ -37,6 +100,8 @@ export function createSharePrepareResponse(
     attributionId,
     shortCode,
     shortLink,
+    provider: resolveShareShortLinkProvider(runtimeEnv),
+    providerMode,
     landingPath,
     landingUrl,
     createdAt: now,
@@ -149,6 +214,7 @@ export function resolveShareShortLink(
   now = new Date().toISOString(),
 ): ShareShortLinkResolveResponse {
   const next = structuredClone(existing);
+  const existingShortLinkRecord = next.shortLinkRecord ?? next.attributionReport.shortLinkRecord;
   if (next.shortLinkRecord) {
     next.shortLinkRecord.resolvedCount += 1;
     next.shortLinkRecord.lastResolvedAt = now;
@@ -169,6 +235,8 @@ export function resolveShareShortLink(
         attributionId: next.shareAttribution.attributionId ?? next.sharePayload.shareToken ?? "share",
         shortCode: "share",
         shortLink: next.sharePayload.shortLink ?? next.landingTarget.shortLink ?? "",
+        provider: existingShortLinkRecord?.provider ?? "sample-short-link",
+        providerMode: existingShortLinkRecord?.providerMode ?? "sample",
         landingUrl: next.sharePayload.landingUrl ?? next.landingTarget.url ?? "",
         createdAt: now,
         resolvedCount: 1,
@@ -182,6 +250,8 @@ export function resolveShareShortLink(
           attributionId: next.shareAttribution.attributionId ?? next.sharePayload.shareToken ?? "share",
           shortCode: "share",
           shortLink: next.sharePayload.shortLink ?? next.landingTarget.shortLink ?? "",
+          provider: existingShortLinkRecord?.provider ?? "sample-short-link",
+          providerMode: existingShortLinkRecord?.providerMode ?? "sample",
           landingUrl: next.sharePayload.landingUrl ?? next.landingTarget.url ?? "",
           createdAt: now,
           resolvedCount: 1,

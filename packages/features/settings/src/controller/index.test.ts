@@ -121,7 +121,7 @@ function createKernelStub() {
         providerLabel: "WeChat Subscription Provider",
         locale: "zh-CN",
         fallbackToInApp: true,
-        statusLabel: "WeChat Subscription Provider is active for subscription message delivery.",
+        statusLabel: "WeChat Subscription Provider is active in sample mode for subscription message delivery.",
         unsubscribable: true,
       },
       {
@@ -154,7 +154,7 @@ function createKernelStub() {
         providerLabel: "Sample Push Provider",
         locale: "zh-CN",
         fallbackToInApp: true,
-        statusLabel: "Sample Push Provider is active for push delivery.",
+        statusLabel: "Sample Push Provider is active in sample mode for push delivery.",
         unsubscribable: false,
       },
     ],

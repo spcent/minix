@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { createAuthRedirectParams, ok, type AppKernel, type Result, type UserSession } from "@minix/core";
 import type { ExchangeTokenInput } from "@minix/core";
-import type { IdentityTransitionResponse } from "@minix/contracts";
+import type { AuthOAuthAuthorizeResponse, AuthPhoneVerificationResponse, IdentityTransitionResponse } from "@minix/contracts";
 
 import { createAuthController } from "./index";
 
@@ -71,35 +71,7 @@ function createKernelStub() {
       message: "The guest session has been upgraded to a formal account.",
     },
   });
-  let phoneVerificationResult: Result<{
-    verificationId: string;
-    phoneNumberMasked: string;
-    purpose: "login";
-    expiresAt: number;
-    retryAfterSeconds: number;
-    maxAttempts: number;
-    delivery: { provider: "simulated"; providerReference: string; maskedTarget: string; debugCode: string; message: string };
-    riskDecision?: { deviceId?: string; level: "allow" | "review" | "block"; reason?: string };
-    deviceIdentity?: { deviceId: string; platform: "h5"; trusted: boolean; firstSeenAt: string; lastSeenAt: string };
-    rateLimitState?: {
-      scope: "verification";
-      key: string;
-      limited: boolean;
-      limit: number;
-      remaining: number;
-      resetAt: number;
-      retryAfterSeconds: number;
-      updatedAt: string;
-    };
-    securityAuditEvents?: Array<{
-      eventId: string;
-      scope: "verification";
-      action: string;
-      result: "allowed" | "review" | "blocked";
-      message: string;
-      createdAt: string;
-    }>;
-  }> = ok({
+  let phoneVerificationResult: Result<AuthPhoneVerificationResponse> = ok({
     verificationId: "ver_1",
     phoneNumberMasked: "138****0001",
     purpose: "login",
@@ -113,6 +85,15 @@ function createKernelStub() {
       debugCode: "123456",
       message: "Verification code issued by the built-in simulated SMS provider.",
     },
+  });
+  let oauthAuthorizeResult: Result<AuthOAuthAuthorizeResponse> = ok({
+    provider: "wechat-open-platform",
+    state: "oauth_state_1",
+    authorizationUrl: "https://auth.example.test/wechat-open-platform/authorize?state=oauth_state_1",
+    expiresAt: Date.now() + 60_000,
+    providerMode: "sample",
+    providerLabel: "WeChat Open Platform",
+    message: "OAuth authorize URLs stay sample-backed until production provider credentials and callback domains are configured.",
   });
 
   const kernel = {
@@ -158,6 +139,9 @@ function createKernelStub() {
         requestCalls.push({ url, body });
         if (url === "/auth/verification-code/request") {
           return phoneVerificationResult as Result<T>;
+        }
+        if (url === "/auth/oauth/authorize") {
+          return oauthAuthorizeResult as Result<T>;
         }
         return transitionResult as Result<T>;
       },
@@ -210,6 +194,9 @@ function createKernelStub() {
     },
     setPhoneVerificationResult(nextResult: typeof phoneVerificationResult) {
       phoneVerificationResult = nextResult;
+    },
+    setOauthAuthorizeResult(nextResult: typeof oauthAuthorizeResult) {
+      oauthAuthorizeResult = nextResult;
     },
     get refreshCalls() {
       return refreshCalls;
@@ -571,6 +558,76 @@ test("auth controller stores verification security context after requesting a ph
   assert.equal(controller.store.getState().deviceIdentity?.deviceId, "device-login-1");
   assert.equal(controller.store.getState().rateLimitState?.scope, "verification");
   assert.equal(controller.store.getState().securityAuditEvents[0]?.action, "verification_code_issued");
+});
+
+test("auth controller keeps production sms posture without exposing a debug code", async () => {
+  const runtime = createKernelStub();
+  runtime.setPhoneVerificationResult(
+    ok({
+      verificationId: "ver_prod_1",
+      phoneNumberMasked: "138****0001",
+      purpose: "login",
+      expiresAt: Date.now() + 60_000,
+      retryAfterSeconds: 60,
+      maxAttempts: 3,
+      delivery: {
+        provider: "sms",
+        providerMode: "production",
+        providerLabel: "Tencent Cloud SMS",
+        providerReference: "sms_prod_1",
+        maskedTarget: "138****0001",
+        message: "Verification code issued through the configured SMS provider.",
+      },
+    }),
+  );
+  const controller = createAuthController({
+    kernel: runtime.kernel,
+    successRouteId: "auth.login",
+    stayOnSuccess: true,
+  });
+
+  controller.updateCredentials({
+    phoneNumber: "13800000001",
+  });
+  const result = await controller.requestPhoneVerification("login");
+
+  assert.equal(result.ok, true);
+  assert.equal(controller.store.getState().phoneVerification?.debugCode, null);
+  assert.equal(controller.store.getState().phoneVerification?.providerMode, "production");
+  assert.equal(controller.store.getState().phoneVerification?.providerLabel, "Tencent Cloud SMS");
+  assert.equal(controller.store.getState().noticeMessage, "Verification code issued through the configured SMS provider.");
+});
+
+test("auth controller keeps production oauth posture without exposing sample authorize copy", async () => {
+  const runtime = createKernelStub();
+  runtime.setOauthAuthorizeResult(
+    ok({
+      provider: "wechat-open-platform",
+      purpose: "bind",
+      state: "oauth_state_prod_1",
+      authorizationUrl: "https://open.weixin.qq.com/connect/qrconnect?state=oauth_state_prod_1",
+      expiresAt: Date.now() + 60_000,
+      providerMode: "production",
+      providerLabel: "WeChat Open Platform",
+      message: "OAuth authorization issued through the configured provider.",
+    }),
+  );
+  const controller = createAuthController({
+    kernel: runtime.kernel,
+    successRouteId: "auth.login",
+    stayOnSuccess: true,
+  });
+
+  controller.updateCredentials({
+    provider: "wechat-open-platform",
+  });
+  const result = await controller.startOauthAuthorization("bind");
+
+  assert.equal(result.ok, true);
+  assert.equal(controller.store.getState().oauthAuthorization?.providerMode, "production");
+  assert.equal(controller.store.getState().oauthAuthorization?.providerLabel, "WeChat Open Platform");
+  assert.equal(controller.store.getState().oauthAuthorization?.authorizationUrl.includes("auth.example.test"), false);
+  assert.equal(controller.store.getState().noticeMessage, "OAuth authorization issued through the configured provider.");
 });
 
 test("auth controller treats oauth as a credential-driven flow with callback state", async () => {

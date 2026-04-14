@@ -12,6 +12,7 @@ import type { Hono, MiddlewareHandler } from "hono";
 import { jsonError } from "../../http/response";
 import { parseJsonBody } from "../../http/parsing";
 import { resolveBearerToken } from "../../http/auth";
+import type { AuthOAuthProvider, AuthSmsDeliveryProvider } from "./provider";
 import type { ApiBindings, ApiStore, SessionRecord, UserState } from "../../types";
 import {
   createIdentityAuditRecord,
@@ -41,6 +42,7 @@ import {
   createOAuthSubject,
   createOperationBlockedResponse,
   createPhoneVerificationChallenge,
+  createPhonePurposeKey,
   evaluateSecurityDecision,
   getRecentSecurityAuditEvents,
   guardSecurityRateLimit,
@@ -79,6 +81,8 @@ export interface RegisterAuthRoutesOptions {
   resolveStore: (env: ApiBindings | undefined) => ApiStore;
   authRateLimitConfig?: import("../../rate-limit").AuthRateLimitConfig | Partial<import("../../rate-limit").AuthRateLimitConfig>;
   authRateLimitStore?: import("../../rate-limit").RateLimitCounterStore;
+  authSmsProvider?: AuthSmsDeliveryProvider;
+  authOAuthProvider?: AuthOAuthProvider;
 }
 
 function respondCredentialError(
@@ -100,7 +104,136 @@ function respondCredentialError(
 }
 
 export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
-  const { app, requireSession, resolveStore, authRateLimitConfig, authRateLimitStore } = options;
+  const {
+    app,
+    requireSession,
+    resolveStore,
+    authRateLimitConfig,
+    authRateLimitStore,
+    authSmsProvider,
+    authOAuthProvider,
+  } = options;
+
+  function createProviderUnavailableResponse(
+    c: {
+      status: (code: 503) => unknown;
+      json: (payload: unknown) => Response;
+    },
+    message: string,
+    retryAfterSeconds?: number,
+  ) {
+    c.status(503);
+    return c.json({
+      code: "PROVIDER_UNAVAILABLE",
+      message,
+      credentialProtection: {
+        failureReason: "provider_unavailable",
+      },
+      ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
+    });
+  }
+
+  function resolveSmsProviderMode(env: ApiBindings | undefined): "sample" | "production" {
+    return env?.MINIX_AUTH_SMS_PROVIDER_MODE === "production" ? "production" : "sample";
+  }
+
+  function resolveOAuthProviderMode(env: ApiBindings | undefined): "sample" | "production" {
+    return env?.MINIX_AUTH_OAUTH_PROVIDER_MODE === "production" ? "production" : "sample";
+  }
+
+  function createOAuthProviderFailureResponse(
+    c: {
+      status: (code: 400 | 503) => unknown;
+      json: (payload: unknown) => Response;
+    },
+    error: {
+      message: string;
+      failureReason?: "provider_unavailable" | "oauth_token_invalid";
+      retryAfterSeconds?: number;
+    },
+  ) {
+    if (error.failureReason === "provider_unavailable") {
+      return createProviderUnavailableResponse(c, error.message, error.retryAfterSeconds);
+    }
+    c.status(400);
+    return c.json({
+      code: "LOGIN_FAILED",
+      message: error.message,
+      credentialProtection: {
+        failureReason: error.failureReason ?? "oauth_token_invalid",
+      },
+      ...(error.retryAfterSeconds !== undefined ? { retryAfterSeconds: error.retryAfterSeconds } : {}),
+    });
+  }
+
+  async function validateOAuthProviderCallback(input: {
+    c: {
+      status: (code: 400 | 503) => unknown;
+      json: (payload: unknown) => Response;
+      env: ApiBindings | undefined;
+    };
+    provider: string;
+    purpose?: "login" | "bind";
+    state: string;
+    providerToken: string;
+    providerUserId: string;
+    platform: LoginPlatformKind;
+  }): Promise<
+    | {
+        ok: true;
+        value: {
+          providerLabel: string;
+          providerUserId: string;
+        };
+      }
+    | {
+        ok: false;
+        response: Response;
+      }
+  > {
+    if (authOAuthProvider) {
+      const validated = await authOAuthProvider.validateCallback(
+        {
+          provider: input.provider,
+          ...(input.purpose ? { purpose: input.purpose } : {}),
+          state: input.state,
+          providerToken: input.providerToken,
+          providerUserId: input.providerUserId,
+          platform: input.platform,
+          ...(input.c.env?.MINIX_DEPLOY_ENV ? { deployEnv: input.c.env.MINIX_DEPLOY_ENV } : {}),
+        },
+        input.c.env,
+      );
+      if (!validated.ok) {
+        return {
+          ok: false,
+          response: createOAuthProviderFailureResponse(input.c, validated.error),
+        };
+      }
+      return {
+        ok: true,
+        value: {
+          providerLabel: validated.value.providerLabel,
+          providerUserId: validated.value.providerUserId,
+        },
+      };
+    }
+
+    if (resolveOAuthProviderMode(input.c.env) === "production") {
+      return {
+        ok: false,
+        response: createProviderUnavailableResponse(input.c, "OAuth provider is not configured for production mode."),
+      };
+    }
+
+    return {
+      ok: true,
+      value: {
+        providerLabel: createOAuthProviderLabel(input.provider),
+        providerUserId: input.providerUserId,
+      },
+    };
+  }
 
   app.post("/auth/verification-code/request", async (c) => {
     const traceId = c.get("traceId");
@@ -176,6 +309,72 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
       ...(payload.deviceId ? { deviceId: payload.deviceId } : {}),
       now,
     });
+    const maskedTarget = maskPhoneNumber(payload.phoneNumber);
+    const smsProviderMode = resolveSmsProviderMode(c.env);
+    let delivery: AuthPhoneVerificationResponse["delivery"];
+    if (authSmsProvider) {
+      const delivered = await authSmsProvider(
+        {
+          phoneNumber: payload.phoneNumber,
+          maskedTarget,
+          purpose: payload.purpose,
+          verificationId: challenge.verificationId,
+          verificationCode: challenge.code,
+          ...(payload.deviceId ? { deviceId: payload.deviceId } : {}),
+          ...(c.env?.MINIX_DEPLOY_ENV ? { deployEnv: c.env.MINIX_DEPLOY_ENV } : {}),
+        },
+        c.env,
+      );
+      if (!delivered.ok) {
+        const securityState = ensureAuthSecurityState(userState);
+        delete securityState.phoneVerificationsById[challenge.verificationId];
+        delete securityState.latestVerificationIdByPhonePurpose[
+          createPhonePurposeKey(payload.phoneNumber, payload.purpose)
+        ];
+        appendSecurityAuditEvent({
+          ...verificationAuditBase,
+          action: "verification_provider_unavailable",
+          result: "blocked",
+          message: delivered.error.message,
+          createdAt: nowIso,
+        });
+        await store.saveUserState(userId, userState);
+        return createProviderUnavailableResponse(c, delivered.error.message, delivered.error.retryAfterSeconds);
+      }
+      delivery = {
+        provider: delivered.value.provider,
+        providerMode: delivered.value.providerMode,
+        providerLabel: delivered.value.providerLabel,
+        providerReference: delivered.value.providerReference,
+        maskedTarget: delivered.value.maskedTarget,
+        message: delivered.value.message,
+      };
+    } else if (smsProviderMode === "production") {
+      const securityState = ensureAuthSecurityState(userState);
+      delete securityState.phoneVerificationsById[challenge.verificationId];
+      delete securityState.latestVerificationIdByPhonePurpose[
+        createPhonePurposeKey(payload.phoneNumber, payload.purpose)
+      ];
+      appendSecurityAuditEvent({
+        ...verificationAuditBase,
+        action: "verification_provider_unavailable",
+        result: "blocked",
+        message: "SMS provider is not configured for production mode.",
+        createdAt: nowIso,
+      });
+      await store.saveUserState(userId, userState);
+      return createProviderUnavailableResponse(c, "SMS provider is not configured for production mode.");
+    } else {
+      delivery = {
+        provider: "simulated",
+        providerMode: "sample",
+        providerLabel: "Built-in simulated SMS",
+        providerReference: `sms_${challenge.verificationId}`,
+        maskedTarget,
+        debugCode: challenge.code,
+        message: "Verification code issued by the built-in simulated SMS provider.",
+      };
+    }
     appendSecurityAuditEvent({
       ...verificationAuditBase,
       action: "verification_code_issued",
@@ -184,8 +383,6 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
       createdAt: nowIso,
     });
     await store.saveUserState(userId, userState);
-
-    const maskedTarget = maskPhoneNumber(payload.phoneNumber);
     const response: AuthPhoneVerificationResponse = {
       verificationId: challenge.verificationId,
       phoneNumberMasked: maskedTarget,
@@ -193,15 +390,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
       expiresAt: challenge.expiresAt,
       retryAfterSeconds: PHONE_VERIFICATION_RETRY_AFTER_SECONDS,
       maxAttempts: PHONE_VERIFICATION_MAX_ATTEMPTS,
-      delivery: {
-        provider: "simulated",
-        providerMode: "sample",
-        providerLabel: "Built-in simulated SMS",
-        providerReference: `sms_${challenge.verificationId}`,
-        maskedTarget,
-        debugCode: challenge.code,
-        message: "Verification code issued by the built-in simulated SMS provider.",
-      },
+      delivery,
       riskDecision: securityDecision.riskDecision,
       ...(securityDecision.deviceIdentity ? { deviceIdentity: securityDecision.deviceIdentity } : {}),
       rateLimitState,
@@ -381,18 +570,56 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
         }
       }
     }
-    await store.saveUserState(stateUserId, stateStore);
+    let response: AuthOAuthAuthorizeResponse;
+    if (authOAuthProvider) {
+      const authorized = await authOAuthProvider.authorize(
+        {
+          provider: payload.provider,
+          ...(payload.purpose ? { purpose: payload.purpose } : {}),
+          state,
+          expiresAt,
+          ...(redirectTarget ? { redirectTarget } : {}),
+          ...(payload.deviceId ? { deviceId: payload.deviceId } : {}),
+          ...(c.env?.MINIX_DEPLOY_ENV ? { deployEnv: c.env.MINIX_DEPLOY_ENV } : {}),
+        },
+        c.env,
+      );
+      if (!authorized.ok) {
+        delete ensureAuthSecurityState(stateStore).oauthStatesByState[state];
+        await store.saveUserState(stateUserId, stateStore);
+        return createOAuthProviderFailureResponse(c, {
+          ...authorized.error,
+          failureReason: authorized.error.failureReason ?? "provider_unavailable",
+        });
+      }
+      response = {
+        provider: payload.provider,
+        ...(payload.purpose ? { purpose: payload.purpose } : {}),
+        providerMode: authorized.value.providerMode,
+        providerLabel: authorized.value.providerLabel,
+        state,
+        authorizationUrl: authorized.value.authorizationUrl,
+        expiresAt,
+        message: authorized.value.message,
+      };
+    } else if (resolveOAuthProviderMode(c.env) === "production") {
+      delete ensureAuthSecurityState(stateStore).oauthStatesByState[state];
+      await store.saveUserState(stateUserId, stateStore);
+      return createProviderUnavailableResponse(c, "OAuth provider is not configured for production mode.");
+    } else {
+      response = {
+        provider: payload.provider,
+        ...(payload.purpose ? { purpose: payload.purpose } : {}),
+        providerMode: "sample",
+        providerLabel: createOAuthProviderLabel(payload.provider),
+        state,
+        authorizationUrl: `https://auth.example.test/${providerKey}/authorize?state=${encodeURIComponent(state)}`,
+        expiresAt,
+        message: "OAuth authorize URLs stay sample-backed until production provider credentials and callback domains are configured.",
+      };
+    }
 
-    const response: AuthOAuthAuthorizeResponse = {
-      provider: payload.provider,
-      ...(payload.purpose ? { purpose: payload.purpose } : {}),
-      providerMode: "sample",
-      providerLabel: createOAuthProviderLabel(payload.provider),
-      state,
-      authorizationUrl: `https://auth.example.test/${providerKey}/authorize?state=${encodeURIComponent(state)}`,
-      expiresAt,
-      message: "OAuth authorize URLs stay sample-backed until production provider credentials and callback domains are configured.",
-    };
+    await store.saveUserState(stateUserId, stateStore);
     return c.json(response);
   });
 
@@ -417,18 +644,31 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
       });
     }
 
+    const validatedOAuth = await validateOAuthProviderCallback({
+      c,
+      provider: payload.provider,
+      state: payload.state,
+      providerToken: payload.providerToken,
+      providerUserId: payload.providerUserId,
+      platform: payload.platform,
+    });
+    if (!validatedOAuth.ok) {
+      return validatedOAuth.response;
+    }
+
     const now = Date.now();
-    const providerSubject = createOAuthSubject(payload.provider, payload.providerUserId);
-    const linked = await loadOAuthCredentialLink(store, payload.provider, payload.providerUserId);
+    const providerUserId = validatedOAuth.value.providerUserId;
+    const providerSubject = createOAuthSubject(payload.provider, providerUserId);
+    const linked = await loadOAuthCredentialLink(store, payload.provider, providerUserId);
     const userId =
       linked.record && linked.record.authorizationStatus !== "unlinked"
         ? linked.record.userId
-        : `user_oauth_${providerKey}_${sanitizeUserKey(payload.providerUserId)}`;
+        : `user_oauth_${providerKey}_${sanitizeUserKey(providerUserId)}`;
     const userState = await store.getUserState(userId);
     const tokenHash = await hashSecret(payload.providerToken, payload.state);
     const record = createOAuthCredentialRecord({
       provider: payload.provider,
-      providerUserId: payload.providerUserId,
+      providerUserId,
       userId,
       tokenHash,
       now,
@@ -667,20 +907,42 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
           credentialProtection: { failureReason: "oauth_state_invalid" },
         });
       }
+      const validatedOAuth = await validateOAuthProviderCallback({
+        c,
+        provider: payload.credential.provider!,
+        purpose: "login",
+        state: payload.credential.oauthState!,
+        providerToken: payload.credential.providerToken!,
+        providerUserId: payload.credential.providerUserId!,
+        platform: payload.platform,
+      });
+      if (!validatedOAuth.ok) {
+        appendSecurityAuditEvent({
+          ...loginAuditBase,
+          action: "oauth_login",
+          result: "blocked",
+          message: "oauth provider validation failed",
+          createdAt: new Date().toISOString(),
+          reason: "oauth_token_invalid",
+        });
+        await store.saveUserState(userId, userState);
+        return validatedOAuth.response;
+      }
+      const providerUserId = validatedOAuth.value.providerUserId;
       const now = Date.now();
       const providerSubject = createOAuthSubject(
         payload.credential.provider!,
-        payload.credential.providerUserId!,
+        providerUserId,
       );
       const linked = await loadOAuthCredentialLink(
         store,
         payload.credential.provider!,
-        payload.credential.providerUserId!,
+        providerUserId,
       );
       userId =
         linked.record && linked.record.authorizationStatus !== "unlinked"
           ? linked.record.userId
-          : `user_oauth_${providerKey}_${sanitizeUserKey(payload.credential.providerUserId!)}`;
+          : `user_oauth_${providerKey}_${sanitizeUserKey(providerUserId)}`;
       userState = await store.getUserState(userId);
       const tokenHash = await hashSecret(
         payload.credential.providerToken!,
@@ -688,7 +950,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
       );
       const record = createOAuthCredentialRecord({
         provider: payload.credential.provider!,
-        providerUserId: payload.credential.providerUserId!,
+        providerUserId,
         userId,
         tokenHash,
         now,
@@ -1234,16 +1496,30 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
       });
     }
 
-    const linked = await loadOAuthCredentialLink(store, payload.provider, payload.providerUserId);
-    const sourceState = await store.getUserState(session.userId);
     if (stateRecord.purpose === "bind" && stateRecord.ownerUserId && stateRecord.ownerUserId !== session.userId) {
       return jsonError("FORBIDDEN", "oauth authorization state belongs to another account session", 403, traceId);
     }
+    const validatedOAuth = await validateOAuthProviderCallback({
+      c,
+      provider: payload.provider,
+      purpose: "bind",
+      state: payload.state,
+      providerToken: payload.providerToken,
+      providerUserId: payload.providerUserId,
+      platform: session.platform,
+    });
+    if (!validatedOAuth.ok) {
+      return validatedOAuth.response;
+    }
+    const providerLabel = validatedOAuth.value.providerLabel;
+    const providerUserId = validatedOAuth.value.providerUserId;
+    const linked = await loadOAuthCredentialLink(store, payload.provider, providerUserId);
+    const sourceState = await store.getUserState(session.userId);
     const tokenHash = await hashSecret(payload.providerToken, payload.state);
     if (linked.record && linked.record.userId !== session.userId && linked.record.authorizationStatus !== "unlinked") {
       const targetState = await store.getUserState(linked.record.userId);
       const workflowId = `identity_workflow_${crypto.randomUUID()}`;
-      const targetLabel = `${createOAuthProviderLabel(payload.provider)} account ${linked.record.userId}`;
+      const targetLabel = `${providerLabel} account ${linked.record.userId}`;
       const mergePreview = createMergePreview({
         sourceUserId: session.userId,
         targetUserId: linked.record.userId,
@@ -1293,7 +1569,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
           scope: "auth",
           action: "oauth_bind_merge_required",
           result: "review",
-          message: `${createOAuthProviderLabel(payload.provider)} is already linked to another account and needs merge confirmation.`,
+          message: `${providerLabel} is already linked to another account and needs merge confirmation.`,
           createdAt: new Date().toISOString(),
           actorUserId: session.userId,
           platform: session.platform,
@@ -1314,7 +1590,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
       });
       const record = createOAuthCredentialRecord({
         provider: payload.provider,
-        providerUserId: payload.providerUserId,
+        providerUserId,
         userId: linked.record.userId,
         tokenHash,
         now: Date.now(),
@@ -1329,7 +1605,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
         scope: "auth",
         action: "oauth_bind_merge_completed",
         result: "allowed",
-        message: `${createOAuthProviderLabel(payload.provider)} binding completed through account merge.`,
+        message: `${providerLabel} binding completed through account merge.`,
         createdAt: new Date().toISOString(),
         actorUserId: linked.record.userId,
         platform: session.platform,
@@ -1377,7 +1653,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
       sourceUserId: session.userId,
       continueTarget: redirectTarget,
       targetUserId: session.userId,
-      targetLabel: `${createOAuthProviderLabel(payload.provider)} linked`,
+      targetLabel: `${providerLabel} linked`,
       audit: [
         createIdentityAuditRecord({
           action: "merge_completed",
@@ -1391,7 +1667,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
     });
     const record = createOAuthCredentialRecord({
       provider: payload.provider,
-      providerUserId: payload.providerUserId,
+      providerUserId,
       userId: session.userId,
       tokenHash,
       now: Date.now(),
@@ -1406,7 +1682,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
       scope: "auth",
       action: "oauth_bind",
       result: "allowed",
-      message: `${createOAuthProviderLabel(payload.provider)} linked to the current account.`,
+      message: `${providerLabel} linked to the current account.`,
       createdAt: new Date().toISOString(),
       actorUserId: session.userId,
       platform: session.platform,

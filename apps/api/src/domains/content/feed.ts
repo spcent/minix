@@ -27,6 +27,7 @@ import {
   createUserSearchItems,
   decorateSearchItems,
   filterSearchItems,
+  interleaveSearchGroups,
   isPersonalizedRecommendationsEnabled,
   resolveFeedSortKey,
   sortFeedItems,
@@ -135,24 +136,24 @@ function createUnifiedFeedResults(
     item.subtitle,
     item.eyebrow,
     item.recommendedReason,
-  ]), activeSortKey), activeSortKey, input.keyword);
+  ]), activeSortKey, input.keyword), activeSortKey, input.keyword);
   const contentItems = decorateSearchItems(sortFeedItems(filterSearchItems(createContentSearchItems(userState), input.keyword, (item) => [
     item.title,
     item.subtitle,
     item.eyebrow,
     item.recommendedReason,
     item.contentCard?.lifecycle.state,
-  ]), activeSortKey), activeSortKey, input.keyword);
+  ]), activeSortKey, input.keyword), activeSortKey, input.keyword);
   const novelItems = decorateSearchItems(sortFeedItems(filterSearchItems(createNovelFeedItems(userState), input.keyword, (item) => [
     item.title,
     item.subtitle,
     item.recommendedReason,
-  ]), activeSortKey), activeSortKey, input.keyword);
+  ]), activeSortKey, input.keyword), activeSortKey, input.keyword);
   const userItems = decorateSearchItems(sortFeedItems(filterSearchItems(createUserSearchItems(userState), input.keyword, (item) => [
     item.title,
     item.subtitle,
     item.recommendedReason,
-  ]), activeSortKey), activeSortKey, input.keyword);
+  ]), activeSortKey, input.keyword), activeSortKey, input.keyword);
 
   const searchMode = input.mode;
   const requestedDomain = input.domain;
@@ -177,7 +178,7 @@ function createUnifiedFeedResults(
               ? [{ domain: "novel" as const, label: "Novels", items: novelItems }]
               : [{ domain: "feed" as const, label: "Feed", items: feedItems }];
 
-  const flattened = scopedGroups.flatMap((group) => group.items);
+  const flattened = requestedDomain === "all" ? interleaveSearchGroups(scopedGroups) : scopedGroups.flatMap((group) => group.items);
   const start = (input.page - 1) * input.pageSize;
   const pagedItems = flattened.slice(start, start + input.pageSize);
   const hasMore = start + input.pageSize < flattened.length;
@@ -321,7 +322,7 @@ export function listFeed(input: {
     );
   }
 
-  filteredItems = decorateSearchItems(sortFeedItems(filteredItems, activeSortKey), activeSortKey, keyword);
+  filteredItems = decorateSearchItems(sortFeedItems(filteredItems, activeSortKey, keyword), activeSortKey, keyword);
 
   const start = (page - 1) * pageSize;
   const items = filteredItems.slice(start, start + pageSize);

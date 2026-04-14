@@ -26,6 +26,8 @@ export function registerFoundationRouteGroups(options: RegisterApiRouteGroupsOpt
       ? { authRateLimitConfig: createApiAppOptions.authRateLimitConfig }
       : {}),
     authRateLimitStore,
+    ...(createApiAppOptions.authSmsProvider ? { authSmsProvider: createApiAppOptions.authSmsProvider } : {}),
+    ...(createApiAppOptions.authOAuthProvider ? { authOAuthProvider: createApiAppOptions.authOAuthProvider } : {}),
   });
 
   registerItemRoutes({

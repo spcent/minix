@@ -3,6 +3,7 @@ import type { Hono, MiddlewareHandler } from "hono";
 
 import { parseJsonBody } from "../../http/parsing";
 import type { ApiBindings, ApiStore, SessionRecord } from "../../types";
+import type { NotificationChannelProviderRuntimeEnv } from "./state";
 import { settingsUpdateSchema } from "./schemas";
 
 export interface RegisterSettingsRoutesOptions {
@@ -13,11 +14,13 @@ export interface RegisterSettingsRoutesOptions {
     session: SessionRecord,
     userState: Awaited<ReturnType<ApiStore["getUserState"]>>,
     deployEnv: string | undefined,
+    runtimeEnv?: NotificationChannelProviderRuntimeEnv,
   ) => unknown;
   applySettingsUpdate: (
     userState: Awaited<ReturnType<ApiStore["getUserState"]>>,
     update: UpdateSettingsRequest,
     deployEnv: string | undefined,
+    runtimeEnv?: NotificationChannelProviderRuntimeEnv,
   ) => unknown;
 }
 
@@ -30,7 +33,7 @@ export function registerSettingsRoutes(options: RegisterSettingsRoutesOptions) {
     const session = c.get("session");
     const store = resolveStore(c.env);
     const userState = await store.getUserState(session.userId);
-    return c.json(createSettingsResponse(session, userState, c.env?.MINIX_DEPLOY_ENV));
+    return c.json(createSettingsResponse(session, userState, c.env?.MINIX_DEPLOY_ENV, c.env));
   });
 
   app.post("/settings", async (c) => {
@@ -43,8 +46,8 @@ export function registerSettingsRoutes(options: RegisterSettingsRoutesOptions) {
     const session = c.get("session");
     const store = resolveStore(c.env);
     const userState = await store.getUserState(session.userId);
-    applySettingsUpdate(userState, payload as UpdateSettingsRequest, c.env?.MINIX_DEPLOY_ENV);
+    applySettingsUpdate(userState, payload as UpdateSettingsRequest, c.env?.MINIX_DEPLOY_ENV, c.env);
     await store.saveUserState(session.userId, userState);
-    return c.json(createSettingsResponse(session, userState, c.env?.MINIX_DEPLOY_ENV));
+    return c.json(createSettingsResponse(session, userState, c.env?.MINIX_DEPLOY_ENV, c.env));
   });
 }

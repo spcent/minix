@@ -1,5 +1,6 @@
 import { createD1ApiStore } from "./store.d1";
 import { getGlobalMemoryApiStore } from "./store";
+import type { AuthOAuthProvider, AuthSmsDeliveryProvider } from "./domains/auth/provider";
 import type { ApiBindings, ApiStore } from "./types";
 import type { AuthRateLimitConfig, RateLimitCounterStore } from "./rate-limit";
 
@@ -8,6 +9,8 @@ export interface CreateApiAppOptions {
   allowedOrigins?: string[];
   authRateLimitConfig?: Partial<AuthRateLimitConfig>;
   authRateLimitStore?: RateLimitCounterStore;
+  authSmsProvider?: AuthSmsDeliveryProvider;
+  authOAuthProvider?: AuthOAuthProvider;
 }
 
 export function getStore(

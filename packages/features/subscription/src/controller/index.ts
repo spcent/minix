@@ -529,6 +529,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
       }
 
       const nextSource = result.value.source ?? current.source;
+      const providerMode = result.value.paymentIntent.gatewayReference?.providerMode ?? "sample";
       store.setState({
         purchasing: false,
         title: result.value.overview.headline,
@@ -567,13 +568,18 @@ export function createSubscriptionController(options: CreateSubscriptionControll
           ...(result.value.operationResult ? { operationResult: result.value.operationResult } : {}),
           callbackVerification: {
             status: "pending",
-            message: "Callback verification is pending until the sample gateway confirms the order.",
+            message:
+              providerMode === "sample"
+                ? "Callback verification is pending until the sample gateway confirms the order."
+                : "Callback verification is pending until the gateway confirms the order.",
           },
           reconciliation: {
             status: result.value.paymentResult.status === "success" ? "pending" : "not_required",
             message:
               result.value.paymentResult.status === "success"
-                ? "The order still needs reconciliation."
+                ? providerMode === "sample"
+                  ? "The sample order still needs reconciliation."
+                  : "The order still needs reconciliation."
                 : "Reconciliation is not required for this transaction state.",
           },
           entitlement: result.value.entitlement,

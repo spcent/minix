@@ -86,7 +86,7 @@ export function createDefaultUploadTask(): UploadTask {
 }
 
 export function createDefaultUploadProviderSummary(): string {
-  return "Upload review and storage posture remains sample-backed through sample-upload-policy until a production object-storage and review provider is configured.";
+  return "Upload review and storage posture remains sample-backed through sample-upload-policy and sample-object-storage until production review and storage providers are configured.";
 }
 
 export function createDefaultSharePayload(): SharePayload {

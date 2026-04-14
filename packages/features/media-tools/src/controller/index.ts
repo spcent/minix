@@ -62,13 +62,15 @@ function cloneState(state: MediaToolsState): MediaToolsState {
 
 function deriveUploadProviderSummary(response: UploadPipelineResponse): string {
   const provider = response.reviewRecord?.provider;
+  const providerMode = response.reviewRecord?.providerMode;
+  const storageProvider = response.reviewRecord?.storageProvider;
   if (!provider) {
     return createDefaultUploadProviderSummary();
   }
 
-  return provider.includes("sample")
-    ? `Upload review and storage posture remains sample-backed through ${provider} for this workspace.`
-    : `Upload review and storage posture is backed by ${provider} for this workspace.`;
+  return providerMode === "production"
+    ? `Upload review is backed by ${provider}, and asset storage resolves through ${storageProvider ?? "configured object storage"} for this workspace.`
+    : `Upload review and storage posture remains sample-backed through ${provider} and ${storageProvider ?? "sample-object-storage"} for this workspace.`;
 }
 
 function deriveShareProviderSummary(
@@ -78,17 +80,22 @@ function deriveShareProviderSummary(
     | ShareShortLinkResolveResponse
     | ShareAttributionReportResponse,
 ): string {
-  const posterProvider = response.posterAsset?.provider ?? response.attributionReport.posterAsset?.provider;
-  if (posterProvider === "sample") {
-    return "Share poster generation remains sample-backed in this workspace, while landing-target normalization and attribution reporting stay backend-backed.";
+  const shortLinkRecord = response.shortLinkRecord ?? response.attributionReport.shortLinkRecord;
+  const posterAsset = response.posterAsset ?? response.attributionReport.posterAsset;
+  const shortLinkProvider = shortLinkRecord?.provider;
+  const shortLinkProviderMode =
+    shortLinkRecord?.providerMode ??
+    (shortLinkProvider === "provider" ? "production" : shortLinkProvider === "sample" ? "sample" : undefined);
+  const posterProvider = posterAsset?.provider;
+  const posterProviderMode =
+    posterAsset?.providerMode ??
+    (posterProvider === "provider" ? "production" : posterProvider === "sample" ? "sample" : undefined);
+  if (posterProviderMode === "production" || shortLinkProviderMode === "production") {
+    return `Share short-link attribution is backed by ${shortLinkProvider ?? "configured short-link provider"}, and poster generation resolves through ${posterProvider ?? "configured poster provider"} in this workspace.`;
   }
 
-  if (posterProvider === "provider") {
-    return "Share poster generation is provider-backed in this workspace, while landing-target normalization and attribution reporting stay backend-backed.";
-  }
-
-  if (response.shortLinkRecord ?? response.attributionReport.shortLinkRecord ?? response.sharePayload.shortLink) {
-    return "Share short-link attribution is active through the shared backend flow, and poster generation remains sample-backed until a provider-backed poster asset is returned.";
+  if (shortLinkRecord ?? posterAsset ?? response.sharePayload.shortLink) {
+    return `Share short-link attribution and poster generation remain sample-backed through ${shortLinkProvider ?? "sample-short-link"} and ${posterProvider ?? "sample-poster-provider"}, while landing-target normalization and attribution reporting stay backend-backed.`;
   }
 
   return createDefaultShareProviderSummary();

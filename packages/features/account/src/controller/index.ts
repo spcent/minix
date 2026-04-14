@@ -319,7 +319,7 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
   const sections: AccountSection[] = [
     {
       key: "identity",
-      title: "Identity",
+      title: "Profile and identity",
       items: [
         {
           key: "user-id",
@@ -346,7 +346,7 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
     },
     {
       key: "account",
-      title: "Account",
+      title: "Account bindings",
       items: [
         {
           key: "phone-bound",
@@ -369,7 +369,7 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
     },
     {
       key: "assets",
-      title: "Assets",
+      title: "Wallet and entitlements",
       items: [
         {
           key: "level",
@@ -406,7 +406,7 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
     },
     {
       key: "relations",
-      title: "Relations",
+      title: "Relationship summary",
       items: [
         {
           key: "following",
@@ -540,7 +540,7 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
   if (response.relationTargets.length > 0) {
     sections.push({
       key: "relation-targets",
-      title: "Relation actions",
+      title: "Relationship actions",
       items: response.relationTargets.flatMap((target) => [
         {
           key: `relation-${target.targetUserId}`,
@@ -601,7 +601,7 @@ function createRelationListSection(relationList: UserRelationList | undefined): 
 
   return {
     key: `relation-list-${relationList.kind}`,
-    title: `Relation list: ${relationList.kind}`,
+    title: `Relationship list: ${relationList.kind}`,
     items: relationList.items.map((item) => ({
       key: `${relationList.kind}-${item.targetUserId}`,
       label: item.displayName,

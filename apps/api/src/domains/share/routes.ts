@@ -101,7 +101,7 @@ export function registerShareRoutes(options: RegisterShareRoutesOptions) {
       return rateLimitGuard.response;
     }
 
-    const response = createSharePrepareResponse(normalizeSharePrepareRequest(payload), c.req.url);
+    const response = createSharePrepareResponse(normalizeSharePrepareRequest(payload), c.req.url, undefined, c.env);
     const storageKey = response.shareAttribution.attributionId ?? response.sharePayload.shareToken ?? response.sharePayload.title;
     userState.sharePreparesById[storageKey] = response;
     appendSharePrepareAudit({

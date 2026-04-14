@@ -74,6 +74,8 @@ export interface ShareShortLinkRecord {
   attributionId: string;
   shortCode: string;
   shortLink: string;
+  provider?: string;
+  providerMode?: "sample" | "production";
   landingPath?: string;
   landingUrl: string;
   createdAt: string;
@@ -83,7 +85,8 @@ export interface ShareShortLinkRecord {
 
 export interface SharePosterAsset {
   assetId: string;
-  provider: "sample" | "provider";
+  provider: string;
+  providerMode?: "sample" | "production";
   url: string;
   thumbnailUrl?: string;
   createdAt: string;

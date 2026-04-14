@@ -11,6 +11,7 @@ import type {
 } from "@minix/contracts";
 
 import type { UserState } from "../../types";
+import type { NotificationChannelProviderRuntimeEnv } from "../settings/state";
 import { cloneTouchpoints, DEFAULT_MESSAGE_TOUCHPOINTS } from "./touchpoints";
 import { deriveThreadState, listMessageThreads } from "./threads";
 
@@ -127,9 +128,13 @@ const NOTIFICATION_SEEDS: NotificationSeed[] = [
   },
 ];
 
-function createNotificationItem(seed: NotificationSeed, userState: UserState): NotificationItem {
+function createNotificationItem(
+  seed: NotificationSeed,
+  userState: UserState,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+): NotificationItem {
   const readAt = userState.notificationReadAtById[seed.id];
-  const thread = seed.threadId ? deriveThreadState(userState, seed.threadId) : undefined;
+  const thread = seed.threadId ? deriveThreadState(userState, seed.threadId, runtimeEnv) : undefined;
 
   return {
     id: seed.id,
@@ -153,7 +158,7 @@ function createNotificationItem(seed: NotificationSeed, userState: UserState): N
       resourceLabel: `notification.${seed.type}`,
       createdAt: seed.createdAt,
       ...(seed.bodyPreview ? { body: seed.bodyPreview } : {}),
-    }),
+    }, runtimeEnv),
     tagLabels: [...seed.tagLabels],
     ...(thread
       ? {
@@ -259,8 +264,11 @@ function createNotificationList(
     groupKey?: string | undefined;
     onlyUnread?: boolean | undefined;
   },
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): NotificationList {
-  const allItems = sortNotifications(NOTIFICATION_SEEDS.map((seed) => createNotificationItem(seed, userState)));
+  const allItems = sortNotifications(
+    NOTIFICATION_SEEDS.map((seed) => createNotificationItem(seed, userState, runtimeEnv)),
+  );
   const page = input.page ?? 1;
   const pageSize = input.pageSize ?? 6;
   const activeType = input.type && input.type !== "all" ? input.type : undefined;
@@ -295,12 +303,15 @@ function createNotificationList(
   };
 }
 
-export function getUnreadBadge(userState: UserState): UnreadBadge {
+export function getUnreadBadge(
+  userState: UserState,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+): UnreadBadge {
   const notifications = sortNotifications(
-    NOTIFICATION_SEEDS.map((seed) => createNotificationItem(seed, userState)),
+    NOTIFICATION_SEEDS.map((seed) => createNotificationItem(seed, userState, runtimeEnv)),
   );
   const notificationUnread = notifications.filter((item) => !item.receipt.read).length;
-  const threadUnread = listMessageThreads(userState, { page: 1, pageSize: 100 }).items.reduce(
+  const threadUnread = listMessageThreads(userState, { page: 1, pageSize: 100 }, runtimeEnv).items.reduce(
     (total, thread) => total + thread.unreadCount,
     0,
   );
@@ -339,9 +350,10 @@ export function listNotifications(
     onlyUnread?: boolean | undefined;
     threadId?: string | undefined;
   },
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): NotificationListResponse {
-  const notificationList = createNotificationList(userState, input);
-  const threadList = listMessageThreads(userState, { page: 1, pageSize: 20 });
+  const notificationList = createNotificationList(userState, input, runtimeEnv);
+  const threadList = listMessageThreads(userState, { page: 1, pageSize: 20 }, runtimeEnv);
   const reservedThreads = threadList.items;
   const selectedThread =
     (input.threadId ? threadList.items.find((thread) => thread.threadId === input.threadId) : undefined) ??
@@ -354,10 +366,10 @@ export function listNotifications(
       ? {
           ...selectedThread,
           participantLabels: [...selectedThread.participantLabels],
-          touchpoints: cloneTouchpoints(selectedThread.touchpoints, userState),
+          touchpoints: cloneTouchpoints(selectedThread.touchpoints, userState, undefined, runtimeEnv),
         }
       : undefined,
-    unreadBadge: getUnreadBadge(userState),
+    unreadBadge: getUnreadBadge(userState, runtimeEnv),
     reservedThreads,
     threadList,
   };
@@ -373,6 +385,7 @@ export function markNotificationsRead(
     groupKey?: string | undefined;
     onlyUnread?: boolean | undefined;
   },
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): MarkNotificationsReadResponse {
   const updatedIds = input.notificationIds.filter((notificationId) =>
     NOTIFICATION_SEEDS.some((seed) => seed.id === notificationId),
@@ -385,7 +398,7 @@ export function markNotificationsRead(
 
   return {
     updatedIds,
-    notificationList: createNotificationList(userState, input),
-    unreadBadge: getUnreadBadge(userState),
+    notificationList: createNotificationList(userState, input, runtimeEnv),
+    unreadBadge: getUnreadBadge(userState, runtimeEnv),
   };
 }

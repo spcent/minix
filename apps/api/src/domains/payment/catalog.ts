@@ -282,17 +282,23 @@ export function createSubscriptionRenewalDate(now: string, billingCycle: Product
   return createRenewalDate(now, billingCycle);
 }
 
-export function createPendingCallbackVerification(): PaymentCallbackVerification {
+export function createPendingCallbackVerification(providerMode: PaymentProviderMode = "sample"): PaymentCallbackVerification {
   return {
     status: "pending",
-    message: "The sample gateway callback has not been verified yet.",
+    message:
+      providerMode === "sample"
+        ? "The sample gateway callback has not been verified yet."
+        : "The gateway callback has not been verified yet.",
   };
 }
 
-export function createPendingReconciliation(): PaymentReconciliation {
+export function createPendingReconciliation(providerMode: PaymentProviderMode = "sample"): PaymentReconciliation {
   return {
     status: "pending",
-    message: "The sample order has not been reconciled yet.",
+    message:
+      providerMode === "sample"
+        ? "The sample order has not been reconciled yet."
+        : "The order has not been reconciled yet.",
   };
 }
 

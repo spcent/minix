@@ -79,6 +79,7 @@ export interface SettingsNotificationChannelPreference {
   unsubscribed: boolean;
   providerKey: string;
   providerLabel: string;
+  providerMode?: "sample" | "production";
   locale: string;
   fallbackToInApp: boolean;
   statusLabel: string;

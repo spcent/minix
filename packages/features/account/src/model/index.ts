@@ -181,7 +181,8 @@ export function createAccountState(options: CreateAccountStateOptions): AccountS
 export function createDefaultAccountState(options: CreateDefaultAccountStateOptions = {}): AccountState {
   return createAccountState({
     title: options.title ?? "Account",
-    subtitle: options.subtitle ?? "Session, profile, and recovery controls for the current signed-in user.",
+    subtitle:
+      options.subtitle ?? "Profile, bindings, assets, and relationship controls for the current signed-in user.",
     stats: [
       {
         key: "session",

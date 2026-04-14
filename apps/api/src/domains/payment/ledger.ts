@@ -495,6 +495,7 @@ export function applyOrderRefund(
 ): OrderDetailResponse {
   const next = cloneOrderDetail(detail);
   const processedAt = new Date().toISOString();
+  const providerMode = next.paymentIntent.gatewayReference?.providerMode ?? "sample";
   const refundable = next.order.status === "paid";
   if (refundable) {
     next.order.status = "refunded";
@@ -503,9 +504,14 @@ export function applyOrderRefund(
     next.paymentResult.status = "refunded";
     next.paymentResult.paid = false;
     next.paymentResult.callbackVerified = true;
-    next.paymentResult.message = reason
-      ? `Refund completed in the sample payment domain. Reason: ${reason}.`
-      : "Refund completed in the sample payment domain.";
+    next.paymentResult.message =
+      providerMode === "sample"
+        ? reason
+          ? `Refund completed in the sample payment domain. Reason: ${reason}.`
+          : "Refund completed in the sample payment domain."
+        : reason
+          ? `Refund completed. Reason: ${reason}.`
+          : "Refund completed.";
     next.callbackVerification = {
       status: "verified",
       message: "The payment callback remained verified through the refund transition.",
@@ -584,12 +590,17 @@ export function applyPaymentCallback(
   const next = cloneOrderDetail(detail);
   const processedAt = new Date().toISOString();
   const verified = payload.verified !== false;
+  const providerMode = next.paymentIntent.gatewayReference?.providerMode ?? "sample";
   next.order.updatedAt = processedAt;
   next.callbackVerification = {
     status: verified ? "verified" : "rejected",
     message: verified
-      ? "Sample callback verification succeeded."
-      : "Sample callback verification rejected the callback payload.",
+      ? providerMode === "sample"
+        ? "Sample callback verification succeeded."
+        : "Production callback verification succeeded."
+      : providerMode === "sample"
+        ? "Sample callback verification rejected the callback payload."
+        : "Production callback verification rejected the callback payload.",
     ...(verified ? { verifiedAt: processedAt } : {}),
     ...(payload.callbackReference ? { callbackReference: payload.callbackReference } : {}),
   };

@@ -359,8 +359,9 @@ export function createSettingsResponse(
   session: SessionRecord,
   userState: UserState,
   deployEnv: string | undefined,
+  runtimeEnv?: import("./domains/settings/state").NotificationChannelProviderRuntimeEnv,
 ): SettingsResponse {
-  const settingsState = resolveSettingsState(userState, deployEnv);
+  const settingsState = resolveSettingsState(userState, deployEnv, runtimeEnv);
   const availability = resolveUserAvailability(session, userState);
   const phoneBound = Boolean(session.identity.phoneBound || userState.boundPhoneNumber);
   const wechatBound = userState.wechatBoundOverride ?? Boolean(session.identity.wechatBound);

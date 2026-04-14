@@ -1185,6 +1185,132 @@ test("media-tools controller can load the attribution report after share resolut
   assert.equal(controller.store.getState().shareProviderSummary.includes("sample-backed"), true);
 });
 
+test("media-tools controller surfaces production share provider posture from attribution metadata", async () => {
+  const { kernel } = createKernelStub();
+  const originalGet = kernel.request.get;
+  kernel.request.get = async <T>(path: string) => {
+    if (path.startsWith("/share/report")) {
+      return ok({
+        sharePayload: {
+          scenario: "invite",
+          title: "Invite a friend to MiniX",
+          landingPath: "/login",
+          landingUrl: "https://example.test/login?from=share",
+          shortLink: "https://mini.example.test/s/share1",
+          posterImageUrl: "https://cdn.example.test/share-posters/share1.svg",
+          trackingParams: {
+            channel: "host-h5",
+          },
+          channelMarker: "host-h5-demo",
+          inviteCode: "MINIX42",
+          shareToken: "share_prepare_1",
+        },
+        shareChannel: {
+          kind: "copy_link",
+          label: "Copy Link",
+          executable: true,
+          channelMarker: "host-h5-demo",
+        },
+        shareAttribution: {
+          attributionId: "share_prepare_1",
+          channelMarker: "host-h5-demo",
+          inviteBindingEnabled: true,
+          returnFlowRecognized: true,
+          shareCount: 1,
+          clickCount: 1,
+          returnCount: 1,
+          conversionCount: 1,
+          preparedAt: "2026-04-08T09:39:00.000Z",
+          lastSharedAt: "2026-04-08T09:39:00.000Z",
+          lastClickAt: "2026-04-08T09:40:00.000Z",
+          lastConversionAt: "2026-04-08T09:40:00.000Z",
+          lastReturnAt: "2026-04-08T09:40:00.000Z",
+          lastLandingPath: "/login",
+          inviteBoundUserId: "shared-user",
+        },
+        shortLinkRecord: {
+          attributionId: "share_prepare_1",
+          shortCode: "share1",
+          shortLink: "https://mini.example.test/s/share1",
+          provider: "branch-io",
+          providerMode: "production",
+          landingPath: "/login",
+          landingUrl: "https://example.test/login?from=share",
+          createdAt: "2026-04-08T09:39:00.000Z",
+          resolvedCount: 1,
+          lastResolvedAt: "2026-04-08T09:40:00.000Z",
+        },
+        posterAsset: {
+          assetId: "share_poster_share1",
+          provider: "canvas-render-service",
+          providerMode: "production",
+          url: "https://cdn.example.test/share-posters/share1.svg",
+          createdAt: "2026-04-08T09:39:00.000Z",
+        },
+        attributionReport: {
+          shareAttribution: {
+            attributionId: "share_prepare_1",
+            channelMarker: "host-h5-demo",
+            inviteBindingEnabled: true,
+            returnFlowRecognized: true,
+            shareCount: 1,
+            clickCount: 1,
+            returnCount: 1,
+            conversionCount: 1,
+            preparedAt: "2026-04-08T09:39:00.000Z",
+            lastSharedAt: "2026-04-08T09:39:00.000Z",
+            lastClickAt: "2026-04-08T09:40:00.000Z",
+            lastConversionAt: "2026-04-08T09:40:00.000Z",
+            lastReturnAt: "2026-04-08T09:40:00.000Z",
+            lastLandingPath: "/login",
+            inviteBoundUserId: "shared-user",
+          },
+          shortLinkRecord: {
+            attributionId: "share_prepare_1",
+            shortCode: "share1",
+            shortLink: "https://mini.example.test/s/share1",
+            provider: "branch-io",
+            providerMode: "production",
+            landingPath: "/login",
+            landingUrl: "https://example.test/login?from=share",
+            createdAt: "2026-04-08T09:39:00.000Z",
+            resolvedCount: 1,
+            lastResolvedAt: "2026-04-08T09:40:00.000Z",
+          },
+          posterAsset: {
+            assetId: "share_poster_share1",
+            provider: "canvas-render-service",
+            providerMode: "production",
+            url: "https://cdn.example.test/share-posters/share1.svg",
+            createdAt: "2026-04-08T09:39:00.000Z",
+          },
+        },
+        landingTarget: {
+          path: "/login",
+          url: "https://example.test/login?from=share",
+          shortLink: "https://mini.example.test/s/share1",
+          shortCode: "share1",
+          channelMarker: "host-h5-demo",
+        },
+      } as T);
+    }
+
+    return originalGet<T>(path);
+  };
+
+  const controller = createMediaToolsController({
+    kernel,
+    initialState: createDefaultMediaToolsState(),
+  });
+
+  await controller.loadShareReport();
+
+  assert.equal(controller.store.getState().sharePayload.posterImageUrl, "https://cdn.example.test/share-posters/share1.svg");
+  assert.equal(controller.store.getState().shareProviderSummary.includes("branch-io"), true);
+  assert.equal(controller.store.getState().shareProviderSummary.includes("canvas-render-service"), true);
+  assert.equal(controller.store.getState().shareProviderSummary.includes("sample-backed"), false);
+});
+
 test("media-tools controller can route into settings when configured", async () => {
   const { kernel, routeCalls } = createKernelStub();
   const controller = createMediaToolsController({

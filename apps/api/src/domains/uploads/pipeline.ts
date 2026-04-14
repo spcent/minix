@@ -21,11 +21,19 @@ import type {
   UploadTransferPayload,
 } from "@minix/contracts";
 
-import type { StoredUploadRecord, UserState } from "../../types";
+import type { ApiBindings, StoredUploadRecord, UserState } from "../../types";
 
 const DEFAULT_UPLOAD_CHUNK_SIZE_BYTES = 64 * 1024;
 const REDUCED_UPLOAD_CHUNK_SIZE_BYTES = 16 * 1024;
 const WEAK_NETWORK_UPLOAD_CHUNK_SIZE_BYTES = 8 * 1024;
+
+export type UploadProviderRuntimeEnv = Pick<
+  ApiBindings,
+  | "MINIX_UPLOAD_PROVIDER_MODE"
+  | "MINIX_UPLOAD_STORAGE_PROVIDER"
+  | "MINIX_UPLOAD_REVIEW_PROVIDER"
+  | "MINIX_UPLOAD_ASSET_BASE_URL"
+>;
 
 function cloneUploadProgress(progress: UploadTask["progress"]): UploadTask["progress"] {
   return {
@@ -158,6 +166,8 @@ function cloneUploadReviewRecord(reviewRecord: UploadReviewRecord): UploadReview
   return {
     status: reviewRecord.status,
     provider: reviewRecord.provider,
+    ...(reviewRecord.providerMode ? { providerMode: reviewRecord.providerMode } : {}),
+    ...(reviewRecord.storageProvider ? { storageProvider: reviewRecord.storageProvider } : {}),
     ...(reviewRecord.reviewedAt ? { reviewedAt: reviewRecord.reviewedAt } : {}),
     ...(reviewRecord.message ? { message: reviewRecord.message } : {}),
     ...(reviewRecord.reasonCodes ? { reasonCodes: [...reviewRecord.reasonCodes] } : {}),
@@ -212,12 +222,39 @@ function cloneStoredUploadRecord(record: StoredUploadRecord): StoredUploadRecord
   };
 }
 
-function buildUploadedAssetUrl(assetId: string, requestUrl: string): string {
-  return new URL(`/uploads/assets/${assetId}`, requestUrl).toString();
+function resolveUploadProviderMode(runtimeEnv?: UploadProviderRuntimeEnv): "sample" | "production" {
+  return runtimeEnv?.MINIX_UPLOAD_PROVIDER_MODE === "production" ? "production" : "sample";
 }
 
-function buildUploadedThumbnailUrl(assetId: string, requestUrl: string): string {
-  return new URL(`/uploads/assets/${assetId}/thumb`, requestUrl).toString();
+function resolveUploadStorageProvider(runtimeEnv?: UploadProviderRuntimeEnv): string {
+  return resolveUploadProviderMode(runtimeEnv) === "production"
+    ? runtimeEnv?.MINIX_UPLOAD_STORAGE_PROVIDER || "object-storage-provider"
+    : "sample-object-storage";
+}
+
+function resolveUploadReviewProvider(runtimeEnv?: UploadProviderRuntimeEnv): string {
+  return resolveUploadProviderMode(runtimeEnv) === "production"
+    ? runtimeEnv?.MINIX_UPLOAD_REVIEW_PROVIDER || "content-review-provider"
+    : "sample-upload-policy";
+}
+
+function resolveUploadAssetBaseUrl(requestUrl: string, runtimeEnv?: UploadProviderRuntimeEnv): string {
+  if (!runtimeEnv?.MINIX_UPLOAD_ASSET_BASE_URL) {
+    return requestUrl;
+  }
+  try {
+    return new URL(runtimeEnv.MINIX_UPLOAD_ASSET_BASE_URL).toString();
+  } catch {
+    return requestUrl;
+  }
+}
+
+function buildUploadedAssetUrl(assetId: string, requestUrl: string, runtimeEnv?: UploadProviderRuntimeEnv): string {
+  return new URL(`/uploads/assets/${assetId}`, resolveUploadAssetBaseUrl(requestUrl, runtimeEnv)).toString();
+}
+
+function buildUploadedThumbnailUrl(assetId: string, requestUrl: string, runtimeEnv?: UploadProviderRuntimeEnv): string {
+  return new URL(`/uploads/assets/${assetId}/thumb`, resolveUploadAssetBaseUrl(requestUrl, runtimeEnv)).toString();
 }
 
 function createUploadHash(buffer: Uint8Array): string {
@@ -311,6 +348,7 @@ function createUploadErrorRecord(
   message: string,
   code: string,
   now: string,
+  runtimeEnv?: UploadProviderRuntimeEnv,
 ): StoredUploadRecord {
   const failedTask = cloneUploadTask(selection.uploadTask);
   failedTask.stage = "failed";
@@ -339,7 +377,9 @@ function createUploadErrorRecord(
     },
     reviewRecord: {
       status: "rejected",
-      provider: "sample-upload-policy",
+      provider: resolveUploadReviewProvider(runtimeEnv),
+      providerMode: resolveUploadProviderMode(runtimeEnv),
+      storageProvider: resolveUploadStorageProvider(runtimeEnv),
       reviewedAt: now,
       message,
       reasonCodes: [code],
@@ -406,25 +446,26 @@ export function createUploadSessionRecord(
   requestUrl: string,
   userState?: UserState,
   now = new Date().toISOString(),
+  runtimeEnv?: UploadProviderRuntimeEnv,
 ): StoredUploadRecord {
   const selection = cloneUploadSelectionResult(request.selection);
   const task = cloneUploadTask(selection.uploadTask);
   const selectedAsset = selection.uploadAsset ? cloneUploadAsset(selection.uploadAsset) : undefined;
   if (!selectedAsset) {
-    return createUploadErrorRecord(selection, "backend_session", "The selected asset is required to open an upload session.", "UPLOAD_ASSET_REQUIRED", now);
+    return createUploadErrorRecord(selection, "backend_session", "The selected asset is required to open an upload session.", "UPLOAD_ASSET_REQUIRED", now, runtimeEnv);
   }
   const transfer = resolveSelectionTransfer(selection, userState);
   if (!transfer) {
-    return createUploadErrorRecord(selection, "backend_session", "The selected asset did not include upload transfer data.", "UPLOAD_TRANSFER_REQUIRED", now);
+    return createUploadErrorRecord(selection, "backend_session", "The selected asset did not include upload transfer data.", "UPLOAD_TRANSFER_REQUIRED", now, runtimeEnv);
   }
   if (selectedAsset.metadata.sizeBytes !== transfer.totalBytes) {
-    return createUploadErrorRecord(selection, "backend_session", "The selected asset size does not match the prepared upload transfer.", "UPLOAD_SIZE_MISMATCH", now);
+    return createUploadErrorRecord(selection, "backend_session", "The selected asset size does not match the prepared upload transfer.", "UPLOAD_SIZE_MISMATCH", now, runtimeEnv);
   }
   if (selectedAsset.metadata.sizeBytes > task.governance.maxSizeBytes) {
-    return createUploadErrorRecord(selection, "backend_session", "The selected asset exceeds the configured upload size limit.", "UPLOAD_TOO_LARGE", now);
+    return createUploadErrorRecord(selection, "backend_session", "The selected asset exceeds the configured upload size limit.", "UPLOAD_TOO_LARGE", now, runtimeEnv);
   }
   if (!task.governance.acceptedFileTypes.includes(selectedAsset.fileType)) {
-    return createUploadErrorRecord(selection, "backend_session", "The selected asset type is not accepted for this upload flow.", "UPLOAD_TYPE_REJECTED", now);
+    return createUploadErrorRecord(selection, "backend_session", "The selected asset type is not accepted for this upload flow.", "UPLOAD_TYPE_REJECTED", now, runtimeEnv);
   }
 
   const assetId = selectedAsset.assetId && selectedAsset.assetId !== "upload_asset_idle" ? selectedAsset.assetId : `upl_${crypto.randomUUID()}`;
@@ -448,14 +489,14 @@ export function createUploadSessionRecord(
   const uploadAsset: UploadAsset = {
     ...selectedAsset,
     assetId,
-    url: buildUploadedAssetUrl(assetId, requestUrl),
+    url: buildUploadedAssetUrl(assetId, requestUrl, runtimeEnv),
     metadata: {
       ...selectedAsset.metadata,
       checksum: transfer.fileChecksum,
       checksumAlgorithm: transfer.checksumAlgorithm,
     },
     ...(selectedAsset.fileType === "image" || selectedAsset.fileType === "avatar"
-      ? { thumbnailUrl: buildUploadedThumbnailUrl(assetId, requestUrl) }
+      ? { thumbnailUrl: buildUploadedThumbnailUrl(assetId, requestUrl, runtimeEnv) }
       : {}),
   };
 
@@ -495,7 +536,9 @@ export function createUploadSessionRecord(
     session,
     reviewRecord: {
       status: "not_required",
-      provider: "sample-upload-policy",
+      provider: resolveUploadReviewProvider(runtimeEnv),
+      providerMode: resolveUploadProviderMode(runtimeEnv),
+      storageProvider: resolveUploadStorageProvider(runtimeEnv),
       message: "Upload session created.",
     },
     cleanupRecord: {
@@ -512,25 +555,26 @@ export function appendUploadChunkRecord(
   existing: StoredUploadRecord,
   request: UploadChunkRequest,
   now = new Date().toISOString(),
+  runtimeEnv?: UploadProviderRuntimeEnv,
 ): StoredUploadRecord {
   const record = cloneStoredUploadRecord(existing);
   if (!record.session || !record.transfer) {
-    return createUploadErrorRecord(record.selection, "backend_chunk", "Upload session is unavailable for this task.", "UPLOAD_SESSION_NOT_FOUND", now);
+    return createUploadErrorRecord(record.selection, "backend_chunk", "Upload session is unavailable for this task.", "UPLOAD_SESSION_NOT_FOUND", now, runtimeEnv);
   }
   if (record.uploadTask.taskId !== request.taskId || record.session.sessionId !== request.sessionId) {
-    return createUploadErrorRecord(record.selection, "backend_chunk", "Upload session identifiers do not match the active task.", "UPLOAD_SESSION_MISMATCH", now);
+    return createUploadErrorRecord(record.selection, "backend_chunk", "Upload session identifiers do not match the active task.", "UPLOAD_SESSION_MISMATCH", now, runtimeEnv);
   }
   const expectedChunk = record.transfer.chunks[request.chunk.chunkIndex];
   if (!expectedChunk) {
-    return createUploadErrorRecord(record.selection, "backend_chunk", "Upload chunk index is out of range.", "UPLOAD_CHUNK_RANGE", now);
+    return createUploadErrorRecord(record.selection, "backend_chunk", "Upload chunk index is out of range.", "UPLOAD_CHUNK_RANGE", now, runtimeEnv);
   }
   const chunkBytes = decodeBase64ToBuffer(request.chunk.dataBase64);
   const chunkChecksum = createUploadHash(chunkBytes);
   if (chunkChecksum !== request.chunk.checksum || chunkChecksum !== expectedChunk.checksum) {
-    return createUploadErrorRecord(record.selection, "backend_chunk", "Upload chunk checksum verification failed.", "UPLOAD_CHECKSUM_MISMATCH", now);
+    return createUploadErrorRecord(record.selection, "backend_chunk", "Upload chunk checksum verification failed.", "UPLOAD_CHECKSUM_MISMATCH", now, runtimeEnv);
   }
   if (chunkBytes.byteLength !== expectedChunk.byteLength || request.chunk.byteOffset !== expectedChunk.byteOffset) {
-    return createUploadErrorRecord(record.selection, "backend_chunk", "Upload chunk metadata did not match the prepared manifest.", "UPLOAD_CHUNK_INVALID", now);
+    return createUploadErrorRecord(record.selection, "backend_chunk", "Upload chunk metadata did not match the prepared manifest.", "UPLOAD_CHUNK_INVALID", now, runtimeEnv);
   }
 
   const receipt: UploadChunkReceipt = {
@@ -564,7 +608,9 @@ export function appendUploadChunkRecord(
     record.transfer.chunks.find((chunk) => !record.chunksByIndex[String(chunk.chunkIndex)])?.chunkIndex ?? record.transfer.chunks.length;
   record.reviewRecord = {
     status: "not_required",
-    provider: "sample-upload-policy",
+    provider: resolveUploadReviewProvider(runtimeEnv),
+    providerMode: resolveUploadProviderMode(runtimeEnv),
+    storageProvider: resolveUploadStorageProvider(runtimeEnv),
     message: `${uploadedChunkCount}/${record.transfer.chunks.length} chunks uploaded.`,
   };
   return record;
@@ -575,17 +621,18 @@ export function completeUploadRecord(
   request: { taskId: string; sessionId: string; fileChecksum: string; checksumAlgorithm: "sha256" },
   requestUrl: string,
   now = new Date().toISOString(),
+  runtimeEnv?: UploadProviderRuntimeEnv,
 ): StoredUploadRecord {
   const record = cloneStoredUploadRecord(existing);
   if (!record.session || !record.transfer || !record.uploadAsset) {
-    return createUploadErrorRecord(record.selection, "backend_complete", "Upload session is unavailable for completion.", "UPLOAD_SESSION_NOT_FOUND", now);
+    return createUploadErrorRecord(record.selection, "backend_complete", "Upload session is unavailable for completion.", "UPLOAD_SESSION_NOT_FOUND", now, runtimeEnv);
   }
   if (record.uploadTask.taskId !== request.taskId || record.session.sessionId !== request.sessionId) {
-    return createUploadErrorRecord(record.selection, "backend_complete", "Upload session identifiers do not match the active task.", "UPLOAD_SESSION_MISMATCH", now);
+    return createUploadErrorRecord(record.selection, "backend_complete", "Upload session identifiers do not match the active task.", "UPLOAD_SESSION_MISMATCH", now, runtimeEnv);
   }
   const missingChunk = record.transfer.chunks.find((chunk) => !record.chunksByIndex[String(chunk.chunkIndex)]);
   if (missingChunk) {
-    return createUploadErrorRecord(record.selection, "backend_complete", "Upload completion requires every chunk to be transferred first.", "UPLOAD_INCOMPLETE", now);
+    return createUploadErrorRecord(record.selection, "backend_complete", "Upload completion requires every chunk to be transferred first.", "UPLOAD_INCOMPLETE", now, runtimeEnv);
   }
 
   const buffers = record.transfer.chunks.map((chunk) =>
@@ -594,15 +641,15 @@ export function completeUploadRecord(
   const merged = Buffer.concat(buffers.map((buffer) => Buffer.from(buffer)));
   const fileChecksum = createUploadHash(merged);
   if (fileChecksum !== request.fileChecksum || fileChecksum !== record.transfer.fileChecksum) {
-    return createUploadErrorRecord(record.selection, "backend_complete", "Upload file checksum verification failed.", "UPLOAD_CHECKSUM_MISMATCH", now);
+    return createUploadErrorRecord(record.selection, "backend_complete", "Upload file checksum verification failed.", "UPLOAD_CHECKSUM_MISMATCH", now, runtimeEnv);
   }
 
   record.binaryObjectKey = record.session.objectKey;
   record.uploadAsset = {
     ...record.uploadAsset,
-    url: buildUploadedAssetUrl(record.uploadAsset.assetId, requestUrl),
+    url: buildUploadedAssetUrl(record.uploadAsset.assetId, requestUrl, runtimeEnv),
     ...(record.uploadAsset.fileType === "image" || record.uploadAsset.fileType === "avatar"
-      ? { thumbnailUrl: buildUploadedThumbnailUrl(record.uploadAsset.assetId, requestUrl) }
+      ? { thumbnailUrl: buildUploadedThumbnailUrl(record.uploadAsset.assetId, requestUrl, runtimeEnv) }
       : {}),
     metadata: {
       ...record.uploadAsset.metadata,
@@ -619,7 +666,10 @@ export function completeUploadRecord(
   if (rejectedByPolicy) {
     record.uploadTask.stage = "failed";
     record.uploadTask.reviewStatus = "rejected";
-    record.uploadTask.reviewMessage = "The sample upload policy rejected this asset during review.";
+    record.uploadTask.reviewMessage =
+      resolveUploadProviderMode(runtimeEnv) === "production"
+        ? "The configured upload review policy rejected this asset during review."
+        : "The sample upload policy rejected this asset during review.";
     record.uploadTask.lifecycle = createUploadLifecycle(record.uploadTask, {
       backendBacked: true,
       retryCount: record.uploadTask.lifecycle.retryCount,
@@ -637,7 +687,9 @@ export function completeUploadRecord(
     };
     record.reviewRecord = {
       status: "rejected",
-      provider: "sample-upload-policy",
+      provider: resolveUploadReviewProvider(runtimeEnv),
+      providerMode: resolveUploadProviderMode(runtimeEnv),
+      storageProvider: resolveUploadStorageProvider(runtimeEnv),
       reviewedAt: now,
       message: record.uploadTask.reviewMessage,
       reasonCodes: ["blocked_filename"],
@@ -655,7 +707,9 @@ export function completeUploadRecord(
   record.uploadTask.reviewStatus = requiresReview ? "pending" : "approved";
   record.uploadTask.stage = requiresReview ? "reviewing" : "completed";
   record.uploadTask.reviewMessage = requiresReview
-    ? "Sensitive review is pending in the upload pipeline."
+    ? resolveUploadProviderMode(runtimeEnv) === "production"
+      ? "Sensitive review is pending through the configured upload review provider."
+      : "Sensitive review is pending in the upload pipeline."
     : "The asset cleared validation and is ready for downstream business use.";
   record.uploadTask.lifecycle = createUploadLifecycle(record.uploadTask, {
     backendBacked: true,
@@ -667,7 +721,9 @@ export function completeUploadRecord(
   });
   record.reviewRecord = {
     status: requiresReview ? "pending" : "approved",
-    provider: "sample-upload-policy",
+    provider: resolveUploadReviewProvider(runtimeEnv),
+    providerMode: resolveUploadProviderMode(runtimeEnv),
+    storageProvider: resolveUploadStorageProvider(runtimeEnv),
     ...(requiresReview ? {} : { reviewedAt: now }),
     message: record.uploadTask.reviewMessage,
   };
@@ -708,8 +764,9 @@ export function createUploadPipelineResponse(
   request: UploadPipelineRequest,
   requestUrl: string,
   now = new Date().toISOString(),
+  runtimeEnv?: UploadProviderRuntimeEnv,
 ): UploadPipelineResponse {
-  let record = createUploadSessionRecord(request, requestUrl, undefined, now);
+  let record = createUploadSessionRecord(request, requestUrl, undefined, now, runtimeEnv);
   const initialTransfer = record.transfer;
   const initialSession = record.session;
   if (!initialTransfer || record.uploadError || !initialSession) {
@@ -724,6 +781,7 @@ export function createUploadPipelineResponse(
         chunk,
       },
       now,
+      runtimeEnv,
     );
     if (record.uploadError) {
       return createUploadResponse(record);
@@ -740,6 +798,7 @@ export function createUploadPipelineResponse(
       },
       requestUrl,
       now,
+      runtimeEnv,
     ),
   );
 }
@@ -748,6 +807,7 @@ export function retryUploadPipeline(
   existing: StoredUploadRecord,
   _request: UploadRetryRequest,
   now = new Date().toISOString(),
+  runtimeEnv?: UploadProviderRuntimeEnv,
 ): StoredUploadRecord {
   const record = cloneStoredUploadRecord(existing);
   record.source = "backend_retry";
@@ -791,7 +851,9 @@ export function retryUploadPipeline(
   delete record.uploadError;
   record.reviewRecord = {
     status: "not_required",
-    provider: "sample-upload-policy",
+    provider: resolveUploadReviewProvider(runtimeEnv),
+    providerMode: resolveUploadProviderMode(runtimeEnv),
+    storageProvider: resolveUploadStorageProvider(runtimeEnv),
     message: "Upload retry prepared.",
   };
   return record;
@@ -801,6 +863,7 @@ export function cancelUploadPipeline(
   existing: StoredUploadRecord,
   request: UploadCancelRequest,
   now = new Date().toISOString(),
+  runtimeEnv?: UploadProviderRuntimeEnv,
 ): StoredUploadRecord {
   const record = cloneStoredUploadRecord(existing);
   record.source = "backend_cancel";
@@ -823,7 +886,9 @@ export function cancelUploadPipeline(
   };
   record.reviewRecord = {
     status: record.uploadTask.reviewStatus,
-    provider: "sample-upload-policy",
+    provider: resolveUploadReviewProvider(runtimeEnv),
+    providerMode: resolveUploadProviderMode(runtimeEnv),
+    storageProvider: resolveUploadStorageProvider(runtimeEnv),
     message: record.uploadTask.reviewMessage,
   };
   updateUploadRetention(record, {

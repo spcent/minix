@@ -74,6 +74,262 @@ async function requestPhoneCode(
   return payload.delivery.debugCode!;
 }
 
+test("phone verification can use a configured production sms provider without exposing debug codes", async () => {
+  const app = createApiApp({
+    store: createMemoryApiStore(),
+    authSmsProvider: async (input) => ({
+      ok: true,
+      value: {
+        provider: "sms",
+        providerMode: "production",
+        providerLabel: "Tencent Cloud SMS",
+        providerReference: `prod_${input.verificationId}`,
+        maskedTarget: input.maskedTarget,
+        message: "Verification code issued through the configured SMS provider.",
+      },
+    }),
+  });
+
+  const response = await app.request("http://localhost/auth/verification-code/request", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "cf-connecting-ip": "203.0.113.33",
+    },
+    body: JSON.stringify({
+      phoneNumber: "13800000001",
+      purpose: "password_reset",
+    }),
+  });
+  assert.equal(response.status, 200);
+  const payload = (await response.json()) as {
+    delivery: {
+      provider: string;
+      providerMode?: string;
+      providerLabel?: string;
+      debugCode?: string;
+      message: string;
+    };
+  };
+  assert.equal(payload.delivery.provider, "sms");
+  assert.equal(payload.delivery.providerMode, "production");
+  assert.equal(payload.delivery.providerLabel, "Tencent Cloud SMS");
+  assert.equal(payload.delivery.debugCode, undefined);
+  assert.equal(payload.delivery.message, "Verification code issued through the configured SMS provider.");
+});
+
+test("phone verification rejects production mode when no sms provider is configured", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const response = await app.request(
+    "http://localhost/auth/verification-code/request",
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "cf-connecting-ip": "203.0.113.34",
+      },
+      body: JSON.stringify({
+        phoneNumber: "13800000001",
+        purpose: "login",
+      }),
+    },
+    {
+      MINIX_AUTH_SMS_PROVIDER_MODE: "production",
+    } as never,
+  );
+  assert.equal(response.status, 503);
+  const payload = (await response.json()) as {
+    code: string;
+    message: string;
+    credentialProtection?: { failureReason?: string };
+  };
+  assert.equal(payload.code, "PROVIDER_UNAVAILABLE");
+  assert.equal(payload.credentialProtection?.failureReason, "provider_unavailable");
+});
+
+test("oauth authorize can use a configured production provider without sample urls", async () => {
+  const app = createApiApp({
+    store: createMemoryApiStore(),
+    authOAuthProvider: {
+      authorize: async (input) => ({
+        ok: true,
+        value: {
+          providerMode: "production",
+          providerLabel: "WeChat Open Platform",
+          authorizationUrl: `https://open.weixin.qq.com/connect/qrconnect?state=${encodeURIComponent(input.state)}`,
+          message: "OAuth authorization issued through the configured provider.",
+        },
+      }),
+      validateCallback: async (input) => ({
+        ok: true,
+        value: {
+          providerMode: "production",
+          providerLabel: "WeChat Open Platform",
+          providerUserId: input.providerUserId,
+        },
+      }),
+    },
+  });
+
+  const response = await app.request("http://localhost/auth/oauth/authorize", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      provider: "wechat-open-platform",
+    }),
+  });
+  assert.equal(response.status, 200);
+  const payload = (await response.json()) as {
+    providerMode?: string;
+    providerLabel?: string;
+    authorizationUrl: string;
+    message?: string;
+    state: string;
+  };
+  assert.equal(payload.providerMode, "production");
+  assert.equal(payload.providerLabel, "WeChat Open Platform");
+  assert.equal(payload.authorizationUrl.includes("auth.example.test"), false);
+  assert.equal(payload.authorizationUrl.includes(payload.state), true);
+  assert.equal(payload.message, "OAuth authorization issued through the configured provider.");
+});
+
+test("oauth authorize rejects production mode when no oauth provider is configured", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const response = await app.request(
+    "http://localhost/auth/oauth/authorize",
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        provider: "wechat-open-platform",
+      }),
+    },
+    {
+      MINIX_AUTH_OAUTH_PROVIDER_MODE: "production",
+    } as never,
+  );
+  assert.equal(response.status, 503);
+  const payload = (await response.json()) as {
+    code: string;
+    credentialProtection?: { failureReason?: string };
+  };
+  assert.equal(payload.code, "PROVIDER_UNAVAILABLE");
+  assert.equal(payload.credentialProtection?.failureReason, "provider_unavailable");
+});
+
+test("oauth callback can use a configured production provider to validate the callback token", async () => {
+  const app = createApiApp({
+    store: createMemoryApiStore(),
+    authOAuthProvider: {
+      authorize: async (input) => ({
+        ok: true,
+        value: {
+          providerMode: "production",
+          providerLabel: "WeChat Open Platform",
+          authorizationUrl: `https://open.weixin.qq.com/connect/qrconnect?state=${encodeURIComponent(input.state)}`,
+          message: "OAuth authorization issued through the configured provider.",
+        },
+      }),
+      validateCallback: async (input) => ({
+        ok: true,
+        value: {
+          providerMode: "production",
+          providerLabel: "WeChat Open Platform",
+          providerUserId: `${input.providerUserId}-validated`,
+        },
+      }),
+    },
+  });
+
+  const authorizeResponse = await app.request("http://localhost/auth/oauth/authorize", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      provider: "wechat-open-platform",
+    }),
+  });
+  assert.equal(authorizeResponse.status, 200);
+  const authorizePayload = (await authorizeResponse.json()) as { state: string };
+
+  const callbackResponse = await app.request("http://localhost/auth/oauth/callback", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      provider: "wechat-open-platform",
+      state: authorizePayload.state,
+      providerToken: "oauth-token-valid",
+      providerUserId: "provider-user-1",
+      platform: "h5",
+    }),
+  });
+  assert.equal(callbackResponse.status, 200);
+  const callbackPayload = (await callbackResponse.json()) as { loginMethod: string; identity: { userId: string } };
+  assert.equal(callbackPayload.loginMethod, "oauth");
+  assert.equal(callbackPayload.identity.userId, "user_oauth_wechat-open-platform_provider-user-1-validate");
+});
+
+test("oauth login maps production provider validation failures to normalized auth errors", async () => {
+  const app = createApiApp({
+    store: createMemoryApiStore(),
+    authOAuthProvider: {
+      authorize: async (input) => ({
+        ok: true,
+        value: {
+          providerMode: "production",
+          providerLabel: "WeChat Open Platform",
+          authorizationUrl: `https://open.weixin.qq.com/connect/qrconnect?state=${encodeURIComponent(input.state)}`,
+          message: "OAuth authorization issued through the configured provider.",
+        },
+      }),
+      validateCallback: async () => ({
+        ok: false,
+        error: {
+          failureReason: "oauth_token_invalid",
+          message: "OAuth token could not be validated with the configured provider.",
+        },
+      }),
+    },
+  });
+
+  const authorizeResponse = await app.request("http://localhost/auth/oauth/authorize", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      provider: "wechat-open-platform",
+    }),
+  });
+  assert.equal(authorizeResponse.status, 200);
+  const authorizePayload = (await authorizeResponse.json()) as { state: string };
+
+  const oauthResponse = await app.request("http://localhost/auth/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      platform: "h5",
+      credential: {
+        method: "oauth",
+        provider: "wechat-open-platform",
+        providerToken: "oauth-token-invalid",
+        providerUserId: "provider-user-1",
+        oauthState: authorizePayload.state,
+      },
+    }),
+  });
+  assert.equal(oauthResponse.status, 400);
+  const oauthPayload = (await oauthResponse.json()) as {
+    code: string;
+    credentialProtection?: { failureReason?: string };
+    message: string;
+  };
+  assert.equal(oauthPayload.code, "LOGIN_FAILED");
+  assert.equal(oauthPayload.credentialProtection?.failureReason, "oauth_token_invalid");
+  assert.equal(oauthPayload.message, "OAuth token could not be validated with the configured provider.");
+});
+
 async function registerPasswordCredential(
   app: ReturnType<typeof createApiApp>,
   input: { account?: string; phoneNumber?: string; password: string },
@@ -1076,12 +1332,12 @@ test("feed endpoint composes cross-domain search results for user and content sc
   assert.equal(userSearchPayload.searchResults.domainTabs?.some((item) => item.domain === "user" && item.total >= 1), true);
   assert.equal(userSearchPayload.searchResults.ranking?.appliedSortKey, "recommended");
 
-  const contentSearchResponse = await app.request("http://localhost/feed?mode=content&domain=all&keyword=review&sort=updatedAt", {
+  const contentSearchResponse = await app.request("http://localhost/feed?mode=content&domain=all&sort=updatedAt", {
     headers: { authorization: `Bearer ${session.accessToken}` },
   });
   assert.equal(contentSearchResponse.status, 200);
   const contentSearchPayload = (await contentSearchResponse.json()) as {
-    items: Array<{ id: string; contentCard?: { lifecycle: { state: string } } }>;
+    items: Array<{ id: string; eyebrow?: string; contentCard?: { lifecycle: { state: string } } }>;
     searchQuery: { mode: string; domain: string; sortKey?: string };
     searchResults: {
       resultGroups?: Array<{ domain: string; total: number }>;
@@ -1092,6 +1348,8 @@ test("feed endpoint composes cross-domain search results for user and content sc
   assert.equal(contentSearchPayload.searchQuery.domain, "all");
   assert.equal(contentSearchPayload.searchQuery.sortKey, "updatedAt");
   assert.equal(Boolean(contentSearchPayload.items.some((item) => item.contentCard?.lifecycle.state)), true);
+  assert.equal(contentSearchPayload.items[0]?.eyebrow, "Content");
+  assert.equal(contentSearchPayload.items[1]?.eyebrow, "Novel");
   assert.equal(
     contentSearchPayload.searchResults.resultGroups?.some((group) => group.domain === "content" && group.total >= 1),
     true,
@@ -1628,6 +1886,130 @@ test("upload endpoints support session, chunk, complete, attach, retry, and canc
   assert.equal(retried.transfer?.chunks.length, 4);
 });
 
+test("upload endpoints expose production storage and review posture through env-backed metadata", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "h5");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+  const uploadEnv = {
+    MINIX_UPLOAD_PROVIDER_MODE: "production",
+    MINIX_UPLOAD_STORAGE_PROVIDER: "cloudflare-r2",
+    MINIX_UPLOAD_REVIEW_PROVIDER: "tencent-content-review",
+    MINIX_UPLOAD_ASSET_BASE_URL: "https://assets.example.test",
+  } as never;
+
+  const sessionResponse = await app.request(
+    "http://localhost/uploads/session",
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        scenario: "content",
+        selection: {
+          uploadTask: {
+            taskId: "upload_selection_production",
+            scenario: "content",
+            fileType: "image",
+            stage: "completed",
+            fileName: "production-screenshot.png",
+            progress: {
+              completedBytes: 245760,
+              totalBytes: 245760,
+              percentage: 100,
+            },
+            chunkingReserved: true,
+            governance: {
+              maxSizeBytes: 10_000_000,
+              acceptedFileTypes: ["image"],
+              sensitiveReviewRequired: true,
+              expiresInDays: 30,
+            },
+            reviewStatus: "not_required",
+            lifecycle: {
+              backendBacked: false,
+              retentionStatus: "active",
+              retryCount: 0,
+              canRetry: true,
+              canCancel: false,
+            },
+          },
+          uploadAsset: {
+            assetId: "asset_selection_production",
+            fileType: "image",
+            fileName: "production-screenshot.png",
+            url: "https://example.test/local/production-screenshot.png",
+            metadata: {
+              sizeBytes: 245760,
+              width: 1440,
+              height: 900,
+            },
+          },
+        },
+      }),
+    },
+    uploadEnv,
+  );
+  assert.equal(sessionResponse.status, 200);
+  const created = (await sessionResponse.json()) as {
+    session?: { sessionId: string };
+    transfer?: { fileChecksum: string; checksumAlgorithm: "sha256"; chunks: Array<unknown> };
+    uploadAsset?: { url: string; thumbnailUrl?: string };
+    reviewRecord?: { provider: string; providerMode?: string; storageProvider?: string };
+    uploadTask: { taskId: string };
+  };
+  assert.equal(created.reviewRecord?.provider, "tencent-content-review");
+  assert.equal(created.reviewRecord?.providerMode, "production");
+  assert.equal(created.reviewRecord?.storageProvider, "cloudflare-r2");
+  assert.equal(created.uploadAsset?.url.startsWith("https://assets.example.test/uploads/assets/"), true);
+  assert.equal(created.uploadAsset?.thumbnailUrl?.startsWith("https://assets.example.test/uploads/assets/"), true);
+
+  for (const chunk of created.transfer?.chunks ?? []) {
+    const chunkResponse = await app.request(
+      "http://localhost/uploads/chunk",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          taskId: created.uploadTask.taskId,
+          sessionId: created.session?.sessionId,
+          chunk,
+        }),
+      },
+      uploadEnv,
+    );
+    assert.equal(chunkResponse.status, 200);
+  }
+
+  const completeResponse = await app.request(
+    "http://localhost/uploads/complete",
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        taskId: created.uploadTask.taskId,
+        sessionId: created.session?.sessionId,
+        fileChecksum: created.transfer?.fileChecksum,
+        checksumAlgorithm: created.transfer?.checksumAlgorithm,
+      }),
+    },
+    uploadEnv,
+  );
+  assert.equal(completeResponse.status, 200);
+  const completed = (await completeResponse.json()) as {
+    uploadTask: { reviewMessage?: string };
+    reviewRecord?: { provider: string; providerMode?: string; storageProvider?: string; message?: string };
+  };
+  assert.equal(completed.reviewRecord?.provider, "tencent-content-review");
+  assert.equal(completed.reviewRecord?.providerMode, "production");
+  assert.equal(completed.reviewRecord?.storageProvider, "cloudflare-r2");
+  assert.equal(
+    completed.uploadTask.reviewMessage,
+    "Sensitive review is pending through the configured upload review provider.",
+  );
+});
+
 test("share endpoints preserve attribution through prepare and return recognition", async () => {
   const app = createApiApp({ store: createMemoryApiStore() });
   const session = await login(app, "h5");
@@ -1788,6 +2170,72 @@ test("share prepare can mint poster asset urls for poster channels", async () =>
   assert.equal(response.status, 200);
   const prepared = (await response.json()) as { posterAsset?: { url?: string }; sharePayload?: { posterImageUrl?: string } };
   assert.equal(Boolean(prepared.posterAsset?.url), true);
+  assert.equal(prepared.sharePayload?.posterImageUrl, prepared.posterAsset?.url);
+});
+
+test("share endpoints expose production short-link and poster posture through env-backed metadata", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "h5");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+  const shareEnv = {
+    MINIX_SHARE_PROVIDER_MODE: "production",
+    MINIX_SHARE_SHORT_LINK_PROVIDER: "branch-io",
+    MINIX_SHARE_POSTER_PROVIDER: "canvas-render-service",
+    MINIX_SHARE_SHORT_LINK_BASE_URL: "https://mini.example.test/s",
+    MINIX_SHARE_POSTER_BASE_URL: "https://cdn.example.test/share-posters",
+  };
+
+  const response = await app.request(
+    "http://localhost/share/prepare",
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        sharePayload: {
+          scenario: "poster",
+          title: "Production Poster Invite",
+          summary: "Production share sample",
+          landingPath: "/login",
+          trackingParams: {
+            channel: "host-h5",
+            campaign: "poster-production",
+          },
+          inviteCode: "PROD42",
+        },
+        shareChannel: {
+          kind: "poster_image",
+          label: "Poster",
+          executable: true,
+        },
+        shareAttribution: {
+          attributionId: "share12345678",
+          inviteBindingEnabled: true,
+          returnFlowRecognized: false,
+          shareCount: 0,
+          clickCount: 0,
+          returnCount: 0,
+          conversionCount: 0,
+        },
+      }),
+    },
+    shareEnv,
+  );
+  assert.equal(response.status, 200);
+  const prepared = (await response.json()) as {
+    sharePayload?: { shortLink?: string; posterImageUrl?: string };
+    shortLinkRecord?: { shortLink?: string; provider?: string; providerMode?: string };
+    posterAsset?: { url?: string; provider?: string; providerMode?: string };
+  };
+  assert.equal(prepared.shortLinkRecord?.provider, "branch-io");
+  assert.equal(prepared.shortLinkRecord?.providerMode, "production");
+  assert.equal(prepared.shortLinkRecord?.shortLink, "https://mini.example.test/s/12345678");
+  assert.equal(prepared.sharePayload?.shortLink, "https://mini.example.test/s/12345678");
+  assert.equal(prepared.posterAsset?.provider, "canvas-render-service");
+  assert.equal(prepared.posterAsset?.providerMode, "production");
+  assert.equal(prepared.posterAsset?.url, "https://cdn.example.test/share-posters/12345678.svg");
   assert.equal(prepared.sharePayload?.posterImageUrl, prepared.posterAsset?.url);
 });
 
@@ -1993,11 +2441,13 @@ test("production payment callbacks require signatures, reject replay, and persis
       gatewayReference?: { providerMode: string; provider: string; gatewayOrderId: string };
       gatewayResponse?: { paymentUrl?: string; signature: string };
     };
+    paymentResult: { message: string };
   };
   assert.equal(purchase.paymentIntent.gatewayReference?.providerMode, "production");
   assert.equal(purchase.paymentIntent.gatewayReference?.provider, "h5_gateway");
   assert.ok(purchase.paymentIntent.gatewayResponse?.paymentUrl);
   assert.ok(purchase.paymentIntent.gatewayResponse?.signature);
+  assert.equal(purchase.paymentResult.message.includes("sample"), false);
 
   const duplicatePurchaseResponse = await app.request("http://localhost/membership/purchase", {
     method: "POST",
@@ -2060,12 +2510,14 @@ test("production payment callbacks require signatures, reject replay, and persis
   const signed = (await signedResponse.json()) as {
     order: { status: string };
     paymentIntent: { gatewayReference?: { gatewayTransactionId?: string } };
+    callbackVerification?: { message: string };
     paymentLedger?: Array<{ kind: string; status: string }>;
     operationLedger?: Array<{ kind: string }>;
     callbackLedger?: Array<{ verificationStatus: string; replayProtected: boolean }>;
   };
   assert.equal(signed.order.status, "paid");
   assert.equal(signed.paymentIntent.gatewayReference?.gatewayTransactionId, gatewayTransactionId);
+  assert.equal(signed.callbackVerification?.message, "Production callback verification succeeded.");
   assert.equal(signed.callbackLedger?.at(-1)?.verificationStatus, "verified");
   assert.equal(signed.callbackLedger?.at(-1)?.replayProtected, true);
   assert.equal(signed.paymentLedger?.some((entry) => entry.kind === "callback" && entry.status === "success"), true);
@@ -2640,6 +3092,116 @@ test("notification touchpoints respect unsubscribe controls and external deliver
   const retriedMessage = syncPayload.messageItems.find((message) => message.body.includes("provider-down"));
   assert.equal(retriedMessage?.deliveryStatus, "delivered");
   assert.equal(retriedMessage?.touchpoints.find((touchpoint) => touchpoint.channel === "subscription_message")?.receipt?.status, "delivered");
+});
+
+test("message touchpoints expose production provider posture while keeping polling-only sync explicit", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "h5");
+  const headers = {
+    authorization: `Bearer ${session.accessToken}`,
+    "content-type": "application/json",
+  };
+  const messageProviderEnv = {
+    MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE: "production",
+    MINIX_MESSAGE_SUBSCRIPTION_PROVIDER_LABEL: "WeChat Subscription Gateway",
+    MINIX_MESSAGE_PUSH_PROVIDER_LABEL: "JPush",
+    MINIX_MESSAGE_SMS_PROVIDER_LABEL: "Tencent Cloud SMS",
+    MINIX_MESSAGE_EMAIL_PROVIDER_LABEL: "Resend",
+  } as never;
+
+  const settingsResponse = await app.request(
+    "http://localhost/settings",
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        featureToggles: {
+          smsEnabled: true,
+          emailEnabled: true,
+        },
+      }),
+    },
+    messageProviderEnv,
+  );
+  assert.equal(settingsResponse.status, 200);
+  const settingsPayload = (await settingsResponse.json()) as {
+    notificationChannels: Array<{ channel: string; providerMode?: string; providerLabel: string }>;
+  };
+  assert.equal(
+    settingsPayload.notificationChannels.find((item) => item.channel === "subscription_message")?.providerMode,
+    "production",
+  );
+  assert.equal(
+    settingsPayload.notificationChannels.find((item) => item.channel === "push")?.providerLabel,
+    "JPush",
+  );
+
+  const threadResponse = await app.request(
+    "http://localhost/messages/thread?threadId=thread_customer_service",
+    {
+      headers: { authorization: `Bearer ${session.accessToken}` },
+    },
+    messageProviderEnv,
+  );
+  assert.equal(threadResponse.status, 200);
+  const threadPayload = (await threadResponse.json()) as {
+    messageThread: {
+      syncState?: { mode: string; modeLabel?: string; providerSummary?: string };
+      touchpoints: Array<{ channel: string; providerMode?: string; providerLabel?: string }>;
+    };
+  };
+  assert.equal(threadPayload.messageThread.syncState?.mode, "polling");
+  assert.equal(threadPayload.messageThread.syncState?.modeLabel, "Polling-only sync");
+  assert.equal(
+    threadPayload.messageThread.syncState?.providerSummary,
+    "External touchpoints use operator-configured provider posture where available; in-app delivery remains the durable fallback lane.",
+  );
+  assert.equal(
+    threadPayload.messageThread.touchpoints.find((item) => item.channel === "subscription_message")?.providerMode,
+    "production",
+  );
+  assert.equal(
+    threadPayload.messageThread.touchpoints.find((item) => item.channel === "subscription_message")?.providerLabel,
+    "WeChat Subscription Gateway",
+  );
+
+  const sendResponse = await app.request(
+    "http://localhost/messages/thread/send",
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        threadId: "thread_customer_service",
+        body: "provider-down on production channels",
+      }),
+    },
+    messageProviderEnv,
+  );
+  assert.equal(sendResponse.status, 200);
+  const sendPayload = (await sendResponse.json()) as {
+    messageItem: {
+      failureMessage?: string;
+      touchpoints: Array<{
+        channel: string;
+        statusLabel?: string;
+        providerMode?: string;
+        receipt?: { failureMessage?: string; status: string };
+      }>;
+    };
+  };
+  assert.equal(sendPayload.messageItem.failureMessage, "Provider delivery failed; retry and polling-only sync can advance the receipt.");
+  assert.equal(
+    sendPayload.messageItem.touchpoints.find((item) => item.channel === "subscription_message")?.providerMode,
+    "production",
+  );
+  assert.equal(
+    sendPayload.messageItem.touchpoints.find((item) => item.channel === "subscription_message")?.statusLabel,
+    "WeChat Subscription Gateway is temporarily unavailable.",
+  );
+  assert.equal(
+    sendPayload.messageItem.touchpoints.find((item) => item.channel === "subscription_message")?.receipt?.failureMessage,
+    "WeChat Subscription Gateway is unavailable.",
+  );
 });
 
 test("refresh rotation invalidates the previous refresh token", async () => {

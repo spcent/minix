@@ -101,6 +101,9 @@ Response semantics:
 - `account_security` challenges are attached to the current signed-in account when an access token is present so high-risk account operations can verify the existing owner
 - `delivery.providerMode = "sample" | "production"` makes the current SMS backing explicit to the host
 - local/sample deployments use the built-in simulated SMS provider and may expose `delivery.debugCode` for automated tests
+- production deployments must inject an SMS delivery adapter into the API runtime; switching `MINIX_AUTH_SMS_PROVIDER_MODE=production` without a configured provider returns `503 PROVIDER_UNAVAILABLE` instead of silently falling back to simulated delivery
+- provider-backed verification applies equally to `login`, `password_reset`, and `account_security` purposes because they all issue through the same challenge endpoint before credential submission or account mutation
+- provider failures normalize to `credentialProtection.failureReason = "provider_unavailable"` and may include `retryAfterSeconds` guidance when the backing provider reports a retry window
 - verification-code issue, retry, and password-recovery handoff stay on the current login or identity page; official hosts do not require a dedicated SMS recovery route
 - consuming login and account flows must submit the returned code before it expires or before the attempt limit is exhausted
 - responses may also carry `riskDecision`, `deviceIdentity`, `rateLimitState`, and recent `securityAuditEvents`
@@ -124,12 +127,16 @@ Creates a short-lived OAuth state record and returns a provider authorization UR
 
 - accepts `purpose = login | bind`; `bind` states are bound to the current authenticated session when an access token is present
 - returns the normalized provider state, provider label, provider mode, expiry, and authorization URL that the client must preserve through callback or bind completion
-- the repo keeps `providerMode = "sample"` explicit until operator-owned production callback domains and provider credentials are configured
+- local and sample deployments keep `providerMode = "sample"` explicit and return a sample authorization URL
+- production deployments must inject an OAuth provider adapter before `providerMode = "production"` can be used; setting production mode without that adapter returns `503 PROVIDER_UNAVAILABLE` instead of silently falling back to the sample URL
 - OAuth authorize and callback stay bound to the current login or bind page; official hosts do not require a separate callback-only route
 
 ### `POST /auth/oauth/callback`
 
 Validates OAuth provider, state, provider token, and provider user id, persists the provider identity, and returns the authenticated session.
+
+- production callback validation uses the configured provider adapter to validate the provider token and normalize the provider user id before account linkage or session issuance
+- provider-backed failures normalize to `credentialProtection.failureReason = "oauth_token_invalid"` or `provider_unavailable`, so hosts can keep callback guidance on the current login or bind surface
 
 ### `POST /auth/identity/bind-oauth`
 
@@ -278,6 +285,10 @@ The sample implementation also appends upload-scope security audit events and up
 
 Official media-tools hosts surface the current review/storage posture directly from returned upload metadata so `sample-upload-policy` remains explicit in UX until a production backend is configured.
 
+- `reviewRecord.providerMode = "sample" | "production"` makes the current upload posture explicit to the host
+- `reviewRecord.storageProvider` identifies the object-storage backing paired with the current review provider posture
+- production posture can also project asset URLs through an operator-configured base URL without changing the shared upload route set
+
 ### `POST /uploads/chunk`
 
 Transfers one chunk into the sample object-storage lane, verifies checksum and byte-range metadata, and updates durable progress state.
@@ -293,7 +304,7 @@ Backfills the finalized asset into a business owner reference such as `feedback`
 The current sample pipeline intentionally splits responsibility:
 
 - platform adapters only choose media or files and may supply transfer payloads
-- the backend owns session creation, chunk verification, checksum validation, review status, cleanup state, and resource binding
+- the backend owns session creation, chunk verification, checksum validation, review status, cleanup state, resource binding, and production-safe provider posture metadata
 
 ### `POST /uploads/retry`
 
@@ -317,6 +328,11 @@ Returned share-specific additions:
 - `shortLinkRecord`
 - `posterAsset` for `scenario = "poster"` or `shareChannel.kind = "poster_image"`
 - `attributionReport`
+- `shortLinkRecord.providerMode = "sample" | "production"` makes the current short-link posture explicit to the host
+- `shortLinkRecord.provider` identifies the configured short-link backing for the prepared share
+- `posterAsset.providerMode = "sample" | "production"` makes the current poster-generation posture explicit to the host
+- `posterAsset.provider` identifies the configured poster-generation backing for the prepared share
+- production posture can also project short-link and poster URLs through operator-configured base URLs without changing the shared route set
 
 ### `GET /share/resolve`
 
@@ -342,7 +358,7 @@ Returns the latest attribution report for a prepared share, including:
 Returns the durable conversation list with unread sorting, type filtering, and polling sync metadata.
 
 - `messageThread.syncState.mode` is currently fixed to `polling`
-- `modeLabel`, `statusLabel`, and `providerSummary` make the polling-first delivery posture explicit for host UX instead of implying a real-time transport
+- `modeLabel`, `statusLabel`, and `providerSummary` make the polling-only delivery posture explicit for host UX instead of implying a real-time transport
 
 ### `GET /messages/thread`
 
@@ -370,7 +386,8 @@ Appends an outbound message into a bounded sample conversation surface for priva
 
 - outbound delivery is polling-backed and progresses through `pending`, `delivered`, or `failed`
 - each external touchpoint returns provider metadata, template selection, delivery receipt state, retryability, and unsubscribe hints alongside the in-app fallback touchpoint
-- when `providerMode = "sample"`, status labels and failure messages stay explicit that delivery is sample-backed and finalized through polling sync rather than a live provider callback
+- when `providerMode = "sample"`, status labels and failure messages stay explicit that delivery is sample-backed and finalized through polling-only sync rather than a live provider callback
+- when `providerMode = "production"`, provider labels and failure copy stay free of sample wording while still exposing that sync remains polling-only
 - user notification-channel preferences are enforced before dispatch; opted-out or disabled channels return `opted_out` or `skipped` receipts while in-app delivery remains available
 - the same centralized security audit and rate-limit baseline used by thread creation also applies here
 - group reply permissions are enforced by `replyPolicy`, `members`, and `groupState`
@@ -381,14 +398,14 @@ Appends an outbound message into a bounded sample conversation surface for priva
 Retries a failed outbound message and returns the refreshed thread detail plus unread aggregate.
 
 - failed external touchpoints move back to `sent`, increment their retry counters, and remain polling-backed until sync finalizes provider receipts
-- retry labels remain explicit that sample-backed receipts will not settle until the next polling cycle
+- retry labels remain explicit that receipts will not settle until the next polling-only sync cycle
 
 ### `GET /messages/thread/sync`
 
 Polling endpoint that accepts the last seen cursor and returns `changed = false` when the durable thread state is unchanged.
 
 - successful polling also advances queued or sent external delivery receipts to `delivered` in the sample provider model
-- there is no real-time transport in the current official-sample message surface; host UX should treat polling as the only synchronization contract
+- there is no real-time transport in the current official-sample message surface; host UX should treat polling as the only synchronization contract, even when external providers are operator-configured for production
 
 ### `GET /settings`
 
@@ -511,6 +528,7 @@ Additional sample semantics:
 - ledger entries expose balance delta, frozen-balance delta, points delta, membership plan id, and optional entitlement snapshots
 - `accountSummary.assets` is derived from ledger state rather than placeholder values and now includes `availableBalanceCents`, `frozenBalanceCents`, and `activeEntitlements`
 - sample payment, callback, cancellation, and refund flows append asset ledger entries instead of mutating balances in place
+- official hosts intentionally keep profile, relation, and asset detail inside the shared account center and search-driven entry points instead of adding a dedicated user-detail route
 
 ### `GET /content/detail`
 
@@ -574,6 +592,8 @@ Additional sample semantics:
 - `searchQuery.sortKey` preserves route-restorable sort state for the shared search center
 - `searchResults` may include `correctionKeyword`, `correctionReason`, and `recoverySuggestions` when the current query looks like a typo or returns no results
 - `searchResults.ranking` exposes the applied ranking strategy so clients do not re-derive sorting rules locally
+- `domain = all` now interleaves top results across feed, content, novel, and user groups instead of flattening one domain at a time
+- recommended and popular ordering now include keyword-match quality in addition to freshness or reason metadata
 - user and other cross-domain search items may expose `routeTarget` so the client can jump to the bounded destination without hand-written route maps
 - hot terms, recent history, suggestions, filter state, and sort state are all carried in the same normalized response surface
 
@@ -783,6 +803,12 @@ Future content products should reuse the generic layer instead of treating the n
 - sample responses may return those media URLs as absolute URLs resolved against the current API origin
 - upload selection remains adapter-only, but upload lifecycle state is now sample-backed through `/uploads/session`, `/uploads/chunk`, `/uploads/complete`, `/uploads/attach`, `/uploads/retry`, and `/uploads/cancel`
 - share dispatch remains adapter-backed, but landing-target normalization and attribution persistence are now sample-backed through `/share/prepare` and `/share/return`
+- share provider posture can switch between sample and production-safe metadata through:
+  - `MINIX_SHARE_PROVIDER_MODE`
+  - `MINIX_SHARE_SHORT_LINK_PROVIDER`
+  - `MINIX_SHARE_POSTER_PROVIDER`
+  - `MINIX_SHARE_SHORT_LINK_BASE_URL`
+  - `MINIX_SHARE_POSTER_BASE_URL`
 - notification browsing remains sample-backed through `/notifications`, while conversation-capable message flows now extend through `/messages/threads`, `/messages/thread`, `/messages/thread/create`, `/messages/thread/read`, `/messages/thread/send`, `/messages/thread/retry`, and `/messages/thread/sync`
 - provider setup, callback domains, capability support, and accepted deferred release gaps are documented in [`docs/PRODUCTION_READINESS.md`](/Users/bingrong.yan/projects/birdor/minix/docs/PRODUCTION_READINESS.md)
 
@@ -954,6 +980,8 @@ Creates a membership order and returns unlock context plus host-executable payme
 Membership purchase remains a dedicated convenience entrypoint, but it now maps into the same shared product/SKU/order model used by `/orders/purchase`.
 
 Use `providerMode = "sample"` for local mock payment behavior. Use `providerMode = "production"` with `wechat_pay` or `h5_pay` to receive gateway references, signed client parameters, and durable payment ledger records.
+
+When `providerMode = "production"`, purchase, callback-verification, refund, and reconciliation copy must stay production-safe on official host surfaces instead of reusing sample-only wording.
 
 Additional sample semantics:
 

@@ -108,7 +108,7 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
     }
 
     const { userState } = await loadRouteUserState(c, resolveStore);
-    return c.json(listNotifications(userState, query));
+    return c.json(listNotifications(userState, query, c.env));
   });
 
   app.post("/notifications/mark-read", async (c) => {
@@ -118,14 +118,14 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
     }
 
     const { session, store, userState } = await loadRouteUserState(c, resolveStore);
-    const response = markNotificationsRead(userState, payload);
+    const response = markNotificationsRead(userState, payload, c.env);
     await store.saveUserState(session.userId, userState);
     return c.json(response);
   });
 
   app.get("/messages/unread-badge", async (c) => {
     const { userState } = await loadRouteUserState(c, resolveStore);
-    return c.json(getUnreadBadge(userState));
+    return c.json(getUnreadBadge(userState, c.env));
   });
 
   app.get("/messages/threads", async (c) => {
@@ -143,8 +143,8 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
       ...(query.sort !== undefined ? { sort: query.sort } : {}),
       ...(query.sourceTicketId !== undefined ? { sourceTicketId: query.sourceTicketId } : {}),
     };
-    const response = listMessageThreadResponse(userState, request);
-    response.unreadBadge = getUnreadBadge(userState);
+    const response = listMessageThreadResponse(userState, request, c.env);
+    response.unreadBadge = getUnreadBadge(userState, c.env);
     return c.json(response);
   });
 
@@ -158,11 +158,11 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
     const response = getMessageThread(userState, {
       threadId: query.threadId,
       ...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
-    });
+    }, c.env);
     if (!response) {
       return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
     }
-    response.unreadBadge = getUnreadBadge(userState);
+    response.unreadBadge = getUnreadBadge(userState, c.env);
     return c.json(response);
   });
 
@@ -198,8 +198,8 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
       ...(payload.sourceTicketId !== undefined ? { sourceTicketId: payload.sourceTicketId } : {}),
       ...(payload.replyPolicy !== undefined ? { replyPolicy: payload.replyPolicy } : {}),
     };
-    const response = createMessageThread(userState, request);
-    response.unreadBadge = getUnreadBadge(userState);
+    const response = createMessageThread(userState, request, new Date().toISOString(), c.env);
+    response.unreadBadge = getUnreadBadge(userState, c.env);
     appendMessageAudit({
       userState,
       actorUserId: session.userId,
@@ -221,11 +221,11 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
 
     const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
     const request: MarkThreadReadRequest = { threadId: payload.threadId };
-    const response = markThreadRead(userState, request);
+    const response = markThreadRead(userState, request, c.env);
     if (!response) {
       return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
     }
-    response.unreadBadge = getUnreadBadge(userState);
+    response.unreadBadge = getUnreadBadge(userState, c.env);
     await store.saveUserState(session.userId, userState);
     return c.json(response);
   });
@@ -257,11 +257,11 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
       threadId: payload.threadId,
       body: payload.body,
     };
-    const response = sendThreadMessage(userState, request);
+    const response = sendThreadMessage(userState, request, c.env);
     if (!response) {
       return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
     }
-    response.unreadBadge = getUnreadBadge(userState);
+    response.unreadBadge = getUnreadBadge(userState, c.env);
     if (response.messageItem.deliveryStatus === "failed") {
       await scheduleMessageRetryJob({
         store,
@@ -294,11 +294,11 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
       threadId: payload.threadId,
       messageId: payload.messageId,
     };
-    const response = retryThreadMessage(userState, request);
+    const response = retryThreadMessage(userState, request, c.env);
     if (!response) {
       return jsonError("NOT_FOUND", "Retryable message not found.", 404, traceId);
     }
-    response.unreadBadge = getUnreadBadge(userState);
+    response.unreadBadge = getUnreadBadge(userState, c.env);
     await store.saveUserState(session.userId, userState);
     return c.json(response satisfies RetryMessageResponse);
   });
@@ -314,11 +314,11 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
       threadId: query.threadId,
       ...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
     };
-    const response = syncMessageThread(userState, request);
+    const response = syncMessageThread(userState, request, c.env);
     if (!response) {
       return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
     }
-    response.unreadBadge = getUnreadBadge(userState);
+    response.unreadBadge = getUnreadBadge(userState, c.env);
     await store.saveUserState(session.userId, userState);
     return c.json(response);
   });

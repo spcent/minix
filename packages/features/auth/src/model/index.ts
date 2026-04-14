@@ -135,7 +135,7 @@ export function createAuthLoginMethodDescriptors(platform?: LoginPlatformKind): 
       label: "OAuth",
       providerMode: "sample",
       availableOn: ["h5", "wechat"],
-      summary: "OAuth state, callback, and account binding flows are implemented, but the repo ships a sample authorization URL until production provider setup is supplied by the operator.",
+      summary: "OAuth state, callback, and account binding flows are implemented. Local and sample deployments use a sample authorization posture until a production provider is injected by the operator.",
       recoverySummary: "OAuth authorize and callback return to the current login or bind page. Operators own provider credentials and callback-domain registration outside tracked source.",
     },
   ];

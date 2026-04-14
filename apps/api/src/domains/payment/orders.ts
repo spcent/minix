@@ -33,6 +33,40 @@ import {
 } from "./catalog";
 import { createSubscriptionRecord } from "./subscriptions";
 
+function createInitialPaymentMessage(input: {
+  providerMode: "sample" | "production";
+  pending: boolean;
+  duplicateProtected: boolean;
+  title?: string;
+}): string {
+  if (input.pending) {
+    if (input.title) {
+      return input.providerMode === "sample"
+        ? `${input.title} is pending gateway confirmation in the sample payment domain.`
+        : `${input.title} is pending gateway confirmation.`;
+    }
+    return input.providerMode === "sample"
+      ? "Payment is pending gateway confirmation in the sample payment domain."
+      : "Payment is pending gateway confirmation.";
+  }
+
+  if (input.duplicateProtected) {
+    return input.title
+      ? `Duplicate payment protection returned the existing ${input.title} outcome.`
+      : "Duplicate payment protection kept the active entitlement and returned the existing paid outcome.";
+  }
+
+  if (input.title) {
+    return input.providerMode === "sample"
+      ? `${input.title} completed in the sample payment domain.`
+      : `${input.title} completed and is awaiting callback verification.`;
+  }
+
+  return input.providerMode === "sample"
+    ? "Payment completed in the sample payment domain."
+    : "Payment completed and is awaiting callback verification.";
+}
+
 export function createMembershipOrderDetail(
   session: SessionRecord,
   payload: PurchaseMembershipRequest,
@@ -113,11 +147,11 @@ export function createMembershipOrderDetail(
     paid: !pending,
     duplicateProtected,
     callbackVerified: false,
-    message: pending
-      ? "Payment is pending gateway confirmation in the sample payment domain."
-      : duplicateProtected
-        ? "Duplicate payment protection kept the active entitlement and returned the existing paid outcome."
-        : "Payment completed in the sample payment domain.",
+    message: createInitialPaymentMessage({
+      providerMode,
+      pending,
+      duplicateProtected,
+    }),
     ...(pending ? {} : { polledAt: now }),
   };
   const entitlement = createMembershipEntitlement(payload.planId, orderId);
@@ -149,8 +183,8 @@ export function createMembershipOrderDetail(
     sku,
     paymentIntent,
     paymentResult,
-    callbackVerification: createPendingCallbackVerification(),
-    reconciliation: createPendingReconciliation(),
+    callbackVerification: createPendingCallbackVerification(providerMode),
+    reconciliation: createPendingReconciliation(providerMode),
     paymentLedger: [
       createPaymentLedgerEntry({
         kind: "payment",
@@ -264,11 +298,12 @@ export function createProductOrderDetail(
     paid: !pending,
     duplicateProtected,
     callbackVerified: false,
-    message: pending
-      ? `${sku.title} is pending gateway confirmation in the sample payment domain.`
-      : duplicateProtected
-        ? `Duplicate payment protection returned the existing ${sku.title} outcome.`
-        : `${sku.title} completed in the sample payment domain.`,
+    message: createInitialPaymentMessage({
+      providerMode,
+      pending,
+      duplicateProtected,
+      title: sku.title,
+    }),
     ...(pending ? {} : { polledAt: now }),
   };
   const entitlement =
@@ -299,8 +334,8 @@ export function createProductOrderDetail(
     sku,
     paymentIntent,
     paymentResult,
-    callbackVerification: createPendingCallbackVerification(),
-    reconciliation: createPendingReconciliation(),
+    callbackVerification: createPendingCallbackVerification(providerMode),
+    reconciliation: createPendingReconciliation(providerMode),
     paymentLedger: [
       createPaymentLedgerEntry({
         kind: "payment",

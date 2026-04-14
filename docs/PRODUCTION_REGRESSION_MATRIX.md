@@ -25,6 +25,29 @@ MINIX_NOVEL_H5_BASE_URL="https://preview.minix-novel-h5.pages.dev" \
 pnpm verify:preview:remote
 ```
 
+## Operator-Owned Launch Checks
+
+These items are required for release, but they are not proved by repository automation alone.
+
+| Area | Repo automation coverage | Operator evidence needed |
+| --- | --- | --- |
+| Worker env vars and bindings | partial; automation proves behavior after config is present | env inventory, `DB` and `AUTH_RATE_LIMIT_KV` binding confirmation, deployed target URL |
+| WeChat domain allowlists | none | request, `uploadFile`, and `downloadFile` allowlists recorded against the deployed API domain |
+| H5 CORS and remote API base URL | partial; remote verification proves runtime only after config is present | deployed H5 URL list plus matching CORS or Pages config |
+| External auth, payment, message, upload, and share providers | partial; contracts and local tests prove shared fallback and production posture | provider rollout confirmation, callback endpoints, and secret ownership recorded |
+| WeChat manual gate | none | validator, environment, device or DevTools target, and pass or fail notes |
+
+## Release Evidence Minimum
+
+Every RC or final release record should capture:
+
+- git SHA
+- preview and production Worker URLs
+- preview and production H5 URLs when applicable
+- command results for local and remote verification
+- WeChat validator name and date
+- explicit go or no-go owner
+
 ## Automated Coverage
 
 | Area | Local automation | Primary proof |

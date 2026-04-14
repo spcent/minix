@@ -8,11 +8,33 @@ import type {
   SettingsProfileVisibility,
 } from "@minix/contracts";
 
-import type { UserState } from "../../types";
+import type { ApiBindings, UserState } from "../../types";
 
 const DEFAULT_UPLOAD_CHUNK_SIZE_BYTES = 64 * 1024;
 const REDUCED_UPLOAD_CHUNK_SIZE_BYTES = 16 * 1024;
 const WEAK_NETWORK_UPLOAD_CHUNK_SIZE_BYTES = 8 * 1024;
+
+export type NotificationChannelProviderRuntimeEnv = Pick<
+  ApiBindings,
+  | "MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE"
+  | "MINIX_MESSAGE_SUBSCRIPTION_PROVIDER_KEY"
+  | "MINIX_MESSAGE_SUBSCRIPTION_PROVIDER_LABEL"
+  | "MINIX_MESSAGE_SMS_PROVIDER_KEY"
+  | "MINIX_MESSAGE_SMS_PROVIDER_LABEL"
+  | "MINIX_MESSAGE_EMAIL_PROVIDER_KEY"
+  | "MINIX_MESSAGE_EMAIL_PROVIDER_LABEL"
+  | "MINIX_MESSAGE_PUSH_PROVIDER_KEY"
+  | "MINIX_MESSAGE_PUSH_PROVIDER_LABEL"
+>;
+
+interface NotificationChannelProviderConfig {
+  providerKey: string;
+  providerLabel: string;
+  providerMode: "sample" | "production";
+  locale: string;
+  fallbackToInApp: boolean;
+  defaultEnabled: boolean;
+}
 
 export function createDefaultSettingsPreferences(deployEnv: string | undefined): SettingsPreferences {
   return {
@@ -120,7 +142,82 @@ export const NOTIFICATION_CHANNEL_PROVIDER_CONFIG: Record<
   },
 };
 
-export function resolveSettingsState(userState: UserState, deployEnv: string | undefined): {
+const PRODUCTION_NOTIFICATION_CHANNEL_PROVIDER_DEFAULTS: Record<
+  SettingsNotificationChannel,
+  {
+    providerKey: string;
+    providerLabel: string;
+  }
+> = {
+  subscription_message: {
+    providerKey: "wechat_subscription_provider",
+    providerLabel: "WeChat Subscription Provider",
+  },
+  sms: {
+    providerKey: "sms_provider",
+    providerLabel: "SMS Provider",
+  },
+  email: {
+    providerKey: "email_provider",
+    providerLabel: "Email Provider",
+  },
+  push: {
+    providerKey: "push_provider",
+    providerLabel: "Push Provider",
+  },
+};
+
+export function resolveMessageTouchpointProviderMode(
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+): "sample" | "production" {
+  return runtimeEnv?.MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE === "production" ? "production" : "sample";
+}
+
+export function resolveNotificationChannelProviderConfig(
+  channel: SettingsNotificationChannel,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+): NotificationChannelProviderConfig {
+  const providerMode = resolveMessageTouchpointProviderMode(runtimeEnv);
+  const sampleConfig = NOTIFICATION_CHANNEL_PROVIDER_CONFIG[channel];
+  if (providerMode === "sample") {
+    return {
+      ...sampleConfig,
+      providerMode,
+    };
+  }
+
+  const defaults = PRODUCTION_NOTIFICATION_CHANNEL_PROVIDER_DEFAULTS[channel];
+  const providerKey =
+    channel === "subscription_message"
+      ? runtimeEnv?.MINIX_MESSAGE_SUBSCRIPTION_PROVIDER_KEY
+      : channel === "sms"
+        ? runtimeEnv?.MINIX_MESSAGE_SMS_PROVIDER_KEY
+        : channel === "email"
+          ? runtimeEnv?.MINIX_MESSAGE_EMAIL_PROVIDER_KEY
+          : runtimeEnv?.MINIX_MESSAGE_PUSH_PROVIDER_KEY;
+  const providerLabel =
+    channel === "subscription_message"
+      ? runtimeEnv?.MINIX_MESSAGE_SUBSCRIPTION_PROVIDER_LABEL
+      : channel === "sms"
+        ? runtimeEnv?.MINIX_MESSAGE_SMS_PROVIDER_LABEL
+        : channel === "email"
+          ? runtimeEnv?.MINIX_MESSAGE_EMAIL_PROVIDER_LABEL
+          : runtimeEnv?.MINIX_MESSAGE_PUSH_PROVIDER_LABEL;
+  return {
+    providerKey: providerKey || defaults.providerKey,
+    providerLabel: providerLabel || defaults.providerLabel,
+    providerMode,
+    locale: sampleConfig.locale,
+    fallbackToInApp: sampleConfig.fallbackToInApp,
+    defaultEnabled: sampleConfig.defaultEnabled,
+  };
+}
+
+export function resolveSettingsState(
+  userState: UserState,
+  deployEnv: string | undefined,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+): {
   preferences: SettingsPreferences;
   featureToggles: SettingsFeatureToggles;
   privacyOptions: SettingsPrivacyOptions;
@@ -177,7 +274,7 @@ export function resolveSettingsState(userState: UserState, deployEnv: string | u
   const notificationChannels = (Object.keys(
     NOTIFICATION_CHANNEL_PROVIDER_CONFIG,
   ) as SettingsNotificationChannel[]).map((channel) => {
-    const providerConfig = NOTIFICATION_CHANNEL_PROVIDER_CONFIG[channel];
+    const providerConfig = resolveNotificationChannelProviderConfig(channel, runtimeEnv);
     const stored = storedNotificationChannels[channel];
     const toggleEnabled =
       channel === "subscription_message"
@@ -199,7 +296,9 @@ export function resolveSettingsState(userState: UserState, deployEnv: string | u
         : unsubscribed
           ? `Unsubscribed from ${channel.replace("_", " ")} delivery.`
           : enabled
-            ? `${providerConfig.providerLabel} is active for ${channel.replace("_", " ")} delivery.`
+            ? providerConfig.providerMode === "sample"
+              ? `${providerConfig.providerLabel} is active in sample mode for ${channel.replace("_", " ")} delivery.`
+              : `${providerConfig.providerLabel} is active for ${channel.replace("_", " ")} delivery.`
             : `${channel.replace("_", " ")} delivery is paused by user preference.`;
     return {
       channel,
@@ -207,6 +306,7 @@ export function resolveSettingsState(userState: UserState, deployEnv: string | u
       unsubscribed,
       providerKey: providerConfig.providerKey,
       providerLabel: providerConfig.providerLabel,
+      providerMode: providerConfig.providerMode,
       locale: providerConfig.locale,
       fallbackToInApp: providerConfig.fallbackToInApp,
       statusLabel,
@@ -307,8 +407,9 @@ export function applySettingsUpdate(
     >;
   },
   deployEnv: string | undefined,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ) {
-  const current = resolveSettingsState(userState, deployEnv);
+  const current = resolveSettingsState(userState, deployEnv, runtimeEnv);
   const nextPreferences: NonNullable<UserState["settingsState"]>["preferences"] = {
     notificationsEnabled:
       update.preferences?.notificationsEnabled ?? current.preferences.notificationsEnabled,
@@ -377,5 +478,5 @@ export function applySettingsUpdate(
     privacyOptions: nextPrivacyOptions,
   };
 
-  return resolveSettingsState(userState, deployEnv);
+  return resolveSettingsState(userState, deployEnv, runtimeEnv);
 }

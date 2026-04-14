@@ -102,7 +102,7 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
     }
 
     const { session, store, userState } = await loadRouteUserState(c, resolveStore);
-    let record = createUploadSessionRecord(normalizeUploadSessionRequest(payload), c.req.url, userState);
+    let record = createUploadSessionRecord(normalizeUploadSessionRequest(payload), c.req.url, userState, undefined, c.env);
     const initialTransfer = record.transfer;
     const initialSession = record.session;
     if (initialTransfer && !record.uploadError && initialSession) {
@@ -111,7 +111,7 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
           taskId: record.uploadTask.taskId,
           sessionId: initialSession.sessionId,
           chunk,
-        });
+        }, undefined, c.env);
         if (record.uploadError) {
           break;
         }
@@ -126,6 +126,8 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
             checksumAlgorithm: initialTransfer.checksumAlgorithm,
           },
           c.req.url,
+          undefined,
+          c.env,
         );
       }
     }
@@ -165,7 +167,7 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
     if (!rateLimitGuard.allowed) {
       return rateLimitGuard.response;
     }
-    const record = createUploadSessionRecord(normalizeUploadSessionRequest(payload), c.req.url, userState);
+    const record = createUploadSessionRecord(normalizeUploadSessionRequest(payload), c.req.url, userState, undefined, c.env);
     userState.uploadsByTaskId[record.uploadTask.taskId] = record;
     appendUploadSessionAudit({
       userState,
@@ -192,7 +194,7 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
     }
 
     const request: UploadChunkRequest = normalizeUploadChunkRequest(payload);
-    const record = appendUploadChunkRecord(existing, request);
+    const record = appendUploadChunkRecord(existing, request, undefined, c.env);
     userState.uploadsByTaskId[payload.taskId] = record;
     await store.saveUserState(session.userId, userState);
     return c.json(createUploadResponse(record));
@@ -219,6 +221,8 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
         checksumAlgorithm: payload.checksumAlgorithm,
       },
       c.req.url,
+      undefined,
+      c.env,
     );
     userState.uploadsByTaskId[payload.taskId] = record;
     if (record.cleanupRecord?.retentionStatus === "scheduled_cleanup") {
@@ -284,7 +288,7 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
     }
 
     const request: UploadRetryRequest = { taskId: payload.taskId };
-    const record = retryUploadPipeline(existing, request);
+    const record = retryUploadPipeline(existing, request, undefined, c.env);
     userState.uploadsByTaskId[payload.taskId] = record;
     await store.saveUserState(session.userId, userState);
     return c.json(createUploadResponse(record));
@@ -306,7 +310,7 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
       taskId: payload.taskId,
       ...(payload.reason !== undefined ? { reason: payload.reason } : {}),
     };
-    const record = cancelUploadPipeline(existing, request);
+    const record = cancelUploadPipeline(existing, request, undefined, c.env);
     userState.uploadsByTaskId[payload.taskId] = record;
     await scheduleUploadCleanupJob({
       store,

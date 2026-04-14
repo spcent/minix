@@ -52,6 +52,7 @@ export function createAfterSalesCaseRecord(input: {
   reason?: string;
   processedAt: string;
 }): AfterSalesCase {
+  const providerMode = input.detail.paymentIntent.gatewayReference?.providerMode ?? "sample";
   return {
     caseId: `as_${input.kind}_${crypto.randomUUID()}`,
     orderId: input.detail.order.orderId,
@@ -60,7 +61,9 @@ export function createAfterSalesCaseRecord(input: {
     title: input.kind === "refund" ? "Refund request" : "Cancellation request",
     resultLabel:
       input.kind === "refund"
-        ? "Refund completed in sample after-sales flow"
+        ? providerMode === "sample"
+          ? "Refund completed in sample after-sales flow"
+          : "Refund completed in after-sales flow"
         : "Pending order cancelled before settlement",
     ...(input.reason ? { reason: input.reason } : {}),
     ...(input.kind === "refund"

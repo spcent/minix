@@ -7,7 +7,12 @@ import type {
 } from "@minix/contracts";
 
 import { createDefaultUserState } from "../../data";
-import { NOTIFICATION_CHANNEL_PROVIDER_CONFIG, resolveSettingsState } from "../settings/state";
+import {
+  NOTIFICATION_CHANNEL_PROVIDER_CONFIG,
+  resolveNotificationChannelProviderConfig,
+  resolveSettingsState,
+  type NotificationChannelProviderRuntimeEnv,
+} from "../settings/state";
 import type { StoredNotificationTouchpointRecord, UserState } from "../../types";
 
 function createTouchpointTemplateKey(scope: string, channel: MessageTouchpointChannel) {
@@ -19,6 +24,7 @@ function createBaseTouchpoint(
   scope: string,
   label: string,
   mode: MessageTouchpointProviderMode = "sample",
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): MessageTouchpoint {
   if (channel === "in_app") {
     return {
@@ -49,7 +55,7 @@ function createBaseTouchpoint(
     };
   }
 
-  const provider = NOTIFICATION_CHANNEL_PROVIDER_CONFIG[channel];
+  const provider = resolveNotificationChannelProviderConfig(channel, runtimeEnv);
   return {
     channel,
     executable: true,
@@ -90,8 +96,9 @@ function ensureNotificationTouchpointState(userState: UserState) {
 function resolveChannelPreference(
   userState: UserState | undefined,
   channel: Exclude<MessageTouchpointChannel, "in_app">,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ) {
-  const settingsState = resolveSettingsState(userState ?? createDefaultUserState(), undefined);
+  const settingsState = resolveSettingsState(userState ?? createDefaultUserState(), undefined, runtimeEnv);
   return settingsState.notificationChannels.find((item) => item.channel === channel);
 }
 
@@ -157,6 +164,7 @@ function createDispatchTouchpoint(
     existingReceipt?: StoredNotificationTouchpointRecord;
     preferredStatus?: MessageTouchpointReceiptStatus;
   },
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): MessageTouchpoint {
   if (touchpoint.channel === "in_app") {
     const attemptedAt = input.createdAt ?? "2026-04-01T08:00:00.000Z";
@@ -180,12 +188,19 @@ function createDispatchTouchpoint(
     };
   }
 
-  const preference = resolveChannelPreference(userState, touchpoint.channel);
+  const preference = resolveChannelPreference(userState, touchpoint.channel, runtimeEnv);
   const attemptedAt = input.createdAt ?? input.existingReceipt?.attemptedAt ?? "2026-04-01T08:00:00.000Z";
+  const defaultProviderConfig = resolveNotificationChannelProviderConfig(touchpoint.channel, runtimeEnv);
+  const providerMode =
+    preference?.providerMode ?? touchpoint.providerMode ?? defaultProviderConfig.providerMode;
   const providerKey =
-    touchpoint.providerKey ??
     preference?.providerKey ??
-    NOTIFICATION_CHANNEL_PROVIDER_CONFIG[touchpoint.channel].providerKey;
+    touchpoint.providerKey ??
+    defaultProviderConfig.providerKey;
+  const providerLabel =
+    preference?.providerLabel ??
+    touchpoint.providerLabel ??
+    defaultProviderConfig.providerLabel;
   const templateKey =
     touchpoint.template?.templateKey ??
     touchpoint.templateKey ??
@@ -195,6 +210,9 @@ function createDispatchTouchpoint(
     return {
       ...touchpoint,
       enabled: false,
+      providerKey,
+      providerLabel,
+      providerMode,
       delivered: false,
       statusLabel: preference?.unsubscribed
         ? `Unsubscribed from ${touchpoint.channel.replace("_", " ")} delivery.`
@@ -221,13 +239,18 @@ function createDispatchTouchpoint(
   return {
     ...touchpoint,
     enabled: true,
+    providerKey,
+    providerLabel,
+    providerMode,
     delivered: preferredStatus === "delivered",
       statusLabel:
         preferredStatus === "failed"
-          ? `${touchpoint.providerLabel ?? providerKey} sample delivery is temporarily unavailable.`
-          : touchpoint.providerMode === "sample"
-            ? `${touchpoint.providerLabel ?? providerKey} sample delivery completed through ${touchpoint.channel.replace("_", " ")}.`
-            : `${touchpoint.providerLabel ?? providerKey} delivered through ${touchpoint.channel.replace("_", " ")}.`,
+          ? providerMode === "sample"
+            ? `${providerLabel} sample delivery is temporarily unavailable.`
+            : `${providerLabel} is temporarily unavailable.`
+          : providerMode === "sample"
+            ? `${providerLabel} sample delivery completed through ${touchpoint.channel.replace("_", " ")}.`
+            : `${providerLabel} delivered through ${touchpoint.channel.replace("_", " ")}.`,
     templateKey,
     template: {
       templateKey,
@@ -243,7 +266,12 @@ function createDispatchTouchpoint(
       ...(preferredStatus === "failed" ? { failedAt: input.createdAt ?? attemptedAt } : {}),
       ...(preferredStatus === "failed" ? { failureCode: "PROVIDER_UNAVAILABLE" } : {}),
       ...(preferredStatus === "failed"
-        ? { failureMessage: `${touchpoint.providerLabel ?? providerKey} sample delivery is unavailable.` }
+        ? {
+            failureMessage:
+              providerMode === "sample"
+                ? `${providerLabel} sample delivery is unavailable.`
+                : `${providerLabel} is unavailable.`,
+          }
         : {}),
       retryCount: input.existingReceipt?.retryCount ?? 0,
       retryable: preferredStatus === "failed",
@@ -264,6 +292,7 @@ export function cloneTouchpoints(
     createdAt?: string;
     body?: string;
   },
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): MessageTouchpoint[] {
   if (!input?.resourceId || !input.resourceLabel) {
     return touchpoints.map((touchpoint) =>
@@ -272,7 +301,7 @@ export function cloneTouchpoints(
         resourceLabel: input?.resourceLabel ?? "preview",
         ...(input?.createdAt ? { createdAt: input.createdAt } : {}),
         ...(input?.body ? { body: input.body } : {}),
-      }),
+      }, runtimeEnv),
     );
   }
 
@@ -292,7 +321,7 @@ export function cloneTouchpoints(
         ...(input.body ? { body: input.body } : {}),
         ...(existingReceipt ? { existingReceipt } : {}),
         ...(existingReceipt ? { preferredStatus: existingReceipt.status } : {}),
-      });
+      }, runtimeEnv);
       if (touchpoint.channel !== "in_app" && nextTouchpoint.receipt) {
         storedReceipts[touchpoint.channel] = createStoredReceiptRecord({
           receiptId: nextTouchpoint.receipt.receiptId,
@@ -381,15 +410,19 @@ export function cloneTouchpoints(
             preferredStatus: touchpoint.receipt.status,
           }
         : {}),
-    }),
+    }, runtimeEnv),
   );
 }
 
-export function cloneMessageTouchpointsForItem(message: MessageBodyItem, userState?: UserState) {
+export function cloneMessageTouchpointsForItem(
+  message: MessageBodyItem,
+  userState?: UserState,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+) {
   return cloneTouchpoints(message.touchpoints, userState, {
     resourceId: `message:${message.messageId}`,
     resourceLabel: `message.${message.direction}`,
     createdAt: message.createdAt,
     body: message.body,
-  });
+  }, runtimeEnv);
 }

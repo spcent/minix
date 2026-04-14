@@ -51,6 +51,37 @@ Before promoting an RC or final release, confirm:
 - WeChat DevTools can open both official WeChat samples
 - no `globalThis.__MINIX_BOOTSTRAP_ENV__ = { useMock: true }` override is active in the validation session
 
+## Signoff Owners And Evidence
+
+Use this ownership split consistently so release blockers do not hide inside ad hoc chat instructions.
+
+| Area | Primary owner | Required evidence |
+| --- | --- | --- |
+| API and Worker config | platform or backend operator | target env vars reviewed, `DB` and `AUTH_RATE_LIMIT_KV` bindings confirmed, deployed Worker URL recorded |
+| H5 validation | web release owner | `pnpm verify:h5:blackbox` and remote preview verification results recorded |
+| WeChat validation | WeChat validator or QA | manual gate completion notes with environment, app target, and date |
+| Payment, auth, upload, message, and share provider rollout | operator owning external providers | provider mode, callback or allowlist setup, and rollout confirmation captured in release evidence |
+| RC or final promotion | release manager | completed verification log entry and final go or no-go note |
+
+## Repo-Owned Checks vs Operator-Owned Setup
+
+Repo-owned checks:
+
+- `pnpm verify`
+- `pnpm verify:official-integrations`
+- `pnpm verify:h5:blackbox`
+- `pnpm verify:release`
+- `pnpm verify:api:remote`
+- `pnpm verify:preview:remote`
+
+Operator-owned setup:
+
+- Worker env vars and bindings
+- WeChat allowlists
+- H5 remote origin and API base URL setup
+- external auth, payment, message, upload, and share provider rollout
+- manual WeChat validation
+
 ## RC Checklist
 
 Run from the repo root unless a step says otherwise.
@@ -125,9 +156,13 @@ pnpm verify:preview:remote
 ```
 
 9. Perform the manual WeChat gate in DevTools.
-
-10. If every step passes, mark the build as `RC`.
-11. Record the RC as `v1.0.0-rc.N` in [`docs/VERIFICATION_LOG.md`](/docs/VERIFICATION_LOG.md), then use the release note template and changelog source of truth before moving on.
+10. Capture release evidence in [`docs/VERIFICATION_LOG.md`](/Users/bingrong.yan/projects/birdor/minix/docs/VERIFICATION_LOG.md):
+    - preview Worker URL
+    - preview H5 URLs
+    - command results for `pnpm verify`, `pnpm verify:official-integrations`, `pnpm verify:h5:blackbox`, `pnpm verify:release`, and `pnpm verify:preview:remote`
+    - WeChat validator name, environment, and date
+11. If every step passes, mark the build as `RC`.
+12. Record the RC as `v1.0.0-rc.N` in the verification log, then use the release note template and changelog source of truth before moving on.
 
 ## Manual WeChat Gate
 
