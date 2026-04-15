@@ -7,6 +7,10 @@ Use one workspace package per business area, such as:
 - `auth`
 - `items`
 - `settings`
+- `messages`
+- `media-tools`
+- `catalog`
+- `reader`
 
 Feature packages should contain:
 
@@ -21,7 +25,7 @@ Feature packages should not contain:
 - host app wiring
 - cross-feature catch-all abstractions
 
-Create new features with `pnpm scaffold:feature <feature-name> [generic|list|detail|form|profile]`.
+Create new features with `pnpm scaffold:feature <feature-name> [generic|auth|profile|list|detail|form|workspace]`.
 
 Related references:
 

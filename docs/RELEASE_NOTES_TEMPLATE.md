@@ -34,6 +34,7 @@ Use this template for any `v1.0.0-rc.N` release-candidate note and for the final
 
 - required environment or Cloudflare changes
 - required WeChat console allowlist changes
+- required auth, message, payment, upload, and share provider rollout notes
 - any migration or promotion notes
 
 ## Accepted Deferred Issues

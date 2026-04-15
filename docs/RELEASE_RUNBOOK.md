@@ -161,6 +161,8 @@ pnpm verify:preview:remote
     - preview H5 URLs
     - command results for `pnpm verify`, `pnpm verify:official-integrations`, `pnpm verify:h5:blackbox`, `pnpm verify:release`, and `pnpm verify:preview:remote`
     - WeChat validator name, environment, and date
+    - auth, message, payment, upload, and share provider rollout evidence
+    - explicit signoff owner and go or no-go decision
 11. If every step passes, mark the build as `RC`.
 12. Record the RC as `v1.0.0-rc.N` in the verification log, then use the release note template and changelog source of truth before moving on.
 
@@ -265,6 +267,8 @@ Expected production H5 URLs:
    - production H5 URLs
    - verification commands executed
    - manual WeChat validator and date
+   - provider rollout evidence for auth, message, payment, upload, and share
+   - explicit signoff owner and final go or no-go decision
 7. Confirm tracked package manifests and runtime version stamps still report `1.0.0`.
 8. Update [`CHANGELOG.md`](/CHANGELOG.md) with the final release record and render the announcement from [`docs/RELEASE_NOTES_TEMPLATE.md`](/docs/RELEASE_NOTES_TEMPLATE.md).
 9. Only then create the `v1.0.0` release tag and publish the `v1.0.0` announcement.

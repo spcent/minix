@@ -27,10 +27,16 @@ Each RC or final release record should capture:
 - verification date
 - operator or validator
 - local verification commands run
+- auth provider rollout evidence
+- message provider rollout evidence and polling-only acceptance decision
+- payment merchant and callback rollout evidence
+- upload provider and asset-host rollout evidence
+- share provider and attribution rollout evidence
 - remote API URL and verification result
 - preview H5 URLs and verification result
 - production H5 URLs and verification result, when applicable
 - manual WeChat validation owner, date, target environment, and result
+- explicit go or no-go signoff owner and decision
 - accepted deferred issues
 
 ## RC Records
@@ -49,6 +55,23 @@ Each RC or final release record should capture:
 - `pnpm verify:h5:blackbox`:
 - `pnpm verify:release`:
 
+#### Operator Rollout Evidence
+
+- auth SMS provider:
+- auth OAuth provider:
+- OAuth callback domains:
+- message providers:
+- polling-only sync accepted for release:
+- payment merchant rollout:
+- payment callback secret configured:
+- upload review provider:
+- upload storage provider:
+- upload asset base URL:
+- share short-link provider:
+- share poster provider:
+- share short-link base URL:
+- share poster base URL:
+
 #### Remote Preview Verification
 
 - preview Worker URL:
@@ -65,6 +88,72 @@ Each RC or final release record should capture:
 - `host-wechat` result:
 - `novel-wechat` result:
 - notes:
+
+#### Release Signoff
+
+- signoff owner:
+- decision:
+- blockers:
+
+#### Accepted Deferred Issues
+
+- none recorded yet
+
+### v1.0.0-rc.1
+
+- status: pending execution
+- commit SHA: fill from the RC candidate commit
+- verification date:
+- operator:
+
+#### Local Gates
+
+- `pnpm verify`: pending
+- `pnpm verify:official-integrations`: pending
+- `pnpm verify:h5:blackbox`: pending
+- `pnpm verify:release`: pending
+
+#### Operator Rollout Evidence
+
+- auth SMS provider: pending
+- auth OAuth provider: pending
+- OAuth callback domains: pending
+- message providers: pending
+- polling-only sync accepted for release: pending explicit decision
+- payment merchant rollout: pending
+- payment callback secret configured: pending
+- upload review provider: pending
+- upload storage provider: pending
+- upload asset base URL: pending
+- share short-link provider: pending
+- share poster provider: pending
+- share short-link base URL: pending
+- share poster base URL: pending
+
+#### Remote Preview Verification
+
+- preview Worker URL: pending
+- `pnpm verify:api:remote`: pending
+- preview `host-h5` URL: pending
+- preview `novel-h5` URL: pending
+- `pnpm verify:preview:remote`: pending
+
+#### Manual WeChat Gate
+
+- validator: pending
+- date: pending
+- target API URL: pending
+- `host-wechat` result: pending
+- `novel-wechat` result: pending
+- notes: use the manual gate in [`docs/RELEASE_RUNBOOK.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_RUNBOOK.md) and record failures explicitly.
+
+#### Release Signoff
+
+- signoff owner: pending
+- decision: pending
+- blockers:
+  - provider rollout evidence not yet recorded
+  - WeChat manual validation not yet recorded
 
 #### Accepted Deferred Issues
 
@@ -87,6 +176,23 @@ Each RC or final release record should capture:
 - `pnpm verify:h5:blackbox`: passed
 - `pnpm verify:release`: passed
 
+#### Operator Rollout Evidence
+
+- auth SMS provider: not recorded in tracked source
+- auth OAuth provider: not recorded in tracked source
+- OAuth callback domains: not recorded in tracked source
+- message providers: not recorded in tracked source
+- polling-only sync accepted for release: not recorded in tracked source
+- payment merchant rollout: not recorded in tracked source
+- payment callback secret configured: not recorded in tracked source
+- upload review provider: not recorded in tracked source
+- upload storage provider: not recorded in tracked source
+- upload asset base URL: not recorded in tracked source
+- share short-link provider: not recorded in tracked source
+- share poster provider: not recorded in tracked source
+- share short-link base URL: not recorded in tracked source
+- share poster base URL: not recorded in tracked source
+
 #### Remote Verification
 
 - preview Worker URL: not recorded in tracked source
@@ -105,6 +211,12 @@ Each RC or final release record should capture:
 - `host-wechat` result: not recorded in tracked source
 - `novel-wechat` result: not recorded in tracked source
 - notes: manual WeChat validation remains an explicit release requirement in [`docs/RELEASE_RUNBOOK.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_RUNBOOK.md), but the final operator evidence was not committed to the repository.
+
+#### Release Signoff
+
+- signoff owner: not recorded in tracked source
+- decision: not recorded in tracked source
+- blockers: manual provider rollout and WeChat validation evidence were not committed to tracked source
 
 #### Accepted Deferred Issues
 

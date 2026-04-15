@@ -12,8 +12,10 @@ MiniX uses a narrow dependency direction to keep shared behavior portable and ho
    Platform-agnostic business behavior such as `auth`, `items`, and `settings`.
 4. `packages/platform-*`
    Concrete platform adapters for WeChat and H5.
-5. `apps/host-*`
+5. `apps/host-*` and `apps/novel-*`
    Host manifests, bootstrap, registrations, and generated or host-only shell code.
+
+The sample backend in `apps/api` supports those hosts, but it is not part of the frontend package dependency chain above. Treat it as a separate bounded app with its own explicit layering.
 
 ## Allowed Direction
 
@@ -35,6 +37,7 @@ Practical rule: dependencies may point downward toward more stable shared layers
 - Features must not depend on platform packages or host apps.
 - Cross-package imports must go through package entry points only.
 - Host route wiring must remain manifest- and registry-driven.
+- Host and novel sample apps should use `src/manifest/page-definitions.ts` as the editable source of truth.
 
 Related references:
 

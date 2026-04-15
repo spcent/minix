@@ -2,9 +2,17 @@
 
 MiniX is a small, agent-friendly application kernel for WeChat Mini Program and H5.
 
-`v0.1` intentionally proves one shared path only:
+The kernel started from one narrow shared path:
 
 `login -> /auth/login -> protected /items -> settings -> logout`
+
+The current repository is now frozen around the `v1.0.0` official sample surface:
+
+- `apps/host-h5`
+- `apps/host-wechat`
+- `apps/novel-h5`
+- `apps/novel-wechat`
+- `apps/api` as the shared sample backend for those hosts
 
 The repository favors:
 

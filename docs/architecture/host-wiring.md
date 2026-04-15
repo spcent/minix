@@ -7,17 +7,18 @@ Host wiring is intentionally data-driven so agents and scripts can reason about 
 - host manifests define page metadata and route-facing configuration
 - host registries bind host entry points to shared feature behavior
 - generated WeChat shell files mirror the registry and manifest output
+- `apps/*/src/manifest/page-definitions.ts` is the editable source for page coverage and host overrides
 
 ## Current Rule
 
 Do not introduce handwritten parallel route maps when a manifest or registry already exists.
 
-For `v0.1`, the practical edit path is:
+For the current official sample hosts, the practical edit path is:
 
 1. update contracts only if the route or payload surface changes
 2. implement feature behavior in `packages/features/*`
 3. adjust platform adapters if platform behavior differs
-4. update host manifest or registry
+4. update host manifest or registry source modules
 5. regenerate or check shells when WeChat page coverage changes
 
 ## Why This Matters
