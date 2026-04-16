@@ -1350,6 +1350,15 @@ test("feed endpoint composes cross-domain search results for user and content sc
   assert.equal(Boolean(contentSearchPayload.items.some((item) => item.contentCard?.lifecycle.state)), true);
   assert.equal(contentSearchPayload.items[0]?.eyebrow, "Content");
   assert.equal(contentSearchPayload.items[1]?.eyebrow, "Novel");
+  assert.equal(("routeTarget" in (contentSearchPayload.items[0] ?? {}) ? Boolean((contentSearchPayload.items[0] as { routeTarget?: unknown }).routeTarget) : false), false);
+  assert.equal(
+    (contentSearchPayload.items[1] as { routeTarget?: { routeId?: string; params?: { novelId?: string } } } | undefined)?.routeTarget?.routeId,
+    "novel.detail",
+  );
+  assert.equal(
+    (contentSearchPayload.items[1] as { routeTarget?: { routeId?: string; params?: { novelId?: string } } } | undefined)?.routeTarget?.params?.novelId,
+    (contentSearchPayload.items[1] as { id: string } | undefined)?.id,
+  );
   assert.equal(
     contentSearchPayload.searchResults.resultGroups?.some((group) => group.domain === "content" && group.total >= 1),
     true,

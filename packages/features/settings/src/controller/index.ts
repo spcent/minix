@@ -98,6 +98,28 @@ function formatMode(mode: ReaderMode): string {
   return "Scroll for browsing and archive movement";
 }
 
+function formatEligibleChannels(
+  channels: SettingsResponse["effectivePolicy"]["notification"]["eligibleChannels"],
+): string {
+  if (channels.length === 0) {
+    return "No remote channels eligible";
+  }
+
+  return channels
+    .map((channel) => {
+      if (channel === "in_app") {
+        return "In-app";
+      }
+
+      if (channel === "subscription_message") {
+        return "Subscription message";
+      }
+
+      return channel.toUpperCase();
+    })
+    .join(", ");
+}
+
 function formatFontScale(fontScale: number): string {
   return `Comfort size at ${Math.round(fontScale * 100)}%`;
 }
@@ -177,6 +199,7 @@ function cloneModel(model: SettingsPageModel): SettingsPageModel {
     ...(model.preferences ? { preferences: structuredClone(model.preferences) } : {}),
     ...(model.featureToggles ? { featureToggles: structuredClone(model.featureToggles) } : {}),
     ...(model.privacyOptions ? { privacyOptions: structuredClone(model.privacyOptions) } : {}),
+    ...(model.effectivePolicy ? { effectivePolicy: structuredClone(model.effectivePolicy) } : {}),
     ...(model.notificationChannels ? { notificationChannels: structuredClone(model.notificationChannels) } : {}),
     sections: model.sections.map((section) => ({
       ...section,
@@ -272,6 +295,31 @@ function createSettingsSections(response: SettingsResponse): SettingsSection[] {
         createTextItem("search-history", "Search history", response.privacyOptions.searchHistoryEnabled),
         createTextItem("analytics", "Analytics", response.privacyOptions.analyticsEnabled),
         createTextItem("screenshot-feedback", "Screenshot feedback", response.privacyOptions.screenshotFeedbackEnabled),
+      ],
+    },
+    {
+      key: "effective-policy",
+      title: "Effective policy",
+      items: [
+        createTextItem("eligible-channels", "Eligible channels", formatEligibleChannels(response.effectivePolicy.notification.eligibleChannels)),
+        createTextItem("station-fallback", "Station fallback", response.effectivePolicy.notification.stationFallbackEnabled ?? false),
+        createTextItem("policy-profile-visibility", "Resolved profile visibility", response.effectivePolicy.privacy.profileVisibility),
+        createTextItem("profile-search-visible", "Profile search visible", response.effectivePolicy.privacy.profileSearchVisible),
+        createTextItem("relation-search-visible", "Relation search visible", response.effectivePolicy.privacy.relationSearchVisible),
+        createTextItem("personalized-ranking", "Personalized ranking", response.effectivePolicy.privacy.personalizedRankingEnabled),
+        createTextItem("analytics-collection", "Analytics collection", response.effectivePolicy.privacy.analyticsCollectionEnabled),
+        createTextItem("policy-autoplay", "Autoplay enabled", response.effectivePolicy.device.autoplayEnabled),
+        createTextItem("policy-network-strategy", "Resolved network strategy", response.effectivePolicy.device.networkStrategy),
+        createTextItem("upload-chunk-size", "Upload chunk size", `${response.effectivePolicy.device.uploadChunkSizeBytes} bytes`),
+        createTextItem("diagnostics-enabled", "Diagnostics enabled", response.effectivePolicy.device.diagnosticsEnabled),
+        createTextItem("developer-environment", "Environment", response.effectivePolicy.developer.environment),
+        createTextItem("logs-editable", "Logs editable", response.effectivePolicy.developer.logsEditable),
+        createTextItem("experiments-editable", "Experiments editable", response.effectivePolicy.developer.experimentsEditable),
+        createTextItem("policy-logs-enabled", "Logs enabled", response.effectivePolicy.developer.logsEnabled),
+        createTextItem("policy-experiments-enabled", "Experiments enabled", response.effectivePolicy.developer.experimentsEnabled),
+        ...(response.effectivePolicy.developer.lockedReason
+          ? [createTextItem("developer-lock-reason", "Developer lock reason", response.effectivePolicy.developer.lockedReason)]
+          : []),
       ],
     },
     {
@@ -375,6 +423,7 @@ function applyRemoteSettings(model: SettingsPageModel, response: SettingsRespons
     preferences: response.preferences,
     featureToggles: response.featureToggles,
     privacyOptions: response.privacyOptions,
+    effectivePolicy: response.effectivePolicy,
     ...(response.notificationChannels ? { notificationChannels: response.notificationChannels } : {}),
   };
 }

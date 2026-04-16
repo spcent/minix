@@ -4,9 +4,9 @@ This document defines what the repository supports as a `v1.0.0` release-cut sam
 
 Use it together with:
 
-- [`docs/RELEASE_RUNBOOK.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_RUNBOOK.md) for the operator sequence
-- [`docs/PRODUCTION_REGRESSION_MATRIX.md`](/Users/bingrong.yan/projects/birdor/minix/docs/PRODUCTION_REGRESSION_MATRIX.md) for automation and manual coverage
-- [`docs/BACKEND_CONTRACT.md`](/Users/bingrong.yan/projects/birdor/minix/docs/BACKEND_CONTRACT.md) for the request and response surface
+- [`docs/RELEASE_RUNBOOK.md`](/docs/RELEASE_RUNBOOK.md) for the operator sequence
+- [`docs/PRODUCTION_REGRESSION_MATRIX.md`](/docs/PRODUCTION_REGRESSION_MATRIX.md) for automation and manual coverage
+- [`docs/BACKEND_CONTRACT.md`](/docs/BACKEND_CONTRACT.md) for the request and response surface
 
 ## Release Boundary
 
@@ -78,17 +78,35 @@ The repository now exposes production-safe posture for auth, payment, messages, 
 | Durable bindings | bind `DB` and `AUTH_RATE_LIMIT_KV` in both preview and production Worker environments | operator-owned | `wrangler` config review plus successful remote deploy |
 | WeChat allowlists | register final API HTTPS domain under request, `uploadFile`, and `downloadFile` allowlists | operator-owned | WeChat console screenshots or release ticket evidence |
 | H5 remote origins | point H5 hosts at the intended API base URL and include preview or production origins in CORS allowlists | operator-owned | deployed URL list plus successful remote blackbox run |
-| Remote API validation | run `pnpm verify:api:remote` against preview and production Workers after deploy | shared: operator executes, repo provides command | command log recorded in [`docs/VERIFICATION_LOG.md`](/Users/bingrong.yan/projects/birdor/minix/docs/VERIFICATION_LOG.md) |
+| Remote API validation | run `pnpm verify:api:remote` against preview and production Workers after deploy | shared: operator executes, repo provides command | command log recorded in [`docs/VERIFICATION_LOG.md`](/docs/VERIFICATION_LOG.md) |
 | H5 regression validation | run `pnpm verify:h5:blackbox` locally and `pnpm verify:preview:remote` against preview Pages URLs | shared: operator executes, repo provides command | command log recorded in verification log |
 | WeChat manual validation | complete the host-wechat and novel-wechat manual gate against preview and production | operator-owned | validator name, date, app target, and pass or fail notes in verification log |
 | Release signoff | record RC/final evidence and signoff owner before tagging or promoting | release manager | completed release checklist and signoff note |
 
+## Active Queue Closure Rule
+
+The active release queue must close as one bundle rather than as isolated operator notes.
+
+For the current queue:
+
+- `0241` through `0245` own provider-specific rollout and validation posture
+- `0246` owns final execution evidence and signoff
+- `0247` owns bundle ordering, blocker visibility, and closeout criteria
+
+Do not treat the release bundle as complete until:
+
+- `0241` through `0245` each record either a production-ready rollout state or an explicit release deferral decision
+- `0246` records the final release decision with signoff owner
+- `docs/RELEASE_RUNBOOK.md` and `docs/VERIFICATION_LOG.md` reflect the same final blocker state
+
+If one operator-owned area is intentionally deferred, record that as an explicit go or no-go input; do not let it disappear into an unstructured note or chat message.
+
 ### Provider Setup Notes
 
-- Keep real Cloudflare ids in the ignored [`apps/api/wrangler.private.jsonc`](/Users/bingrong.yan/projects/birdor/minix/apps/api/wrangler.private.jsonc), not the committed template.
+- Keep real Cloudflare ids in the ignored [`apps/api/wrangler.private.jsonc`](/apps/api/wrangler.private.jsonc), not the committed template.
 - Payment production-mode callback verification is implemented, but operators must provide the real `MINIX_PAYMENT_WEBHOOK_SECRET` and gateway routing outside the repo.
-- Official host commerce entry is now exposed at [`apps/host-h5:/membership`](/Users/bingrong.yan/projects/birdor/minix/apps/host-h5/src/manifest/page-definitions.ts) and [`apps/host-wechat:/pages/membership/index`](/Users/bingrong.yan/projects/birdor/minix/apps/host-wechat/src/manifest/page-definitions.ts), with a dedicated generic order-center route at [`apps/host-h5:/orders`](/Users/bingrong.yan/projects/birdor/minix/apps/host-h5/src/manifest/page-definitions.ts) and [`apps/host-wechat:/pages/orders/index`](/Users/bingrong.yan/projects/birdor/minix/apps/host-wechat/src/manifest/page-definitions.ts). Novel hosts intentionally keep order follow-up inside the membership-centered reading flow. If operators do not switch to real gateway credentials, transaction copy remains sample-mode by design; when `providerMode=production` is used, the shared commerce surface now keeps purchase, callback, refund, and reconciliation copy free of sample-only wording.
-- Inbox entry is now exposed across all four sample hosts at [`apps/host-h5:/inbox`](/Users/bingrong.yan/projects/birdor/minix/apps/host-h5/src/manifest/page-definitions.ts), [`apps/host-wechat:/pages/messages/index`](/Users/bingrong.yan/projects/birdor/minix/apps/host-wechat/src/manifest/page-definitions.ts), [`apps/novel-h5:/inbox`](/Users/bingrong.yan/projects/birdor/minix/apps/novel-h5/src/manifest/page-definitions.ts), and [`apps/novel-wechat:/pages/messages/index`](/Users/bingrong.yan/projects/birdor/minix/apps/novel-wechat/src/manifest/page-definitions.ts). The current delivery contract is explicitly polling-only; external `subscription_message`, `sms`, `email`, and `push` touchpoints can present production provider posture through env-backed labels and keys, but the actual provider rollout remains operator-owned outside tracked source.
+- Official host commerce entry is now exposed at [`apps/host-h5:/membership`](/apps/host-h5/src/manifest/page-definitions.ts) and [`apps/host-wechat:/pages/membership/index`](/apps/host-wechat/src/manifest/page-definitions.ts), with a dedicated generic order-center route at [`apps/host-h5:/orders`](/apps/host-h5/src/manifest/page-definitions.ts) and [`apps/host-wechat:/pages/orders/index`](/apps/host-wechat/src/manifest/page-definitions.ts). Novel hosts intentionally keep order follow-up inside the membership-centered reading flow. If operators do not switch to real gateway credentials, transaction copy remains sample-mode by design; when `providerMode=production` is used, the shared commerce surface now keeps purchase, callback, refund, and reconciliation copy free of sample-only wording.
+- Inbox entry is now exposed across all four sample hosts at [`apps/host-h5:/inbox`](/apps/host-h5/src/manifest/page-definitions.ts), [`apps/host-wechat:/pages/messages/index`](/apps/host-wechat/src/manifest/page-definitions.ts), [`apps/novel-h5:/inbox`](/apps/novel-h5/src/manifest/page-definitions.ts), and [`apps/novel-wechat:/pages/messages/index`](/apps/novel-wechat/src/manifest/page-definitions.ts). The current delivery contract is explicitly polling-only; external `subscription_message`, `sms`, `email`, and `push` touchpoints can present production provider posture through env-backed labels and keys, but the actual provider rollout remains operator-owned outside tracked source.
 - Upload surfaces now expose explicit sample-versus-production posture through env-backed review/storage metadata. Operators can switch the official sample from `sample-upload-policy` and `sample-object-storage` to production-safe labels and asset URL hosts through `MINIX_UPLOAD_PROVIDER_MODE`, `MINIX_UPLOAD_STORAGE_PROVIDER`, `MINIX_UPLOAD_REVIEW_PROVIDER`, and `MINIX_UPLOAD_ASSET_BASE_URL`, but the actual bucket, retention, and review-provider rollout remains operator-owned outside tracked source.
 - Share surfaces now expose explicit sample-versus-production posture through env-backed short-link and poster metadata. Operators can switch the official sample from `sample-short-link` and `sample-poster-provider` to production-safe labels and URL hosts through `MINIX_SHARE_PROVIDER_MODE`, `MINIX_SHARE_SHORT_LINK_PROVIDER`, `MINIX_SHARE_POSTER_PROVIDER`, `MINIX_SHARE_SHORT_LINK_BASE_URL`, and `MINIX_SHARE_POSTER_BASE_URL`, but the actual short-link and poster-provider rollout remains operator-owned outside tracked source.
 - Managed-content drafting and review are intentionally surfaced inside the shared discover/feed route on the official hosts. Operators should treat that route as the bounded editorial entry rather than expecting a separate host-local CMS console in the release-cut sample.

@@ -225,7 +225,7 @@ The repository now distinguishes between:
 
 That boundary is intentional. MiniX `v1.0.0` freezes a defensible official-sample system, not a credentials-in-repo turnkey SaaS deployment.
 
-For the exact release boundary, provider setup, capability support matrix, and accepted deferred issues, use [`docs/PRODUCTION_READINESS.md`](/Users/bingrong.yan/projects/birdor/minix/docs/PRODUCTION_READINESS.md).
+For the exact release boundary, provider setup, capability support matrix, and accepted deferred issues, use [`docs/PRODUCTION_READINESS.md`](/docs/PRODUCTION_READINESS.md).
 
 ## Layers
 

@@ -893,9 +893,25 @@ test("settings controller can exercise device privacy and debug operations beyon
   assert.equal(controller.store.getState().preferences?.device.weakNetworkMode, true);
   assert.equal(controller.store.getState().privacyOptions?.personalizedRecommendations, false);
   assert.equal(controller.store.getState().privacyOptions?.analyticsEnabled, false);
+  assert.equal(controller.store.getState().effectivePolicy?.notification.pushEnabled, false);
+  assert.equal(controller.store.getState().effectivePolicy?.notification.smsEnabled, false);
+  assert.equal(controller.store.getState().effectivePolicy?.notification.emailEnabled, false);
+  assert.deepEqual(controller.store.getState().effectivePolicy?.notification.eligibleChannels, []);
+  assert.equal(controller.store.getState().effectivePolicy?.privacy.profileVisibility, "followers_only");
+  assert.equal(controller.store.getState().effectivePolicy?.privacy.personalizedRankingEnabled, false);
+  assert.equal(controller.store.getState().effectivePolicy?.privacy.analyticsCollectionEnabled, false);
+  assert.equal(controller.store.getState().effectivePolicy?.device.networkStrategy, "wifi-first");
+  assert.equal(controller.store.getState().effectivePolicy?.device.weakNetworkMode, true);
+  assert.equal(controller.store.getState().effectivePolicy?.device.uploadChunkSizeBytes, 8192);
+  assert.equal(controller.store.getState().effectivePolicy?.developer.logsEnabled, false);
+  assert.equal(controller.store.getState().effectivePolicy?.developer.experimentsEnabled, false);
   assert.equal(controller.store.getState().preferences?.developerOptions.logsEnabled, false);
   assert.equal(controller.store.getState().preferences?.developerOptions.experimentsEnabled, false);
   assert.equal(controller.store.getState().featureToggles?.experimentsEnabled, false);
+  assert.equal(
+    controller.store.getState().sections.find((section) => section.key === "effective-policy")?.items.some((item) => item.key === "eligible-channels"),
+    true,
+  );
   assert.equal(runtime.storageValues.has("reader.display"), false);
   assert.equal(runtime.storageValues.has("novel.reading-center"), false);
 });

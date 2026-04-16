@@ -95,7 +95,7 @@ Use [apps/host-h5](apps/host-h5) for:
 
 ### Sample API behavior
 
-Use [apps/api/src/http](/Users/bingrong.yan/projects/birdor/minix/apps/api/src/http) for:
+Use [apps/api/src/http](/apps/api/src/http) for:
 
 - auth header helpers
 - body and query parsing
@@ -103,13 +103,13 @@ Use [apps/api/src/http](/Users/bingrong.yan/projects/birdor/minix/apps/api/src/h
 - shared response helpers
 - route-context loading helpers
 
-Use [apps/api/src/app.ts](/Users/bingrong.yan/projects/birdor/minix/apps/api/src/app.ts) only for:
+Use [apps/api/src/app.ts](/apps/api/src/app.ts) only for:
 
 - app creation
 - top-level middleware
 - calling the composition entry
 
-Use [apps/api/src/app-composition.ts](/Users/bingrong.yan/projects/birdor/minix/apps/api/src/app-composition.ts) and sibling `app-composition.*.ts` files for:
+Use [apps/api/src/app-composition.ts](/apps/api/src/app-composition.ts) and sibling `app-composition.*.ts` files for:
 
 - route-group assembly
 - security wiring
@@ -157,9 +157,9 @@ For sample API changes, insert this decision rule before adding a route:
 
 When behavior affects deployment, provider setup, capability support, release gates, or accepted deferred limits, sync:
 
-- [`docs/BACKEND_CONTRACT.md`](/Users/bingrong.yan/projects/birdor/minix/docs/BACKEND_CONTRACT.md)
-- [`docs/PRODUCTION_READINESS.md`](/Users/bingrong.yan/projects/birdor/minix/docs/PRODUCTION_READINESS.md)
-- [`docs/RELEASE_RUNBOOK.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_RUNBOOK.md)
+- [`docs/BACKEND_CONTRACT.md`](/docs/BACKEND_CONTRACT.md)
+- [`docs/PRODUCTION_READINESS.md`](/docs/PRODUCTION_READINESS.md)
+- [`docs/RELEASE_RUNBOOK.md`](/docs/RELEASE_RUNBOOK.md)
 
 `pnpm verify` enforces this by checking shared production code for direct platform calls, for `throw`-based failure paths outside the manifest assertion layer, for core service and adapter interfaces that drift away from `Promise<Result<...>>` or approved synchronous `Result<...>` query methods, for `contracts` code that tries to import runtime-only types from `@minix/core`, for `contracts` shapes that start declaring host/runtime configuration fields, for behavior-shaped contract types such as method signatures or function-typed members, for managed workspace packages that drift away from the canonical `src/index.ts` public entry, for feature packages that try to widen their public surface beyond `src/index.ts`, and for the guarded sample API assembly files that must stay small and delegated rather than regrowing into route monoliths.
 

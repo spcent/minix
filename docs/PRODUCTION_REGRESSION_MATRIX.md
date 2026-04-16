@@ -2,7 +2,7 @@
 
 This matrix is the release-facing view of what is automated today, what still requires operator confirmation, and which command proves each area.
 
-Use it together with [`docs/RELEASE_RUNBOOK.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_RUNBOOK.md). The runbook is the operator sequence. This file is the coverage map.
+Use it together with [`docs/RELEASE_RUNBOOK.md`](/docs/RELEASE_RUNBOOK.md). The runbook is the operator sequence. This file is the coverage map.
 
 ## Required Commands
 
@@ -54,19 +54,19 @@ Every RC or final release record should capture:
 | --- | --- | --- |
 | repo boundaries, contracts, manifests, type safety | yes | `pnpm verify` |
 | official host integration against local API | yes | `pnpm verify:official-integrations` |
-| host-h5 login, protected plan access, settings, logout | yes | [`tests/e2e/h5-release-smoke.spec.ts`](/Users/bingrong.yan/projects/birdor/minix/tests/e2e/h5-release-smoke.spec.ts) |
-| novel-h5 login, reader save, home continuity | yes | [`tests/e2e/h5-release-smoke.spec.ts`](/Users/bingrong.yan/projects/birdor/minix/tests/e2e/h5-release-smoke.spec.ts) |
-| host-h5 inbox route restore and selected thread recovery | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/Users/bingrong.yan/projects/birdor/minix/tests/e2e/h5-regression-matrix.spec.ts) |
-| host-h5 guest upgrade flow | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/Users/bingrong.yan/projects/birdor/minix/tests/e2e/h5-regression-matrix.spec.ts) |
-| host-h5 search center route write-back and reload recovery | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/Users/bingrong.yan/projects/birdor/minix/tests/e2e/h5-regression-matrix.spec.ts) |
-| host-h5 feedback submit with attachments | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/Users/bingrong.yan/projects/birdor/minix/tests/e2e/h5-regression-matrix.spec.ts) |
-| host-h5 upload and share workspace | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/Users/bingrong.yan/projects/birdor/minix/tests/e2e/h5-regression-matrix.spec.ts) |
-| novel-h5 membership purchase and paid return | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/Users/bingrong.yan/projects/birdor/minix/tests/e2e/h5-regression-matrix.spec.ts) |
-| content lifecycle draft, review, publish, archive, restore | yes | [`apps/api/src/app.test.ts`](/Users/bingrong.yan/projects/birdor/minix/apps/api/src/app.test.ts) |
-| payment callback signature, replay protection, reconciliation | yes | [`apps/api/src/app.test.ts`](/Users/bingrong.yan/projects/birdor/minix/apps/api/src/app.test.ts) |
-| upload session, chunk, complete, asset retrieval | yes | [`apps/api/src/app.test.ts`](/Users/bingrong.yan/projects/birdor/minix/apps/api/src/app.test.ts) |
-| message thread read, send, retry, sync | yes | [`apps/api/src/app.test.ts`](/Users/bingrong.yan/projects/birdor/minix/apps/api/src/app.test.ts) |
-| background jobs and governance diagnostics | yes | [`apps/api/src/app.test.ts`](/Users/bingrong.yan/projects/birdor/minix/apps/api/src/app.test.ts) |
+| host-h5 login, protected plan access, settings, logout | yes | [`tests/e2e/h5-release-smoke.spec.ts`](/tests/e2e/h5-release-smoke.spec.ts) |
+| novel-h5 login, reader save, home continuity | yes | [`tests/e2e/h5-release-smoke.spec.ts`](/tests/e2e/h5-release-smoke.spec.ts) |
+| host-h5 inbox route restore and selected thread recovery | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/tests/e2e/h5-regression-matrix.spec.ts) |
+| host-h5 guest upgrade flow | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/tests/e2e/h5-regression-matrix.spec.ts) |
+| host-h5 search center route write-back and reload recovery | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/tests/e2e/h5-regression-matrix.spec.ts) |
+| host-h5 feedback submit with attachments | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/tests/e2e/h5-regression-matrix.spec.ts) |
+| host-h5 upload and share workspace | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/tests/e2e/h5-regression-matrix.spec.ts) |
+| novel-h5 membership purchase and paid return | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/tests/e2e/h5-regression-matrix.spec.ts) |
+| content lifecycle draft, review, publish, archive, restore | yes | [`apps/api/src/app.test.ts`](/apps/api/src/app.test.ts) |
+| payment callback signature, replay protection, reconciliation | yes | [`apps/api/src/app.test.ts`](/apps/api/src/app.test.ts) |
+| upload session, chunk, complete, asset retrieval | yes | [`apps/api/src/app.test.ts`](/apps/api/src/app.test.ts) |
+| message thread read, send, retry, sync | yes | [`apps/api/src/app.test.ts`](/apps/api/src/app.test.ts) |
+| background jobs and governance diagnostics | yes | [`apps/api/src/app.test.ts`](/apps/api/src/app.test.ts) |
 
 ## Route And Session Recovery Matrix
 
@@ -90,7 +90,7 @@ The following remain manual because repository CI cannot run real WeChat DevTool
 | novel-wechat reading loop | catalog, detail, reader save, bookshelf continuity, settings return path |
 | novel-wechat membership | locked flow enters membership, purchase succeeds, return path restores the intended reading context |
 
-Use the detailed checklist in [`docs/RELEASE_RUNBOOK.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_RUNBOOK.md).
+Use the detailed checklist in [`docs/RELEASE_RUNBOOK.md`](/docs/RELEASE_RUNBOOK.md).
 
 ## Known Manual-Only Risks
 

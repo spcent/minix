@@ -20,6 +20,32 @@ The backend contract is therefore split into two practical layers:
 
 This document does not imply that every endpoint is required by every host. It freezes the server-facing surface that official `v1.0` samples are allowed to depend on.
 
+## Canonical Domain Output Baseline
+
+The contract surface now treats the domain outputs named in [`docs/DOMAIN_COMPLETENESS_MATRIX.md`](/docs/DOMAIN_COMPLETENESS_MATRIX.md) as the canonical shared envelope vocabulary for official hosts.
+
+Use these rules when extending responses:
+
+- prefer one named shared output per business concern instead of inventing host-local wrappers
+- preserve output names such as `session`, `identity`, `accountSummary`, `notificationList`, `paymentResult`, `contentAccess`, `searchResults`, `uploadTask`, `sharePayload`, and `feedbackStatus`
+- if a response needs provider-specific or workflow-specific metadata, extend the existing envelope instead of replacing it with a new ad hoc shape
+- when compatibility convenience fields exist, keep the canonical nested output authoritative in docs and shared controllers
+
+Canonical response mapping:
+
+| Domain | Canonical Outputs | Typed Response Owners | Notes |
+| --- | --- | --- | --- |
+| login | `session`, `identity`, `authStatus`, `redirectTarget` | `LoginResponse`, `RefreshTokenResponse`, `IdentityTransitionResponse` in `packages/contracts/src/api/auth.ts` | top-level token and profile fields remain compatibility conveniences, but shared flow should treat the nested session and identity outputs as authoritative |
+| user | `userProfile`, `accountSummary`, `userStatus` | `CurrentUserResponse`, `AccountOperationResponse`, `UserRelationMutationResponse`, `UserRelationListResponse` in `packages/contracts/src/api/user.ts` | identity workflow and security-center data extend the user envelope; they do not replace it |
+| settings | `preferences`, `featureToggles`, `privacyOptions` | `SettingsResponse` in `packages/contracts/src/api/settings.ts` | `effectivePolicy` and `notificationChannels` are policy extensions around the same settings summary |
+| messages | `notificationList`, `messageThread`, `unreadBadge` | `NotificationListResponse`, `MessageThreadResponse`, `MarkNotificationsReadResponse`, `SendMessageResponse` in `packages/contracts/src/api/message.ts` | `threadList` and `reservedThreads` are list-management extensions around the canonical inbox outputs |
+| payment | `order`, `paymentIntent`, `paymentResult`, `entitlement` | `OrderDetailResponse`, `PurchaseOrderResponse`, `PurchaseMembershipResponse` in `packages/contracts/src/api/payment.ts` and `packages/contracts/src/api/membership.ts` | callback, reconciliation, subscription, and after-sales data extend the commerce envelope |
+| content | `contentCard`, `contentDetail`, `contentAccess` | `ContentDetailResponse`, `SaveContentDraftResponse`, `ContentLifecycleMutationResponse`, `NovelCard`, `NovelDetail` | discover and novel surfaces may embed content summaries, but should reuse the same card/detail/access outputs |
+| search | `searchQuery`, `searchFilters`, `searchResults` | `FeedListResponse` in `packages/contracts/src/api/feed.ts`, `NovelListResponse` in `packages/contracts/src/api/novels.ts` | discover remains the canonical cross-host search lane for official hosts |
+| upload | `uploadTask`, `uploadAsset`, `uploadError` | `UploadSelectionResult`, `UploadPipelineResponse` in `packages/contracts/src/api/upload.ts` | session, review, cleanup, and references extend the upload pipeline without replacing the canonical task/asset/error outputs |
+| share | `sharePayload`, `shareChannel`, `shareAttribution` | `SharePrepareResponse`, `ShareReturnRecognitionResponse`, `ShareShortLinkResolveResponse`, `ShareAttributionReportResponse` in `packages/contracts/src/api/share.ts` | landing target, short-link record, poster asset, and attribution report are share extensions |
+| feedback | `feedbackTicket`, `feedbackCategory`, `feedbackStatus` | `FeedbackTicketDetailResponse`, `SubmitFeedbackResponse`, `FeedbackRevisitResponse`, `FeedbackTicketActionResponse` in `packages/contracts/src/api/feedback.ts` | bootstrap and list responses may be partial, but detailed ticket flows should preserve the full ticket/category/status envelope |
+
 ## Shared Page State Baseline
 
 Feature controllers consuming shared list/detail protocols should normalize business state into the common page status surface instead of inventing feature-local flags.
@@ -82,6 +108,23 @@ Response:
   "accessToken": "access-token",
   "refreshToken": "refresh-token",
   "expiresAt": 1760000000000,
+  "session": {
+    "accessToken": "access-token",
+    "refreshToken": "refresh-token",
+    "expiresAt": 1760000000000,
+    "tokenType": "Bearer"
+  },
+  "identity": {
+    "userId": "u_123",
+    "anonymous": false,
+    "phoneBound": true,
+    "wechatBound": true
+  },
+  "authStatus": "authenticated",
+  "redirectTarget": {
+    "path": "/items",
+    "source": "login"
+  },
   "profile": {
     "nickname": "MiniX User",
     "avatarUrl": "http://localhost:3000/sample-assets/profiles/minix-user.svg"
@@ -172,6 +215,19 @@ Response:
   "accessToken": "next-access-token",
   "refreshToken": "next-refresh-token",
   "expiresAt": 1760003600000,
+  "session": {
+    "accessToken": "next-access-token",
+    "refreshToken": "next-refresh-token",
+    "expiresAt": 1760003600000,
+    "tokenType": "Bearer"
+  },
+  "identity": {
+    "userId": "u_123",
+    "anonymous": false,
+    "phoneBound": true,
+    "wechatBound": true
+  },
+  "authStatus": "authenticated",
   "profile": {
     "nickname": "MiniX User",
     "avatarUrl": "http://localhost:3000/sample-assets/profiles/minix-user.svg"
@@ -810,7 +866,7 @@ Future content products should reuse the generic layer instead of treating the n
   - `MINIX_SHARE_SHORT_LINK_BASE_URL`
   - `MINIX_SHARE_POSTER_BASE_URL`
 - notification browsing remains sample-backed through `/notifications`, while conversation-capable message flows now extend through `/messages/threads`, `/messages/thread`, `/messages/thread/create`, `/messages/thread/read`, `/messages/thread/send`, `/messages/thread/retry`, and `/messages/thread/sync`
-- provider setup, callback domains, capability support, and accepted deferred release gaps are documented in [`docs/PRODUCTION_READINESS.md`](/Users/bingrong.yan/projects/birdor/minix/docs/PRODUCTION_READINESS.md)
+- provider setup, callback domains, capability support, and accepted deferred release gaps are documented in [`docs/PRODUCTION_READINESS.md`](/docs/PRODUCTION_READINESS.md)
 
 ### `GET /novels`
 

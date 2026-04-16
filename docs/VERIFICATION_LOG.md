@@ -39,6 +39,19 @@ Each RC or final release record should capture:
 - explicit go or no-go signoff owner and decision
 - accepted deferred issues
 
+## Active Bundle Evidence Rule
+
+For the active release queue, use this log as the shared evidence record for `0241` through `0247`.
+
+Minimum bundle evidence expectations:
+
+- auth, message, payment, upload, and share rollout notes must be recorded as separate lines, not merged into one generic provider note
+- preview and production validation state must be distinguishable when both environments are touched
+- manual WeChat evidence must name the validator, target environment, and affected app
+- final signoff must explicitly say go or no-go and list any remaining blockers
+
+If a queue item remains pending because it is operator-owned, record `pending` explicitly rather than leaving the field blank.
+
 ## RC Records
 
 ### v1.0.0-rc.N
@@ -145,7 +158,7 @@ Each RC or final release record should capture:
 - target API URL: pending
 - `host-wechat` result: pending
 - `novel-wechat` result: pending
-- notes: use the manual gate in [`docs/RELEASE_RUNBOOK.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_RUNBOOK.md) and record failures explicitly.
+- notes: use the manual gate in [`docs/RELEASE_RUNBOOK.md`](/docs/RELEASE_RUNBOOK.md) and record failures explicitly.
 
 #### Release Signoff
 
@@ -210,7 +223,7 @@ Each RC or final release record should capture:
 - target API URL: not recorded in tracked source
 - `host-wechat` result: not recorded in tracked source
 - `novel-wechat` result: not recorded in tracked source
-- notes: manual WeChat validation remains an explicit release requirement in [`docs/RELEASE_RUNBOOK.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_RUNBOOK.md), but the final operator evidence was not committed to the repository.
+- notes: manual WeChat validation remains an explicit release requirement in [`docs/RELEASE_RUNBOOK.md`](/docs/RELEASE_RUNBOOK.md), but the final operator evidence was not committed to the repository.
 
 #### Release Signoff
 

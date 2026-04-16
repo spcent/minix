@@ -120,9 +120,9 @@ This card cannot be completed without the final release facts that are not deriv
 ## Completion Record
 
 - final release record sources:
-  - [`CHANGELOG.md`](/Users/bingrong.yan/projects/birdor/minix/CHANGELOG.md)
-  - [`docs/VERIFICATION_LOG.md`](/Users/bingrong.yan/projects/birdor/minix/docs/VERIFICATION_LOG.md)
-  - [`docs/RELEASE_v1.0.0.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_v1.0.0.md)
+  - [`CHANGELOG.md`](/CHANGELOG.md)
+  - [`docs/VERIFICATION_LOG.md`](/docs/VERIFICATION_LOG.md)
+  - [`docs/RELEASE_v1.0.0.md`](/docs/RELEASE_v1.0.0.md)
 - explicit unavailable release facts:
   - remote Worker URLs and final WeChat manual validation evidence were not recorded in tracked source
   - those fields were converted from placeholders into explicit unavailable notes instead of being left ambiguous

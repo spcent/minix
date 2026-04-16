@@ -4,7 +4,7 @@ This runbook defines the minimum operator path from local verification to `relea
 
 It exists because MiniX now has strong repo-level verification, but the final release still includes manual WeChat validation and Cloudflare promotion steps that should not live only in chat history.
 
-Coverage ownership by workflow is tracked in [`docs/PRODUCTION_REGRESSION_MATRIX.md`](/Users/bingrong.yan/projects/birdor/minix/docs/PRODUCTION_REGRESSION_MATRIX.md).
+Coverage ownership by workflow is tracked in [`docs/PRODUCTION_REGRESSION_MATRIX.md`](/docs/PRODUCTION_REGRESSION_MATRIX.md).
 
 ## Release Scope
 
@@ -63,6 +63,34 @@ Use this ownership split consistently so release blockers do not hide inside ad 
 | Payment, auth, upload, message, and share provider rollout | operator owning external providers | provider mode, callback or allowlist setup, and rollout confirmation captured in release evidence |
 | RC or final promotion | release manager | completed verification log entry and final go or no-go note |
 
+## Active Release Bundle
+
+The active `P0` release bundle is tracked by:
+
+- `0241` auth provider operator rollout
+- `0242` message provider rollout and polling acceptance
+- `0243` payment merchant rollout and callback ops
+- `0244` upload provider rollout and asset-host cutover
+- `0245` share provider rollout and attribution ops
+- `0246` release execution and signoff
+- `0247` release follow-up queue coordination
+
+Use `0247` as the coordination source of truth before any operator starts closing `0241` through `0246` independently.
+
+Execution rule:
+
+1. confirm queue owner, target environment, and evidence location first
+2. allow `0241` through `0245` to proceed in parallel only after that coordination posture exists
+3. treat `0246` as the final closeout slice for the whole bundle, not just another parallel task
+
+Bundle closeout criteria:
+
+- all provider-mode decisions are explicit for auth, messages, payment, upload, and share
+- required callback, allowlist, asset-host, and remote-origin setup is recorded
+- preview and production evidence is captured in [`docs/VERIFICATION_LOG.md`](/docs/VERIFICATION_LOG.md) when applicable
+- manual WeChat validation is recorded for the intended target environment
+- final signoff records a clear go or no-go owner instead of leaving blockers implicit
+
 ## Repo-Owned Checks vs Operator-Owned Setup
 
 Repo-owned checks:
@@ -107,7 +135,7 @@ pnpm verify:h5:blackbox
 pnpm verify:release
 ```
 
-`pnpm verify:h5:blackbox` now runs the full local Playwright matrix under [`tests/e2e`](/Users/bingrong.yan/projects/birdor/minix/tests/e2e), not only the original smoke file.
+`pnpm verify:h5:blackbox` now runs the full local Playwright matrix under [`tests/e2e`](/tests/e2e), not only the original smoke file.
 
 4. Verify Cloudflare access before any remote promotion.
 
@@ -156,7 +184,7 @@ pnpm verify:preview:remote
 ```
 
 9. Perform the manual WeChat gate in DevTools.
-10. Capture release evidence in [`docs/VERIFICATION_LOG.md`](/Users/bingrong.yan/projects/birdor/minix/docs/VERIFICATION_LOG.md):
+10. Capture release evidence in [`docs/VERIFICATION_LOG.md`](/docs/VERIFICATION_LOG.md):
     - preview Worker URL
     - preview H5 URLs
     - command results for `pnpm verify`, `pnpm verify:official-integrations`, `pnpm verify:h5:blackbox`, `pnpm verify:release`, and `pnpm verify:preview:remote`

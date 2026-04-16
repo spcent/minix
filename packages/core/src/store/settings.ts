@@ -1,4 +1,5 @@
 import type {
+  SettingsEffectivePolicy,
   SettingsFeatureToggles,
   SettingsNotificationChannelPreference,
   SettingsPreferences,
@@ -26,5 +27,6 @@ export interface SettingsPageModel {
   preferences?: SettingsPreferences;
   featureToggles?: SettingsFeatureToggles;
   privacyOptions?: SettingsPrivacyOptions;
+  effectivePolicy?: SettingsEffectivePolicy;
   notificationChannels?: SettingsNotificationChannelPreference[];
 }

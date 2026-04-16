@@ -175,13 +175,17 @@ export function createFeedItemRouteTarget(item: FeedItem): FeedItem["routeTarget
     };
   }
 
-  return {
-    routeId: APP_ROUTE_IDS.overview,
-    params: {
-      id: item.id,
-    },
-    label: "Open detail",
-  };
+  if (item.tag === "novel" || item.contentCard?.model === "novel_story") {
+    return {
+      routeId: APP_ROUTE_IDS.novelDetail,
+      params: {
+        novelId: item.contentCard?.contentId ?? item.id,
+      },
+      label: "Open novel detail",
+    };
+  }
+
+  return undefined;
 }
 
 export function createFeedItemRanking(item: FeedItem, index: number, activeSortKey: string, keyword: string | undefined) {
@@ -202,11 +206,11 @@ export function createFeedItemRanking(item: FeedItem, index: number, activeSortK
 
 export function decorateSearchItems(items: FeedItem[], activeSortKey: string, keyword: string | undefined): FeedItem[] {
   return items.map((item, index): FeedItem => {
-    const routeTarget: NonNullable<FeedItem["routeTarget"]> = item.routeTarget ?? createFeedItemRouteTarget(item)!;
+    const routeTarget = item.routeTarget ?? createFeedItemRouteTarget(item);
     return {
       ...item,
       ranking: createFeedItemRanking(item, index, activeSortKey, keyword),
-      routeTarget,
+      ...(routeTarget ? { routeTarget } : {}),
     };
   });
 }

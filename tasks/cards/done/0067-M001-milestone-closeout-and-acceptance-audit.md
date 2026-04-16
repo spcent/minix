@@ -95,11 +95,11 @@ Prevent the release milestone from remaining indefinitely half-open after the ac
 ## Completion Record
 
 - milestone closeout source:
-  - [`tasks/milestones/M001-v1.0-release-readiness.md`](/Users/bingrong.yan/projects/birdor/minix/tasks/milestones/M001-v1.0-release-readiness.md)
+  - [`tasks/milestones/M001-v1.0-release-readiness.md`](/tasks/milestones/M001-v1.0-release-readiness.md)
 - linked evidence:
-  - [`CHANGELOG.md`](/Users/bingrong.yan/projects/birdor/minix/CHANGELOG.md)
-  - [`docs/RELEASE_v1.0.0.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_v1.0.0.md)
-  - [`docs/VERIFICATION_LOG.md`](/Users/bingrong.yan/projects/birdor/minix/docs/VERIFICATION_LOG.md)
-  - [`docs/PRODUCTION_READINESS.md`](/Users/bingrong.yan/projects/birdor/minix/docs/PRODUCTION_READINESS.md)
+  - [`CHANGELOG.md`](/CHANGELOG.md)
+  - [`docs/RELEASE_v1.0.0.md`](/docs/RELEASE_v1.0.0.md)
+  - [`docs/VERIFICATION_LOG.md`](/docs/VERIFICATION_LOG.md)
+  - [`docs/PRODUCTION_READINESS.md`](/docs/PRODUCTION_READINESS.md)
 - verification note:
   - docs-only milestone closeout; no additional runtime changes were introduced in this card closeout

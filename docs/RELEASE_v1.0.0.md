@@ -44,7 +44,7 @@
 - real provider credentials and callback registrations are operator-owned and are not committed in tracked source
 - WeChat request, upload, and download allowlists must be configured against the deployed API domain before preview or production validation
 - payment production-mode callback verification requires `MINIX_PAYMENT_WEBHOOK_SECRET`
-- capability support, provider setup, and accepted deferred issues are documented in [`docs/PRODUCTION_READINESS.md`](/Users/bingrong.yan/projects/birdor/minix/docs/PRODUCTION_READINESS.md)
+- capability support, provider setup, and accepted deferred issues are documented in [`docs/PRODUCTION_READINESS.md`](/docs/PRODUCTION_READINESS.md)
 
 ## Accepted Deferred Issues
 
@@ -56,7 +56,7 @@
 
 ## Links
 
-- changelog entry: [`CHANGELOG.md`](/Users/bingrong.yan/projects/birdor/minix/CHANGELOG.md)
-- runbook: [`docs/RELEASE_RUNBOOK.md`](/Users/bingrong.yan/projects/birdor/minix/docs/RELEASE_RUNBOOK.md)
-- milestone: [`tasks/milestones/M001-v1.0-release-readiness.md`](/Users/bingrong.yan/projects/birdor/minix/tasks/milestones/M001-v1.0-release-readiness.md)
-- verification log: [`docs/VERIFICATION_LOG.md`](/Users/bingrong.yan/projects/birdor/minix/docs/VERIFICATION_LOG.md)
+- changelog entry: [`CHANGELOG.md`](/CHANGELOG.md)
+- runbook: [`docs/RELEASE_RUNBOOK.md`](/docs/RELEASE_RUNBOOK.md)
+- milestone: [`tasks/milestones/M001-v1.0-release-readiness.md`](/tasks/milestones/M001-v1.0-release-readiness.md)
+- verification log: [`docs/VERIFICATION_LOG.md`](/docs/VERIFICATION_LOG.md)

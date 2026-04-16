@@ -30,9 +30,156 @@ Status labels:
 | 12 | Share | `partial`, `sample-provider` | `packages/contracts/src/api/share.ts`, `packages/features/media-tools/src/controller/index.ts`, `apps/api/src/domains/share/routes.ts`, `apps/api/src/domains/share/attribution.ts` | `apps/host-h5:/media-tools`, `apps/host-wechat:/pages/mediaTools/index`, `apps/novel-h5:/media-tools`, `apps/novel-wechat:/pages/mediaTools/index` | no blocked host route remains; short-link and poster provider posture is now explicit and production-safe in returned metadata, and the remaining gap is operator-owned rollout of the actual short-link and poster backends | `0245-share-provider-rollout-and-attribution-ops.md` |
 | 13 | Feedback | `implemented` | `packages/contracts/src/api/feedback.ts`, `packages/features/feedback/src/controller/index.ts`, `apps/api/src/domains/feedback/routes.ts`, `apps/api/src/domains/feedback/support.ts` | `apps/host-h5:/feedback`, `apps/host-wechat:/pages/feedback/index`, `apps/novel-h5:/feedback`, `apps/novel-wechat:/pages/feedback/index` | no blocked host route remains; novel hosts now expose the shared feedback and support entry surface directly | `—` |
 
+## Expanded Functional Matrix
+
+This section expands each domain beyond route ownership and host exposure so future contract or feature work can track:
+
+- the expected capability slices inside the domain
+- the shared workflow or state transitions that must stay explicit
+- the main cross-domain coordination points
+- the normalized outputs that host surfaces should be able to consume
+
+| Domain | Expanded Capability Scope | Workflow and State Model | Cross-domain Coordination | Common Outputs |
+|---|---|---|---|---|
+| Login | WeChat code login, phone verification-code login, password login, guest posture, reserved OAuth login and bind entry | login, refresh, logout, silent renewal, session restore, expiry handling, guest upgrade, phone binding, account merge, forced relogin | auth guard, login redirect restore, source-page passthrough, device identity, risk fields, rate limiting, abnormal-login prompt | `session`, `identity`, `authStatus`, `redirectTarget` |
+| User | profile, account summary, identity bindings, real-name posture, assets, levels, membership, relationship graph, blacklist and remark-name posture | enabled, frozen, cancellation-in-progress, blacklisted, guest, merged-account recovery posture | login identity, payment entitlements, settings edits, feedback context, search-by-user, relation-driven exposure | `userProfile`, `accountSummary`, `userStatus` |
+| Settings | language, theme, font size, notification toggles, privacy toggles, cache and network policy, autoplay, weak-network mode, account actions, debug and experiment switches | bootstrap defaults, persisted preferences, local override vs server sync, versioned migration, environment/debug visibility | user profile edits, login security posture, reader or content preference writes, message delivery switches, upload/share degraded-mode controls | `preferences`, `featureToggles`, `privacyOptions` |
+| Messages | system notifications, business notifications, activity notices, review notices, private threads, consultation threads, support threads, reserved group-chat posture | unread count, read receipt, sticky threads, do-not-disturb, polling or sync mode, pagination, grouped sections, batch read | login-required inbox access, feedback/support loop, content or order notifications, subscription-message or push abstraction | `notificationList`, `messageThread`, `unreadBadge` |
+| Payment | order creation, pending and paid flows, close, cancel, refund, membership purchase, subscription goods, one-time virtual goods, value-added services | intent creation, callback verification, state polling, duplicate-pay protection, entitlement activation, reconciliation and refund lifecycle | login identity, content access unlock, user assets, order-center list/detail, risk-control and provider configuration | `order`, `paymentIntent`, `paymentResult`, `entitlement` |
+| Content | article, course, consultation service, tool configuration, post, event, labels, categories, topics, recommendation slots, featured and pinned posture | draft, published, offline, under-review, rejected, updated, archived, deleted, restored, access-gated visibility | search indexing, list and detail rendering, payment entitlement checks, share landing pages, feedback or report linkage | `contentCard`, `contentDetail`, `contentAccess` |
+| Search | keyword search, suggestions, search history, hot terms, title/body/tag/author/category/location dimensions, typo recovery, no-result posture | recent-history persistence, parameter write-back to route, pagination, filter state, sort state, scoped search vs global search | content, user, order, and message entry surfaces; list state recovery; analytics and recommendation feedback loops | `searchQuery`, `searchFilters`, `searchResults` |
+| List | feed, table, card stream, grid, grouped list, pull-to-refresh, append pagination, incremental update, retry, skeleton, partial-data posture | loading, empty, error, partial, restoring, selected-item recovery, sticky headers, batch selection, sort and filter switching | content feeds, order lists, inbox lists, consultation history, search result containers, detail back-navigation continuity | `items`, `pagination`, `filters`, `selectedItemId` |
+| Detail | content detail, order detail, user detail, consultation detail, tool-result detail, related blocks, comments, attachments, operation bar | loading, refresh, stale, deleted, unavailable, forbidden, offline, share-entry recovery, deep-link recovery, action availability | list-to-detail continuity, share-to-detail restore, payment and consult actions, favorite and like posture, edit or delete gating | `detailData`, `detailStatus`, `detailActions` |
+| Form | registration, login completion, consultation booking, payment confirmation, content publishing, feedback submission, step forms, approval forms, conditional fields | draft save, final submit, duplicate-submit protection, sync and async validation, dynamic fields, conditional reveal, result-page handoff | login identity completion, content authoring, payment confirmation, upload attachment binding, feedback context capture | `formValues`, `validationErrors`, `submitState` |
+| Upload | image, audio, video, PDF, avatar, attachment; compression, reserved chunking, progress, retry, cancel, preview, derived metadata | size/type validation, moderation posture, expiry cleanup, thumbnail or cover extraction, upload failure classification | content authoring, feedback screenshots, user avatar updates, share-poster assets, platform-specific picker behavior | `uploadTask`, `uploadAsset`, `uploadError` |
+| Share | page share, content share, invite share, event-poster share, WeChat session, timeline, copy link, poster image, short-link and channel markers | attribution capture, callback or return recognition, conversion-source recovery, poster generation, channel-specific degradation | content landing, growth and referral loops, auth callback binding, media-tools workspace, payment or campaign conversion measurement | `sharePayload`, `shareChannel`, `shareAttribution` |
+| Feedback | problem reports, suggestions, complaints, abuse reports, satisfaction surveys, FAQ handoff, support tickets, processing-progress visibility | ticket creation, status progression, callback or revisit posture, screenshot attachment context, category and priority routing, revisit tagging | account identity, device and version context, payment/content/order issue routing, message/support follow-up, moderation workflows | `feedbackTicket`, `feedbackCategory`, `feedbackStatus` |
+
+## Cross-domain Dependency Notes
+
+Use these dependency rules when deciding whether a change belongs in `contracts`, `core`, a feature package, or only a host surface:
+
+- `login` is the source domain for route guards, redirect restore, and identity upgrade; avoid reimplementing auth-state transitions in downstream features.
+- `user` and `settings` should stay the profile-and-preference center of gravity; downstream domains may project summaries, but should not fork profile or preference state models.
+- `messages`, `feedback`, and `share` all collect cross-domain context; normalize identifiers and route metadata in shared contracts instead of inventing per-domain envelope shapes.
+- `payment` and `content` jointly decide entitlement and access; access gating should remain explicit in contracts instead of being implied by page-local booleans.
+- `search`, `list`, `detail`, and `form` are cross-domain interaction protocols; prefer extending shared page-state primitives before adding one-off workflow flags.
+- `upload` is infrastructure-like but still business-visible; provider mode, moderation status, and derived asset metadata should remain inspectable in returned payloads.
+
+## Implementation Mapping Matrix
+
+Use this table when converting a domain idea into repo-local changes. Start from the leftmost stable layer and only move right when the shared surface truly requires it.
+
+| Domain | Primary Contract Files | Primary Feature Or Runtime Owners | Primary API Domain Files | Host Route Families |
+|---|---|---|---|---|
+| Login | `packages/contracts/src/api/auth.ts` | `packages/features/auth/src/index.ts`, `packages/core/src/runtime/auth.ts`, `packages/core/src/runtime/session.ts`, `packages/core/src/runtime/auth-redirect.ts` | `apps/api/src/domains/auth/routes.ts`, `apps/api/src/domains/auth/provider.ts`, `apps/api/src/domains/auth/security.ts`, `apps/api/src/domains/auth/session.ts` | `host-h5:/`, `host-wechat:/pages/login/index`, `novel-h5:/login`, `novel-wechat:/pages/login/index`, plus identity routes on generic hosts |
+| User | `packages/contracts/src/api/user.ts` | `packages/features/account/src/index.ts` | `apps/api/src/domains/account/routes.ts`, `apps/api/src/domains/account/routes.identity.ts`, `apps/api/src/domains/account/routes.relations.ts`, `apps/api/src/domains/account/profile.ts`, `apps/api/src/domains/account/current-user.ts` | `host-h5:/account`, `host-wechat:/pages/account/index`, `novel-h5:/account`, `novel-wechat:/pages/account/index` |
+| Settings | `packages/contracts/src/api/settings.ts` | `packages/features/settings/src/index.ts`, `packages/core/src/store/settings.ts` | `apps/api/src/domains/settings/routes.ts`, `apps/api/src/domains/settings/state.ts` | `host-h5:/preferences`, `host-wechat:/pages/settings/index`, `novel-h5:/preferences`, `novel-wechat:/pages/settings/index` |
+| Messages | `packages/contracts/src/api/message.ts` | `packages/features/messages/src/index.ts`, shared list and detail protocols in `packages/core/src/page-protocols` | `apps/api/src/domains/messages/routes.ts`, `apps/api/src/domains/messages/threads.ts`, `apps/api/src/domains/messages/notifications.ts`, `apps/api/src/domains/messages/touchpoints.ts` | `host-h5:/inbox`, `host-wechat:/pages/messages/index`, `novel-h5:/inbox`, `novel-wechat:/pages/messages/index` |
+| Payment | `packages/contracts/src/api/payment.ts`, `packages/contracts/src/api/membership.ts` | `packages/features/subscription/src/index.ts`, embedded list and detail protocol adoption in `packages/core/src/page-protocols` | `apps/api/src/domains/payment/routes.ts`, `apps/api/src/domains/payment/routes.commerce.ts`, `apps/api/src/domains/payment/routes.after-sales.ts`, `apps/api/src/domains/payment/routes.callbacks.ts`, `apps/api/src/domains/payment/orders.ts`, `apps/api/src/domains/payment/subscriptions.ts` | `host-h5:/membership`, `/orders`; `host-wechat:/pages/membership/index`, `/pages/orders/index`; `novel-h5:/membership`; `novel-wechat:/pages/membership/index` |
+| Content | `packages/contracts/src/api/content.ts`, `packages/contracts/src/api/feed.ts`, `packages/contracts/src/api/novels.ts`, `packages/contracts/src/api/novel-detail.ts`, `packages/contracts/src/api/chapters.ts`, `packages/contracts/src/api/bookshelf.ts`, `packages/contracts/src/api/reading-progress.ts` | `packages/features/feed/src/index.ts`, `packages/features/catalog/src/index.ts`, `packages/features/novel-detail/src/index.ts`, `packages/features/reader/src/index.ts`, `packages/features/bookshelf/src/index.ts`, `packages/features/toc/src/index.ts` | `apps/api/src/domains/content/routes.ts`, `apps/api/src/domains/content/feed.ts`, `apps/api/src/domains/content/novels.ts`, `apps/api/src/domains/content/managed-content.ts` | `host-h5:/discover`; `host-wechat:/pages/feed/index`; `novel-h5:/`, `/discover`, `/books`, `/novel/detail`, `/reader`; `novel-wechat:/pages/feed/index`, `/pages/catalog/index`, `/pages/novelDetail/index`, `/pages/reader/index` |
+| Search | `packages/contracts/src/api/search.ts`, supporting search fields in `packages/contracts/src/api/content.ts` | `packages/features/feed/src/index.ts`, `packages/core/src/runtime/search.ts` | `apps/api/src/domains/content/search.ts`, `apps/api/src/domains/content/feed.ts` | `host-h5:/discover`, `host-wechat:/pages/feed/index`, `novel-h5:/discover`, `novel-wechat:/pages/feed/index` |
+| List | shared list state in `packages/core/src/page-protocols/list.ts` plus domain-specific contracts such as `items`, `message`, `payment`, `content` | `packages/features/items/src/index.ts`, `packages/features/feed/src/index.ts`, `packages/features/messages/src/index.ts`, `packages/features/subscription/src/index.ts` | domain list endpoints under `apps/api/src/domains/items`, `content`, `messages`, and `payment` | `host-h5:/items`, `/discover`, `/inbox`, `/orders`; `host-wechat:/pages/items/index`, `/pages/feed/index`, `/pages/messages/index`, `/pages/orders/index`; novel discover and inbox surfaces |
+| Detail | shared detail state in `packages/core/src/page-protocols/detail.ts` plus domain-specific contracts such as `novel-detail`, `payment`, `message`, `user` | `packages/features/novel-detail/src/index.ts`, `packages/features/messages/src/index.ts`, `packages/features/subscription/src/index.ts` | domain detail endpoints under `apps/api/src/domains/content`, `messages`, `payment`, and `account` | novel detail and reader routes, plus embedded thread and order detail in generic-host inbox and commerce routes |
+| Form | shared form state in `packages/core/src/page-protocols/form.ts` plus `auth`, `feedback`, `content`, and `user` contracts | `packages/features/account/src/index.ts`, `packages/features/feedback/src/index.ts`, `packages/features/feed/src/index.ts`, auth credential flows in `packages/features/auth/src/index.ts` | API mutation endpoints under `apps/api/src/domains/auth`, `feedback`, `content`, `account`, and `payment` | account, feedback, discover authoring, login, identity, and commerce-confirmation surfaces |
+| Upload | `packages/contracts/src/api/upload.ts` | `packages/features/media-tools/src/index.ts` | `apps/api/src/domains/uploads/routes.ts`, `apps/api/src/domains/uploads/pipeline.ts` | `host-h5:/media-tools`, `host-wechat:/pages/mediaTools/index`, `novel-h5:/media-tools`, `novel-wechat:/pages/mediaTools/index`, plus embedded attachment flows |
+| Share | `packages/contracts/src/api/share.ts` | `packages/features/media-tools/src/index.ts` | `apps/api/src/domains/share/routes.ts`, `apps/api/src/domains/share/attribution.ts` | `host-h5:/media-tools`, `host-wechat:/pages/mediaTools/index`, `novel-h5:/media-tools`, `novel-wechat:/pages/mediaTools/index` |
+| Feedback | `packages/contracts/src/api/feedback.ts` | `packages/features/feedback/src/index.ts` | `apps/api/src/domains/feedback/routes.ts`, `apps/api/src/domains/feedback/support.ts`, `apps/api/src/domains/feedback/tickets.ts` | `host-h5:/feedback`, `host-wechat:/pages/feedback/index`, `novel-h5:/feedback`, `novel-wechat:/pages/feedback/index` |
+
+## Priority Follow-up Queue
+
+This queue is intentionally narrower than the expanded capability list above. It focuses on follow-up work that still fits the frozen `v1.0` sample surface rather than opening new product breadth.
+
+| Priority | Candidate Slice | Why It Matters | Likely Owned Files | Suggested Gate |
+|---|---|---|---|---|
+| `P0` | [`0247-release-follow-up-queue-coordination.md`](../tasks/cards/active/0247-release-follow-up-queue-coordination.md) | auth, messages, payment, upload, and share still depend on operator-owned production rollout even though repo posture is closed | `docs/DOMAIN_COMPLETENESS_MATRIX.md`, `tasks/cards/active/0241-0246` | `pnpm verify:release` plus recorded manual validation |
+| `P1` | [`0248-shared-output-envelope-normalization-audit.md`](../tasks/cards/active/0248-shared-output-envelope-normalization-audit.md) | the expanded matrix now names canonical outputs, but not every domain documents the exact cross-host output shape and recovery metadata at the same level of detail | `docs/BACKEND_CONTRACT.md`, `packages/contracts/src/api/*.ts`, selected feature controllers | `pnpm verify` |
+| `P1` | [`0249-user-and-settings-summary-alignment.md`](../tasks/cards/active/0249-user-and-settings-summary-alignment.md) | account, identity, preference, and debug posture are exposed across multiple hosts and should keep one shared summary model instead of host-local projections drifting | `packages/contracts/src/api/user.ts`, `packages/contracts/src/api/settings.ts`, `packages/features/account`, `packages/features/settings`, account and settings host surfaces | `pnpm verify:feature account`, `pnpm verify:feature settings` |
+| `P1` | [`0250-content-search-and-discover-output-alignment.md`](../tasks/cards/active/0250-content-search-and-discover-output-alignment.md) | discover is already the shared cross-host entry, so ranking, filter persistence, content-card shape, and managed-content draft posture should stay contract-led instead of host-led | `packages/contracts/src/api/content.ts`, `feed.ts`, `search.ts`, `packages/features/feed`, `packages/features/catalog`, `apps/api/src/domains/content/*` | `pnpm verify:feature feed` |
+| `P2` | [`0251-page-protocol-adoption-gap-audit-refresh.md`](../tasks/cards/active/0251-page-protocol-adoption-gap-audit-refresh.md) | list, detail, and form protocol notes are present, but future changes can silently regress into feature-local flags unless the audit is refreshed after larger controller work | `docs/DOMAIN_COMPLETENESS_MATRIX.md`, `packages/core/src/page-protocols/*`, affected feature packages | `pnpm verify` |
+| `P2` | [`0252-cross-domain-context-envelope-audit.md`](../tasks/cards/active/0252-cross-domain-context-envelope-audit.md) | these domains all capture route, asset, and actor context; inconsistent envelopes would create avoidable host-specific adapters later | `packages/contracts/src/api/message.ts`, `share.ts`, `upload.ts`, `feedback.ts`, corresponding API domains and feature controllers | `pnpm verify` |
+
+### Queue Rules
+
+- `P0` follow-ups should not broaden the product surface; they should only close release, provider, and rollout posture for the frozen samples.
+- `P1` follow-ups may normalize shared contracts or feature outputs when that reduces drift across the four official hosts.
+- `P2` follow-ups should be audit or hygiene slices unless a higher-priority regression pulls them forward.
+- If a proposed change needs a new top-level package, a new host family, or a new broad UI abstraction, it is outside this queue and should first reopen scope in `README.md`, `docs/ROADMAP.md`, and `docs/ARCHITECTURE.md`.
+
+## Recommended Execution Order
+
+Use the active cards in this order unless a release-blocking regression forces a different path:
+
+1. [`0247-release-follow-up-queue-coordination.md`](../tasks/cards/active/0247-release-follow-up-queue-coordination.md)
+   Establish the queue owner, the bundle-level closeout criteria, and the dependency view across `0241` through `0246` before the release rollout starts drifting into parallel undocumented work.
+2. `0241` through `0246` as one `P0` rollout bundle
+   Execute auth, messages, payment, upload, share, and final release signoff as the production-rollout path for the frozen `v1.0` sample surface. These cards may run in parallel operationally, but they should report through the coordination posture defined by `0247`.
+3. [`0248-shared-output-envelope-normalization-audit.md`](../tasks/cards/active/0248-shared-output-envelope-normalization-audit.md)
+   Normalize the shared vocabulary for domain outputs before touching narrower feature slices. This is the baseline contract audit that keeps `0249`, `0250`, and `0252` from solving the same naming drift independently.
+4. [`0249-user-and-settings-summary-alignment.md`](../tasks/cards/active/0249-user-and-settings-summary-alignment.md) and [`0250-content-search-and-discover-output-alignment.md`](../tasks/cards/active/0250-content-search-and-discover-output-alignment.md)
+   Run these after `0248` because they are feature-focused normalizations built on top of the shared envelope vocabulary. They can proceed in parallel if ownership stays disjoint.
+5. [`0252-cross-domain-context-envelope-audit.md`](../tasks/cards/active/0252-cross-domain-context-envelope-audit.md)
+   Audit context-heavy envelopes after the core output vocabulary is stable, so route, actor, and asset metadata can be normalized against the same field language.
+6. [`0251-page-protocol-adoption-gap-audit-refresh.md`](../tasks/cards/active/0251-page-protocol-adoption-gap-audit-refresh.md)
+   Run the protocol adoption audit last so it can evaluate the post-normalization state of controllers and shared outputs instead of auditing a surface that is about to change underneath it.
+
+### Parallelism Notes
+
+- `0241` through `0246` may advance in parallel because they are operator-owned rollout tracks, but `0247` should remain the coordination source of truth.
+- `0249` and `0250` are the best parallel engineering pair after `0248` completes because one targets account or settings summaries and the other targets discover or content-search outputs.
+- `0251` should not start before `0249` and `0250` settle, otherwise the audit will mostly record known temporary drift.
+- `0252` may overlap the end of `0249` or `0250` if the shared output vocabulary from `0248` is already stable.
+
+## Owner Checklist
+
+Use this checklist to assign the active queue by delivery function instead of only by card number.
+
+### Product
+
+- own the release acceptance posture for [`0247-release-follow-up-queue-coordination.md`](../tasks/cards/active/0247-release-follow-up-queue-coordination.md) and [`0246-release-execution-and-signoff.md`](../tasks/cards/active/0246-release-execution-and-signoff.md)
+- confirm whether polling-only message sync remains acceptable for [`0242-message-provider-rollout-and-polling-acceptance.md`](../tasks/cards/active/0242-message-provider-rollout-and-polling-acceptance.md)
+- confirm the canonical domain outputs named in [`0248-shared-output-envelope-normalization-audit.md`](../tasks/cards/active/0248-shared-output-envelope-normalization-audit.md)
+- sign off on intentional user, settings, content, and discover exceptions documented by [`0249-user-and-settings-summary-alignment.md`](../tasks/cards/active/0249-user-and-settings-summary-alignment.md) and [`0250-content-search-and-discover-output-alignment.md`](../tasks/cards/active/0250-content-search-and-discover-output-alignment.md)
+- review any explicit protocol or context-envelope exceptions surfaced by [`0251-page-protocol-adoption-gap-audit-refresh.md`](../tasks/cards/active/0251-page-protocol-adoption-gap-audit-refresh.md) and [`0252-cross-domain-context-envelope-audit.md`](../tasks/cards/active/0252-cross-domain-context-envelope-audit.md)
+
+### Backend
+
+- own provider and environment rollout for [`0241-auth-provider-operator-rollout.md`](../tasks/cards/active/0241-auth-provider-operator-rollout.md), [`0243-payment-merchant-rollout-and-callback-ops.md`](../tasks/cards/active/0243-payment-merchant-rollout-and-callback-ops.md), [`0244-upload-provider-rollout-and-asset-host-cutover.md`](../tasks/cards/active/0244-upload-provider-rollout-and-asset-host-cutover.md), and [`0245-share-provider-rollout-and-attribution-ops.md`](../tasks/cards/active/0245-share-provider-rollout-and-attribution-ops.md)
+- own external delivery and fallback posture for [`0242-message-provider-rollout-and-polling-acceptance.md`](../tasks/cards/active/0242-message-provider-rollout-and-polling-acceptance.md)
+- drive contract and API-domain normalization in [`0248-shared-output-envelope-normalization-audit.md`](../tasks/cards/active/0248-shared-output-envelope-normalization-audit.md)
+- drive account, settings, content, and discover output alignment in [`0249-user-and-settings-summary-alignment.md`](../tasks/cards/active/0249-user-and-settings-summary-alignment.md) and [`0250-content-search-and-discover-output-alignment.md`](../tasks/cards/active/0250-content-search-and-discover-output-alignment.md)
+- normalize shared context envelopes in [`0252-cross-domain-context-envelope-audit.md`](../tasks/cards/active/0252-cross-domain-context-envelope-audit.md)
+
+### Frontend
+
+- validate host-visible auth, inbox, account, settings, discover, media-tools, and feedback behavior against the outputs normalized by [`0248-shared-output-envelope-normalization-audit.md`](../tasks/cards/active/0248-shared-output-envelope-normalization-audit.md)
+- own shared feature-controller alignment for [`0249-user-and-settings-summary-alignment.md`](../tasks/cards/active/0249-user-and-settings-summary-alignment.md) and [`0250-content-search-and-discover-output-alignment.md`](../tasks/cards/active/0250-content-search-and-discover-output-alignment.md)
+- verify host route write-back, route recovery, and embedded-detail behavior before [`0251-page-protocol-adoption-gap-audit-refresh.md`](../tasks/cards/active/0251-page-protocol-adoption-gap-audit-refresh.md) closes
+- review message, upload, share, and feedback context capture from a host-consumer point of view during [`0252-cross-domain-context-envelope-audit.md`](../tasks/cards/active/0252-cross-domain-context-envelope-audit.md)
+- report any place where host presentation is compensating for a shared contract mismatch instead of a true host-specific requirement
+
+### Release
+
+- run [`0247-release-follow-up-queue-coordination.md`](../tasks/cards/active/0247-release-follow-up-queue-coordination.md) as the source of truth for rollout order, blockers, and closeout criteria
+- collect provider, deployment, and manual validation evidence for [`0241-auth-provider-operator-rollout.md`](../tasks/cards/active/0241-auth-provider-operator-rollout.md) through [`0246-release-execution-and-signoff.md`](../tasks/cards/active/0246-release-execution-and-signoff.md)
+- keep `docs/PRODUCTION_READINESS.md`, `docs/RELEASE_RUNBOOK.md`, and `docs/VERIFICATION_LOG.md` synchronized as the release-facing evidence set
+- require explicit signoff for provider mode, polling acceptance, merchant callback posture, asset host rollout, attribution validation, and final go or no-go
+- ensure the release bundle is not marked complete until `0241` through `0246` are all closed and their evidence is reflected in the release docs
+
+### Handoff Points
+
+- Product to Backend:
+  confirm the intended output vocabulary and the acceptable degraded or provider-fallback posture before backend contract or rollout work closes.
+- Backend to Frontend:
+  confirm the final payload shape and any intentional exceptions before frontend starts compensating in host code.
+- Frontend to Release:
+  provide host-visible validation notes and route-recovery proof for the release evidence set.
+- Release to Product:
+  surface unresolved rollout exceptions explicitly as go or no-go inputs instead of burying them in execution logs.
+
 ## Completed Closure Batch
 
-The host-surface and protocol-adoption closure batch for `0211` through `0223` is complete and has been archived under [`tasks/cards/done`](/Users/bingrong.yan/projects/birdor/minix/tasks/cards/done).
+The host-surface and protocol-adoption closure batch for `0211` through `0223` is complete and has been archived under [`tasks/cards/done`](../tasks/cards/done).
 
 Completion order:
 

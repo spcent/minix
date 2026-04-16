@@ -6,7 +6,7 @@ Extract shared HTTP, trace, auth-header, and CORS helpers from the oversized API
 
 ## Goal
 
-Reduce [apps/api/src/app.ts](/Users/bingrong.yan/projects/birdor/minix/apps/api/src/app.ts) to app assembly responsibilities by moving reusable request/response infrastructure into dedicated modules.
+Reduce [apps/api/src/app.ts](/apps/api/src/app.ts) to app assembly responsibilities by moving reusable request/response infrastructure into dedicated modules.
 
 ## Milestone
 
