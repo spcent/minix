@@ -1,3 +1,5 @@
+import type { ActorContextSnapshot, SourceContextSnapshot } from "./context";
+
 export const NOTIFICATION_TYPES = ["system", "business", "campaign", "review"] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -199,6 +201,8 @@ export interface MessageThread {
   type: MessageThreadType;
   title: string;
   subtitle?: string;
+  sourceContext?: SourceContextSnapshot;
+  actorContext?: ActorContextSnapshot;
   participantLabels: string[];
   pinned: boolean;
   doNotDisturb: boolean;
@@ -344,6 +348,8 @@ export interface CreateMessageThreadRequest {
   title?: string;
   participantUserIds?: string[];
   sourceTicketId?: string;
+  sourceContext?: SourceContextSnapshot;
+  actorContext?: ActorContextSnapshot;
   replyPolicy?: MessageReplyPolicy;
 }
 

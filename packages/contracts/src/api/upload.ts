@@ -1,3 +1,5 @@
+import type { ActorContextSnapshot, SourceContextSnapshot } from "./context";
+
 export const UPLOAD_FILE_TYPES = ["image", "audio", "video", "pdf", "avatar", "attachment"] as const;
 export type UploadFileType = (typeof UPLOAD_FILE_TYPES)[number];
 
@@ -164,6 +166,8 @@ export interface UploadReference {
   ownerType: UploadReferenceOwnerType;
   ownerId: string;
   role: string;
+  sourceContext?: SourceContextSnapshot;
+  actorContext?: ActorContextSnapshot;
   attachedAt: string;
 }
 
@@ -226,6 +230,8 @@ export interface UploadAttachRequest {
     ownerType: UploadReferenceOwnerType;
     ownerId: string;
     role: string;
+    sourceContext?: SourceContextSnapshot;
+    actorContext?: ActorContextSnapshot;
   };
 }
 

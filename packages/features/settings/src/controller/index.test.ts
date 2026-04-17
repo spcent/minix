@@ -682,7 +682,17 @@ test("settings controller refreshes an expired session before hydrating preferen
   assert.equal(displaySection?.items[0]?.value, "Night contrast for late sessions");
   assert.equal(displaySection?.items[1]?.value, "Page mode for focused chapter reading");
   assert.equal(controller.store.getState().preferences?.language, "zh-CN");
+  assert.deepEqual(controller.store.getState().lockedSettingKeys, []);
   assert.ok(controller.store.getState().sections.some((section) => section.key === "common-preferences"));
+  assert.equal(
+    controller
+      .store
+      .getState()
+      .sections
+      .find((section) => section.key === "feature-toggles")
+      ?.items.some((item) => item.key === "feature-experiments-enabled" && item.value === true),
+    true,
+  );
 });
 
 test("settings controller clears an expired session and redirects when refresh is no longer valid", async () => {
@@ -914,6 +924,149 @@ test("settings controller can exercise device privacy and debug operations beyon
   );
   assert.equal(runtime.storageValues.has("reader.display"), false);
   assert.equal(runtime.storageValues.has("novel.reading-center"), false);
+});
+
+test("settings controller surfaces locked shared settings and developer lock summaries", async () => {
+  const runtime = createKernelStub();
+  runtime.setSettingsResponse({
+    preferences: {
+      language: "zh-CN",
+      theme: "system",
+      fontScale: "md",
+      notificationsEnabled: true,
+      device: {
+        cacheLabel: "Clear local cache only",
+        networkStrategy: "balanced",
+        autoplay: true,
+        weakNetworkMode: false,
+      },
+      account: {
+        profileEntryLabel: "Edit profile",
+        phoneEntryLabel: "Bind phone",
+        unbindEntryLabel: "Bind WeChat",
+        providerEntryLabel: "Linked providers",
+        cancellationEntryLabel: "Cancellation entry",
+      },
+      content: {
+        sortOrder: "recommended",
+        filterMode: "all",
+        readingMode: "scroll",
+        historyEnabled: true,
+      },
+      developerOptions: {
+        logsEnabled: false,
+        experimentsEnabled: false,
+      },
+    },
+    featureToggles: {
+      pushEnabled: true,
+      smsEnabled: false,
+      emailEnabled: false,
+      accountCenterEnabled: true,
+      readingSyncEnabled: true,
+      experimentsEnabled: false,
+    },
+    privacyOptions: {
+      profileVisibility: "signed_in_only",
+      profileVisibilityLabel: "Visible inside signed-in surfaces only",
+      personalizedRecommendations: true,
+      searchHistoryEnabled: true,
+      analyticsEnabled: true,
+      screenshotFeedbackEnabled: true,
+    },
+    effectivePolicy: {
+      notification: {
+        inAppEnabled: true,
+        subscriptionMessageEnabled: true,
+        pushEnabled: true,
+        smsEnabled: false,
+        emailEnabled: false,
+        eligibleChannels: ["in_app", "subscription_message", "push"],
+        stationFallbackEnabled: true,
+      },
+      privacy: {
+        profileVisibility: "signed_in_only",
+        profileSearchVisible: false,
+        relationSearchVisible: false,
+        personalizedRankingEnabled: true,
+        analyticsCollectionEnabled: true,
+      },
+      device: {
+        autoplayEnabled: true,
+        weakNetworkMode: false,
+        networkStrategy: "balanced",
+        uploadChunkSizeBytes: 65536,
+        diagnosticsEnabled: false,
+      },
+      developer: {
+        environment: "production",
+        logsEditable: false,
+        experimentsEditable: false,
+        logsEnabled: false,
+        experimentsEnabled: false,
+        lockedReason: "Developer diagnostics are locked in production.",
+      },
+    },
+    notificationChannels: [
+      {
+        channel: "push",
+        enabled: true,
+        unsubscribed: false,
+        providerKey: "push_sample",
+        providerLabel: "Sample Push Provider",
+        locale: "zh-CN",
+        fallbackToInApp: true,
+        statusLabel: "Sample Push Provider is active in sample mode for push delivery.",
+        unsubscribable: false,
+      },
+    ],
+    lockedSettingKeys: [
+      "preferences.developerOptions.logsEnabled",
+      "preferences.developerOptions.experimentsEnabled",
+      "featureToggles.experimentsEnabled",
+    ],
+  } satisfies SettingsResponse);
+
+  const controller = createSettingsController({
+    kernel: runtime.kernel,
+    loginRouteId: APP_ROUTE_IDS.login,
+    model: createSettingsPageModel({
+      title: "Settings",
+      sectionKey: "account",
+      logoutLabel: "Logout",
+      logoutValue: "Sign out",
+    }),
+  });
+
+  await controller.ensureAuthenticated();
+
+  assert.deepEqual(controller.store.getState().lockedSettingKeys, [
+    "preferences.developerOptions.logsEnabled",
+    "preferences.developerOptions.experimentsEnabled",
+    "featureToggles.experimentsEnabled",
+  ]);
+  assert.equal(
+    controller
+      .store
+      .getState()
+      .sections
+      .find((section) => section.key === "settings-summary")
+      ?.items.some(
+        (item) =>
+          item.key === "summary-developer-posture" &&
+          item.value === "Developer diagnostics are locked in production.",
+      ),
+    true,
+  );
+  assert.equal(
+    controller
+      .store
+      .getState()
+      .sections
+      .find((section) => section.key === "locked-settings")
+      ?.items.some((item) => item.label === "featureToggles.experimentsEnabled"),
+    true,
+  );
 });
 
 test("settings controller can manage notification channels and unsubscribe controls", async () => {

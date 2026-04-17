@@ -261,6 +261,28 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
         ownerType: payload.reference.ownerType,
         ownerId: payload.reference.ownerId,
         role: payload.reference.role,
+        ...(payload.reference.sourceContext
+          ? {
+              sourceContext: {
+                ...(payload.reference.sourceContext.pagePath ? { pagePath: payload.reference.sourceContext.pagePath } : {}),
+                ...(payload.reference.sourceContext.routeId ? { routeId: payload.reference.sourceContext.routeId } : {}),
+                ...(payload.reference.sourceContext.label ? { label: payload.reference.sourceContext.label } : {}),
+                ...(payload.reference.sourceContext.params ? { params: payload.reference.sourceContext.params } : {}),
+              },
+            }
+          : {}),
+        ...(payload.reference.actorContext
+          ? {
+              actorContext: {
+                ...(payload.reference.actorContext.userId ? { userId: payload.reference.actorContext.userId } : {}),
+                ...(payload.reference.actorContext.platform ? { platform: payload.reference.actorContext.platform } : {}),
+                ...(payload.reference.actorContext.appVersion ? { appVersion: payload.reference.actorContext.appVersion } : {}),
+                ...(payload.reference.actorContext.deviceSummary
+                  ? { deviceSummary: payload.reference.actorContext.deviceSummary }
+                  : {}),
+              },
+            }
+          : {}),
       },
     };
     const record = attachUploadRecord(existing, request);

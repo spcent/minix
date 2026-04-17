@@ -427,6 +427,8 @@ export function cloneFeedbackTicket(ticket: FeedbackTicket): FeedbackTicket {
     ...(ticket.sla ? { sla: { ...ticket.sla } } : {}),
     context: {
       ...ticket.context,
+      ...(ticket.context.sourceContext ? { sourceContext: { ...ticket.context.sourceContext } } : {}),
+      ...(ticket.context.actorContext ? { actorContext: { ...ticket.context.actorContext } } : {}),
       screenshotAssets: ticket.context.screenshotAssets.map((asset) => structuredClone(asset)),
       attachmentAssets: ticket.context.attachmentAssets.map((asset) => structuredClone(asset)),
     },
@@ -554,6 +556,10 @@ export function ensureFeedbackSupportThread(
   category: FeedbackCategory,
   description: string,
   now: string,
+  context?: {
+    sourceContext?: SubmitFeedbackRequest["context"]["sourceContext"];
+    actorContext?: SubmitFeedbackRequest["context"]["actorContext"];
+  },
 ): FeedbackSupportEntry | undefined {
   const seedSupportEntry = category.supportEntry;
   if (!seedSupportEntry) {
@@ -566,6 +572,8 @@ export function ensureFeedbackSupportThread(
       type: "customer_service",
       title: `${category.label}: ${ticketId}`,
       sourceTicketId: ticketId,
+      ...(context?.sourceContext ? { sourceContext: context.sourceContext } : {}),
+      ...(context?.actorContext ? { actorContext: context.actorContext } : {}),
     },
     now,
   );
@@ -595,6 +603,17 @@ export function createDefaultFeedbackContext(
     platform: request.platform,
     appVersion: request.appVersion,
     ...(request.deviceSummary ? { deviceSummary: request.deviceSummary } : {}),
+    sourceContext: request.sourceContext ?? {
+      pagePath: request.sourcePage,
+      ...(request.sourceRouteId ? { routeId: request.sourceRouteId } : {}),
+      ...(request.sourceLabel ? { label: request.sourceLabel } : {}),
+    },
+    actorContext: request.actorContext ?? {
+      userId: request.userId ?? session.userId,
+      platform: request.platform,
+      appVersion: request.appVersion,
+      ...(request.deviceSummary ? { deviceSummary: request.deviceSummary } : {}),
+    },
     screenshotAssets: request.screenshotAssets.map((asset) => structuredClone(asset)),
     attachmentAssets: request.attachmentAssets.map((asset) => structuredClone(asset)),
   };

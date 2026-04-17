@@ -370,6 +370,30 @@ function upsertFeedItem(items: FeedItem[], nextItem: FeedItem): FeedItem[] {
   return items.some((item) => item.id === nextItem.id) ? replaceFeedItem(items, nextItem) : [nextItem, ...items];
 }
 
+function replaceFeedItemInSearchResults(
+  searchResults: FeedState["searchResults"],
+  nextItem: FeedItem,
+): FeedState["searchResults"] {
+  if (!searchResults) {
+    return searchResults;
+  }
+
+  return {
+    ...searchResults,
+    items: upsertFeedItem(searchResults.items, nextItem),
+    ...(searchResults.resultGroups
+      ? {
+          resultGroups: searchResults.resultGroups.map((group) => ({
+            ...group,
+            items: group.items.some((item) => item.id === nextItem.id)
+              ? replaceFeedItem(group.items, nextItem)
+              : group.items,
+          })),
+        }
+      : {}),
+  };
+}
+
 function deriveSelectedContentId(state: FeedState): string | undefined {
   return state.items.find((item) => item.id === state.selectedItemId)?.contentCard?.contentId;
 }
@@ -658,22 +682,26 @@ export function createFeedController(options: CreateFeedControllerOptions) {
       id: contentId,
       title: response.contentCard.title,
       ...(response.contentCard.subtitle ? { subtitle: response.contentCard.subtitle } : {}),
-      eyebrow: currentItem?.eyebrow ?? "Content",
+      eyebrow: response.contentCard.display.category.label ?? currentItem?.eyebrow ?? "Content",
+      ...(response.contentCard.coverUrl ? { imageUrl: response.contentCard.coverUrl } : {}),
       ...(nextRecommendedReason !== undefined ? { recommendedReason: nextRecommendedReason } : {}),
-      ...(currentItem?.updatedAt ? { updatedAt: currentItem.updatedAt } : {}),
-      tag: currentItem?.tag ?? "content",
+      ...(response.contentCard.lifecycle.updatedAt
+        ? { updatedAt: response.contentCard.lifecycle.updatedAt }
+        : response.contentCard.lifecycle.publishedAt
+          ? { updatedAt: response.contentCard.lifecycle.publishedAt }
+          : currentItem?.updatedAt
+            ? { updatedAt: currentItem.updatedAt }
+            : {}),
+      tag: response.contentCard.display.category.key ?? currentItem?.tag ?? "content",
+      ...(currentItem?.ranking ? { ranking: currentItem.ranking } : {}),
+      ...(currentItem?.routeTarget ? { routeTarget: currentItem.routeTarget } : {}),
       contentCard: response.contentCard,
       contentAccess: response.contentAccess,
     };
     const nextItems = upsertFeedItem(state.items, nextItem);
     store.setState({
       items: nextItems,
-      searchResults: state.searchResults
-        ? {
-            ...state.searchResults,
-            items: upsertFeedItem(state.searchResults.items, nextItem),
-          }
-        : state.searchResults,
+      searchResults: replaceFeedItemInSearchResults(state.searchResults, nextItem),
       featuredReason: deriveFeaturedReason(nextItems, state.featuredReason),
       selectedItemId: nextItem.id,
       selection: createSelection(nextItem.id),

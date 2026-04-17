@@ -600,14 +600,24 @@ test("current user, settings, and discovery endpoints expose normalized shared o
   const feedPayload = (await feedResponse.json()) as {
     searchQuery: { keyword: string; mode: string; domain: string };
     searchFilters: Array<{ key: string; selectedKeys: string[] }>;
-    searchResults: { suggestionTerms: string[]; hotKeywords: string[] };
+    searchResults: {
+      suggestionTerms: string[];
+      hotKeywords: string[];
+      activeDomain?: string;
+      domainTabs?: Array<{ domain: string; total: number }>;
+      resultGroups?: Array<{ domain: string; total: number }>;
+    };
   };
   assert.equal(feedPayload.searchQuery.keyword, "travel");
   assert.equal(feedPayload.searchQuery.mode, "global");
   assert.equal(feedPayload.searchQuery.domain, "feed");
+  assert.deepEqual(feedPayload.searchFilters.find((group) => group.key === "domain")?.selectedKeys, []);
   assert.deepEqual(feedPayload.searchFilters.find((group) => group.key === "tag")?.selectedKeys, ["speaking"]);
   assert.equal(feedPayload.searchResults.hotKeywords.includes("travel"), true);
   assert.equal(feedPayload.searchResults.suggestionTerms.length > 0, true);
+  assert.equal(feedPayload.searchResults.activeDomain, "feed");
+  assert.equal(feedPayload.searchResults.domainTabs?.some((item) => item.domain === "feed" && item.total >= 1), true);
+  assert.equal(feedPayload.searchResults.resultGroups?.some((group) => group.domain === "feed" && group.total >= 1), true);
 
   const notificationsResponse = await app.request("http://localhost/notifications?type=system&onlyUnread=true", {
     headers: { authorization: `Bearer ${session.accessToken}` },
@@ -1434,6 +1444,17 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
         platform: "h5",
         appVersion: "1.0.0",
         deviceSummary: "platform:h5 · version:1.0.0",
+        sourceContext: {
+          pagePath: "/feedback",
+          routeId: "feedback.form",
+          label: "Feedback page",
+        },
+        actorContext: {
+          userId: session.userId,
+          platform: "h5",
+          appVersion: "1.0.0",
+          deviceSummary: "platform:h5 · version:1.0.0",
+        },
         screenshotAssets: [],
         attachmentAssets: [],
       },
@@ -1446,7 +1467,11 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
       title: string;
       revisitRequested: boolean;
       supportThreadId?: string;
-      context: { sourcePage: string };
+      context: {
+        sourcePage: string;
+        sourceContext?: { pagePath?: string; routeId?: string; label?: string };
+        actorContext?: { userId?: string; platform?: string };
+      };
     };
     feedbackCategory: { key: string };
     feedbackStatus: {
@@ -1462,6 +1487,8 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
   assert.equal(submitPayload.feedbackTicket.title, "Inbox route feels stale after refresh");
   assert.equal(submitPayload.feedbackTicket.revisitRequested, true);
   assert.equal(submitPayload.feedbackTicket.context.sourcePage, "/feedback");
+  assert.equal(submitPayload.feedbackTicket.context.sourceContext?.routeId, "feedback.form");
+  assert.equal(submitPayload.feedbackTicket.context.actorContext?.userId, session.userId);
   assert.equal(submitPayload.feedbackStatus.processingHistory.length > 0, true);
   assert.equal(typeof submitPayload.feedbackStatus.supportEntry?.threadId, "string");
   assert.equal(submitPayload.feedbackStatus.supportEntry?.threadId === "thread_customer_service", false);
@@ -1470,6 +1497,24 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
   assert.equal(submitPayload.feedbackStatus.assignee?.label, "Support Bot");
   assert.equal(submitPayload.feedbackStatus.sla?.label, "24 hour response");
   assert.equal(submitPayload.feedbackStatus.revisitAction?.enabled, true);
+
+  const supportThreadResponse = await app.request(
+    `http://localhost/messages/threads?type=customer_service&sourceTicketId=${submitPayload.feedbackTicket.ticketId}`,
+    { headers },
+  );
+  assert.equal(supportThreadResponse.status, 200);
+  const supportThreadPayload = (await supportThreadResponse.json()) as {
+    threadList: {
+      items: Array<{
+        supportProgress?: { ticketId?: string };
+        sourceContext?: { routeId?: string };
+        actorContext?: { userId?: string };
+      }>;
+    };
+  };
+  assert.equal(supportThreadPayload.threadList.items[0]?.supportProgress?.ticketId, submitPayload.feedbackTicket.ticketId);
+  assert.equal(supportThreadPayload.threadList.items[0]?.sourceContext?.routeId, "feedback.form");
+  assert.equal(supportThreadPayload.threadList.items[0]?.actorContext?.userId, session.userId);
 
   const ticketListResponse = await app.request("http://localhost/feedback/tickets?page=1&pageSize=10", {
     headers: { authorization: `Bearer ${session.accessToken}` },
@@ -1949,6 +1994,7 @@ test("upload endpoints expose production storage and review posture through env-
             fileType: "image",
             fileName: "production-screenshot.png",
             url: "https://example.test/local/production-screenshot.png",
+            coverImageUrl: "https://example.test/local/production-cover.png",
             metadata: {
               sizeBytes: 245760,
               width: 1440,
@@ -1964,7 +2010,7 @@ test("upload endpoints expose production storage and review posture through env-
   const created = (await sessionResponse.json()) as {
     session?: { sessionId: string };
     transfer?: { fileChecksum: string; checksumAlgorithm: "sha256"; chunks: Array<unknown> };
-    uploadAsset?: { url: string; thumbnailUrl?: string };
+    uploadAsset?: { url: string; thumbnailUrl?: string; coverImageUrl?: string };
     reviewRecord?: { provider: string; providerMode?: string; storageProvider?: string };
     uploadTask: { taskId: string };
   };
@@ -1973,6 +2019,7 @@ test("upload endpoints expose production storage and review posture through env-
   assert.equal(created.reviewRecord?.storageProvider, "cloudflare-r2");
   assert.equal(created.uploadAsset?.url.startsWith("https://assets.example.test/uploads/assets/"), true);
   assert.equal(created.uploadAsset?.thumbnailUrl?.startsWith("https://assets.example.test/uploads/assets/"), true);
+  assert.equal(created.uploadAsset?.coverImageUrl, "https://example.test/local/production-cover.png");
 
   for (const chunk of created.transfer?.chunks ?? []) {
     const chunkResponse = await app.request(
@@ -2035,6 +2082,10 @@ test("share endpoints preserve attribution through prepare and return recognitio
         scenario: "invite",
         title: "Invite a friend to MiniX",
         landingPath: "/login",
+        sourceContext: {
+          pagePath: "/workspace/media-tools",
+          label: "Media Tools",
+        },
         trackingParams: {
           channel: "host-h5",
           campaign: "invite",
@@ -2048,6 +2099,11 @@ test("share endpoints preserve attribution through prepare and return recognitio
         executable: true,
       },
       shareAttribution: {
+        actorContext: {
+          userId: session.userId,
+          platform: "h5",
+          appVersion: "1.0.0",
+        },
         inviteBindingEnabled: true,
         returnFlowRecognized: false,
         shareCount: 0,
@@ -2065,8 +2121,8 @@ test("share endpoints preserve attribution through prepare and return recognitio
   assert.equal(prepareResponse.status, 200);
   const prepared = (await prepareResponse.json()) as {
     landingTarget: { path?: string; shortLink?: string; shortCode?: string; authRedirect?: { path?: string; source?: string } };
-    sharePayload: { shareToken?: string; shortLink?: string };
-    shareAttribution: { attributionId?: string; preparedAt?: string };
+    sharePayload: { shareToken?: string; shortLink?: string; sourceContext?: { pagePath?: string } };
+    shareAttribution: { attributionId?: string; preparedAt?: string; actorContext?: { userId?: string } };
     shortLinkRecord?: { shortCode?: string; resolvedCount?: number };
     attributionReport?: { shareAttribution?: { returnCount?: number } };
   };
@@ -2075,8 +2131,10 @@ test("share endpoints preserve attribution through prepare and return recognitio
   assert.equal(Boolean(prepared.landingTarget.shortCode), true);
   assert.equal(prepared.landingTarget.authRedirect?.path, "/workspace/media-tools");
   assert.equal(Boolean(prepared.sharePayload.shareToken), true);
+  assert.equal(prepared.sharePayload.sourceContext?.pagePath, "/workspace/media-tools");
   assert.equal(Boolean(prepared.shareAttribution.attributionId), true);
   assert.equal(Boolean(prepared.shareAttribution.preparedAt), true);
+  assert.equal(prepared.shareAttribution.actorContext?.userId, session.userId);
   assert.equal(prepared.shortLinkRecord?.resolvedCount, 0);
   assert.equal(prepared.attributionReport?.shareAttribution?.returnCount, 0);
 

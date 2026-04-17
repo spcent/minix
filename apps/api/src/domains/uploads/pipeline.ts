@@ -188,6 +188,8 @@ function cloneUploadReference(reference: UploadReference): UploadReference {
     ownerType: reference.ownerType,
     ownerId: reference.ownerId,
     role: reference.role,
+    ...(reference.sourceContext ? { sourceContext: { ...reference.sourceContext } } : {}),
+    ...(reference.actorContext ? { actorContext: { ...reference.actorContext } } : {}),
     attachedAt: reference.attachedAt,
   };
 }
@@ -744,6 +746,8 @@ export function attachUploadRecord(
     ownerType: request.reference.ownerType,
     ownerId: request.reference.ownerId,
     role: request.reference.role,
+    ...(request.reference.sourceContext ? { sourceContext: { ...request.reference.sourceContext } } : {}),
+    ...(request.reference.actorContext ? { actorContext: { ...request.reference.actorContext } } : {}),
     attachedAt: now,
   };
   const duplicate = record.references.find(
@@ -933,6 +937,8 @@ export function bindUploadAssetsToOwner(
     ownerType: UploadAttachRequest["reference"]["ownerType"];
     ownerId: string;
     role: string;
+    sourceContext?: UploadAttachRequest["reference"]["sourceContext"];
+    actorContext?: UploadAttachRequest["reference"]["actorContext"];
     now?: string;
   },
 ) {
@@ -950,6 +956,8 @@ export function bindUploadAssetsToOwner(
           ownerType: input.ownerType,
           ownerId: input.ownerId,
           role: input.role,
+          ...(input.sourceContext ? { sourceContext: input.sourceContext } : {}),
+          ...(input.actorContext ? { actorContext: input.actorContext } : {}),
         },
       },
       now,

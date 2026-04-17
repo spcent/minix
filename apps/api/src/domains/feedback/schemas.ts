@@ -22,6 +22,22 @@ const feedbackContextSchema = z.object({
   platform: z.string().min(1),
   appVersion: z.string().min(1),
   deviceSummary: z.string().min(1).optional(),
+  sourceContext: z
+    .object({
+      pagePath: z.string().min(1).optional(),
+      routeId: z.string().min(1).optional(),
+      label: z.string().min(1).optional(),
+      params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+    })
+    .optional(),
+  actorContext: z
+    .object({
+      userId: z.string().min(1).optional(),
+      platform: z.string().min(1).optional(),
+      appVersion: z.string().min(1).optional(),
+      deviceSummary: z.string().min(1).optional(),
+    })
+    .optional(),
   screenshotAssets: z.array(uploadAssetSchema),
   attachmentAssets: z.array(uploadAssetSchema),
 });
@@ -89,6 +105,28 @@ export function normalizeSubmitFeedbackRequest(payload: z.infer<typeof submitFee
       platform: payload.context.platform,
       appVersion: payload.context.appVersion,
       ...(payload.context.deviceSummary !== undefined ? { deviceSummary: payload.context.deviceSummary } : {}),
+      ...(payload.context.sourceContext !== undefined
+        ? {
+            sourceContext: {
+              ...(payload.context.sourceContext.pagePath !== undefined ? { pagePath: payload.context.sourceContext.pagePath } : {}),
+              ...(payload.context.sourceContext.routeId !== undefined ? { routeId: payload.context.sourceContext.routeId } : {}),
+              ...(payload.context.sourceContext.label !== undefined ? { label: payload.context.sourceContext.label } : {}),
+              ...(payload.context.sourceContext.params !== undefined ? { params: payload.context.sourceContext.params } : {}),
+            },
+          }
+        : {}),
+      ...(payload.context.actorContext !== undefined
+        ? {
+            actorContext: {
+              ...(payload.context.actorContext.userId !== undefined ? { userId: payload.context.actorContext.userId } : {}),
+              ...(payload.context.actorContext.platform !== undefined ? { platform: payload.context.actorContext.platform } : {}),
+              ...(payload.context.actorContext.appVersion !== undefined ? { appVersion: payload.context.actorContext.appVersion } : {}),
+              ...(payload.context.actorContext.deviceSummary !== undefined
+                ? { deviceSummary: payload.context.actorContext.deviceSummary }
+                : {}),
+            },
+          }
+        : {}),
       screenshotAssets: payload.context.screenshotAssets.map(normalizeUploadAsset),
       attachmentAssets: payload.context.attachmentAssets.map(normalizeUploadAsset),
     },

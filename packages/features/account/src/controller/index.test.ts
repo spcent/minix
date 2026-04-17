@@ -560,9 +560,38 @@ test("account controller loads session-backed account details and remote profile
   assert.equal(controller.store.getState().authenticated, true);
   assert.equal(controller.store.getState().nickname, "Casey");
   assert.equal(controller.store.getState().subtitle, "Tags: member-ready, cross-host");
-  assert.equal(controller.store.getState().stats[0]?.label, "Membership");
+  assert.equal(controller.store.getState().stats.some((stat) => stat.key === "session"), true);
+  assert.equal(controller.store.getState().stats.some((stat) => stat.key === "membership"), true);
+  assert.equal(controller.store.getState().stats.some((stat) => stat.key === "wallet-balance"), true);
   assert.equal(controller.store.getState().sections[0]?.key, "identity");
   assert.equal(controller.store.getState().sections[1]?.key, "account");
+  assert.equal(
+    controller
+      .store
+      .getState()
+      .sections
+      .find((section) => section.key === "identity")
+      ?.items.some((item) => item.key === "gender" && item.value === "unknown"),
+    true,
+  );
+  assert.equal(
+    controller
+      .store
+      .getState()
+      .sections
+      .find((section) => section.key === "identity")
+      ?.items.some((item) => item.key === "tags" && item.value === "member-ready, cross-host"),
+    true,
+  );
+  assert.equal(
+    controller
+      .store
+      .getState()
+      .sections
+      .find((section) => section.key === "account")
+      ?.items.some((item) => item.key === "provider-count" && item.value === "1"),
+    true,
+  );
   assert.equal(controller.store.getState().assetLedgerEntries.length, 2);
   assert.equal(controller.store.getState().sections.some((section) => section.key === "asset-ledger"), true);
   assert.equal(controller.store.getState().sections.some((section) => section.key === "security-center"), true);
@@ -758,6 +787,20 @@ test("account controller can submit phone binding and refresh account state", as
 
   assert.equal(postCalls[0]?.path, "/auth/identity/bind-phone");
   assert.equal(controller.store.getState().transitionFeedback, "The current account is now bound to the verified phone number.");
+  assert.equal(
+    controller
+      .store
+      .getState()
+      .sections
+      .find((section) => section.key === "identity-workflows")
+      ?.items.some(
+        (item) =>
+          item.key === "last-workflow" &&
+          item.value === "The current account is now bound to the verified phone number." &&
+          item.hint === "phone_binding · completed",
+      ),
+    true,
+  );
 });
 
 test("account controller can update profile through the shared account endpoint", async () => {

@@ -1,5 +1,6 @@
 import type { UploadAsset } from "./upload";
 import type { AppRouteId } from "../routes/app";
+import type { ActorContextSnapshot, SourceContextSnapshot } from "./context";
 
 export const FEEDBACK_TYPES = ["issue_report", "suggestion", "complaint", "abuse_report", "satisfaction"] as const;
 export type FeedbackType = (typeof FEEDBACK_TYPES)[number];
@@ -113,6 +114,8 @@ export interface FeedbackContextCapture {
   platform: string;
   appVersion: string;
   deviceSummary?: string;
+  sourceContext?: SourceContextSnapshot;
+  actorContext?: ActorContextSnapshot;
   screenshotAssets: UploadAsset[];
   attachmentAssets: UploadAsset[];
 }

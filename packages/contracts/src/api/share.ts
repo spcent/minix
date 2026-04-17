@@ -1,4 +1,5 @@
 import type { AuthRedirectTarget } from "./auth";
+import type { ActorContextSnapshot, SourceContextSnapshot } from "./context";
 
 export const SHARE_SCENARIOS = ["page", "content", "invite", "poster"] as const;
 export type ShareScenario = (typeof SHARE_SCENARIOS)[number];
@@ -40,6 +41,7 @@ export interface SharePayload {
   contentId?: string;
   inviteCode?: string;
   shareToken?: string;
+  sourceContext?: SourceContextSnapshot;
   landingTarget?: ShareLandingTarget;
   returnTarget?: AuthRedirectTarget;
 }
@@ -54,6 +56,7 @@ export interface ShareChannel {
 export interface ShareAttribution {
   attributionId?: string;
   channelMarker?: string;
+  actorContext?: ActorContextSnapshot;
   inviteBindingEnabled: boolean;
   returnFlowRecognized: boolean;
   shareCount: number;

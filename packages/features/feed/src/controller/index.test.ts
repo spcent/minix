@@ -198,6 +198,15 @@ function createKernelStub() {
                 { key: "user", label: "User", count: 1 },
               ],
             },
+            {
+              key: "tag",
+              label: "Content type",
+              selectedKeys: [],
+              options: [
+                { key: "all", label: "All", count: 2 },
+                { key: "news", label: "News", count: 2 },
+              ],
+            },
           ],
           searchResults: {
             items:
@@ -297,6 +306,91 @@ function createKernelStub() {
               { domain: "feed", label: "Feed", total: 2, active: domain === "feed" },
               { domain: "user", label: "User", total: 1, active: domain === "user" },
             ],
+            resultGroups:
+              mode === "user" || domain === "user"
+                ? [
+                    {
+                      domain: "user",
+                      label: "Users",
+                      total: 1,
+                      items: [
+                        {
+                          id: "user-mentor",
+                          title: "MiniX Mentor",
+                          subtitle: "Suggested user",
+                          eyebrow: "User",
+                          tag: "user",
+                          recommendedReason: "Shared relation surface sample result",
+                          routeTarget: {
+                            routeId: APP_ROUTE_IDS.account,
+                            params: {
+                              targetUserId: "user-mentor",
+                            },
+                          },
+                        },
+                      ],
+                      featuredReason: "Shared relation surface sample result",
+                    },
+                  ]
+                : [
+                    {
+                      domain: "feed",
+                      label: "Feed",
+                      total: page === 1 ? 1 : 2,
+                      items:
+                        page === 1
+                          ? [
+                              {
+                                id: "story-1",
+                                title: "Story 1",
+                                tag: "news",
+                                recommendedReason: "Lead story for the current lane.",
+                                contentCard: {
+                                  contentId: "story-1",
+                                  model: "article",
+                                  title: "Story 1",
+                                  summary: "Lead story summary",
+                                  authorLabel: "Editorial",
+                                  display: {
+                                    category: { key: "news", label: "News" },
+                                    tags: [{ key: "news", label: "News" }],
+                                    topics: [{ key: "news", label: "News" }],
+                                    pinned: true,
+                                    featured: true,
+                                  },
+                                  lifecycle: {
+                                    state: "draft",
+                                    availableActions: ["publish", "change_visibility"],
+                                  },
+                                },
+                                contentAccess: {
+                                  visibility: "public",
+                                  accessible: true,
+                                  previewAvailable: true,
+                                  requiresLogin: false,
+                                  requiresMembership: false,
+                                  requiresPurchase: false,
+                                  summaryLabel: "Visible to everyone.",
+                                },
+                              },
+                            ]
+                          : [
+                              {
+                                id: "story-1",
+                                title: "Story 1",
+                                tag: "news",
+                                recommendedReason: "Lead story for the current lane.",
+                              },
+                              {
+                                id: "story-2",
+                                title: "Story 2",
+                                tag: "news",
+                                updatedAt: "2026-04-10T10:00:00.000Z",
+                              },
+                            ],
+                      featuredReason: "Lead story for the current lane.",
+                    },
+                  ],
           },
         };
         return ok(searchResponse as T);
@@ -531,12 +625,15 @@ test("feed controller loads feed items and derives the featured reason", async (
   assert.equal(controller.store.getState().selectedItemId, "story-1");
   assert.equal(controller.store.getState().pagination.page, 1);
   assert.equal(controller.store.getState().filters[0]?.key, "domain");
+  assert.equal(controller.store.getState().filters[1]?.key, "tag");
   assert.equal(controller.store.getState().selection.selectedItemIds[0], "story-1");
   assert.equal(controller.store.getState().status.loadState, "ready");
   assert.equal(controller.store.getState().featuredReason, "Lead story for the current lane.");
   assert.equal(controller.store.getState().tags[1]?.key, "news");
   assert.equal(controller.store.getState().searchQuery?.domain, "feed");
   assert.equal(controller.store.getState().searchResults?.total, 2);
+  assert.equal(controller.store.getState().searchResults?.activeDomain, "feed");
+  assert.equal(controller.store.getState().searchResults?.resultGroups?.[0]?.domain, "feed");
 });
 
 test("feed controller submits keyword searches and persists recent keywords", async () => {
@@ -772,6 +869,11 @@ test("feed controller can apply managed content lifecycle actions on the selecte
   });
   assert.equal(controller.store.getState().items[0]?.contentCard?.lifecycle.state, "published");
   assert.equal(controller.store.getState().items[0]?.contentAccess?.visibility, "member_only");
+  assert.equal(controller.store.getState().items[0]?.eyebrow, "News");
+  assert.equal(
+    controller.store.getState().searchResults?.resultGroups?.[0]?.items.find((item) => item.id === "story-1")?.contentCard?.lifecycle.state,
+    "published",
+  );
   assert.equal(controller.store.getState().contentTransitionFeedback, "Content published.");
 });
 
@@ -802,6 +904,12 @@ test("feed controller can save a managed content draft with attachment reference
   assert.equal(postCalls.at(-1)?.path, "/content/save-draft");
   assert.equal(controller.store.getState().items[0]?.contentCard?.lifecycle.state, "draft");
   assert.equal(controller.store.getState().items[0]?.contentCard?.coverUrl, "https://mock.minix.local/uploads/assets/asset-cover");
+  assert.equal(controller.store.getState().items[0]?.imageUrl, "https://mock.minix.local/uploads/assets/asset-cover");
+  assert.equal(controller.store.getState().items[0]?.eyebrow, "News");
+  assert.equal(
+    controller.store.getState().searchResults?.resultGroups?.[0]?.items.find((item) => item.id === "story-1")?.contentCard?.coverUrl,
+    "https://mock.minix.local/uploads/assets/asset-cover",
+  );
   assert.equal(controller.store.getState().contentTransitionFeedback, "Content draft saved.");
 });
 

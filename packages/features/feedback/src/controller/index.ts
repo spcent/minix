@@ -1049,6 +1049,17 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
           platform: values.platform,
           appVersion: values.appVersion,
           ...(values.deviceSummary ? { deviceSummary: values.deviceSummary } : {}),
+          sourceContext: {
+            pagePath: values.sourcePage,
+            ...(values.sourceRouteId ? { routeId: values.sourceRouteId } : {}),
+            ...(values.sourceLabel ? { label: values.sourceLabel } : {}),
+          },
+          actorContext: {
+            ...(values.userId ? { userId: values.userId } : {}),
+            platform: values.platform,
+            appVersion: values.appVersion,
+            ...(values.deviceSummary ? { deviceSummary: values.deviceSummary } : {}),
+          },
           screenshotAssets: values.screenshotAssets,
           attachmentAssets: values.attachmentAssets,
         },

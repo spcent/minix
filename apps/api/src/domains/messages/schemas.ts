@@ -39,6 +39,22 @@ export const createMessageThreadSchema = z.object({
   title: z.string().min(1).optional(),
   participantUserIds: z.array(z.string().min(1)).optional(),
   sourceTicketId: z.string().min(1).optional(),
+  sourceContext: z
+    .object({
+      pagePath: z.string().min(1).optional(),
+      routeId: z.string().min(1).optional(),
+      label: z.string().min(1).optional(),
+      params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+    })
+    .optional(),
+  actorContext: z
+    .object({
+      userId: z.string().min(1).optional(),
+      platform: z.string().min(1).optional(),
+      appVersion: z.string().min(1).optional(),
+      deviceSummary: z.string().min(1).optional(),
+    })
+    .optional(),
   replyPolicy: z.enum(["open", "members_only", "support_only", "readonly"]).optional(),
 });
 

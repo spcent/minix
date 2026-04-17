@@ -92,8 +92,19 @@ Keep `userProfile`, `accountSummary`, `userStatus`, `preferences`, `featureToggl
 
 ## Acceptance
 
-- [ ] `user` and `settings` shared summary shapes are aligned
-- [ ] account and settings feature controllers return one stable payload posture
-- [ ] host-local display differences do not create contract drift
-- [ ] docs are updated for any embedded or intentionally local exceptions
-- [ ] `pnpm verify:feature account` and `pnpm verify:feature settings` run, or skipped with reason if docs-only
+- [x] `user` and `settings` shared summary shapes are aligned
+- [x] account and settings feature controllers return one stable payload posture
+- [x] host-local display differences do not create contract drift
+- [x] docs are updated for any embedded or intentionally local exceptions
+- [x] `pnpm verify:feature account` and `pnpm verify:feature settings` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- account summary hydration now retains session-derived summary items while projecting remote `userProfile`, `accountSummary`, `userStatus`, `identityWorkflows`, and `securityCenter` into one shared account-center surface
+- settings summary hydration now retains `preferences`, `featureToggles`, `privacyOptions`, `effectivePolicy`, `notificationChannels`, and `lockedSettingKeys` on `SettingsPageModel`, including shared summary and locked-setting sections
+- docs were updated in `docs/BACKEND_CONTRACT.md` and `docs/DOMAIN_COMPLETENESS_MATRIX.md` to keep these summary exceptions explicit
+
+## Verification Notes
+
+- ran `pnpm verify:feature account`
+- ran `pnpm verify:feature settings`

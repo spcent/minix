@@ -289,6 +289,14 @@ function createStatusLabel(response: CurrentUserResponse): string {
   return "Enabled";
 }
 
+function formatDelimitedList(values: string[] | undefined, fallback = "None"): string {
+  if (!values || values.length === 0) {
+    return fallback;
+  }
+
+  return values.join(", ");
+}
+
 function createRemoteStats(response: CurrentUserResponse): AccountSummaryStat[] {
   return [
     {
@@ -307,6 +315,16 @@ function createRemoteStats(response: CurrentUserResponse): AccountSummaryStat[] 
       key: "points",
       label: "Points",
       value: String(response.accountSummary.assets.points),
+    },
+    {
+      key: "level",
+      label: "Level",
+      value: String(response.accountSummary.assets.level),
+    },
+    {
+      key: "wallet-balance",
+      label: "Wallet",
+      value: `${(response.accountSummary.assets.availableBalanceCents / 100).toFixed(2)} CNY`,
     },
   ];
 }
@@ -338,9 +356,19 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
           value: response.userProfile.region ?? "Not set",
         },
         {
+          key: "gender",
+          label: "Gender",
+          value: response.userProfile.gender ?? "unknown",
+        },
+        {
           key: "bio",
           label: "Bio",
           value: response.userProfile.bio ?? "Not set",
+        },
+        {
+          key: "tags",
+          label: "Tags",
+          value: formatDelimitedList(response.userProfile.tags),
         },
       ],
     },
@@ -365,6 +393,11 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
           label: "Real-name status",
           value: response.accountSummary.realNameStatus,
         },
+        {
+          key: "provider-count",
+          label: "Linked providers",
+          value: String(response.accountSummary.providerIdentities?.length ?? 0),
+        },
       ],
     },
     {
@@ -377,9 +410,14 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
           value: String(response.accountSummary.assets.level),
         },
         {
+          key: "membership-headline",
+          label: "Membership status",
+          value: response.accountSummary.assets.membership?.headline ?? "No active membership",
+        },
+        {
           key: "entitlements",
           label: "Entitlements",
-          value: response.accountSummary.assets.entitlementLabels.join(", ") || "None",
+          value: formatDelimitedList(response.accountSummary.assets.entitlementLabels),
         },
         {
           key: "balance",
@@ -494,6 +532,24 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
     securityCenter.latestRateLimit
   ) {
     const securityItems: AccountSectionItem[] = [];
+    securityItems.push(
+      {
+        key: "security-device-summary",
+        label: "Devices",
+        value:
+          securityCenter.deviceIdentities.length > 0
+            ? `${securityCenter.deviceIdentities.filter((device) => device.trusted).length}/${securityCenter.deviceIdentities.length} trusted`
+            : "No devices recorded",
+      },
+      {
+        key: "security-audit-summary",
+        label: "Audit events",
+        value:
+          securityCenter.auditEvents.length > 0
+            ? `${securityCenter.auditEvents.length} recent events`
+            : "No recent audit events",
+      },
+    );
     if (securityCenter.latestPrompt) {
       securityItems.push({
         key: "security-latest-prompt",
@@ -561,7 +617,8 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
   if (
     response.identityWorkflows.canUpgradeGuest ||
     response.identityWorkflows.canBindPhone ||
-    response.identityWorkflows.mergePending
+    response.identityWorkflows.mergePending ||
+    response.identityWorkflows.lastWorkflow
   ) {
     sections.push({
       key: "identity-workflows",
@@ -585,6 +642,18 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
             : "No pending merge",
           ...(response.identityWorkflows.pendingWorkflow?.targetUserId
             ? { hint: `Target account: ${response.identityWorkflows.pendingWorkflow.targetUserId}` }
+            : {}),
+        },
+        {
+          key: "last-workflow",
+          label: "Last workflow",
+          value: response.identityWorkflows.lastWorkflow?.message ?? "No recent workflow",
+          ...(response.identityWorkflows.lastWorkflow
+            ? {
+                hint: [response.identityWorkflows.lastWorkflow.kind, response.identityWorkflows.lastWorkflow.status]
+                  .filter(Boolean)
+                  .join(" · "),
+              }
             : {}),
         },
       ],
@@ -705,6 +774,10 @@ function mergeRemoteProfile(baseState: AccountState, profile: CurrentUserRespons
   const sessionLabel = baseState.sessionLabel ?? "Managed by the current signed-in session.";
   const authStatusLabel = `${baseState.authStatusLabel ?? "Signed in"} · ${createStatusLabel(profile)}`;
   const sections = [...remoteSections];
+  let stats = baseState.stats;
+  for (const stat of remoteStats) {
+    stats = upsertStat(stats, stat);
+  }
   if (assetLedgerSection) {
     sections.push(assetLedgerSection);
   }
@@ -730,7 +803,7 @@ function mergeRemoteProfile(baseState: AccountState, profile: CurrentUserRespons
     accountOperations: profile.accountOperations,
     operationRecords: profile.operationRecords,
     relationTargets: profile.relationTargets,
-    stats: remoteStats,
+    stats,
     sections,
     actions: remoteActions,
     transitionFeedback: profile.identityWorkflows.lastWorkflow?.message,

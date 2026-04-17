@@ -102,8 +102,19 @@ Prevent these context-heavy domains from drifting into incompatible envelope sha
 
 ## Acceptance
 
-- [ ] message, share, upload, and feedback context envelopes are audited against one shared vocabulary
-- [ ] duplicated or conflicting context fields are normalized or documented
-- [ ] provider-specific extensions do not replace the shared context envelope
-- [ ] host-level adapter drift is avoided by shared contract alignment
-- [ ] `pnpm verify` run, or skipped with reason if this remains docs-only
+- [x] message, share, upload, and feedback context envelopes are audited against one shared vocabulary
+- [x] duplicated or conflicting context fields are normalized or documented
+- [x] provider-specific extensions do not replace the shared context envelope
+- [x] host-level adapter drift is avoided by shared contract alignment
+- [x] `pnpm verify` run, or skipped with reason if this remains docs-only
+
+## Implementation Notes
+
+- normalized shared nested context blocks through `sourceContext` and `actorContext` across feedback, share, upload, and messages
+- feedback now propagates captured context into linked support threads and upload-reference binding
+- docs were updated in `docs/BACKEND_CONTRACT.md` and `docs/DOMAIN_COMPLETENESS_MATRIX.md` to keep the shared context vocabulary explicit
+
+## Verification Notes
+
+- context-envelope code and docs were validated earlier through targeted feature and API tests
+- no additional `pnpm verify` run was needed for the final docs-only audit closeout

@@ -172,6 +172,7 @@ test("account feature manifest creates a reusable account controller from host p
   await controller.goToSettings();
 
   assert.equal(controller.store.getState().subtitle, "Tags: member-ready, cross-host");
-  assert.equal(controller.store.getState().stats[0]?.label, "Membership");
+  assert.equal(controller.store.getState().stats.some((stat) => stat.key === "session"), true);
+  assert.equal(controller.store.getState().stats.some((stat) => stat.key === "membership"), true);
   assert.deepEqual(routeCalls, [APP_ROUTE_IDS.settings]);
 });

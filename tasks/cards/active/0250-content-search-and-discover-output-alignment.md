@@ -100,8 +100,18 @@ Keep content cards, detail summaries, search filters, search results, and manage
 
 ## Acceptance
 
-- [ ] content-card and search-result outputs are aligned across shared contracts and controllers
-- [ ] discover filters and route-writeback posture stay explicit
-- [ ] managed-content draft or review posture remains documented inside the shared discover lane
-- [ ] novel-only exceptions stay intentional and documented
-- [ ] `pnpm verify:feature feed` run, or skipped with reason if docs-only
+- [x] content-card and search-result outputs are aligned across shared contracts and controllers
+- [x] discover filters and route-writeback posture stay explicit
+- [x] managed-content draft or review posture remains documented inside the shared discover lane
+- [x] novel-only exceptions stay intentional and documented
+- [x] `pnpm verify:feature feed` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- the default discover lane now exposes the same explicit domain metadata used by cross-domain discover, including domain filters, `searchResults.activeDomain`, `domainTabs`, and `resultGroups`
+- managed-content draft and lifecycle mutations now keep outer discover cards synchronized with nested `contentCard` and `contentAccess` payloads, including grouped search-result copies
+- docs were updated in `docs/BACKEND_CONTRACT.md` and `docs/DOMAIN_COMPLETENESS_MATRIX.md` so discover output alignment and novel-only exceptions remain explicit
+
+## Verification Notes
+
+- ran `pnpm verify:feature feed`

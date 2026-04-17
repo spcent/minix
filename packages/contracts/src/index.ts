@@ -2,6 +2,7 @@ export * from "./api/auth";
 export * from "./api/bookshelf";
 export * from "./api/chapters";
 export * from "./api/content";
+export * from "./api/context";
 export * from "./api/feed";
 export * from "./api/feedback";
 export * from "./api/items";

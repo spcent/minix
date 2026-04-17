@@ -46,7 +46,19 @@ export function submitFeedbackTicket(
   const ticketId = `fb_${crypto.randomUUID()}`;
   const priority: FeedbackPriority = request.priority ?? category.defaultPriority;
   const revisitRequested = Boolean(request.revisitRequested);
-  const supportEntry = ensureFeedbackSupportThread(userState, ticketId, category, request.description, now);
+  const supportEntry = ensureFeedbackSupportThread(userState, ticketId, category, request.description, now, {
+    sourceContext: request.context.sourceContext ?? {
+      pagePath: request.context.sourcePage,
+      ...(request.context.sourceRouteId ? { routeId: request.context.sourceRouteId } : {}),
+      ...(request.context.sourceLabel ? { label: request.context.sourceLabel } : {}),
+    },
+    actorContext: request.context.actorContext ?? {
+      userId: request.context.userId ?? session.userId,
+      platform: request.context.platform,
+      appVersion: request.context.appVersion,
+      ...(request.context.deviceSummary ? { deviceSummary: request.context.deviceSummary } : {}),
+    },
+  });
   const assignee: FeedbackTicketAssignee | undefined =
     supportEntry?.handlerLabel
       ? {
@@ -103,6 +115,8 @@ export function submitFeedbackTicket(
     ownerType: "feedback",
     ownerId: ticketId,
     role: "screenshot",
+    ...(ticket.context.sourceContext ? { sourceContext: ticket.context.sourceContext } : {}),
+    ...(ticket.context.actorContext ? { actorContext: ticket.context.actorContext } : {}),
     now,
   });
   bindUploadAssetsToOwner(userState, {
@@ -110,6 +124,8 @@ export function submitFeedbackTicket(
     ownerType: "feedback",
     ownerId: ticketId,
     role: "attachment",
+    ...(ticket.context.sourceContext ? { sourceContext: ticket.context.sourceContext } : {}),
+    ...(ticket.context.actorContext ? { actorContext: ticket.context.actorContext } : {}),
     now,
   });
   userState.feedbackDetailsById[ticketId] = response;

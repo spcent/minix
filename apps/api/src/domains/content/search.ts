@@ -361,6 +361,9 @@ export function createFeedSearchResults(
   options: {
     correctionKeyword?: string;
     correctionReason?: string;
+    activeDomain?: SearchDomain;
+    domainTabs?: SearchResults<FeedItem>["domainTabs"];
+    resultGroups?: SearchResults<FeedItem>["resultGroups"];
   } = {},
 ): SearchResults<FeedItem> {
   const featuredReason = items[0]?.recommendedReason;
@@ -380,6 +383,9 @@ export function createFeedSearchResults(
     ...(options.correctionReason ? { correctionReason: options.correctionReason } : {}),
     recoverySuggestions: createRecoverySuggestions(keyword, hotKeywords, options.correctionKeyword),
     ranking: createSearchRankingSummary(activeSortKey),
+    ...(options.activeDomain ? { activeDomain: options.activeDomain } : {}),
+    ...(options.domainTabs ? { domainTabs: options.domainTabs } : {}),
+    ...(options.resultGroups ? { resultGroups: options.resultGroups } : {}),
   };
 }
 

@@ -771,6 +771,8 @@ export function createMessageThread(
           : input.type === "group"
             ? "Created group thread"
             : "Created private thread",
+    ...(input.sourceContext ? { sourceContext: { ...input.sourceContext } } : {}),
+    ...(input.actorContext ? { actorContext: { ...input.actorContext } } : {}),
     participantLabels: members.map((member) => member.label),
     pinned: false,
     doNotDisturb: false,

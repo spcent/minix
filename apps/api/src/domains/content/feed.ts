@@ -117,6 +117,28 @@ function resolveSearchDomain(inputDomain: string | undefined, fallback: SearchDo
   return fallback;
 }
 
+function createDiscoverDomainFilter(input: {
+  activeDomain: SearchDomain;
+  feedCount: number;
+  contentCount: number;
+  novelCount: number;
+  userCount: number;
+}): FeedListResponse["searchFilters"][number] {
+  const total = input.feedCount + input.contentCount + input.novelCount + input.userCount;
+  return {
+    key: "domain",
+    label: "Search domain",
+    selectedKeys: input.activeDomain === "all" || input.activeDomain === "feed" ? [] : [input.activeDomain],
+    options: [
+      { key: "all", label: "All", count: total },
+      { key: "feed", label: "Feed", count: input.feedCount },
+      { key: "content", label: "Content", count: input.contentCount },
+      { key: "novel", label: "Novel", count: input.novelCount },
+      { key: "user", label: "User", count: input.userCount },
+    ],
+  };
+}
+
 function createUnifiedFeedResults(
   input: {
     keyword: string;
@@ -217,18 +239,13 @@ function createUnifiedFeedResults(
       ...(activeSortKey !== "recommended" ? { sortKey: activeSortKey } : {}),
     },
     searchFilters: [
-      {
-        key: "domain",
-        label: "Search domain",
-        selectedKeys: activeDomain === "all" ? [] : [activeDomain],
-        options: [
-          { key: "all", label: "All", count: flattened.length },
-          { key: "feed", label: "Feed", count: feedItems.length },
-          { key: "content", label: "Content", count: contentItems.length },
-          { key: "novel", label: "Novel", count: novelItems.length },
-          { key: "user", label: "User", count: userItems.length },
-        ],
-      },
+      createDiscoverDomainFilter({
+        activeDomain,
+        feedCount: feedItems.length,
+        contentCount: contentItems.length,
+        novelCount: novelItems.length,
+        userCount: userItems.length,
+      }),
     ],
     searchResults: {
       items: pagedItems,
@@ -304,6 +321,9 @@ export function listFeed(input: {
 
   const hotKeywords = ["travel", "speaking", "listening", "review"];
   const allItems = createFeedItems(userState);
+  const contentItems = createContentSearchItems(userState);
+  const novelItems = createNovelFeedItems(userState);
+  const userItems = createUserSearchItems(userState);
   const allTags = [{ key: "all", label: "All" }, ...Array.from(new Map(allItems.map((item) => {
     const tag = resolveFeedTag(item.id);
     return [tag.key, tag];
@@ -344,7 +364,16 @@ export function listFeed(input: {
       pageSize,
       ...(activeSortKey !== "recommended" ? { sortKey: activeSortKey } : {}),
     },
-    searchFilters: createFeedSearchFilters(allItems, input.tag),
+    searchFilters: [
+      createDiscoverDomainFilter({
+        activeDomain: "feed",
+        feedCount: allItems.length,
+        contentCount: contentItems.length,
+        novelCount: novelItems.length,
+        userCount: userItems.length,
+      }),
+      ...createFeedSearchFilters(allItems, input.tag),
+    ],
     searchResults: createFeedSearchResults(
       items,
       filteredItems.length,
@@ -356,6 +385,18 @@ export function listFeed(input: {
       {
         ...(correctionKeyword ? { correctionKeyword } : {}),
         ...(correctionKeyword ? { correctionReason: `No exact feed matches for "${keyword}".` } : {}),
+        activeDomain: "feed",
+        domainTabs: createSearchDomainTabs(
+          [
+            { domain: "all", label: "All", total: allItems.length + contentItems.length + novelItems.length + userItems.length },
+            { domain: "feed", label: "Feed", total: allItems.length },
+            { domain: "content", label: "Content", total: contentItems.length },
+            { domain: "novel", label: "Novel", total: novelItems.length },
+            { domain: "user", label: "User", total: userItems.length },
+          ],
+          "feed",
+        ),
+        resultGroups: createSearchResultGroups([{ domain: "feed", label: "Feed", items: filteredItems }]),
       },
     ),
   };

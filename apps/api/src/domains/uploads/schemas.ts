@@ -30,7 +30,7 @@ export const uploadAssetSchema = z.object({
   fileName: z.string().min(1),
   url: z.string().min(1),
   thumbnailUrl: z.string().min(1).optional(),
-  coverUrl: z.string().min(1).optional(),
+  coverImageUrl: z.string().min(1).optional(),
   metadata: z.object({
     sizeBytes: z.number().int().nonnegative(),
     width: z.number().int().positive().optional(),
@@ -121,6 +121,22 @@ export const uploadAttachSchema = z
       ownerType: z.enum(["feedback", "content", "avatar"]),
       ownerId: z.string().min(1),
       role: z.string().min(1),
+      sourceContext: z
+        .object({
+          pagePath: z.string().min(1).optional(),
+          routeId: z.string().min(1).optional(),
+          label: z.string().min(1).optional(),
+          params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+        })
+        .optional(),
+      actorContext: z
+        .object({
+          userId: z.string().min(1).optional(),
+          platform: z.string().min(1).optional(),
+          appVersion: z.string().min(1).optional(),
+          deviceSummary: z.string().min(1).optional(),
+        })
+        .optional(),
     }),
   })
   .refine((value) => Boolean(value.taskId || value.assetId), {
@@ -144,7 +160,7 @@ export function normalizeUploadAsset(asset: z.infer<typeof uploadAssetSchema>): 
     fileName: asset.fileName,
     url: asset.url,
     ...(asset.thumbnailUrl !== undefined ? { thumbnailUrl: asset.thumbnailUrl } : {}),
-    ...(asset.coverUrl !== undefined ? { coverUrl: asset.coverUrl } : {}),
+    ...(asset.coverImageUrl !== undefined ? { coverImageUrl: asset.coverImageUrl } : {}),
     metadata: {
       sizeBytes: asset.metadata.sizeBytes,
       ...(asset.metadata.width !== undefined ? { width: asset.metadata.width } : {}),

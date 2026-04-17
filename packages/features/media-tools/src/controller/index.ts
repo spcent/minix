@@ -411,10 +411,25 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
 
       const current = store.getState();
       const currentRoute = kernel.router.current();
+      const session = await kernel.session.get();
       const prepareRequest: SharePrepareRequest = {
-        sharePayload: current.sharePayload,
+        sharePayload: {
+          ...current.sharePayload,
+          sourceContext: {
+            ...(currentRoute.ok && currentRoute.value?.path ? { pagePath: currentRoute.value.path } : {}),
+            ...(currentRoute.ok && typeof currentRoute.value?.path === "string" ? { label: current.title } : {}),
+            ...(currentRoute.ok && currentRoute.value?.params ? { params: currentRoute.value.params } : {}),
+          },
+        },
         shareChannel: current.shareChannel,
-        shareAttribution: current.shareAttribution,
+        shareAttribution: {
+          ...current.shareAttribution,
+          actorContext: {
+            ...(session.ok && session.value?.identity.userId ? { userId: session.value.identity.userId } : {}),
+            platform: kernel.env?.platform ?? "h5",
+            appVersion: kernel.env?.version ?? "1.0.0",
+          },
+        },
         ...(currentRoute.ok && currentRoute.value
           ? {
               redirectTarget: {
@@ -495,7 +510,6 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
         prepared.value.landingTarget.path ??
         prepared.value.sharePayload.landingPath ??
         (currentRoute.ok ? currentRoute.value?.path : undefined);
-      const session = await kernel.session.get();
       const returnRequest: ShareReturnRecognitionRequest = {
         attributionId:
           prepared.value.shareAttribution.attributionId ??

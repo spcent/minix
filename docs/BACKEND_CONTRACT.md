@@ -37,7 +37,7 @@ Canonical response mapping:
 | --- | --- | --- | --- |
 | login | `session`, `identity`, `authStatus`, `redirectTarget` | `LoginResponse`, `RefreshTokenResponse`, `IdentityTransitionResponse` in `packages/contracts/src/api/auth.ts` | top-level token and profile fields remain compatibility conveniences, but shared flow should treat the nested session and identity outputs as authoritative |
 | user | `userProfile`, `accountSummary`, `userStatus` | `CurrentUserResponse`, `AccountOperationResponse`, `UserRelationMutationResponse`, `UserRelationListResponse` in `packages/contracts/src/api/user.ts` | identity workflow and security-center data extend the user envelope; they do not replace it |
-| settings | `preferences`, `featureToggles`, `privacyOptions` | `SettingsResponse` in `packages/contracts/src/api/settings.ts` | `effectivePolicy` and `notificationChannels` are policy extensions around the same settings summary |
+| settings | `preferences`, `featureToggles`, `privacyOptions` | `SettingsResponse` in `packages/contracts/src/api/settings.ts` | `effectivePolicy`, `notificationChannels`, and `lockedSettingKeys` extend the same settings summary instead of creating a second host-local policy model |
 | messages | `notificationList`, `messageThread`, `unreadBadge` | `NotificationListResponse`, `MessageThreadResponse`, `MarkNotificationsReadResponse`, `SendMessageResponse` in `packages/contracts/src/api/message.ts` | `threadList` and `reservedThreads` are list-management extensions around the canonical inbox outputs |
 | payment | `order`, `paymentIntent`, `paymentResult`, `entitlement` | `OrderDetailResponse`, `PurchaseOrderResponse`, `PurchaseMembershipResponse` in `packages/contracts/src/api/payment.ts` and `packages/contracts/src/api/membership.ts` | callback, reconciliation, subscription, and after-sales data extend the commerce envelope |
 | content | `contentCard`, `contentDetail`, `contentAccess` | `ContentDetailResponse`, `SaveContentDraftResponse`, `ContentLifecycleMutationResponse`, `NovelCard`, `NovelDetail` | discover and novel surfaces may embed content summaries, but should reuse the same card/detail/access outputs |
@@ -45,6 +45,24 @@ Canonical response mapping:
 | upload | `uploadTask`, `uploadAsset`, `uploadError` | `UploadSelectionResult`, `UploadPipelineResponse` in `packages/contracts/src/api/upload.ts` | session, review, cleanup, and references extend the upload pipeline without replacing the canonical task/asset/error outputs |
 | share | `sharePayload`, `shareChannel`, `shareAttribution` | `SharePrepareResponse`, `ShareReturnRecognitionResponse`, `ShareShortLinkResolveResponse`, `ShareAttributionReportResponse` in `packages/contracts/src/api/share.ts` | landing target, short-link record, poster asset, and attribution report are share extensions |
 | feedback | `feedbackTicket`, `feedbackCategory`, `feedbackStatus` | `FeedbackTicketDetailResponse`, `SubmitFeedbackResponse`, `FeedbackRevisitResponse`, `FeedbackTicketActionResponse` in `packages/contracts/src/api/feedback.ts` | bootstrap and list responses may be partial, but detailed ticket flows should preserve the full ticket/category/status envelope |
+
+## Shared Context Envelope Baseline
+
+Cross-domain coordination now uses one shared context vocabulary for route and actor metadata across messages, share, upload, and feedback.
+
+Use these rules when extending context-heavy payloads:
+
+- `sourceContext` carries route or page provenance through `pagePath`, `routeId`, optional `label`, and optional route `params`
+- `actorContext` carries actor or runtime provenance through `userId`, `platform`, `appVersion`, and optional `deviceSummary`
+- provider-specific, moderation-specific, or delivery-specific fields should extend the domain payload around these context blocks instead of replacing them with domain-local context wrappers
+- when legacy flat fields still exist for compatibility, shared controllers and API routes should prefer the nested `sourceContext` and `actorContext` blocks as the canonical shape
+
+Current shared adoption:
+
+- feedback submission carries `context.sourceContext` and `context.actorContext`, and the linked support thread reuses the same context blocks
+- upload reference binding carries `reference.sourceContext` and `reference.actorContext`
+- share preparation carries `sharePayload.sourceContext` and `shareAttribution.actorContext`
+- message thread creation carries `sourceContext` and `actorContext` directly on the thread request and persisted thread summary
 
 ## Shared Page State Baseline
 
@@ -361,6 +379,7 @@ The current sample pipeline intentionally splits responsibility:
 
 - platform adapters only choose media or files and may supply transfer payloads
 - the backend owns session creation, chunk verification, checksum validation, review status, cleanup state, resource binding, and production-safe provider posture metadata
+- `reference.sourceContext` and `reference.actorContext` preserve where the binding came from and which runtime or actor initiated it, so downstream domains do not invent per-owner attach context wrappers
 
 ### `POST /uploads/retry`
 
@@ -389,6 +408,7 @@ Returned share-specific additions:
 - `posterAsset.providerMode = "sample" | "production"` makes the current poster-generation posture explicit to the host
 - `posterAsset.provider` identifies the configured poster-generation backing for the prepared share
 - production posture can also project short-link and poster URLs through operator-configured base URLs without changing the shared route set
+- `sharePayload.sourceContext` and `shareAttribution.actorContext` are preserved through preparation and return recognition so hosts can keep one route-provenance and actor-provenance vocabulary across growth flows
 
 ### `GET /share/resolve`
 
@@ -431,6 +451,8 @@ Returns a conversation-capable message thread including:
 Creates a durable private, consultation, customer-service, or group thread and returns the refreshed thread list.
 
 The sample implementation also appends message-scope security audit events and message rate-limit state into the authenticated account security center.
+
+The thread request may also carry `sourceContext` and `actorContext` so support, consultation, or user-initiated threads can preserve the originating route and runtime identity without a host-local adapter layer.
 
 ### `POST /messages/thread/read`
 
@@ -479,6 +501,14 @@ The response includes:
 `effectivePolicy` is the backend-resolved behavior surface that downstream features should consume instead of re-deriving local rules.
 
 `notificationChannels` exposes the per-channel delivery policy for `subscription_message`, `sms`, `email`, and `push`, including enablement, unsubscribe state, provider labeling, locale, and whether in-app fallback stays active.
+
+`lockedSettingKeys` lists the shared settings that are intentionally non-editable under the current environment or policy posture, so hosts and feature controllers can expose lock state without re-deriving it locally.
+
+The shared settings controller currently projects this payload into one stable summary model:
+
+- `preferences`, `featureToggles`, `privacyOptions`, `effectivePolicy`, `notificationChannels`, and `lockedSettingKeys` are all preserved on `SettingsPageModel`
+- `settings-summary` gives hosts one human-readable posture section for notification, privacy, developer, and lock-state overview
+- `locked-settings` is emitted only when the backend returns explicit locked keys, so production-only restrictions stay visible without host-specific branches
 
 ### `POST /settings`
 
@@ -646,11 +676,13 @@ The normalized `searchResults` payload now carries `domainTabs` and `resultGroup
 Additional sample semantics:
 
 - `searchQuery.sortKey` preserves route-restorable sort state for the shared search center
+- the default `domain = feed` discover lane still returns explicit domain filter metadata, `searchResults.activeDomain`, `domainTabs`, and feed-scoped `resultGroups`, so hosts do not need a second local filter model for the non-cross-domain case
 - `searchResults` may include `correctionKeyword`, `correctionReason`, and `recoverySuggestions` when the current query looks like a typo or returns no results
 - `searchResults.ranking` exposes the applied ranking strategy so clients do not re-derive sorting rules locally
 - `domain = all` now interleaves top results across feed, content, novel, and user groups instead of flattening one domain at a time
 - recommended and popular ordering now include keyword-match quality in addition to freshness or reason metadata
 - user and other cross-domain search items may expose `routeTarget` so the client can jump to the bounded destination without hand-written route maps
+- managed-content draft and lifecycle mutations keep the outer `FeedItem` summary in sync with nested `contentCard` and `contentAccess` data, including cover imagery, category eyebrow, access posture, and grouped search results
 - hot terms, recent history, suggestions, filter state, and sort state are all carried in the same normalized response surface
 
 ### `GET /me`
@@ -692,6 +724,12 @@ The normalized response includes:
 - `authorizationStatus = active | revoked | unlinked`
 - `loginEnabled`, `linkedAt`, `lastAuthorizedAt`, and optional revocation metadata
 - per-provider action descriptors for `unlink`, `revoke`, and `reauthorize`
+
+The shared account controller keeps this response as one stable user-summary surface:
+
+- `userProfile`, `accountSummary`, and `userStatus` remain the canonical summary trio
+- `identityWorkflows` and `securityCenter` extend that trio rather than replacing it with host-local state
+- session-derived summary items such as current auth posture stay visible alongside remote membership, asset, provider, and lock-state sections instead of being overwritten during hydration
 
 ### `GET /items`
 
@@ -750,6 +788,8 @@ Creates a feedback ticket using the shared feedback form payload and returns:
 Each submitted ticket creates a dedicated customer-service thread and links that thread back through `feedbackTicket.supportThreadId` and `feedbackStatus.supportEntry.threadId`.
 
 Feedback submission also appends feedback-scope security audit events and participates in the centralized rate-limit baseline.
+
+`context.sourceContext` and `context.actorContext` are preserved on the ticket and propagated into the linked support thread plus any upload-reference binding created during the same support flow.
 
 ### `GET /feedback/tickets`
 

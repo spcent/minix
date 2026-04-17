@@ -871,11 +871,15 @@ function createKernelStub() {
 
       const request = payload as {
         title: string;
-          description: string;
-          revisitRequested?: boolean;
-          context: { screenshotAssets: unknown[] };
+        description: string;
+        revisitRequested?: boolean;
+        context: {
+          sourceContext?: Record<string, unknown>;
+          actorContext?: Record<string, unknown>;
+          screenshotAssets: unknown[];
         };
-        const response: FeedbackTicketDetailResponse = {
+      };
+      const response: FeedbackTicketDetailResponse = {
           feedbackTicket: {
             ticketId: "fb_1",
             type: "issue_report",
@@ -892,6 +896,8 @@ function createKernelStub() {
               userId: "feedback-user",
               platform: "h5",
               appVersion: "1.0.0",
+              ...(request.context.sourceContext ? { sourceContext: request.context.sourceContext as never } : {}),
+              ...(request.context.actorContext ? { actorContext: request.context.actorContext as never } : {}),
               screenshotAssets: request.context.screenshotAssets as [],
               attachmentAssets: [],
             },
@@ -1054,6 +1060,8 @@ test("feedback controller uploads screenshot assets through the shared pipeline 
   assert.equal(controller.store.getState().values.screenshotAssets[0]?.assetId, "asset_uploaded_1");
   assert.equal(controller.store.getState().latestStatus?.revisitRequired, true);
   assert.equal(controller.store.getState().lastSubmission?.value?.feedbackCategory.key, "product_issue");
+  assert.equal(controller.store.getState().latestTicket?.context.sourceContext?.pagePath, "/feedback");
+  assert.equal(controller.store.getState().latestTicket?.context.actorContext?.userId, "feedback-user");
   assert.equal(controller.store.getState().submitState.phase, "submitted");
   assert.equal(controller.store.getState().submitState.mode, "submit");
 });

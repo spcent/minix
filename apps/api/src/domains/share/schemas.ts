@@ -36,6 +36,14 @@ export const sharePayloadSchema = z.object({
   contentId: z.string().min(1).optional(),
   inviteCode: z.string().min(1).optional(),
   shareToken: z.string().min(1).optional(),
+  sourceContext: z
+    .object({
+      pagePath: z.string().min(1).optional(),
+      routeId: z.string().min(1).optional(),
+      label: z.string().min(1).optional(),
+      params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+    })
+    .optional(),
   landingTarget: shareLandingTargetSchema.optional(),
   returnTarget: shareRedirectTargetSchema.optional(),
 });
@@ -50,6 +58,14 @@ export const shareChannelSchema = z.object({
 export const shareAttributionSchema = z.object({
   attributionId: z.string().min(1).optional(),
   channelMarker: z.string().min(1).optional(),
+  actorContext: z
+    .object({
+      userId: z.string().min(1).optional(),
+      platform: z.string().min(1).optional(),
+      appVersion: z.string().min(1).optional(),
+      deviceSummary: z.string().min(1).optional(),
+    })
+    .optional(),
   inviteBindingEnabled: z.boolean(),
   returnFlowRecognized: z.boolean(),
   shareCount: z.number().int().nonnegative(),
@@ -144,6 +160,16 @@ export function normalizeSharePrepareRequest(payload: z.infer<typeof sharePrepar
       ...(payload.sharePayload.contentId !== undefined ? { contentId: payload.sharePayload.contentId } : {}),
       ...(payload.sharePayload.inviteCode !== undefined ? { inviteCode: payload.sharePayload.inviteCode } : {}),
       ...(payload.sharePayload.shareToken !== undefined ? { shareToken: payload.sharePayload.shareToken } : {}),
+      ...(payload.sharePayload.sourceContext !== undefined
+        ? {
+            sourceContext: {
+              ...(payload.sharePayload.sourceContext.pagePath !== undefined ? { pagePath: payload.sharePayload.sourceContext.pagePath } : {}),
+              ...(payload.sharePayload.sourceContext.routeId !== undefined ? { routeId: payload.sharePayload.sourceContext.routeId } : {}),
+              ...(payload.sharePayload.sourceContext.label !== undefined ? { label: payload.sharePayload.sourceContext.label } : {}),
+              ...(payload.sharePayload.sourceContext.params !== undefined ? { params: payload.sharePayload.sourceContext.params } : {}),
+            },
+          }
+        : {}),
       ...(landingTarget !== undefined ? { landingTarget } : {}),
       ...(returnTarget !== undefined ? { returnTarget } : {}),
     },
@@ -156,6 +182,18 @@ export function normalizeSharePrepareRequest(payload: z.infer<typeof sharePrepar
     shareAttribution: {
       ...(payload.shareAttribution.attributionId !== undefined ? { attributionId: payload.shareAttribution.attributionId } : {}),
       ...(payload.shareAttribution.channelMarker !== undefined ? { channelMarker: payload.shareAttribution.channelMarker } : {}),
+      ...(payload.shareAttribution.actorContext !== undefined
+        ? {
+            actorContext: {
+              ...(payload.shareAttribution.actorContext.userId !== undefined ? { userId: payload.shareAttribution.actorContext.userId } : {}),
+              ...(payload.shareAttribution.actorContext.platform !== undefined ? { platform: payload.shareAttribution.actorContext.platform } : {}),
+              ...(payload.shareAttribution.actorContext.appVersion !== undefined ? { appVersion: payload.shareAttribution.actorContext.appVersion } : {}),
+              ...(payload.shareAttribution.actorContext.deviceSummary !== undefined
+                ? { deviceSummary: payload.shareAttribution.actorContext.deviceSummary }
+                : {}),
+            },
+          }
+        : {}),
       inviteBindingEnabled: payload.shareAttribution.inviteBindingEnabled,
       returnFlowRecognized: payload.shareAttribution.returnFlowRecognized,
       shareCount: payload.shareAttribution.shareCount,

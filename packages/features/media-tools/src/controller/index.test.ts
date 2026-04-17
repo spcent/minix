@@ -168,6 +168,10 @@ function createKernelStub() {
               channelMarker: "host-h5-demo",
               inviteCode: "MINIX42",
               shareToken: "share_prepare_1",
+              sourceContext: {
+                pagePath: "/workspace/media-tools",
+                label: "Media Tools",
+              },
             },
             shareChannel: {
               kind: "copy_link",
@@ -178,6 +182,11 @@ function createKernelStub() {
             shareAttribution: {
               attributionId: "share_prepare_1",
               channelMarker: "host-h5-demo",
+              actorContext: {
+                userId: "shared-user",
+                platform: "h5",
+                appVersion: "1.0.0",
+              },
               inviteBindingEnabled: true,
               returnFlowRecognized: false,
               shareCount: 1,
@@ -203,6 +212,11 @@ function createKernelStub() {
               shareAttribution: {
                 attributionId: "share_prepare_1",
                 channelMarker: "host-h5-demo",
+                actorContext: {
+                  userId: "shared-user",
+                  platform: "h5",
+                  appVersion: "1.0.0",
+                },
                 inviteBindingEnabled: true,
                 returnFlowRecognized: false,
                 shareCount: 1,
@@ -434,6 +448,10 @@ function createKernelStub() {
               channelMarker: "host-h5-demo",
               inviteCode: "MINIX42",
               shareToken: "share_prepare_1",
+              sourceContext: {
+                pagePath: "/workspace/media-tools",
+                label: "Media Tools",
+              },
             },
             shareChannel: {
               kind: "copy_link",
@@ -444,6 +462,11 @@ function createKernelStub() {
             shareAttribution: {
               attributionId: "share_prepare_1",
               channelMarker: "host-h5-demo",
+              actorContext: {
+                userId: "shared-user",
+                platform: "h5",
+                appVersion: "1.0.0",
+              },
               inviteBindingEnabled: true,
               returnFlowRecognized: true,
               shareCount: 1,
@@ -472,6 +495,11 @@ function createKernelStub() {
               shareAttribution: {
                 attributionId: "share_prepare_1",
                 channelMarker: "host-h5-demo",
+                actorContext: {
+                  userId: "shared-user",
+                  platform: "h5",
+                  appVersion: "1.0.0",
+                },
                 inviteBindingEnabled: true,
                 returnFlowRecognized: true,
                 shareCount: 1,
@@ -1142,6 +1170,8 @@ test("media-tools controller stores share contract output after the secondary ac
   assert.equal(controller.store.getState().shareAttribution.clickCount, 1);
   assert.equal(controller.store.getState().shareAttribution.returnCount, 1);
   assert.equal(controller.store.getState().shareAttribution.conversionCount, 1);
+  assert.equal(controller.store.getState().sharePayload.sourceContext?.pagePath, "/workspace/media-tools");
+  assert.equal(controller.store.getState().shareAttribution.actorContext?.userId, "shared-user");
   assert.equal(controller.store.getState().lastResult?.message.includes("Share link copied"), true);
   assert.equal(controller.store.getState().shareProviderSummary.includes("sample-backed"), true);
 });

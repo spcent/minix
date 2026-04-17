@@ -88,8 +88,18 @@ Keep page-protocol usage explicit and prevent feature-local flags from quietly r
 
 ## Acceptance
 
-- [ ] list, detail, and form protocol adoption notes are refreshed
-- [ ] newly observed local-flag drift is either corrected or documented as an explicit exception
-- [ ] no speculative protocol redesign is folded into the audit
-- [ ] follow-up work is proposed only for verified gaps
-- [ ] `pnpm verify` run, or skipped with reason if this remains docs-only
+- [x] list, detail, and form protocol adoption notes are refreshed
+- [x] newly observed local-flag drift is either corrected or documented as an explicit exception
+- [x] no speculative protocol redesign is folded into the audit
+- [x] follow-up work is proposed only for verified gaps
+- [x] `pnpm verify` run, or skipped with reason if this remains docs-only
+
+## Implementation Notes
+
+- refreshed `docs/DOMAIN_COMPLETENESS_MATRIX.md` to record the current list/detail/form protocol posture after the `0249` and `0250` controller changes
+- documented that `account` and `settings` are intentional summary-workspace exceptions rather than hidden protocol regressions
+- no new protocol gap required code changes in `packages/core/src/page-protocols/*`
+
+## Verification Notes
+
+- docs-only audit update; no additional `pnpm verify` run was needed beyond the feature gates already executed for the preceding controller work

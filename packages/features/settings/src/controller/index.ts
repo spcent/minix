@@ -120,6 +120,34 @@ function formatEligibleChannels(
     .join(", ");
 }
 
+function formatNotificationChannelSummary(
+  channels: SettingsResponse["notificationChannels"] | undefined,
+  notificationsEnabled: boolean,
+): string {
+  if (!notificationsEnabled) {
+    return "Global notifications disabled";
+  }
+
+  if (!channels || channels.length === 0) {
+    return "In-app only";
+  }
+
+  const enabledChannels = channels.filter((channel) => channel.enabled && !channel.unsubscribed);
+  if (enabledChannels.length === 0) {
+    return "In-app fallback only";
+  }
+
+  return enabledChannels.map((channel) => channel.channel).join(", ");
+}
+
+function formatLockedSettingSummary(response: SettingsResponse): string {
+  if (response.lockedSettingKeys.length === 0) {
+    return "No locked shared settings";
+  }
+
+  return `${response.lockedSettingKeys.length} locked shared settings`;
+}
+
 function formatFontScale(fontScale: number): string {
   return `Comfort size at ${Math.round(fontScale * 100)}%`;
 }
@@ -201,6 +229,7 @@ function cloneModel(model: SettingsPageModel): SettingsPageModel {
     ...(model.privacyOptions ? { privacyOptions: structuredClone(model.privacyOptions) } : {}),
     ...(model.effectivePolicy ? { effectivePolicy: structuredClone(model.effectivePolicy) } : {}),
     ...(model.notificationChannels ? { notificationChannels: structuredClone(model.notificationChannels) } : {}),
+    ...(model.lockedSettingKeys ? { lockedSettingKeys: [...model.lockedSettingKeys] } : {}),
     sections: model.sections.map((section) => ({
       ...section,
       items: section.items.map((item) => ({ ...item })),
@@ -245,6 +274,27 @@ function updateSectionItemValue(
 
 function createSettingsSections(response: SettingsResponse): SettingsSection[] {
   return [
+    {
+      key: "settings-summary",
+      title: "Shared settings summary",
+      items: [
+        createTextItem("summary-language", "Language profile", response.preferences.language),
+        createTextItem("summary-notification-posture", "Notification posture", formatNotificationChannelSummary(
+          response.notificationChannels,
+          response.preferences.notificationsEnabled,
+        )),
+        createTextItem("summary-privacy-posture", "Privacy posture", response.privacyOptions.profileVisibilityLabel),
+        createTextItem(
+          "summary-developer-posture",
+          "Developer posture",
+          response.effectivePolicy.developer.lockedReason ??
+            (response.effectivePolicy.developer.environment === "production"
+              ? "Locked in production"
+              : "Editable in debug"),
+        ),
+        createTextItem("summary-locked-settings", "Locked settings", formatLockedSettingSummary(response)),
+      ],
+    },
     {
       key: "common-preferences",
       title: "Common preferences",
@@ -301,6 +351,15 @@ function createSettingsSections(response: SettingsResponse): SettingsSection[] {
       key: "effective-policy",
       title: "Effective policy",
       items: [
+        createTextItem("policy-in-app", "In-app enabled", response.effectivePolicy.notification.inAppEnabled),
+        createTextItem(
+          "policy-subscription-message",
+          "Subscription messages enabled",
+          response.effectivePolicy.notification.subscriptionMessageEnabled,
+        ),
+        createTextItem("policy-push", "Push enabled", response.effectivePolicy.notification.pushEnabled),
+        createTextItem("policy-sms", "SMS enabled", response.effectivePolicy.notification.smsEnabled),
+        createTextItem("policy-email", "Email enabled", response.effectivePolicy.notification.emailEnabled),
         createTextItem("eligible-channels", "Eligible channels", formatEligibleChannels(response.effectivePolicy.notification.eligibleChannels)),
         createTextItem("station-fallback", "Station fallback", response.effectivePolicy.notification.stationFallbackEnabled ?? false),
         createTextItem("policy-profile-visibility", "Resolved profile visibility", response.effectivePolicy.privacy.profileVisibility),
@@ -309,6 +368,7 @@ function createSettingsSections(response: SettingsResponse): SettingsSection[] {
         createTextItem("personalized-ranking", "Personalized ranking", response.effectivePolicy.privacy.personalizedRankingEnabled),
         createTextItem("analytics-collection", "Analytics collection", response.effectivePolicy.privacy.analyticsCollectionEnabled),
         createTextItem("policy-autoplay", "Autoplay enabled", response.effectivePolicy.device.autoplayEnabled),
+        createTextItem("policy-weak-network-mode", "Weak-network mode", response.effectivePolicy.device.weakNetworkMode),
         createTextItem("policy-network-strategy", "Resolved network strategy", response.effectivePolicy.device.networkStrategy),
         createTextItem("upload-chunk-size", "Upload chunk size", `${response.effectivePolicy.device.uploadChunkSizeBytes} bytes`),
         createTextItem("diagnostics-enabled", "Diagnostics enabled", response.effectivePolicy.device.diagnosticsEnabled),
@@ -339,8 +399,20 @@ function createSettingsSections(response: SettingsResponse): SettingsSection[] {
         createTextItem("email-enabled", "Email", response.featureToggles.emailEnabled),
         createTextItem("account-center-enabled", "Account center", response.featureToggles.accountCenterEnabled),
         createTextItem("reading-sync-enabled", "Reading sync", response.featureToggles.readingSyncEnabled),
+        createTextItem("feature-experiments-enabled", "Experiments feature", response.featureToggles.experimentsEnabled),
       ],
     },
+    ...(response.lockedSettingKeys.length > 0
+      ? [
+          {
+            key: "locked-settings",
+            title: "Locked settings",
+            items: response.lockedSettingKeys.map((settingKey) =>
+              createTextItem(`locked-${settingKey}`, settingKey, "Locked by effective policy"),
+            ),
+          } satisfies SettingsSection,
+        ]
+      : []),
     ...(response.notificationChannels && response.notificationChannels.length > 0
       ? [
           {
@@ -425,6 +497,7 @@ function applyRemoteSettings(model: SettingsPageModel, response: SettingsRespons
     privacyOptions: response.privacyOptions,
     effectivePolicy: response.effectivePolicy,
     ...(response.notificationChannels ? { notificationChannels: response.notificationChannels } : {}),
+    lockedSettingKeys: [...response.lockedSettingKeys],
   };
 }
 

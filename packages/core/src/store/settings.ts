@@ -29,4 +29,5 @@ export interface SettingsPageModel {
   privacyOptions?: SettingsPrivacyOptions;
   effectivePolicy?: SettingsEffectivePolicy;
   notificationChannels?: SettingsNotificationChannelPreference[];
+  lockedSettingKeys?: string[];
 }
