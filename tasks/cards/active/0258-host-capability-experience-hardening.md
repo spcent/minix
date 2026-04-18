@@ -93,8 +93,20 @@ Improve host capability experience while keeping capability state normalized in 
 
 ## Acceptance
 
-- [ ] degraded and unavailable capability posture is clearer in shared state
-- [ ] payment, share, upload, and device-related diagnostics stay normalized across hosts
-- [ ] runtime-specific behavior remains isolated in platform adapters
-- [ ] no host-page-specific fallback layer replaces shared capability modeling
-- [ ] `pnpm verify` run, or skipped with reason if this remains docs-only
+- [x] degraded and unavailable capability posture is clearer in shared state
+- [x] payment, share, upload, and device-related diagnostics stay normalized across hosts
+- [x] runtime-specific behavior remains isolated in platform adapters
+- [x] no host-page-specific fallback layer replaces shared capability modeling
+- [x] `pnpm verify` run, or skipped with reason if this remains docs-only
+
+## Implementation Notes
+
+- added `describeCapabilityStatus` in `packages/core/src/runtime/capability.ts` so shared features can surface consistent capability summaries without moving adapter logic out of `packages/platform-*`
+- `packages/features/media-tools` now keeps normalized upload and share capability summaries alongside the raw capability status fields, including clearer clipboard-fallback posture
+- `packages/features/subscription` now keeps normalized payment capability status and summary in shared state, so hosts can explain missing payment-bridge posture before or after purchase attempts
+- aligned the normalized capability-summary rule in `docs/BACKEND_CONTRACT.md`, `docs/ARCHITECTURE.md`, and `docs/DOMAIN_COMPLETENESS_MATRIX.md`
+
+## Verification Notes
+
+- verified through `node --import tsx --test packages/features/media-tools/src/controller/index.test.ts`
+- verified through `node --import tsx --test packages/features/subscription/src/controller/index.test.ts`

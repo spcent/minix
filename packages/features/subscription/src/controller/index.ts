@@ -2,6 +2,7 @@ import {
   createAuthRedirectParams,
   createDetailStatus,
   createListStatus,
+  describeCapabilityStatus,
   ok,
   createStore,
   deriveLatestMilestoneHistory,
@@ -21,6 +22,7 @@ import type {
   OrderDetailResponse,
   OrderOperationRequest,
   PaymentCatalogResponse,
+  CapabilityStatus,
   PurchaseOrderRequest,
   PurchaseOrderResponse,
   PurchaseMembershipRequest,
@@ -94,6 +96,33 @@ export function createSubscriptionController(options: CreateSubscriptionControll
     ...createInitialSubscriptionState(),
     ...initialState,
   });
+
+  function derivePaymentCapabilitySummary(status: CapabilityStatus | undefined) {
+    const base = describeCapabilityStatus(
+      status,
+      "Payment capability status is unavailable until the host runtime reports it.",
+    );
+    if (!status || !status.available) {
+      return `${base} Order creation can still succeed, but a host payment bridge is required before native payment execution can continue.`;
+    }
+
+    if (status.mode === "degraded") {
+      return `${base} Host payment execution may still require a follow-up confirmation step.`;
+    }
+
+    return base;
+  }
+
+  function syncPaymentCapabilityState() {
+    const statusResult = kernel.capability?.status("payment");
+    const paymentCapabilityStatus = statusResult?.ok ? statusResult.value : undefined;
+    store.setState({
+      paymentCapabilityStatus,
+      paymentCapabilitySummary: derivePaymentCapabilitySummary(paymentCapabilityStatus),
+    });
+
+    return paymentCapabilityStatus;
+  }
 
   function resolveRouteParam(key: "source" | "novelId" | "chapterId"): string | undefined {
     const current = kernel.router.current();
@@ -373,12 +402,8 @@ export function createSubscriptionController(options: CreateSubscriptionControll
   }
 
   async function reservePlatformPayment(response: PurchaseMembershipResponse) {
-    if (!kernel.capability) {
-      return;
-    }
-
-    const capabilityStatus = kernel.capability.status("payment");
-    if (!capabilityStatus.ok || !capabilityStatus.value.available) {
+    const paymentCapabilityStatus = syncPaymentCapabilityState();
+    if (!kernel.capability || !paymentCapabilityStatus?.available) {
       return;
     }
 
@@ -423,6 +448,8 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         errorText: undefined,
         orderListStatus: createListStatus("loading"),
         commerceDetailStatus: createDetailStatus("idle"),
+        paymentCapabilityStatus: undefined,
+        paymentCapabilitySummary: "Payment capability status is unavailable until the host runtime reports it.",
         source,
         novelId,
         chapterId,
@@ -448,8 +475,9 @@ export function createSubscriptionController(options: CreateSubscriptionControll
               ? "The selected chapter is beyond the current directory access boundary."
             : source === "detail"
               ? "This title requires membership before continuing."
-              : "Membership unlocks the full reading flow.",
+            : "Membership unlocks the full reading flow.",
       });
+      syncPaymentCapabilityState();
 
       const result = await kernel.request.get<MembershipOverview>(requestPath);
       if (!result.ok) {

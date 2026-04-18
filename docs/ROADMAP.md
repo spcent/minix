@@ -95,6 +95,8 @@ Recommended cards:
 
 These directions fit the current kernel story, but they should start only after release closure and only if they reuse the existing shared shape.
 
+The current repo-side boundary for these directions is already documented in [`./BACKEND_CONTRACT.md`](./BACKEND_CONTRACT.md), [`./ARCHITECTURE.md`](./ARCHITECTURE.md), and [`./DOMAIN_COMPLETENESS_MATRIX.md`](./DOMAIN_COMPLETENESS_MATRIX.md). Future work should extend those baselines, not reopen them implicitly.
+
 ### 1. Richer Content And Discover Flows
 
 Possible expansions:

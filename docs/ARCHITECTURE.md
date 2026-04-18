@@ -305,6 +305,9 @@ Core rules:
 3. Treat account and settings as summary workspaces; do not force them into fake list/detail shells.
 4. Keep provider posture explicit. If production behavior still depends on operator rollout, fail closed in production mode and document the remaining operator step.
 5. Record intentional exceptions or remaining rollout gaps in [`docs/DOMAIN_COMPLETENESS_MATRIX.md`](/docs/DOMAIN_COMPLETENESS_MATRIX.md) instead of burying them in host copy or controller drift.
+6. Future content and discover growth must extend the existing shared discover, content, upload, and feedback stack additively before any new route family is justified.
+7. Future user and relationship growth must extend the shared account workspace additively before any dedicated user-detail surface is justified.
+8. Capability UX hardening should improve normalized shared capability summaries first; runtime-specific branching still belongs in `packages/platform-*`.
 
 ## 8. Shared Protocol Posture
 

@@ -99,8 +99,20 @@ Make the existing provider-backed domains easier to operate, verify, and fail sa
 
 ## Acceptance
 
-- [ ] provider-backed domains keep failing closed in production mode when required adapters are missing
-- [ ] rollout diagnostics and documentation are clearer for auth, messages, payment, upload, and share
-- [ ] no new host-local compensation layer is added for shared provider gaps
-- [ ] any additive contract fields remain compatible with the existing canonical envelopes
-- [ ] `pnpm verify` run, or skipped with reason if this remains docs-only
+- [x] provider-backed domains keep failing closed in production mode when required adapters are missing
+- [x] rollout diagnostics and documentation are clearer for auth, messages, payment, upload, and share
+- [x] no new host-local compensation layer is added for shared provider gaps
+- [x] any additive contract fields remain compatible with the existing canonical envelopes
+- [x] `pnpm verify` run, or skipped with reason if this remains docs-only
+
+## Implementation Notes
+
+- `/ops/diagnostics` now includes a shared `providerReadiness` summary for auth, messages, payment callbacks, upload, and share
+- the readiness summary distinguishes `sample`, `ready`, `review`, and `blocked` posture instead of leaving provider rollout state scattered across separate domain payloads
+- auth readiness now reflects whether SMS and OAuth production modes have real adapters wired, while payment, upload, share, and message readiness summarize env-backed rollout completeness
+- release docs now point operators at `/ops/diagnostics` as the repo-visible readiness checkpoint for target environments
+
+## Verification Notes
+
+- verified through `node --import tsx --test apps/api/src/app.test.ts`
+- verified through `pnpm verify:api`

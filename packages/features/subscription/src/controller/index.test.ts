@@ -19,6 +19,12 @@ function createKernelStub(options?: {
     type: "volume-complete" | "archive-milestone" | "chapter-recap";
     savedAt: string;
   };
+  paymentCapability?: {
+    available: boolean;
+    mode: "native" | "degraded" | "unavailable";
+    detail: string;
+    fallbackActionLabel?: string;
+  };
 }): { kernel: AppKernel; routeCalls: string[] } {
   const routeCalls: string[] = [];
   const source = options?.source ?? "reader";
@@ -195,6 +201,31 @@ function createKernelStub(options?: {
         async loading() { return ok(undefined); },
         async modal() { return ok(true); },
       },
+      capability: {
+        status(capability: string) {
+          const paymentCapability = options?.paymentCapability ?? {
+            available: true,
+            mode: "native" as const,
+            detail: "Configured payment runtime is available.",
+          };
+          return ok({
+            capability: capability as "clipboard" | "device" | "location" | "payment" | "share" | "subscription" | "upload",
+            available: capability === "payment" ? paymentCapability.available : false,
+            mode: capability === "payment" ? paymentCapability.mode : "unavailable",
+            detail: capability === "payment" ? paymentCapability.detail : `${capability} capability is unavailable.`,
+            ...(capability === "payment" && paymentCapability.fallbackActionLabel
+              ? { fallbackActionLabel: paymentCapability.fallbackActionLabel }
+              : {}),
+          });
+        },
+        async execute(input: { capability: string; action: string }) {
+          return ok({
+            capability: input.capability as "payment",
+            action: input.action,
+            detail: "Native payment runtime launched successfully.",
+          });
+        },
+      },
     },
   };
 }
@@ -218,6 +249,8 @@ test("subscription controller loads overview and route context", async () => {
   assert.equal(controller.store.getState().orderListStatus.loadState, "empty");
   assert.equal(controller.store.getState().orderListStatus.firstLoaded, true);
   assert.equal(controller.store.getState().recommendedPlanId, "monthly");
+  assert.equal(controller.store.getState().paymentCapabilityStatus?.mode, "native");
+  assert.equal(controller.store.getState().paymentCapabilitySummary, "Configured payment runtime is available.");
   assert.equal(
     controller.store.getState().unlockOutcomeLabel,
     "Unlock happens immediately on the quarterly plan, then the blocked chapter can reopen without losing reading position.",
@@ -293,6 +326,28 @@ test("subscription controller hydrates the latest milestone from shared storage"
   assert.equal(controller.store.getState().milestoneHistory.length, 2);
   assert.equal(controller.store.getState().milestoneHistory[0]?.typeLabel, "Archive milestone");
   assert.equal(controller.store.getState().milestoneHistory[1]?.typeLabel, "Chapter recap");
+});
+
+test("subscription controller surfaces unavailable payment posture before purchase execution", async () => {
+  const { kernel } = createKernelStub({
+    paymentCapability: {
+      available: false,
+      mode: "unavailable",
+      detail: "Payment runtime is unavailable on this host.",
+    },
+  });
+  const controller = createSubscriptionController({
+    kernel,
+    catalogRouteId: "catalog.index",
+  });
+
+  await controller.load();
+
+  assert.equal(controller.store.getState().paymentCapabilityStatus?.mode, "unavailable");
+  assert.equal(
+    controller.store.getState().paymentCapabilitySummary,
+    "Payment runtime is unavailable on this host. Order creation can still succeed, but a host payment bridge is required before native payment execution can continue.",
+  );
 });
 
 test("subscription controller can reopen the latest milestone route", async () => {

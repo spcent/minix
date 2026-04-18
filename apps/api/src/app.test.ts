@@ -272,6 +272,153 @@ test("oauth callback can use a configured production provider to validate the ca
   assert.equal(callbackPayload.identity.userId, "user_oauth_wechat-open-platform_provider-user-1-validate");
 });
 
+test("operational diagnostics include provider readiness across auth, messages, payment, upload, and share", async () => {
+  const app = createApiApp({ store: createMemoryApiStore() });
+  const session = await login(app, "h5");
+
+  const response = await app.request("http://localhost/ops/diagnostics", {
+    headers: { authorization: `Bearer ${session.accessToken}` },
+  });
+  assert.equal(response.status, 200);
+  const payload = (await response.json()) as {
+    providerReadiness: {
+      auth: {
+        sms: { status: string; mode?: string; adapterConfigured: boolean };
+        oauth: { status: string; mode?: string; adapterConfigured: boolean };
+      };
+      messages: {
+        touchpoints: { status: string; mode?: string; defaultedProductionChannels: number };
+      };
+      payment: {
+        callbacks: { status: string; webhookSecretConfigured: boolean };
+      };
+      upload: {
+        pipeline: { status: string; mode?: string; storageProviderConfigured: boolean };
+      };
+      share: {
+        distribution: { status: string; mode?: string; shortLinkProviderConfigured: boolean };
+      };
+    };
+  };
+
+  assert.equal(payload.providerReadiness.auth.sms.mode, "sample");
+  assert.equal(payload.providerReadiness.auth.sms.status, "sample");
+  assert.equal(payload.providerReadiness.auth.sms.adapterConfigured, false);
+  assert.equal(payload.providerReadiness.auth.oauth.mode, "sample");
+  assert.equal(payload.providerReadiness.auth.oauth.status, "sample");
+  assert.equal(payload.providerReadiness.auth.oauth.adapterConfigured, false);
+  assert.equal(payload.providerReadiness.messages.touchpoints.mode, "sample");
+  assert.equal(payload.providerReadiness.messages.touchpoints.status, "sample");
+  assert.equal(payload.providerReadiness.messages.touchpoints.defaultedProductionChannels, 0);
+  assert.equal(payload.providerReadiness.payment.callbacks.status, "review");
+  assert.equal(payload.providerReadiness.payment.callbacks.webhookSecretConfigured, false);
+  assert.equal(payload.providerReadiness.upload.pipeline.mode, "sample");
+  assert.equal(payload.providerReadiness.upload.pipeline.status, "sample");
+  assert.equal(payload.providerReadiness.upload.pipeline.storageProviderConfigured, false);
+  assert.equal(payload.providerReadiness.share.distribution.mode, "sample");
+  assert.equal(payload.providerReadiness.share.distribution.status, "sample");
+  assert.equal(payload.providerReadiness.share.distribution.shortLinkProviderConfigured, false);
+});
+
+test("operational diagnostics reflect production readiness and blocked auth providers explicitly", async () => {
+  const app = createApiApp({
+    store: createMemoryApiStore(),
+    authSmsProvider: async (input) => ({
+      ok: true,
+      value: {
+        provider: "sms",
+        providerMode: "production",
+        providerLabel: "Tencent Cloud SMS",
+        providerReference: `prod_${input.verificationId}`,
+        maskedTarget: input.maskedTarget,
+        message: "Verification code issued through the configured SMS provider.",
+      },
+    }),
+  });
+  const session = await login(app, "h5");
+
+  const response = await app.request(
+    "http://localhost/ops/diagnostics",
+    {
+      headers: { authorization: `Bearer ${session.accessToken}` },
+    },
+    {
+      MINIX_AUTH_SMS_PROVIDER_MODE: "production",
+      MINIX_AUTH_OAUTH_PROVIDER_MODE: "production",
+      MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE: "production",
+      MINIX_MESSAGE_SUBSCRIPTION_PROVIDER_KEY: "wechat_sub_prod",
+      MINIX_MESSAGE_SUBSCRIPTION_PROVIDER_LABEL: "WeChat Subscription",
+      MINIX_MESSAGE_SMS_PROVIDER_KEY: "sms_prod",
+      MINIX_MESSAGE_SMS_PROVIDER_LABEL: "Tencent SMS",
+      MINIX_MESSAGE_EMAIL_PROVIDER_KEY: "email_prod",
+      MINIX_MESSAGE_EMAIL_PROVIDER_LABEL: "Resend",
+      MINIX_MESSAGE_PUSH_PROVIDER_KEY: "push_prod",
+      MINIX_MESSAGE_PUSH_PROVIDER_LABEL: "JPush",
+      MINIX_PAYMENT_WEBHOOK_SECRET: "prod-secret",
+      MINIX_UPLOAD_PROVIDER_MODE: "production",
+      MINIX_UPLOAD_STORAGE_PROVIDER: "r2-prod",
+      MINIX_UPLOAD_REVIEW_PROVIDER: "review-prod",
+      MINIX_UPLOAD_ASSET_BASE_URL: "https://assets.example.test/",
+      MINIX_SHARE_PROVIDER_MODE: "production",
+      MINIX_SHARE_SHORT_LINK_PROVIDER: "short-prod",
+      MINIX_SHARE_POSTER_PROVIDER: "poster-prod",
+      MINIX_SHARE_SHORT_LINK_BASE_URL: "https://s.example.test/",
+      MINIX_SHARE_POSTER_BASE_URL: "https://poster.example.test/",
+    } as never,
+  );
+  assert.equal(response.status, 200);
+  const payload = (await response.json()) as {
+    providerReadiness: {
+      auth: {
+        sms: { status: string; adapterConfigured: boolean };
+        oauth: { status: string; adapterConfigured: boolean };
+      };
+      messages: {
+        touchpoints: { status: string; explicitChannelConfigs: number; defaultedProductionChannels: number };
+      };
+      payment: {
+        callbacks: { status: string; webhookSecretConfigured: boolean };
+      };
+      upload: {
+        pipeline: {
+          status: string;
+          storageProviderConfigured: boolean;
+          reviewProviderConfigured: boolean;
+          assetBaseUrlConfigured: boolean;
+        };
+      };
+      share: {
+        distribution: {
+          status: string;
+          shortLinkProviderConfigured: boolean;
+          posterProviderConfigured: boolean;
+          shortLinkBaseUrlConfigured: boolean;
+          posterBaseUrlConfigured: boolean;
+        };
+      };
+    };
+  };
+
+  assert.equal(payload.providerReadiness.auth.sms.status, "ready");
+  assert.equal(payload.providerReadiness.auth.sms.adapterConfigured, true);
+  assert.equal(payload.providerReadiness.auth.oauth.status, "blocked");
+  assert.equal(payload.providerReadiness.auth.oauth.adapterConfigured, false);
+  assert.equal(payload.providerReadiness.messages.touchpoints.status, "ready");
+  assert.equal(payload.providerReadiness.messages.touchpoints.explicitChannelConfigs, 4);
+  assert.equal(payload.providerReadiness.messages.touchpoints.defaultedProductionChannels, 0);
+  assert.equal(payload.providerReadiness.payment.callbacks.status, "ready");
+  assert.equal(payload.providerReadiness.payment.callbacks.webhookSecretConfigured, true);
+  assert.equal(payload.providerReadiness.upload.pipeline.status, "ready");
+  assert.equal(payload.providerReadiness.upload.pipeline.storageProviderConfigured, true);
+  assert.equal(payload.providerReadiness.upload.pipeline.reviewProviderConfigured, true);
+  assert.equal(payload.providerReadiness.upload.pipeline.assetBaseUrlConfigured, true);
+  assert.equal(payload.providerReadiness.share.distribution.status, "ready");
+  assert.equal(payload.providerReadiness.share.distribution.shortLinkProviderConfigured, true);
+  assert.equal(payload.providerReadiness.share.distribution.posterProviderConfigured, true);
+  assert.equal(payload.providerReadiness.share.distribution.shortLinkBaseUrlConfigured, true);
+  assert.equal(payload.providerReadiness.share.distribution.posterBaseUrlConfigured, true);
+});
+
 test("oauth login maps production provider validation failures to normalized auth errors", async () => {
   const app = createApiApp({
     store: createMemoryApiStore(),
@@ -4307,6 +4454,7 @@ test("operational diagnostics persist job queues across app restarts and manual 
     backgroundJobs: Array<{ kind: string; status: string }>;
     governance: { queuedJobs: number; retryableNotifications: number };
     migrations: Array<{ migrationId: string }>;
+    providerReadiness: { payment: { callbacks: { status: string } } };
   };
   assert.equal(diagnosticsPayload.backgroundJobs.some((job) => job.kind === "upload_cleanup"), true);
   assert.equal(diagnosticsPayload.backgroundJobs.some((job) => job.kind === "notification_retry"), true);
@@ -4315,6 +4463,7 @@ test("operational diagnostics persist job queues across app restarts and manual 
   assert.equal(diagnosticsPayload.governance.queuedJobs >= 4, true);
   assert.equal(diagnosticsPayload.governance.retryableNotifications >= 1, true);
   assert.equal(diagnosticsPayload.migrations.some((migration) => migration.migrationId === "user_state_backfill_v1"), true);
+  assert.equal(diagnosticsPayload.providerReadiness.payment.callbacks.status, "review");
 
   const operationalState = structuredClone(await store.getOperationalState());
   const cancellationJob = operationalState.backgroundJobs.find((job) => job.kind === "cancellation_expiry");
@@ -4333,7 +4482,10 @@ test("operational diagnostics persist job queues across app restarts and manual 
   assert.equal(runJobsResponse.status, 200);
   const runJobsPayload = (await runJobsResponse.json()) as {
     processedJobs: Array<{ kind: string; status: string }>;
-    diagnostics: { governance: { queuedJobs: number; retryableNotifications: number } };
+    diagnostics: {
+      governance: { queuedJobs: number; retryableNotifications: number };
+      providerReadiness: { payment: { callbacks: { status: string } } };
+    };
   };
   assert.equal(runJobsPayload.processedJobs.some((job) => job.kind === "upload_cleanup" && job.status === "completed"), true);
   assert.equal(runJobsPayload.processedJobs.some((job) => job.kind === "notification_retry" && job.status === "completed"), true);
@@ -4341,6 +4493,7 @@ test("operational diagnostics persist job queues across app restarts and manual 
   assert.equal(runJobsPayload.processedJobs.some((job) => job.kind === "cancellation_expiry" && job.status === "completed"), true);
   assert.equal(runJobsPayload.diagnostics.governance.queuedJobs, 0);
   assert.equal(runJobsPayload.diagnostics.governance.retryableNotifications, 0);
+  assert.equal(runJobsPayload.diagnostics.providerReadiness.payment.callbacks.status, "review");
 
   const rerunJobsResponse = await restartedApp.request("http://localhost/ops/jobs/run", {
     method: "POST",

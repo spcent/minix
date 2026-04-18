@@ -40,8 +40,20 @@ These repo-level follow-ups are already reflected in current code:
 - `0250`: discover and content-search outputs are aligned across API and shared feed controller state
 - `0251`: no new page-protocol gap is open after the recent account, settings, and discover updates
 - `0252`: messages, share, upload, and feedback now share one nested context envelope
+- `0256`: future content and discover growth is now explicitly constrained to additive extensions of the current shared content, search, upload, and feedback stack
+- `0257`: future account and relationship growth is now explicitly constrained to the shared account workspace and canonical account outputs
+- `0258`: capability posture is now surfaced through shared feature-state summaries instead of relying on host-local fallback copy
 
 Those cards still exist as traceable work items, but their repo-facing implementation posture is already reflected in current code and docs.
+
+## Current Post-Release Expansion Posture
+
+- content and discover:
+  editorial, moderation, ranking, and richer asset metadata should extend the current discover-centered content stack additively; a second content stack or host-only editorial lane remains out of bounds
+- account and relationship:
+  relation graphs, entitlement history, merge, and security follow-up should extend the shared account workspace first; a separate user-detail surface still requires an explicit boundary decision
+- capability experience:
+  degraded and unavailable payment, share, and upload posture should stay normalized in shared controller state, while adapter-specific behavior remains isolated in `packages/platform-*`
 
 ## Active Release Queue
 

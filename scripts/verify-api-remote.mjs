@@ -63,6 +63,16 @@ async function main() {
     },
   });
 
+  const diagnostics = await request("/ops/diagnostics", {
+    headers: {
+      authorization: `Bearer ${refreshed.accessToken}`,
+    },
+  });
+  const readiness = diagnostics?.providerReadiness;
+  if (!readiness || !readiness.auth || !readiness.messages || !readiness.payment || !readiness.upload || !readiness.share) {
+    throw new Error("GET /ops/diagnostics did not expose the expected providerReadiness summary");
+  }
+
   await request("/auth/logout", {
     method: "POST",
     headers: {

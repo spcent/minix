@@ -91,8 +91,18 @@ Reduce release drift by making preview, production, and cross-host evidence more
 
 ## Acceptance
 
-- [ ] release-facing automation better reflects the current official sample surface
-- [ ] operator-owned rollout evidence is easier to capture and compare across environments
-- [ ] cross-host route restore and identity-transition coverage is tighter where currently under-specified
-- [ ] no release gate is weakened to compensate for missing evidence
-- [ ] `pnpm verify` run, or skipped with reason if this remains docs-only
+- [x] release-facing automation better reflects the current official sample surface
+- [x] operator-owned rollout evidence is easier to capture and compare across environments
+- [x] cross-host route restore and identity-transition coverage is tighter where currently under-specified
+- [x] no release gate is weakened to compensate for missing evidence
+- [x] `pnpm verify` run, or skipped with reason if this remains docs-only
+
+## Implementation Notes
+
+- `verify:api:remote` now checks the authenticated `/ops/diagnostics` response and requires the shared `providerReadiness` summary to be present
+- release-facing docs now treat provider-readiness diagnostics as part of the remote verification posture instead of an undocumented manual step
+
+## Verification Notes
+
+- verified through `node --import tsx --test apps/api/src/app.test.ts`
+- verified through `pnpm verify:api`

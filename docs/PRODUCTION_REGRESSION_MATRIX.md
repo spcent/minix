@@ -67,6 +67,7 @@ Every RC or final release record should capture:
 | upload session, chunk, complete, asset retrieval | yes | [`apps/api/src/app.test.ts`](/apps/api/src/app.test.ts) |
 | message thread read, send, retry, sync | yes | [`apps/api/src/app.test.ts`](/apps/api/src/app.test.ts) |
 | background jobs and governance diagnostics | yes | [`apps/api/src/app.test.ts`](/apps/api/src/app.test.ts) |
+| remote provider-readiness diagnostics | yes | `pnpm verify:api:remote` |
 
 ## Route And Session Recovery Matrix
 

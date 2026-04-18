@@ -28,6 +28,8 @@ This document is a baseline, not a full endpoint dump. The source of truth for e
 
 Shared controllers and hosts should consume the normalized nested outputs below instead of inventing host-local wrappers.
 
+The repo now enforces this posture with a contract-governance guard in `scripts/check-contract-governance.mjs`, which checks that the canonical response owners continue to expose the expected shared output fields.
+
 | Domain | Canonical outputs | Main contract owners | Current notes |
 | --- | --- | --- | --- |
 | auth | `session`, `identity`, `authStatus`, `redirectTarget` | `packages/contracts/src/api/auth.ts` | login and refresh keep compatibility top-level token fields, but the nested session and identity outputs are authoritative |
@@ -77,6 +79,7 @@ Feature code consumes normalized capability metadata before executing a platform
 - `share` may degrade to clipboard copy
 - `upload` may use a configured runtime or a host fallback
 - `payment` is unavailable unless the host runtime injects a real payment bridge
+- shared controllers should keep host-visible capability summaries in normalized state; adapter-specific behavior still stays in `packages/platform-*`
 
 H5 and WeChat both expose capability status through the shared runtime surface, but the underlying implementation remains platform-specific.
 
@@ -119,6 +122,7 @@ Current posture:
 
 - account summaries preserve session-derived data plus remote security and identity workflow data
 - settings responses project `effectivePolicy`, notification channels, and lock posture into one normalized summary
+- future relation, entitlement-history, merge, and security follow-up growth should extend `userProfile`, `accountSummary`, `userStatus`, and account-workspace state additively before introducing any separate user route family
 
 ### Messages
 
@@ -167,6 +171,7 @@ Current posture:
 - default discover and cross-domain discover now share the same result vocabulary
 - managed-content draft and lifecycle work stay embedded in the shared discover route on official hosts
 - novel flows extend the same content vocabulary with reader-specific fields
+- future editorial, moderation, ranking, and richer asset metadata should stay additive to the same `contentCard`, `contentDetail`, `contentAccess`, and `searchResults` vocabulary instead of creating a second content stack
 
 ### Upload, Share, And Feedback
 

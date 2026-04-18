@@ -88,8 +88,18 @@ Prevent shared contracts from drifting into incompatible host-local variants or 
 
 ## Acceptance
 
-- [ ] shared envelope ownership is clearer and easier to verify
-- [ ] additive contract growth has a documented compatibility posture
-- [ ] explicit protocol exceptions remain documented instead of drifting into code-only behavior
-- [ ] no new parallel contract system or host-local compatibility layer is introduced
-- [ ] `pnpm verify` run, or skipped with reason if this remains docs-only
+- [x] shared envelope ownership is clearer and easier to verify
+- [x] additive contract growth has a documented compatibility posture
+- [x] explicit protocol exceptions remain documented instead of drifting into code-only behavior
+- [x] no new parallel contract system or host-local compatibility layer is introduced
+- [x] `pnpm verify` run, or skipped with reason if this remains docs-only
+
+## Implementation Notes
+
+- added `scripts/check-contract-governance.mjs` to enforce canonical shared output fields on the documented response-owner interfaces
+- wired the governance check into `pnpm verify` so missing canonical output fields fail the repo gate early
+- documented the new governance guard in `docs/BACKEND_CONTRACT.md`
+
+## Verification Notes
+
+- verified through `node scripts/check-contract-governance.mjs`

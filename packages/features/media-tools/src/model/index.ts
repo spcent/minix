@@ -30,6 +30,8 @@ export interface MediaToolsState {
   uploadCapabilityStatus: CapabilityStatus | undefined;
   shareCapabilityStatus: CapabilityStatus | undefined;
   clipboardCapabilityStatus: CapabilityStatus | undefined;
+  uploadCapabilitySummary: string;
+  shareCapabilitySummary: string;
   uploadProviderSummary: string;
   shareProviderSummary: string;
   uploadTask: UploadTask;
@@ -164,6 +166,8 @@ export function createDefaultMediaToolsState(
     uploadCapabilityStatus: undefined,
     shareCapabilityStatus: undefined,
     clipboardCapabilityStatus: undefined,
+    uploadCapabilitySummary: "Upload capability status is unavailable until the host runtime reports it.",
+    shareCapabilitySummary: "Share capability status is unavailable until the host runtime reports it.",
     uploadProviderSummary: createDefaultUploadProviderSummary(),
     shareProviderSummary: createDefaultShareProviderSummary(),
     uploadTask: createDefaultUploadTask(),

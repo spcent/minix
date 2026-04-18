@@ -477,6 +477,7 @@ export function createOperationalDiagnosticsResponse(
   input: {
     limit?: number;
     includeCompletedJobs?: boolean;
+    providerReadiness?: unknown;
   } = {},
 ) {
   const limit = input.limit ?? 20;
@@ -491,6 +492,7 @@ export function createOperationalDiagnosticsResponse(
     backgroundJobs,
     monitoringEvents: operationalState.monitoringEvents.slice(0, limit),
     auditTrail: operationalState.auditTrail.slice(0, limit),
+    ...(input.providerReadiness ? { providerReadiness: input.providerReadiness } : {}),
     governance: {
       queuedJobs: operationalState.backgroundJobs.filter((job) => job.status === "queued").length,
       failedJobs: operationalState.backgroundJobs.filter((job) => job.status === "failed").length,

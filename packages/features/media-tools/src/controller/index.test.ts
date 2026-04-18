@@ -1087,6 +1087,8 @@ test("media-tools controller loads capability availability", () => {
   assert.equal(controller.store.getState().shareAvailable, true);
   assert.equal(controller.store.getState().uploadCapabilityStatus?.mode, "native");
   assert.equal(controller.store.getState().shareCapabilityStatus?.mode, "native");
+  assert.equal(controller.store.getState().uploadCapabilitySummary, "upload capability is available.");
+  assert.equal(controller.store.getState().shareCapabilitySummary, "share capability is available.");
   assert.equal(controller.store.getState().uploadProviderSummary.includes("sample-upload-policy"), true);
   assert.equal(controller.store.getState().shareProviderSummary.includes("sample-backed"), true);
 });
@@ -1117,6 +1119,10 @@ test("media-tools controller surfaces degraded fallback capability metadata", ()
   assert.equal(controller.store.getState().shareAvailable, true);
   assert.equal(controller.store.getState().shareCapabilityStatus?.mode, "degraded");
   assert.equal(controller.store.getState().shareCapabilityStatus?.fallbackActionLabel, "Copy share link");
+  assert.equal(
+    controller.store.getState().shareCapabilitySummary,
+    "Native share is unavailable. Falling back to clipboard copy. Recommended fallback: Copy share link.",
+  );
 });
 
 test("media-tools controller stores upload contract output after the primary action", async () => {

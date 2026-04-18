@@ -10,7 +10,7 @@ import { registerOpsRoutes } from "./domains/ops/routes";
 import type { RegisterApiRouteGroupsOptions } from "./app-composition.route-groups.types";
 
 export function registerAccountAndOpsRouteGroups(options: RegisterApiRouteGroupsOptions) {
-  const { app, requireSession, resolveStore, security, jobs } = options;
+  const { app, requireSession, resolveStore, createApiAppOptions, security, jobs } = options;
 
   const guardAccountRateLimit: RegisterAccountRoutesOptions["guardSecurityRateLimit"] =
     security.createScopedRateLimitGuard({
@@ -26,6 +26,8 @@ export function registerAccountAndOpsRouteGroups(options: RegisterApiRouteGroups
     app,
     requireSession,
     resolveStore,
+    authSmsProviderConfigured: Boolean(createApiAppOptions.authSmsProvider),
+    authOAuthProviderConfigured: Boolean(createApiAppOptions.authOAuthProvider),
     runOperationalJobs: runWiredOperationalJobs,
   });
 

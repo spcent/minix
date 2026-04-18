@@ -15,7 +15,7 @@ import type {
   UploadRetryRequest,
   UploadSelectionResult,
 } from "@minix/contracts";
-import { createStore, ok, type AppKernel } from "@minix/core";
+import { createStore, describeCapabilityStatus, ok, type AppKernel } from "@minix/core";
 
 import {
   createDefaultMediaToolsState,
@@ -50,6 +50,8 @@ function cloneState(state: MediaToolsState): MediaToolsState {
     ...(state.uploadCapabilityStatus ? { uploadCapabilityStatus: structuredClone(state.uploadCapabilityStatus) } : {}),
     ...(state.shareCapabilityStatus ? { shareCapabilityStatus: structuredClone(state.shareCapabilityStatus) } : {}),
     ...(state.clipboardCapabilityStatus ? { clipboardCapabilityStatus: structuredClone(state.clipboardCapabilityStatus) } : {}),
+    uploadCapabilitySummary: state.uploadCapabilitySummary,
+    shareCapabilitySummary: state.shareCapabilitySummary,
     ...(state.uploadAsset ? { uploadAsset: structuredClone(state.uploadAsset) } : {}),
     ...(state.uploadError ? { uploadError: structuredClone(state.uploadError) } : {}),
     sharePayload: structuredClone(state.sharePayload),
@@ -143,15 +145,32 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
     const uploadStatus = kernel.capability?.status("upload");
     const shareStatus = kernel.capability?.status("share");
     const clipboardStatus = kernel.capability?.status("clipboard");
+    const uploadCapabilityStatus = uploadStatus?.ok ? uploadStatus.value : undefined;
+    const shareCapabilityStatus = shareStatus?.ok ? shareStatus.value : undefined;
+    const clipboardCapabilityStatus = clipboardStatus?.ok ? clipboardStatus.value : undefined;
+    const uploadCapabilitySummary = describeCapabilityStatus(
+      uploadCapabilityStatus,
+      "Upload capability status is unavailable until the host runtime reports it.",
+    );
+    const shareCapabilityBaseSummary = describeCapabilityStatus(
+      shareCapabilityStatus,
+      "Share capability status is unavailable until the host runtime reports it.",
+    );
+    const shareCapabilitySummary =
+      shareCapabilityStatus && !shareCapabilityStatus.available && clipboardCapabilityStatus?.available
+        ? `${shareCapabilityBaseSummary} Clipboard fallback remains available for copy-link flows.`
+        : shareCapabilityBaseSummary;
     store.setState({
-      uploadAvailable: Boolean(uploadStatus?.ok && uploadStatus.value.available),
+      uploadAvailable: Boolean(uploadCapabilityStatus?.available),
       shareAvailable: Boolean(
-        (shareStatus?.ok && shareStatus.value.available) ||
-          (clipboardStatus?.ok && clipboardStatus.value.available),
+        shareCapabilityStatus?.available ||
+          clipboardCapabilityStatus?.available,
       ),
-      uploadCapabilityStatus: uploadStatus?.ok ? uploadStatus.value : undefined,
-      shareCapabilityStatus: shareStatus?.ok ? shareStatus.value : undefined,
-      clipboardCapabilityStatus: clipboardStatus?.ok ? clipboardStatus.value : undefined,
+      uploadCapabilityStatus,
+      shareCapabilityStatus,
+      clipboardCapabilityStatus,
+      uploadCapabilitySummary,
+      shareCapabilitySummary,
     });
   }
 

@@ -82,6 +82,8 @@ Before release promotion, record evidence for:
 
 All evidence should end up in [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md).
 
+The repo now also exposes provider-readiness diagnostics through the authenticated `/ops/diagnostics` API surface. Use it to confirm whether auth, messages, payment callbacks, upload, and share are currently in `sample`, `ready`, `review`, or `blocked` posture for the target environment.
+
 ## Active Queue Closure Rule
 
 Treat the release queue as one bundle:

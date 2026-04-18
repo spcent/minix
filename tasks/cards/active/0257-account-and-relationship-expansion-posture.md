@@ -87,8 +87,18 @@ Allow future user-surface growth without fragmenting account state into disconne
 
 ## Acceptance
 
-- [ ] future user and relationship growth is mapped onto the shared account workspace first
-- [ ] additive account-summary growth remains compatible with current normalized outputs
-- [ ] any new user-surface boundary is justified explicitly instead of implied by drift
-- [ ] no host-local account fork is introduced
-- [ ] `pnpm verify` run, or skipped with reason if this remains docs-only
+- [x] future user and relationship growth is mapped onto the shared account workspace first
+- [x] additive account-summary growth remains compatible with current normalized outputs
+- [x] any new user-surface boundary is justified explicitly instead of implied by drift
+- [x] no host-local account fork is introduced
+- [x] `pnpm verify` run, or skipped with reason if this remains docs-only
+
+## Implementation Notes
+
+- documented in `docs/BACKEND_CONTRACT.md` that relation graphs, entitlement history, merge, and security follow-up should extend `userProfile`, `accountSummary`, `userStatus`, and shared account-workspace state additively first
+- recorded the same account-workspace boundary in `docs/ARCHITECTURE.md` and `docs/DOMAIN_COMPLETENESS_MATRIX.md` so future user-surface growth does not silently split into a second route family
+- kept `docs/ROADMAP.md` aligned with the documented workspace-first posture instead of leaving the expansion rule implicit
+
+## Verification Notes
+
+- docs-only closeout; no additional `pnpm verify` run was needed because no runtime or contract code changed for this slice

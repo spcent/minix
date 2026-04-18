@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { parseJsonBody, parseQuery } from "../../http/parsing";
 import type { ApiBindings, ApiStore } from "../../types";
+import { createProviderReadinessSummary } from "./provider-readiness";
 import {
   appendOperationalAuditRecord,
   cloneOperationalState,
@@ -25,6 +26,8 @@ export interface RegisterOpsRoutesOptions {
   app: Hono<{ Bindings: ApiBindings }>;
   requireSession: MiddlewareHandler<any>;
   resolveStore: (env: ApiBindings | undefined) => ApiStore;
+  authSmsProviderConfigured: boolean;
+  authOAuthProviderConfigured: boolean;
   runOperationalJobs: (
     store: ApiStore,
     input: {
@@ -40,7 +43,14 @@ export interface RegisterOpsRoutesOptions {
 }
 
 export function registerOpsRoutes(options: RegisterOpsRoutesOptions) {
-  const { app, requireSession, resolveStore, runOperationalJobs } = options;
+  const {
+    app,
+    requireSession,
+    resolveStore,
+    authSmsProviderConfigured,
+    authOAuthProviderConfigured,
+    runOperationalJobs,
+  } = options;
 
   app.use("/ops", requireSession);
   app.use("/ops/*", requireSession);
@@ -63,11 +73,17 @@ export function registerOpsRoutes(options: RegisterOpsRoutesOptions) {
       userState,
       nowIso,
     });
+    const providerReadiness = createProviderReadinessSummary({
+      env: c.env,
+      authSmsProviderConfigured,
+      authOAuthProviderConfigured,
+    });
     await store.saveOperationalState(operationalState);
     return c.json(
       createOperationalDiagnosticsResponse(userState, operationalState, {
         ...(query.limit !== undefined ? { limit: query.limit } : {}),
         ...(query.includeCompletedJobs !== undefined ? { includeCompletedJobs: query.includeCompletedJobs } : {}),
+        providerReadiness,
       }),
     );
   });
@@ -98,11 +114,17 @@ export function registerOpsRoutes(options: RegisterOpsRoutesOptions) {
       },
     });
     await store.saveOperationalState(result.operationalState);
+    const providerReadiness = createProviderReadinessSummary({
+      env: c.env,
+      authSmsProviderConfigured,
+      authOAuthProviderConfigured,
+    });
     return c.json({
       processedJobs: result.jobs,
       diagnostics: createOperationalDiagnosticsResponse(result.userState, result.operationalState, {
         limit: Math.max(payload.limit ?? 20, result.jobs.length || 1),
         includeCompletedJobs: true,
+        providerReadiness,
       }),
     });
   });

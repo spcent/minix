@@ -93,8 +93,18 @@ Make future content-surface growth deliberate, shared-first, and compatible with
 
 ## Acceptance
 
-- [ ] future content growth is mapped onto the existing shared content/discover model
-- [ ] richer editorial or moderation flows do not implicitly create a second content stack
-- [ ] any true exception is documented explicitly
-- [ ] current normalized content and discover outputs remain the base contract
-- [ ] `pnpm verify` run, or skipped with reason if this remains docs-only
+- [x] future content growth is mapped onto the existing shared content/discover model
+- [x] richer editorial or moderation flows do not implicitly create a second content stack
+- [x] any true exception is documented explicitly
+- [x] current normalized content and discover outputs remain the base contract
+- [x] `pnpm verify` run, or skipped with reason if this remains docs-only
+
+## Implementation Notes
+
+- documented the future-safe content and discover boundary in `docs/BACKEND_CONTRACT.md`, keeping editorial, moderation, ranking, and richer asset metadata additive to the current `contentCard`, `contentDetail`, `contentAccess`, and `searchResults` vocabulary
+- recorded the same posture in `docs/ARCHITECTURE.md` and `docs/DOMAIN_COMPLETENESS_MATRIX.md` so future work extends the current discover-centered stack instead of inventing a second content model
+- kept the current repo posture explicit in `docs/ROADMAP.md`, so the roadmap now points at the documented baseline instead of an implied future rewrite
+
+## Verification Notes
+
+- docs-only closeout; no additional `pnpm verify` run was needed because no runtime or contract code changed for this slice

@@ -88,6 +88,8 @@ pnpm api:deploy:preview
 MINIX_API_BASE_URL="https://<preview-worker>.workers.dev" pnpm verify:api:remote
 ```
 
+After API verification, inspect the authenticated `/ops/diagnostics` response on the target environment and confirm the provider-readiness summary matches the intended rollout posture for auth, messages, payment callbacks, upload, and share.
+
 4. Deploy both H5 samples to Pages preview:
 
 ```bash
@@ -142,8 +144,9 @@ MINIX_API_BASE_URL="https://<production-worker>.workers.dev" pnpm pages:deploy:n
 ```
 
 4. Repeat the manual WeChat gate against the production API target.
-5. Update [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md) with commit SHA, URLs, command results, provider rollout evidence, manual validation, and final signoff.
-6. Only then publish the final release record.
+5. Inspect `/ops/diagnostics` again on production and confirm the provider-readiness summary matches the final rollout decision.
+6. Update [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md) with commit SHA, URLs, command results, provider rollout evidence, manual validation, and final signoff.
+7. Only then publish the final release record.
 
 ## Required Evidence
 
