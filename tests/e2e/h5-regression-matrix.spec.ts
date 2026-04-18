@@ -34,6 +34,34 @@ test("host-h5 restores inbox route params and selected thread after reload", asy
   await expect(page).toHaveURL(/threadId=thread_private_tutor/);
 });
 
+test("host-h5 restores protected deep links after sign-in without losing inbox context", async ({ page }) => {
+  await page.goto(`${hostBaseUrl}/inbox?type=business&onlyUnread=true&threadId=thread_private_tutor`);
+  await expect(page.locator("#login")).toBeVisible();
+
+  await page.locator("#login").click();
+
+  await expect(page).toHaveURL(/\/inbox\?/);
+  await expect(page).toHaveURL(/type=business/);
+  await expect(page).toHaveURL(/onlyUnread=true/);
+  await expect(page).toHaveURL(/threadId=thread_private_tutor/);
+  await expect(page.locator("#messages-toggle-unread")).toContainText("Showing unread only");
+  await expect(page.getByText("Private coaching thread", { exact: true })).toBeVisible();
+});
+
+test("host-h5 restores protected discover deep links after sign-in with route-bound search state", async ({ page }) => {
+  await page.goto(`${hostBaseUrl}/discover?keyword=travel&domain=all&sort=updatedAt`);
+  await expect(page.locator("#login")).toBeVisible();
+
+  await page.locator("#login").click();
+
+  await expect(page).toHaveURL(/\/discover\?/);
+  await expect(page).toHaveURL(/keyword=travel/);
+  await expect(page).toHaveURL(/domain=all/);
+  await expect(page).toHaveURL(/sort=updatedAt/);
+  await expect(page.locator("#feed-keyword")).toHaveValue("travel");
+  await expect(page.locator("[data-feed-open]").first()).toBeVisible();
+});
+
 test("host-h5 covers guest upgrade, feed search, feedback, upload-share, and logout", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: hostBaseUrl });
 
@@ -111,14 +139,14 @@ test("novel-h5 covers membership purchase and paid return recovery", async ({ pa
   await page.locator('button[data-target="entry"][data-action="onTapLogin"]').click();
   await expect(page).toHaveURL(`${novelBaseUrl}/`);
 
-  await page.goto(`${novelBaseUrl}/membership`);
+  await page.goto(`${novelBaseUrl}/membership?source=reader&novelId=novel_lantern&chapterId=lantern_ch_04`);
   await expect(page).toHaveURL(/\/membership|\/login\?/);
   if (new URL(page.url()).pathname === "/login") {
     await page.locator('button[data-target="entry"][data-action="onTapLogin"]').click();
     await expect(page).toHaveURL(`${novelBaseUrl}/`);
-    await page.goto(`${novelBaseUrl}/membership`);
+    await page.goto(`${novelBaseUrl}/membership?source=reader&novelId=novel_lantern&chapterId=lantern_ch_04`);
   }
-  await expect(page).toHaveURL(`${novelBaseUrl}/membership`);
+  await expect(page).toHaveURL(/\/membership/);
   await expect(page.getByRole("heading", { name: "Membership Center" })).toBeVisible();
 
   await page.locator('button[data-target="controller"][data-action="purchaseMembership"]').first().click();
@@ -127,6 +155,7 @@ test("novel-h5 covers membership purchase and paid return recovery", async ({ pa
 
   await page.locator('button[data-target="controller"][data-action="continueAfterPurchase"]').first().click();
   await expect.poll(() => new URL(page.url()).pathname).not.toBe("/membership");
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/reader");
 
   await page.goto(`${novelBaseUrl}/reader`);
   await expect(page.locator('button[data-target="controller"][data-action="saveProgress"]').first()).toBeVisible();

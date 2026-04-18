@@ -45,6 +45,26 @@ export interface ProviderReadinessSummary {
   };
 }
 
+export interface ProviderReadinessEnvironmentSummary {
+  deployEnv: string;
+  releasePosture: "sample" | "mixed" | "ready" | "blocked";
+  comparableStatuses: Record<string, ProviderReadinessStatus>;
+  readyCount: number;
+  sampleCount: number;
+  reviewCount: number;
+  blockedCount: number;
+  label: string;
+}
+
+export interface ProviderReadinessEvidencePack {
+  capturedAt: string;
+  deployEnv: string;
+  releasePosture: "sample" | "mixed" | "ready" | "blocked";
+  comparableStatuses: Record<string, ProviderReadinessStatus>;
+  compareKey: string;
+  label: string;
+}
+
 function hasConfiguredString(value: string | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -192,5 +212,70 @@ export function createProviderReadinessSummary(input: {
         posterBaseUrlConfigured: sharePosterBaseUrlConfigured,
       },
     },
+  };
+}
+
+function flattenProviderReadiness(summary: ProviderReadinessSummary): Record<string, ProviderReadinessStatus> {
+  return {
+    authSms: summary.auth.sms.status,
+    authOauth: summary.auth.oauth.status,
+    messagesTouchpoints: summary.messages.touchpoints.status,
+    paymentCallbacks: summary.payment.callbacks.status,
+    uploadPipeline: summary.upload.pipeline.status,
+    shareDistribution: summary.share.distribution.status,
+  };
+}
+
+export function createProviderReadinessEnvironmentSummary(
+  summary: ProviderReadinessSummary,
+  deployEnv?: string,
+): ProviderReadinessEnvironmentSummary {
+  const comparableStatuses = flattenProviderReadiness(summary);
+  const values = Object.values(comparableStatuses);
+  const blockedCount = values.filter((value) => value === "blocked").length;
+  const reviewCount = values.filter((value) => value === "review").length;
+  const readyCount = values.filter((value) => value === "ready").length;
+  const sampleCount = values.filter((value) => value === "sample").length;
+  const releasePosture =
+    blockedCount > 0 ? "blocked" : reviewCount > 0 ? "mixed" : sampleCount === values.length ? "sample" : "ready";
+
+  return {
+    deployEnv: deployEnv ?? "local",
+    releasePosture,
+    comparableStatuses,
+    readyCount,
+    sampleCount,
+    reviewCount,
+    blockedCount,
+    label:
+      releasePosture === "blocked"
+        ? "One or more provider-backed areas are blocked for the current deploy environment."
+        : releasePosture === "mixed"
+          ? "The current deploy environment mixes ready, sample, or review rollout posture."
+          : releasePosture === "sample"
+            ? "All provider-backed areas still run in sample posture for this deploy environment."
+            : "All provider-backed areas expose repo-visible ready posture for this deploy environment.",
+  };
+}
+
+export function createProviderReadinessEvidencePack(
+  summary: ProviderReadinessSummary,
+  input: {
+    capturedAt: string;
+    deployEnv?: string;
+  },
+): ProviderReadinessEvidencePack {
+  const environmentSummary = createProviderReadinessEnvironmentSummary(summary, input.deployEnv);
+  const compareKey = Object.entries(environmentSummary.comparableStatuses)
+    .map(([key, value]) => `${key}:${value}`)
+    .join("|");
+
+  return {
+    capturedAt: input.capturedAt,
+    deployEnv: environmentSummary.deployEnv,
+    releasePosture: environmentSummary.releasePosture,
+    comparableStatuses: environmentSummary.comparableStatuses,
+    compareKey,
+    label: environmentSummary.label,
   };
 }

@@ -91,6 +91,7 @@ Provision real upload review and storage backends, switch asset URL hosts where 
 - repo code already exposes upload provider posture and asset-host readiness without requiring host-local interpretation
 - `/ops/diagnostics` now exposes `providerReadiness.upload.pipeline` so storage, review, and asset-host completeness is visible on the deployed target
 - release docs now require storage provider, review provider, asset host URL, and upload validation evidence in the release log
+- preview and production verification can now emit repeatable evidence packs with `MINIX_REMOTE_EVIDENCE_OUTPUT=... pnpm verify:api:remote`, then render release-log snippets with `pnpm verify:api:remote:render <evidence-path> <label>`
 
 ## Verification Notes
 

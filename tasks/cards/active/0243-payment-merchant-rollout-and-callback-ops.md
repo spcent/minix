@@ -91,6 +91,7 @@ Provision real merchant configuration, route production callbacks correctly, and
 - repo code already enforces production-safe callback posture and keeps payment callback readiness visible through `/ops/diagnostics`
 - `/ops/diagnostics` now exposes `providerReadiness.payment.callbacks` so callback-secret readiness is visible on the deployed target before signoff
 - release docs now require merchant owner, callback evidence, and purchase or refund proof in the release log
+- preview and production verification can now emit repeatable evidence packs with `MINIX_REMOTE_EVIDENCE_OUTPUT=... pnpm verify:api:remote`, then render release-log snippets with `pnpm verify:api:remote:render <evidence-path> <label>`
 
 ## Verification Notes
 

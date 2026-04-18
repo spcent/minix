@@ -15,7 +15,7 @@ import type {
   UploadRetryRequest,
   UploadSelectionResult,
 } from "@minix/contracts";
-import { createStore, describeCapabilityStatus, ok, type AppKernel } from "@minix/core";
+import { createCapabilityHealthSnapshot, createStore, describeCapabilityStatus, ok, type AppKernel } from "@minix/core";
 
 import {
   createDefaultMediaToolsState,
@@ -57,6 +57,11 @@ function cloneState(state: MediaToolsState): MediaToolsState {
     ...(state.uploadCapabilityStatus ? { uploadCapabilityStatus: structuredClone(state.uploadCapabilityStatus) } : {}),
     ...(state.shareCapabilityStatus ? { shareCapabilityStatus: structuredClone(state.shareCapabilityStatus) } : {}),
     ...(state.clipboardCapabilityStatus ? { clipboardCapabilityStatus: structuredClone(state.clipboardCapabilityStatus) } : {}),
+    ...(state.locationCapabilityStatus ? { locationCapabilityStatus: structuredClone(state.locationCapabilityStatus) } : {}),
+    uploadCapabilitySnapshot: structuredClone(state.uploadCapabilitySnapshot),
+    shareCapabilitySnapshot: structuredClone(state.shareCapabilitySnapshot),
+    clipboardCapabilitySnapshot: structuredClone(state.clipboardCapabilitySnapshot),
+    locationCapabilitySnapshot: structuredClone(state.locationCapabilitySnapshot),
     uploadCapabilitySummary: state.uploadCapabilitySummary,
     shareCapabilitySummary: state.shareCapabilitySummary,
     ...(state.uploadAsset ? { uploadAsset: structuredClone(state.uploadAsset) } : {}),
@@ -237,9 +242,11 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
     const uploadStatus = kernel.capability?.status("upload");
     const shareStatus = kernel.capability?.status("share");
     const clipboardStatus = kernel.capability?.status("clipboard");
+    const locationStatus = kernel.capability?.status("location");
     const uploadCapabilityStatus = uploadStatus?.ok ? uploadStatus.value : undefined;
     const shareCapabilityStatus = shareStatus?.ok ? shareStatus.value : undefined;
     const clipboardCapabilityStatus = clipboardStatus?.ok ? clipboardStatus.value : undefined;
+    const locationCapabilityStatus = locationStatus?.ok ? locationStatus.value : undefined;
     const uploadCapabilitySummary = describeCapabilityStatus(
       uploadCapabilityStatus,
       "Upload capability status is unavailable until the host runtime reports it.",
@@ -258,9 +265,31 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
         shareCapabilityStatus?.available ||
           clipboardCapabilityStatus?.available,
       ),
+      locationAvailable: Boolean(locationCapabilityStatus?.available),
       uploadCapabilityStatus,
       shareCapabilityStatus,
       clipboardCapabilityStatus,
+      locationCapabilityStatus,
+      uploadCapabilitySnapshot: createCapabilityHealthSnapshot(
+        "upload",
+        uploadCapabilityStatus,
+        "Upload capability status is unavailable until the host runtime reports it.",
+      ),
+      shareCapabilitySnapshot: createCapabilityHealthSnapshot(
+        "share",
+        shareCapabilityStatus,
+        "Share capability status is unavailable until the host runtime reports it.",
+      ),
+      clipboardCapabilitySnapshot: createCapabilityHealthSnapshot(
+        "clipboard",
+        clipboardCapabilityStatus,
+        "Clipboard capability status is unavailable until the host runtime reports it.",
+      ),
+      locationCapabilitySnapshot: createCapabilityHealthSnapshot(
+        "location",
+        locationCapabilityStatus,
+        "Location capability status is unavailable until the host runtime reports it.",
+      ),
       uploadCapabilitySummary,
       shareCapabilitySummary,
     });

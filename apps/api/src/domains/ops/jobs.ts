@@ -478,6 +478,8 @@ export function createOperationalDiagnosticsResponse(
     limit?: number;
     includeCompletedJobs?: boolean;
     providerReadiness?: unknown;
+    environmentSummary?: unknown;
+    evidencePack?: unknown;
   } = {},
 ) {
   const limit = input.limit ?? 20;
@@ -493,6 +495,8 @@ export function createOperationalDiagnosticsResponse(
     monitoringEvents: operationalState.monitoringEvents.slice(0, limit),
     auditTrail: operationalState.auditTrail.slice(0, limit),
     ...(input.providerReadiness ? { providerReadiness: input.providerReadiness } : {}),
+    ...(input.environmentSummary ? { environmentSummary: input.environmentSummary } : {}),
+    ...(input.evidencePack ? { evidencePack: input.evidencePack } : {}),
     governance: {
       queuedJobs: operationalState.backgroundJobs.filter((job) => job.status === "queued").length,
       failedJobs: operationalState.backgroundJobs.filter((job) => job.status === "failed").length,

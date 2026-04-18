@@ -95,6 +95,7 @@ Run the launch checklist against preview and production, collect evidence, and r
 
 - repo docs now make preview and production `/ops/diagnostics` provider-readiness snapshots part of the release evidence set
 - `VERIFICATION_LOG.md` now includes explicit provider-readiness and rollout-evidence slots for preview and production execution
+- `verify:api:remote` can now emit repeatable JSON evidence packs and render copy-ready Markdown snippets for the verification log
 - this card remains execution-only; the remaining work is to fill the tracked template with real deployed values and signoff ownership
 
 ## Verification Notes

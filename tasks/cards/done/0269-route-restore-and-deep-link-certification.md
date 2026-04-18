@@ -91,8 +91,19 @@ Strengthen confidence in route persistence, deep-link handling, and post-auth re
 
 ## Acceptance
 
-- [ ] route-restore coverage is deeper across H5 and WeChat hosts
-- [ ] protected return, discover state, and membership return remain explicit and testable
-- [ ] manifest-driven host wiring is preserved
-- [ ] no handwritten duplicate route maps are introduced
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] route-restore coverage is deeper across H5 and WeChat hosts
+- [x] protected return, discover state, and membership return remain explicit and testable
+- [x] manifest-driven host wiring is preserved
+- [x] no handwritten duplicate route maps are introduced
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Expanded `tests/e2e/h5-regression-matrix.spec.ts` to cover protected host-h5 deep-link return after sign-in, protected discover deep links with route-bound search state, and a more explicit novel membership return path that keeps reader context.
+- Updated the production regression matrix so route-restore and deep-link proof is called out explicitly instead of being implied by broader smoke coverage.
+- Preserved existing manifest- and registry-driven host routing; no handwritten route maps or host-local restore wrappers were introduced.
+
+## Verification Notes
+
+- `pnpm verify`
+- Route certification coverage added in `tests/e2e/h5-regression-matrix.spec.ts` for the H5 host pair.

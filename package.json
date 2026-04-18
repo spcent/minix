@@ -39,6 +39,8 @@
     "verify:api": "node --import tsx --test apps/api/**/*.test.ts",
     "verify:api:worker": "node scripts/verify-api-worker.mjs",
     "verify:api:remote": "node scripts/verify-api-remote.mjs",
+    "verify:api:remote:compare": "node scripts/compare-remote-evidence.mjs",
+    "verify:api:remote:render": "node scripts/render-remote-evidence-log.mjs",
     "verify:preview:remote": "node scripts/verify-preview-promotion.mjs",
     "verify:h5:blackbox": "pnpm exec playwright test tests/e2e",
     "verify:official-integrations": "node --import tsx scripts/verify-official-integrations.mjs",

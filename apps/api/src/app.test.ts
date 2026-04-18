@@ -681,7 +681,7 @@ test("auth and novel responses resolve sample media under the api origin", async
   const novelsPayload = (await novelsResponse.json()) as {
     items: Array<{
       coverUrl?: string;
-      contentCard: { model: string; display: { recommendationSlotLabel?: string } };
+      contentCard: { model: string; display: { recommendationSlotLabel?: string; recommendationSummary?: string; laneGovernanceSummary?: string } };
       contentAccess: { visibility: string };
     }>;
     searchQuery: { domain: string };
@@ -690,6 +690,8 @@ test("auth and novel responses resolve sample media under the api origin", async
   assert.equal(novelsPayload.items[0]?.coverUrl, "http://localhost/sample-assets/covers/novel-lantern.svg");
   assert.equal(novelsPayload.items[0]?.contentCard.model, "novel_story");
   assert.equal(Boolean(novelsPayload.items[0]?.contentCard.display.recommendationSlotLabel), true);
+  assert.equal(Boolean(novelsPayload.items[0]?.contentCard.display.recommendationSummary), true);
+  assert.equal(Boolean(novelsPayload.items[0]?.contentCard.display.laneGovernanceSummary), true);
   assert.equal(novelsPayload.items[0]?.contentAccess.visibility, "public");
   assert.equal(novelsPayload.searchQuery.domain, "novel");
   assert.equal(novelsPayload.searchResults.total >= 1, true);
@@ -766,13 +768,15 @@ test("current user, settings, and discovery endpoints expose normalized shared o
   assert.equal(feedResponse.status, 200);
   const feedPayload = (await feedResponse.json()) as {
     searchQuery: { keyword: string; mode: string; domain: string };
-    searchFilters: Array<{ key: string; selectedKeys: string[] }>;
+    searchFilters: Array<{ key: string; selectedKeys: string[]; persistenceScope?: string; reloadBehavior?: string }>;
     searchResults: {
       suggestionTerms: string[];
       hotKeywords: string[];
       activeDomain?: string;
       domainTabs?: Array<{ domain: string; total: number }>;
       resultGroups?: Array<{ domain: string; total: number }>;
+      grouping?: { strategy: string };
+      zeroResultGuidance?: { state: string };
     };
   };
   assert.equal(feedPayload.searchQuery.keyword, "travel");
@@ -780,11 +784,15 @@ test("current user, settings, and discovery endpoints expose normalized shared o
   assert.equal(feedPayload.searchQuery.domain, "feed");
   assert.deepEqual(feedPayload.searchFilters.find((group) => group.key === "domain")?.selectedKeys, []);
   assert.deepEqual(feedPayload.searchFilters.find((group) => group.key === "tag")?.selectedKeys, ["speaking"]);
+  assert.equal(feedPayload.searchFilters.find((group) => group.key === "domain")?.persistenceScope, "route");
+  assert.equal(feedPayload.searchFilters.find((group) => group.key === "tag")?.reloadBehavior, "restore");
   assert.equal(feedPayload.searchResults.hotKeywords.includes("travel"), true);
   assert.equal(feedPayload.searchResults.suggestionTerms.length > 0, true);
   assert.equal(feedPayload.searchResults.activeDomain, "feed");
   assert.equal(feedPayload.searchResults.domainTabs?.some((item) => item.domain === "feed" && item.total >= 1), true);
   assert.equal(feedPayload.searchResults.resultGroups?.some((group) => group.domain === "feed" && group.total >= 1), true);
+  assert.equal(feedPayload.searchResults.grouping?.strategy, "flat");
+  assert.equal(feedPayload.searchResults.zeroResultGuidance?.state, "results");
 
   const notificationsResponse = await app.request("http://localhost/notifications?type=system&onlyUnread=true", {
     headers: { authorization: `Bearer ${session.accessToken}` },
@@ -1352,9 +1360,11 @@ test("content cms endpoints support draft save, review queue, lifecycle audit, a
   });
   assert.equal(saveDraftResponse.status, 200);
   const savedDraftPayload = (await saveDraftResponse.json()) as {
-    contentCard: { title: string; coverUrl?: string; lifecycle: { state: string } };
+    contentCard: { title: string; coverUrl?: string; lifecycle: { state: string; moderationSummary?: string }; attachmentSummary?: string };
     contentDetail: {
-      attachments?: Array<{ assetId: string; url?: string }>;
+      attachments?: Array<{ assetId: string; url?: string; assetSummary?: string; derivedAssetSummary?: string }>;
+      moderationSummary?: string;
+      attachmentSummary?: string;
       auditHistory?: Array<{ action: string }>;
       permissions?: { canSaveDraft: boolean; canManageAttachments: boolean };
     };
@@ -1364,6 +1374,11 @@ test("content cms endpoints support draft save, review queue, lifecycle audit, a
   assert.equal(savedDraftPayload.contentCard.lifecycle.state, "draft");
   assert.equal(savedDraftPayload.contentCard.coverUrl, coverUpload.uploadAsset?.url);
   assert.equal(savedDraftPayload.contentDetail.attachments?.[0]?.assetId, attachmentUpload.uploadAsset?.assetId);
+  assert.equal(savedDraftPayload.contentCard.lifecycle.moderationSummary?.includes("draft"), true);
+  assert.equal(savedDraftPayload.contentDetail.moderationSummary?.includes("draft"), true);
+  assert.equal(savedDraftPayload.contentDetail.attachmentSummary?.includes("attachment reference"), true);
+  assert.equal(Boolean(savedDraftPayload.contentDetail.attachments?.[0]?.assetSummary), true);
+  assert.equal(Boolean(savedDraftPayload.contentDetail.attachments?.[0]?.derivedAssetSummary), true);
   assert.equal(savedDraftPayload.contentDetail.permissions?.canSaveDraft, true);
   assert.equal(savedDraftPayload.contentDetail.permissions?.canManageAttachments, true);
   assert.equal(savedDraftPayload.contentDetail.auditHistory?.at(-1)?.action, "save_draft");
@@ -1382,12 +1397,14 @@ test("content cms endpoints support draft save, review queue, lifecycle audit, a
   assert.equal(submitReviewResponse.status, 200);
   const submittedPayload = (await submitReviewResponse.json()) as {
     contentCard: { lifecycle: { state: string } };
-    contentDetail: { reviewRecord?: { status: string; reviewerLabel?: string } };
+    contentDetail: { reviewRecord?: { status: string; reviewerLabel?: string; moderationSummary?: string }; moderationSummary?: string };
     transitionMessage: string;
   };
   assert.equal(submittedPayload.contentCard.lifecycle.state, "under_review");
   assert.equal(submittedPayload.contentDetail.reviewRecord?.status, "queued");
   assert.equal(submittedPayload.contentDetail.reviewRecord?.reviewerLabel, "Reviewer Mina");
+  assert.equal(submittedPayload.contentDetail.reviewRecord?.moderationSummary?.includes("queued"), true);
+  assert.equal(submittedPayload.contentDetail.moderationSummary?.includes("queued"), true);
   assert.equal(submittedPayload.transitionMessage, "Content submitted for review.");
 
   const reviewQueueResponse = await app.request("http://localhost/content/review-queue?actorRole=reviewer", {
@@ -1395,11 +1412,12 @@ test("content cms endpoints support draft save, review queue, lifecycle audit, a
   });
   assert.equal(reviewQueueResponse.status, 200);
   const reviewQueuePayload = (await reviewQueueResponse.json()) as {
-    reviewQueue: { items: Array<{ contentId: string; attachmentsCount: number; reviewerLabel?: string }> };
+    reviewQueue: { items: Array<{ contentId: string; attachmentsCount: number; reviewerLabel?: string; moderationSummary?: string }> };
   };
   assert.equal(reviewQueuePayload.reviewQueue.items.some((item) => item.contentId === "lesson_2"), true);
   assert.equal(reviewQueuePayload.reviewQueue.items.find((item) => item.contentId === "lesson_2")?.attachmentsCount, 1);
   assert.equal(reviewQueuePayload.reviewQueue.items.find((item) => item.contentId === "lesson_2")?.reviewerLabel, "Reviewer Mina");
+  assert.equal(reviewQueuePayload.reviewQueue.items.find((item) => item.contentId === "lesson_2")?.moderationSummary?.includes("queued"), true);
 
   const forbiddenApproveResponse = await app.request("http://localhost/content/lifecycle", {
     method: "POST",
@@ -1424,12 +1442,14 @@ test("content cms endpoints support draft save, review queue, lifecycle audit, a
   });
   assert.equal(approveResponse.status, 200);
   const approvePayload = (await approveResponse.json()) as {
-    contentCard: { lifecycle: { state: string } };
-    contentDetail: { auditHistory?: Array<{ action: string }>; reviewRecord?: { status: string } };
+    contentCard: { lifecycle: { state: string; moderationSummary?: string } };
+    contentDetail: { auditHistory?: Array<{ action: string }>; reviewRecord?: { status: string; moderationSummary?: string }; moderationSummary?: string };
     transitionMessage: string;
   };
   assert.equal(approvePayload.contentCard.lifecycle.state, "published");
   assert.equal(approvePayload.contentDetail.reviewRecord?.status, "approved");
+  assert.equal(approvePayload.contentCard.lifecycle.moderationSummary?.includes("approved"), true);
+  assert.equal(approvePayload.contentDetail.reviewRecord?.moderationSummary?.includes("approved"), true);
   assert.equal(approvePayload.contentDetail.auditHistory?.at(-1)?.action, "approve_review");
   assert.equal(approvePayload.transitionMessage, "Content review approved.");
 
@@ -1525,8 +1545,9 @@ test("feed endpoint composes cross-domain search results for user and content sc
       activeDomain?: string;
       domainTabs?: Array<{ domain: string; total: number }>;
       ranking?: { appliedSortKey: string };
+      grouping?: { strategy: string };
     };
-    searchFilters: Array<{ key: string; selectedKeys: string[] }>;
+    searchFilters: Array<{ key: string; selectedKeys: string[]; persistenceScope?: string }>;
   };
   assert.equal(userSearchPayload.searchQuery.mode, "user");
   assert.equal(userSearchPayload.searchQuery.domain, "user");
@@ -1534,8 +1555,10 @@ test("feed endpoint composes cross-domain search results for user and content sc
   assert.equal(userSearchPayload.items[0]?.routeTarget?.routeId, "account.index");
   assert.equal(userSearchPayload.searchResults.activeDomain, "user");
   assert.deepEqual(userSearchPayload.searchFilters[0]?.selectedKeys, ["user"]);
+  assert.equal(userSearchPayload.searchFilters[0]?.persistenceScope, "route");
   assert.equal(userSearchPayload.searchResults.domainTabs?.some((item) => item.domain === "user" && item.total >= 1), true);
   assert.equal(userSearchPayload.searchResults.ranking?.appliedSortKey, "recommended");
+  assert.equal(userSearchPayload.searchResults.grouping?.strategy, "flat");
 
   const contentSearchResponse = await app.request("http://localhost/feed?mode=content&domain=all&sort=updatedAt", {
     headers: { authorization: `Bearer ${session.accessToken}` },
@@ -1547,6 +1570,7 @@ test("feed endpoint composes cross-domain search results for user and content sc
     searchResults: {
       resultGroups?: Array<{ domain: string; total: number }>;
       ranking?: { appliedSortKey: string };
+      grouping?: { strategy: string };
     };
   };
   assert.equal(contentSearchPayload.searchQuery.mode, "content");
@@ -1569,6 +1593,7 @@ test("feed endpoint composes cross-domain search results for user and content sc
     true,
   );
   assert.equal(contentSearchPayload.searchResults.ranking?.appliedSortKey, "updatedAt");
+  assert.equal(contentSearchPayload.searchResults.grouping?.strategy, "interleaved");
 
   const typoRecoveryResponse = await app.request("http://localhost/feed?keyword=travle&sort=updatedAt", {
     headers: { authorization: `Bearer ${session.accessToken}` },
@@ -1581,6 +1606,7 @@ test("feed endpoint composes cross-domain search results for user and content sc
       correctionKeyword?: string;
       recoverySuggestions?: Array<{ keyword: string }>;
       ranking?: { appliedSortKey: string };
+      zeroResultGuidance?: { state: string; suggestedKeyword?: string };
     };
   };
   assert.equal(typoRecoveryPayload.items.length, 0);
@@ -1588,6 +1614,8 @@ test("feed endpoint composes cross-domain search results for user and content sc
   assert.equal(typoRecoveryPayload.searchResults.correctionKeyword, "travel");
   assert.equal(typoRecoveryPayload.searchResults.recoverySuggestions?.[0]?.keyword, "travel");
   assert.equal(typoRecoveryPayload.searchResults.ranking?.appliedSortKey, "updatedAt");
+  assert.equal(typoRecoveryPayload.searchResults.zeroResultGuidance?.state, "corrected");
+  assert.equal(typoRecoveryPayload.searchResults.zeroResultGuidance?.suggestedKeyword, "travel");
 });
 
 test("feedback bootstrap, submit, and ticket detail endpoints expose the shared ticket model", async () => {
@@ -4647,6 +4675,8 @@ test("operational diagnostics persist job queues across app restarts and manual 
     governance: { queuedJobs: number; retryableNotifications: number };
     migrations: Array<{ migrationId: string }>;
     providerReadiness: { payment: { callbacks: { status: string } } };
+    environmentSummary: { deployEnv: string; releasePosture: string; comparableStatuses: { paymentCallbacks: string } };
+    evidencePack: { deployEnv: string; compareKey: string; releasePosture: string };
   };
   assert.equal(diagnosticsPayload.backgroundJobs.some((job) => job.kind === "upload_cleanup"), true);
   assert.equal(diagnosticsPayload.backgroundJobs.some((job) => job.kind === "notification_retry"), true);
@@ -4656,6 +4686,10 @@ test("operational diagnostics persist job queues across app restarts and manual 
   assert.equal(diagnosticsPayload.governance.retryableNotifications >= 1, true);
   assert.equal(diagnosticsPayload.migrations.some((migration) => migration.migrationId === "user_state_backfill_v1"), true);
   assert.equal(diagnosticsPayload.providerReadiness.payment.callbacks.status, "review");
+  assert.equal(diagnosticsPayload.environmentSummary.deployEnv, "local");
+  assert.equal(diagnosticsPayload.environmentSummary.comparableStatuses.paymentCallbacks, "review");
+  assert.equal(diagnosticsPayload.evidencePack.deployEnv, "local");
+  assert.equal(diagnosticsPayload.evidencePack.compareKey.includes("paymentCallbacks:review"), true);
 
   const operationalState = structuredClone(await store.getOperationalState());
   const cancellationJob = operationalState.backgroundJobs.find((job) => job.kind === "cancellation_expiry");
@@ -4677,6 +4711,8 @@ test("operational diagnostics persist job queues across app restarts and manual 
     diagnostics: {
       governance: { queuedJobs: number; retryableNotifications: number };
       providerReadiness: { payment: { callbacks: { status: string } } };
+      environmentSummary: { releasePosture: string };
+      evidencePack: { compareKey: string };
     };
   };
   assert.equal(runJobsPayload.processedJobs.some((job) => job.kind === "upload_cleanup" && job.status === "completed"), true);
@@ -4686,6 +4722,8 @@ test("operational diagnostics persist job queues across app restarts and manual 
   assert.equal(runJobsPayload.diagnostics.governance.queuedJobs, 0);
   assert.equal(runJobsPayload.diagnostics.governance.retryableNotifications, 0);
   assert.equal(runJobsPayload.diagnostics.providerReadiness.payment.callbacks.status, "review");
+  assert.equal(runJobsPayload.diagnostics.environmentSummary.releasePosture, "mixed");
+  assert.equal(runJobsPayload.diagnostics.evidencePack.compareKey.includes("paymentCallbacks:review"), true);
 
   const rerunJobsResponse = await restartedApp.request("http://localhost/ops/jobs/run", {
     method: "POST",

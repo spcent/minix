@@ -24,6 +24,8 @@ export interface SearchFilterGroup {
   label: string;
   multi?: boolean;
   selectedKeys: string[];
+  persistenceScope?: "route" | "session" | "memory";
+  reloadBehavior?: "restore" | "reset";
   options: SearchFilterOption[];
 }
 
@@ -72,6 +74,27 @@ export interface SearchResultGroup<TItem> {
   featuredReason?: string;
 }
 
+export interface SearchGroupingSummary {
+  strategy: "flat" | "grouped" | "interleaved";
+  activeGroupCount: number;
+  label: string;
+}
+
+export interface SearchPersistenceSummary {
+  routeKeys: string[];
+  routeWriteback: boolean;
+  reloadRecovery: "none" | "route" | "storage";
+  recentKeywordCount: number;
+  label: string;
+}
+
+export interface SearchZeroResultGuidance {
+  state: "results" | "empty" | "corrected";
+  label: string;
+  suggestedAction: string;
+  suggestedKeyword?: string;
+}
+
 export interface SearchResults<TItem> {
   items: TItem[];
   total: number;
@@ -90,4 +113,7 @@ export interface SearchResults<TItem> {
   activeDomain?: SearchDomain;
   domainTabs?: SearchDomainTab[];
   resultGroups?: SearchResultGroup<TItem>[];
+  grouping?: SearchGroupingSummary;
+  persistence?: SearchPersistenceSummary;
+  zeroResultGuidance?: SearchZeroResultGuidance;
 }

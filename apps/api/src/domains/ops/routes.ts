@@ -3,7 +3,11 @@ import { z } from "zod";
 
 import { parseJsonBody, parseQuery } from "../../http/parsing";
 import type { ApiBindings, ApiStore } from "../../types";
-import { createProviderReadinessSummary } from "./provider-readiness";
+import {
+  createProviderReadinessEnvironmentSummary,
+  createProviderReadinessEvidencePack,
+  createProviderReadinessSummary,
+} from "./provider-readiness";
 import {
   appendOperationalAuditRecord,
   cloneOperationalState,
@@ -78,12 +82,19 @@ export function registerOpsRoutes(options: RegisterOpsRoutesOptions) {
       authSmsProviderConfigured,
       authOAuthProviderConfigured,
     });
+    const environmentSummary = createProviderReadinessEnvironmentSummary(providerReadiness, c.env?.MINIX_DEPLOY_ENV);
+    const evidencePack = createProviderReadinessEvidencePack(providerReadiness, {
+      capturedAt: nowIso,
+      ...(c.env?.MINIX_DEPLOY_ENV ? { deployEnv: c.env.MINIX_DEPLOY_ENV } : {}),
+    });
     await store.saveOperationalState(operationalState);
     return c.json(
       createOperationalDiagnosticsResponse(userState, operationalState, {
         ...(query.limit !== undefined ? { limit: query.limit } : {}),
         ...(query.includeCompletedJobs !== undefined ? { includeCompletedJobs: query.includeCompletedJobs } : {}),
         providerReadiness,
+        environmentSummary,
+        evidencePack,
       }),
     );
   });
@@ -119,12 +130,20 @@ export function registerOpsRoutes(options: RegisterOpsRoutesOptions) {
       authSmsProviderConfigured,
       authOAuthProviderConfigured,
     });
+    const evidenceCapturedAt = new Date().toISOString();
+    const environmentSummary = createProviderReadinessEnvironmentSummary(providerReadiness, c.env?.MINIX_DEPLOY_ENV);
+    const evidencePack = createProviderReadinessEvidencePack(providerReadiness, {
+      capturedAt: evidenceCapturedAt,
+      ...(c.env?.MINIX_DEPLOY_ENV ? { deployEnv: c.env.MINIX_DEPLOY_ENV } : {}),
+    });
     return c.json({
       processedJobs: result.jobs,
       diagnostics: createOperationalDiagnosticsResponse(result.userState, result.operationalState, {
         limit: Math.max(payload.limit ?? 20, result.jobs.length || 1),
         includeCompletedJobs: true,
         providerReadiness,
+        environmentSummary,
+        evidencePack,
       }),
     });
   });

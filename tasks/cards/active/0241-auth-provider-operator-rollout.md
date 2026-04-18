@@ -93,6 +93,7 @@ Provision real SMS and OAuth providers, register callback domains, and capture r
 - repo code already fails closed when auth production mode lacks a real SMS or OAuth adapter
 - `/ops/diagnostics` now exposes `providerReadiness.auth.sms` and `providerReadiness.auth.oauth` so the deployed target posture is visible before manual signoff
 - release docs now require operator evidence for provider names, callback domains, target env confirmation, and login or bind validation
+- preview and production verification can now emit repeatable evidence packs with `MINIX_REMOTE_EVIDENCE_OUTPUT=... pnpm verify:api:remote`, then render release-log snippets with `pnpm verify:api:remote:render <evidence-path> <label>`
 
 ## Verification Notes
 

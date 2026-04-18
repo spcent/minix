@@ -78,6 +78,20 @@ function createNovelContentDisplay(
     topics: detail.tags.slice(0, 2).map((tag) => ({ key: tag.key, label: tag.label })),
     ...(slot ? { recommendationSlot: slot } : {}),
     recommendationSlotLabel: slotLabel,
+    recommendationSummary:
+      slot === "continue_reading"
+        ? "Continue-reading lane keeps the last active chapter visible in shared discovery."
+        : slot === "premium"
+          ? "Premium lane keeps locked titles visible until membership unlocks the full route."
+          : slot === "frontlist"
+            ? "Frontlist lane keeps serializing titles surfaced for return visits."
+            : "Ranking lane keeps completed titles visible through shared popularity posture.",
+    laneGovernanceSummary:
+      slot === "premium"
+        ? "Premium governance keeps this title in member-aware recommendation lanes."
+        : slot === "continue_reading"
+          ? "Continue-reading governance keeps this title scoped to recent reader activity."
+          : "Shared recommendation governance keeps this title in the discover-centered content stack.",
     pinned: detail.status === "serializing",
     featured: detail.requiresMembership || detail.status === "serializing",
   };
@@ -158,6 +172,7 @@ export function createNovelContentCard(
     authorLabel: detail.author.name,
     display: createNovelContentDisplay(detail, slot, slotLabel),
     lifecycle: createNovelContentLifecycle(detail),
+    moderationSummary: "Novel recommendation posture stays additive to the shared content stack without entering the managed editorial review queue.",
   };
 }
 

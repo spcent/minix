@@ -27,6 +27,17 @@ export interface CapabilityStatus {
   fallbackActionLabel?: string;
 }
 
+export interface CapabilityHealthSnapshot {
+  capability: CapabilityKind;
+  available: boolean;
+  mode: CapabilitySupportMode | "unknown";
+  summary: string;
+  detail?: string;
+  reason?: string;
+  fallbackActionLabel?: string;
+  fallbackSummary?: string;
+}
+
 export interface CapabilityActionInput<TPayload = unknown> {
   capability: CapabilityKind;
   action: string;

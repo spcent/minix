@@ -70,6 +70,8 @@ export interface ContentDisplay {
   topics: ContentFacet[];
   recommendationSlot?: ContentRecommendationSlot;
   recommendationSlotLabel?: string;
+  recommendationSummary?: string;
+  laneGovernanceSummary?: string;
   pinned: boolean;
   featured: boolean;
 }
@@ -81,6 +83,7 @@ export interface ContentLifecycle {
   updatedAt?: string;
   offlineAt?: string;
   reviewMessage?: string;
+  moderationSummary?: string;
 }
 
 export interface ContentAccess {
@@ -117,6 +120,8 @@ export interface ContentAttachmentReference {
   label: string;
   url?: string;
   thumbnailUrl?: string;
+  assetSummary?: string;
+  derivedAssetSummary?: string;
 }
 
 export interface ContentReviewRecord {
@@ -128,6 +133,7 @@ export interface ContentReviewRecord {
   assignedAt?: string;
   decidedAt?: string;
   message?: string;
+  moderationSummary?: string;
 }
 
 export interface ContentAuditEntry {
@@ -162,6 +168,8 @@ export interface ContentCard {
   display: ContentDisplay;
   lifecycle: ContentLifecycle;
   reviewRecord?: ContentReviewRecord;
+  moderationSummary?: string;
+  attachmentSummary?: string;
 }
 
 export interface ContentDetail {
@@ -181,6 +189,8 @@ export interface ContentDetail {
   reviewRecord?: ContentReviewRecord;
   permissions?: ContentPermissions;
   auditHistory?: ContentAuditEntry[];
+  moderationSummary?: string;
+  attachmentSummary?: string;
 }
 
 export interface ContentDetailResponse {
@@ -199,6 +209,7 @@ export interface ContentReviewQueueItem {
   attachmentsCount: number;
   submittedAt?: string;
   reviewerLabel?: string;
+  moderationSummary?: string;
   selected?: boolean;
 }
 

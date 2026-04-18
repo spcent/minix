@@ -58,8 +58,10 @@ Every RC or final release record should capture:
 | host-h5 login, protected plan access, settings, logout | yes | [`tests/e2e/h5-release-smoke.spec.ts`](/tests/e2e/h5-release-smoke.spec.ts) |
 | novel-h5 login, reader save, home continuity | yes | [`tests/e2e/h5-release-smoke.spec.ts`](/tests/e2e/h5-release-smoke.spec.ts) |
 | host-h5 inbox route restore and selected thread recovery | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/tests/e2e/h5-regression-matrix.spec.ts) |
+| host-h5 protected deep link return after sign-in | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/tests/e2e/h5-regression-matrix.spec.ts) |
 | host-h5 guest upgrade flow | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/tests/e2e/h5-regression-matrix.spec.ts) |
 | host-h5 search center route write-back and reload recovery | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/tests/e2e/h5-regression-matrix.spec.ts) |
+| host-h5 protected discover deep link with route-bound search state | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/tests/e2e/h5-regression-matrix.spec.ts) |
 | host-h5 feedback submit with attachments | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/tests/e2e/h5-regression-matrix.spec.ts) |
 | host-h5 upload and share workspace | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/tests/e2e/h5-regression-matrix.spec.ts) |
 | novel-h5 membership purchase and paid return | yes | [`tests/e2e/h5-regression-matrix.spec.ts`](/tests/e2e/h5-regression-matrix.spec.ts) |
@@ -75,7 +77,9 @@ Every RC or final release record should capture:
 | Scenario | Automated | Proof |
 | --- | --- | --- |
 | inbox filters and selected thread survive reload | yes | host inbox recovery spec |
+| protected deep links return to the intended host-h5 route after sign-in | yes | host deep-link recovery spec |
 | search keyword writes back into route and survives reload | yes | host feed regression spec |
+| protected discover query state returns after sign-in | yes | host discover deep-link recovery spec |
 | membership payment returns out of the paywall state | yes | novel membership regression spec |
 | logout clears session and stops silent restore | yes | host release smoke and regression spec |
 

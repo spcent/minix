@@ -78,15 +78,20 @@ Each release record should capture:
 
 - preview Worker URL:
 - `pnpm verify:api:remote`:
+- preview evidence pack path:
+- preview rendered evidence snippet:
 - preview `/ops/diagnostics` provider-readiness:
 - preview `host-h5` URL:
 - preview `novel-h5` URL:
 - `pnpm verify:preview:remote`:
 - production Worker URL:
 - production `pnpm verify:api:remote`:
+- production evidence pack path:
+- production rendered evidence snippet:
 - production `/ops/diagnostics` provider-readiness:
 - production `host-h5` URL:
 - production `novel-h5` URL:
+- drift comparison (`local -> preview -> production`):
 
 #### Manual WeChat Gate
 
@@ -135,12 +140,17 @@ Each release record should capture:
 
 - preview Worker URL: not recorded in tracked source
 - `pnpm verify:api:remote`: not recorded in tracked source
+- preview evidence pack path: not recorded in tracked source
+- preview rendered evidence snippet: not recorded in tracked source
 - preview `host-h5` URL: `https://preview.minix-host-h5.pages.dev`
 - preview `novel-h5` URL: `https://preview.minix-novel-h5.pages.dev`
 - `pnpm verify:preview:remote`: not recorded in tracked source
 - production Worker URL: not recorded in tracked source
 - production `host-h5` URL: `https://minix-host-h5.pages.dev`
 - production `novel-h5` URL: `https://minix-novel-h5.pages.dev`
+- production evidence pack path: not recorded in tracked source
+- production rendered evidence snippet: not recorded in tracked source
+- drift comparison (`local -> preview -> production`): not recorded in tracked source
 
 #### Manual WeChat Gate
 

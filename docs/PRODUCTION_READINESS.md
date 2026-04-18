@@ -97,6 +97,12 @@ Treat `/ops/diagnostics` as the repo-visible posture summary for `0241` to `0245
 
 Use that summary together with manual validation and deployment ownership. `/ops/diagnostics` is a release checkpoint, not a substitute for operator proof.
 
+For repeatable preview and production evidence capture, `pnpm verify:api:remote` can now write a JSON evidence pack when `MINIX_REMOTE_EVIDENCE_OUTPUT` is set. Compare two or more evidence packs with:
+
+```bash
+node scripts/compare-remote-evidence.mjs /path/to/local.json /path/to/preview.json /path/to/production.json
+```
+
 ## Bundle Evidence Minimum
 
 Record these bundle-level facts before closing `0241` to `0247`:

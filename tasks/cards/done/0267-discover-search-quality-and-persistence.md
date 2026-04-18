@@ -45,7 +45,7 @@ Make discover and search more reliable across hosts without splitting discover i
 
 - depends on:
   - `tasks/cards/done/0250-content-search-and-discover-output-alignment.md`
-  - `tasks/cards/active/0266-content-recommendation-and-moderation-governance.md`
+  - `tasks/cards/done/0266-content-recommendation-and-moderation-governance.md`
 - blocked by:
   - final release closure for the current `P0` queue
 - integration notes:
@@ -87,8 +87,21 @@ Make discover and search more reliable across hosts without splitting discover i
 
 ## Acceptance
 
-- [ ] discover filter persistence and grouped-result posture are clearer across hosts
-- [ ] typo recovery and zero-result guidance remain bounded inside the shared search model
-- [ ] route-writeback and reload recovery stay explicit
-- [ ] no separate search runtime or host-local search fork is introduced
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] discover filter persistence and grouped-result posture are clearer across hosts
+- [x] typo recovery and zero-result guidance remain bounded inside the shared search model
+- [x] route-writeback and reload recovery stay explicit
+- [x] no separate search runtime or host-local search fork is introduced
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added additive search-envelope metadata for filter persistence, grouped-result strategy, bounded zero-result guidance, and route or storage recovery posture without creating a separate discover runtime.
+- Updated `apps/api/src/domains/content/feed.ts` and `apps/api/src/domains/content/search.ts` so discover filters declare route persistence and search results expose grouped or interleaved posture plus bounded correction or empty guidance.
+- Updated `packages/features/feed/src/controller/index.ts` so recent-keyword reuse, route write-back, and reload recovery are surfaced through the shared `searchResults.persistence` summary instead of host-local logic.
+- Kept the existing `searchQuery`, `searchFilters`, and `searchResults` vocabulary authoritative, with only additive fields.
+
+## Verification Notes
+
+- `node --import tsx --test packages/features/feed/src/controller/index.test.ts`
+- `node --import tsx --test apps/api/src/app.test.ts`
+- `pnpm verify`

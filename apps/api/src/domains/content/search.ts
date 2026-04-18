@@ -274,6 +274,8 @@ export function createFeedSearchFilters(items: FeedItem[], activeTag?: string): 
       key: "tag",
       label: "Content type",
       selectedKeys: activeTag && activeTag !== "all" ? [activeTag] : [],
+      persistenceScope: "route",
+      reloadBehavior: "restore",
       options: [
         { key: "all", label: "All", count: items.length },
         ...Array.from(new Map(allTags.map((tag) => [tag.key, tag])).values()).map((tag) => ({
@@ -310,6 +312,8 @@ export function createNovelSearchFilters(
       key: "category",
       label: "Category",
       selectedKeys: input.categoryKey && input.categoryKey !== "all" ? [input.categoryKey] : [],
+      persistenceScope: "route",
+      reloadBehavior: "restore",
       options: [
         { key: "all", label: "All", count: allCards.length },
         ...Array.from(categoryCounts.entries()).map(([key, value]) => ({
@@ -323,6 +327,8 @@ export function createNovelSearchFilters(
       key: "status",
       label: "Status",
       selectedKeys: input.status && input.status !== "all" ? [input.status] : [],
+      persistenceScope: "route",
+      reloadBehavior: "restore",
       options: [
         { key: "all", label: "Any status", count: allCards.length },
         { key: "serializing", label: "Serializing", count: statusCounts.get("serializing") ?? 0 },
@@ -364,6 +370,8 @@ export function createFeedSearchResults(
     activeDomain?: SearchDomain;
     domainTabs?: SearchResults<FeedItem>["domainTabs"];
     resultGroups?: SearchResults<FeedItem>["resultGroups"];
+    grouping?: SearchResults<FeedItem>["grouping"];
+    zeroResultGuidance?: SearchResults<FeedItem>["zeroResultGuidance"];
   } = {},
 ): SearchResults<FeedItem> {
   const featuredReason = items[0]?.recommendedReason;
@@ -386,6 +394,8 @@ export function createFeedSearchResults(
     ...(options.activeDomain ? { activeDomain: options.activeDomain } : {}),
     ...(options.domainTabs ? { domainTabs: options.domainTabs } : {}),
     ...(options.resultGroups ? { resultGroups: options.resultGroups } : {}),
+    ...(options.grouping ? { grouping: options.grouping } : {}),
+    ...(options.zeroResultGuidance ? { zeroResultGuidance: options.zeroResultGuidance } : {}),
   };
 }
 
@@ -463,6 +473,60 @@ export function createSearchResultGroups(
     items: group.items,
     ...(group.items[0]?.recommendedReason ? { featuredReason: group.items[0].recommendedReason } : {}),
   }));
+}
+
+export function createSearchGroupingSummary(
+  input: Array<{ domain: SearchDomain; items: FeedItem[] }>,
+  requestedDomain: SearchDomain,
+) {
+  const activeGroups = input.filter((group) => group.items.length > 0);
+  if (requestedDomain !== "all" || activeGroups.length <= 1) {
+    return {
+      strategy: activeGroups.length > 1 ? "grouped" : "flat",
+      activeGroupCount: Math.max(activeGroups.length, 1),
+      label:
+        activeGroups.length > 1
+          ? "Search results stay grouped by domain inside the shared discover model."
+          : "Search results stay scoped to one shared discover group.",
+    } as const;
+  }
+
+  return {
+    strategy: "interleaved",
+    activeGroupCount: activeGroups.length,
+    label: "Cross-domain discover interleaves grouped results while keeping domain tabs and group totals explicit.",
+  } as const;
+}
+
+export function createSearchZeroResultGuidance(
+  keyword: string,
+  total: number,
+  correctionKeyword: string | undefined,
+  hotKeywords: string[],
+) {
+  if (total > 0) {
+    return {
+      state: "results",
+      label: "Search quality signals are active for the current discover scope.",
+      suggestedAction: "Use domain tabs, grouped results, or recent queries to refine the current search.",
+    } as const;
+  }
+
+  if (correctionKeyword) {
+    return {
+      state: "corrected",
+      label: `No exact matches for "${keyword}". Try the bounded correction or reuse a hot query.`,
+      suggestedAction: "Apply the correction term or switch to another shared domain tab.",
+      suggestedKeyword: correctionKeyword,
+    } as const;
+  }
+
+  return {
+    state: "empty",
+    label: "No results matched this shared search scope.",
+    suggestedAction: "Switch domain, clear a filter, or reuse a recent or hot keyword.",
+    ...(hotKeywords[0] ? { suggestedKeyword: hotKeywords[0] } : {}),
+  } as const;
 }
 
 export function createNovelSearchResults(

@@ -1,5 +1,6 @@
 import {
   createAuthRedirectParams,
+  createCapabilityHealthSnapshot,
   createDetailStatus,
   createListStatus,
   describeCapabilityStatus,
@@ -118,6 +119,11 @@ export function createSubscriptionController(options: CreateSubscriptionControll
     const paymentCapabilityStatus = statusResult?.ok ? statusResult.value : undefined;
     store.setState({
       paymentCapabilityStatus,
+      paymentCapabilitySnapshot: createCapabilityHealthSnapshot(
+        "payment",
+        paymentCapabilityStatus,
+        "Payment capability status is unavailable until the host runtime reports it.",
+      ),
       paymentCapabilitySummary: derivePaymentCapabilitySummary(paymentCapabilityStatus),
     });
 
@@ -463,6 +469,12 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         orderListStatus: createListStatus("loading"),
         commerceDetailStatus: createDetailStatus("idle"),
         paymentCapabilityStatus: undefined,
+        paymentCapabilitySnapshot: {
+          capability: "payment",
+          available: false,
+          mode: "unknown",
+          summary: "Payment capability status is unavailable until the host runtime reports it.",
+        },
         paymentCapabilitySummary: "Payment capability status is unavailable until the host runtime reports it.",
         source,
         novelId,

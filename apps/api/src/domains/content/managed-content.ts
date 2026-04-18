@@ -366,6 +366,7 @@ function cloneManagedContentReviewRecord(reviewRecord: ContentReviewRecord): Con
     ...(reviewRecord.assignedAt ? { assignedAt: reviewRecord.assignedAt } : {}),
     ...(reviewRecord.decidedAt ? { decidedAt: reviewRecord.decidedAt } : {}),
     ...(reviewRecord.message ? { message: reviewRecord.message } : {}),
+    ...(reviewRecord.moderationSummary ? { moderationSummary: reviewRecord.moderationSummary } : {}),
   };
 }
 
@@ -456,6 +457,14 @@ function createManagedContentDisplay(contentId: string, userState?: UserState): 
     topics: entry.tags.map((tag) => ({ ...tag })),
     recommendationSlot: entry.lifecycle.state === "published" ? "editorial" : "related",
     recommendationSlotLabel: entry.lifecycle.state === "published" ? "Managed Frontlist" : "Lifecycle Queue",
+    recommendationSummary:
+      entry.lifecycle.state === "published"
+        ? "This item stays in the managed editorial lane for discover-first surfaces."
+        : "This item stays visible through lifecycle-aware recommendation lanes until publication posture changes.",
+    laneGovernanceSummary:
+      entry.lifecycle.state === "published"
+        ? "Editorial lane governance keeps published managed content pinned to shared frontlist surfaces."
+        : "Lifecycle lane governance keeps draft and review-state content discoverable for authorized workflows only.",
     pinned: entry.lifecycle.state === "published",
     featured: entry.lifecycle.state === "under_review" || entry.lifecycle.state === "review_rejected",
   };
@@ -477,8 +486,30 @@ function resolveManagedContentAttachments(
       label: attachment.label,
       ...(asset?.url ? { url: asset.url } : {}),
       ...(asset?.thumbnailUrl ? { thumbnailUrl: asset.thumbnailUrl } : {}),
+      ...(asset?.ownershipSummary ? { assetSummary: asset.ownershipSummary } : {}),
+      ...(asset?.derivedAssetSummary ? { derivedAssetSummary: asset.derivedAssetSummary } : {}),
     };
   });
+}
+
+function createManagedContentAttachmentSummary(attachments: ContentAttachmentReference[]): string | undefined {
+  if (attachments.length === 0) {
+    return undefined;
+  }
+  return `${attachments.length} attachment reference${attachments.length === 1 ? "" : "s"} stay inside the shared content envelope, with derived asset posture exposed additively.`;
+}
+
+function createManagedContentModerationSummary(entry: ManagedContentEntry): string {
+  if (entry.reviewRecord.status === "approved") {
+    return "Moderation posture is approved and the item can stay in the managed recommendation lanes.";
+  }
+  if (entry.reviewRecord.status === "queued") {
+    return "Moderation posture is queued in the shared editorial review workflow.";
+  }
+  if (entry.reviewRecord.status === "rejected") {
+    return "Moderation posture is rejected and follow-up stays in the shared review workflow.";
+  }
+  return "Moderation posture remains in draft and can be promoted through the shared review workflow.";
 }
 
 export function createManagedContentCard(
@@ -492,6 +523,9 @@ export function createManagedContentCard(
     return undefined;
   }
   const coverUrl = resolveManagedContentCoverUrl(entry, userState);
+  const attachments = resolveManagedContentAttachments(entry, userState);
+  const moderationSummary = createManagedContentModerationSummary(entry);
+  const attachmentSummary = createManagedContentAttachmentSummary(attachments);
 
   return {
     contentId,
@@ -505,8 +539,18 @@ export function createManagedContentCard(
     lifecycle: {
       ...entry.lifecycle,
       availableActions: [...entry.lifecycle.availableActions],
+      moderationSummary,
     },
-    ...(actorRole && entry.reviewRecord ? { reviewRecord: cloneManagedContentReviewRecord(entry.reviewRecord) } : {}),
+    ...(actorRole && entry.reviewRecord
+      ? {
+          reviewRecord: {
+            ...cloneManagedContentReviewRecord(entry.reviewRecord),
+            moderationSummary,
+          },
+        }
+      : {}),
+    moderationSummary,
+    ...(attachmentSummary ? { attachmentSummary } : {}),
   };
 }
 
@@ -575,6 +619,8 @@ function createManagedContentDetail(
 
   const permissions = createManagedContentPermissions(entry, actorRole);
   const attachments = resolveManagedContentAttachments(entry, userState);
+  const moderationSummary = createManagedContentModerationSummary(entry);
+  const attachmentSummary = createManagedContentAttachmentSummary(attachments);
 
   return {
     ...card,
@@ -582,9 +628,14 @@ function createManagedContentDetail(
     bodyPreview: entry.bodyPreview ?? `${card.summary} Lifecycle state: ${card.lifecycle.state}.`,
     ...(actorRole && actorRole !== "reader" ? { authoring: cloneManagedContentAuthoring(entry.authoring) } : {}),
     ...(attachments.length > 0 ? { attachments } : {}),
-    reviewRecord: cloneManagedContentReviewRecord(entry.reviewRecord),
+    reviewRecord: {
+      ...cloneManagedContentReviewRecord(entry.reviewRecord),
+      moderationSummary,
+    },
     permissions,
     ...(permissions.canViewAuditHistory ? { auditHistory: cloneManagedContentAuditHistory(entry.auditHistory) } : {}),
+    moderationSummary,
+    ...(attachmentSummary ? { attachmentSummary } : {}),
   };
 }
 
@@ -624,6 +675,7 @@ function createManagedContentQueue(
       attachmentsCount: entry.attachments.length,
       ...(entry.reviewRecord.submittedAt ? { submittedAt: entry.reviewRecord.submittedAt } : {}),
       ...(entry.reviewRecord.reviewerLabel ? { reviewerLabel: entry.reviewRecord.reviewerLabel } : {}),
+      moderationSummary: createManagedContentModerationSummary(entry),
     }));
   const page = input.page ?? 1;
   const pageSize = input.pageSize ?? 10;

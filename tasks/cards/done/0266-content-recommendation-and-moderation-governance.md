@@ -85,8 +85,21 @@ Make recommendation, ranking, review, and attachment posture more complete witho
 
 ## Acceptance
 
-- [ ] recommendation-lane posture is clearer inside the shared content stack
-- [ ] moderation and review visibility remains inside discover-centered workflows
-- [ ] attachment and derived-asset summaries stay additive to the current content vocabulary
-- [ ] no second content or editorial stack is introduced
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] recommendation-lane posture is clearer inside the shared content stack
+- [x] moderation and review visibility remains inside discover-centered workflows
+- [x] attachment and derived-asset summaries stay additive to the current content vocabulary
+- [x] no second content or editorial stack is introduced
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added additive lane, moderation, and attachment summary fields to `packages/contracts/src/api/content.ts`.
+- Updated `apps/api/src/domains/content/managed-content.ts` so discover, detail, lifecycle, and review-queue responses project recommendation-lane summaries, moderation summaries, and attachment summaries through the existing shared content envelope.
+- Updated `apps/api/src/domains/content/novels.ts` so novel recommendation slots also expose normalized lane-governance summaries inside the same shared content vocabulary.
+- Synced `docs/BACKEND_CONTRACT.md` and `docs/ROADMAP.md` to the current content-governance posture.
+
+## Verification Notes
+
+- `node --import tsx --test packages/features/feed/src/controller/index.test.ts`
+- `node --import tsx --test apps/api/src/app.test.ts`
+- `pnpm verify`

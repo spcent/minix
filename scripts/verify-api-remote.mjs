@@ -1,4 +1,8 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+
 const apiBaseUrl = process.env.MINIX_API_BASE_URL;
+const evidenceOutputPath = process.env.MINIX_REMOTE_EVIDENCE_OUTPUT;
 let traceCounter = 0;
 
 if (!apiBaseUrl) {
@@ -72,6 +76,26 @@ async function main() {
   if (!readiness || !readiness.auth || !readiness.messages || !readiness.payment || !readiness.upload || !readiness.share) {
     throw new Error("GET /ops/diagnostics did not expose the expected providerReadiness summary");
   }
+  const environmentSummary = diagnostics?.environmentSummary;
+  const evidencePack = diagnostics?.evidencePack;
+  if (!environmentSummary || !evidencePack || !evidencePack.compareKey) {
+    throw new Error("GET /ops/diagnostics did not expose the expected environmentSummary and evidencePack diagnostics");
+  }
+
+  const remoteEvidence = {
+    apiBaseUrl,
+    capturedAt: evidencePack.capturedAt,
+    deployEnv: evidencePack.deployEnv ?? environmentSummary.deployEnv ?? "unknown",
+    releasePosture: evidencePack.releasePosture ?? environmentSummary.releasePosture,
+    compareKey: evidencePack.compareKey,
+    comparableStatuses: evidencePack.comparableStatuses ?? environmentSummary.comparableStatuses,
+    providerReadiness: readiness,
+  };
+
+  if (evidenceOutputPath) {
+    await mkdir(dirname(evidenceOutputPath), { recursive: true });
+    await writeFile(evidenceOutputPath, `${JSON.stringify(remoteEvidence, null, 2)}\n`, "utf8");
+  }
 
   await request("/auth/logout", {
     method: "POST",
@@ -83,6 +107,9 @@ async function main() {
     }),
   });
 
+  if (evidenceOutputPath) {
+    console.log(`remote evidence written to ${evidenceOutputPath}`);
+  }
   console.log(`remote api verification passed against ${apiBaseUrl}`);
 }
 

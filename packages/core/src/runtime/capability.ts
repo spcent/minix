@@ -1,4 +1,4 @@
-import type { CapabilityStatus } from "@minix/contracts";
+import type { CapabilityHealthSnapshot, CapabilityKind, CapabilityStatus } from "@minix/contracts";
 
 function capitalizeCapability(capability: string): string {
   return capability.length > 0 ? capability[0]!.toUpperCase() + capability.slice(1) : capability;
@@ -31,4 +31,22 @@ export function describeCapabilityStatus(
   }
 
   return `${detail} Recommended fallback: ${status.fallbackActionLabel}.`;
+}
+
+export function createCapabilityHealthSnapshot(
+  capability: CapabilityKind,
+  status: CapabilityStatus | undefined,
+  missingSummary = "Capability status is unavailable until the host runtime reports it.",
+): CapabilityHealthSnapshot {
+  const summary = describeCapabilityStatus(status, missingSummary);
+  return {
+    capability,
+    available: status?.available ?? false,
+    mode: status?.mode ?? "unknown",
+    summary,
+    ...(status?.detail ? { detail: status.detail } : {}),
+    ...(status?.reason ? { reason: status.reason } : {}),
+    ...(status?.fallbackActionLabel ? { fallbackActionLabel: status.fallbackActionLabel } : {}),
+    ...(status?.fallbackActionLabel ? { fallbackSummary: `Fallback action: ${status.fallbackActionLabel}.` } : {}),
+  };
 }

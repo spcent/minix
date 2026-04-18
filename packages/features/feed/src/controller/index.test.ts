@@ -70,6 +70,7 @@ function createKernelStub() {
                   attachmentsCount: 2,
                   submittedAt: "2026-04-08T08:00:00.000Z",
                   reviewerLabel: "Reviewer Mina",
+                  moderationSummary: "Moderation posture is queued in the shared editorial review workflow.",
                   selected: true,
                 },
               ],
@@ -144,13 +145,18 @@ function createKernelStub() {
                         category: { key: "news", label: "News" },
                         tags: [{ key: "news", label: "News" }],
                         topics: [{ key: "news", label: "News" }],
+                        recommendationSummary: "This item stays in the managed editorial lane for discover-first surfaces.",
+                        laneGovernanceSummary:
+                          "Editorial lane governance keeps published managed content pinned to shared frontlist surfaces.",
                         pinned: true,
                         featured: true,
                       },
                       lifecycle: {
                         state: "draft",
                         availableActions: ["publish", "change_visibility"],
+                        moderationSummary: "Moderation posture remains in draft and can be promoted through the shared review workflow.",
                       },
+                      moderationSummary: "Moderation posture remains in draft and can be promoted through the shared review workflow.",
                     },
                     contentAccess: {
                       visibility: "public",
@@ -192,6 +198,8 @@ function createKernelStub() {
               key: "domain",
               label: "Search domain",
               selectedKeys: domain !== "feed" ? [domain] : [],
+              persistenceScope: "route",
+              reloadBehavior: "restore",
               options: [
                 { key: "all", label: "All", count: 3 },
                 { key: "feed", label: "Feed", count: 2 },
@@ -202,6 +210,8 @@ function createKernelStub() {
               key: "tag",
               label: "Content type",
               selectedKeys: [],
+              persistenceScope: "route",
+              reloadBehavior: "restore",
               options: [
                 { key: "all", label: "All", count: 2 },
                 { key: "news", label: "News", count: 2 },
@@ -300,7 +310,31 @@ function createKernelStub() {
               appliedSortKey: sortKey,
               label: sortKey === "updatedAt" ? "Results ranked by freshness." : "Results ranked by recommendation relevance.",
             },
+            grouping:
+              mode === "user" || domain === "user"
+                ? {
+                    strategy: "flat",
+                    activeGroupCount: 1,
+                    label: "Search results stay scoped to one shared discover group.",
+                  }
+                : {
+                    strategy: "flat",
+                    activeGroupCount: 1,
+                    label: "Search results stay scoped to one shared discover group.",
+                  },
             activeDomain: domain,
+            zeroResultGuidance: typoSearch
+              ? {
+                  state: "corrected",
+                  label: 'No exact matches for "travle". Try the bounded correction or reuse a hot query.',
+                  suggestedAction: "Apply the correction term or switch to another shared domain tab.",
+                  suggestedKeyword: "travel",
+                }
+              : {
+                  state: "results",
+                  label: "Search quality signals are active for the current discover scope.",
+                  suggestedAction: "Use domain tabs, grouped results, or recent queries to refine the current search.",
+                },
             domainTabs: [
               { domain: "all", label: "All", total: 3, active: domain === "all" },
               { domain: "feed", label: "Feed", total: 2, active: domain === "feed" },
@@ -436,13 +470,21 @@ function createKernelStub() {
                 category: { key: "news", label: "News" },
                 tags: [{ key: "news", label: "News" }],
                 topics: [{ key: "news", label: "News" }],
+                recommendationSummary:
+                  "This item stays visible through lifecycle-aware recommendation lanes until publication posture changes.",
+                laneGovernanceSummary:
+                  "Lifecycle lane governance keeps draft and review-state content discoverable for authorized workflows only.",
                 pinned: false,
                 featured: false,
               },
               lifecycle: {
                 state: "draft",
                 availableActions: ["publish", "update", "submit_review", "delete", "change_visibility"],
+                moderationSummary: "Moderation posture remains in draft and can be promoted through the shared review workflow.",
               },
+              moderationSummary: "Moderation posture remains in draft and can be promoted through the shared review workflow.",
+              attachmentSummary:
+                "1 attachment reference stays inside the shared content envelope, with derived asset posture exposed additively.",
               recommendationReason: "Lifecycle status: draft.",
               authoring: {
                 title: "Story 1 Draft",
@@ -461,12 +503,15 @@ function createKernelStub() {
                   kind: "attachment",
                   label: "story-1 attachment 1",
                   url: "https://mock.minix.local/uploads/assets/asset-attachment-1",
+                  assetSummary: "Asset is bound to content story-1 as attachment.",
+                  derivedAssetSummary: "Primary asset metadata is file-level only.",
                 },
               ],
               reviewRecord: {
                 reviewId: "review_story_1",
                 status: "not_requested",
                 queueLabel: "Draft workspace",
+                moderationSummary: "Moderation posture remains in draft and can be promoted through the shared review workflow.",
               },
               permissions: {
                 actorRole: "author",
@@ -508,13 +553,18 @@ function createKernelStub() {
               category: { key: "news", label: "News" },
               tags: [{ key: "news", label: "News" }],
               topics: [{ key: "news", label: "News" }],
+              recommendationSummary: "This item stays in the managed editorial lane for discover-first surfaces.",
+              laneGovernanceSummary:
+                "Editorial lane governance keeps published managed content pinned to shared frontlist surfaces.",
               pinned: true,
               featured: false,
             },
             lifecycle: {
               state: "published",
               availableActions: ["archive", "delete", "change_visibility"],
+              moderationSummary: "Moderation posture is approved and the item can stay in the managed recommendation lanes.",
             },
+            moderationSummary: "Moderation posture is approved and the item can stay in the managed recommendation lanes.",
           },
           contentDetail: {
             contentId: "story-1",
@@ -526,13 +576,18 @@ function createKernelStub() {
               category: { key: "news", label: "News" },
               tags: [{ key: "news", label: "News" }],
               topics: [{ key: "news", label: "News" }],
+              recommendationSummary: "This item stays in the managed editorial lane for discover-first surfaces.",
+              laneGovernanceSummary:
+                "Editorial lane governance keeps published managed content pinned to shared frontlist surfaces.",
               pinned: true,
               featured: false,
             },
             lifecycle: {
               state: "published",
               availableActions: ["archive", "delete", "change_visibility"],
+              moderationSummary: "Moderation posture is approved and the item can stay in the managed recommendation lanes.",
             },
+            moderationSummary: "Moderation posture is approved and the item can stay in the managed recommendation lanes.",
             recommendationReason: "Lifecycle status: published.",
           },
           contentAccess: {
@@ -634,6 +689,10 @@ test("feed controller loads feed items and derives the featured reason", async (
   assert.equal(controller.store.getState().searchResults?.total, 2);
   assert.equal(controller.store.getState().searchResults?.activeDomain, "feed");
   assert.equal(controller.store.getState().searchResults?.resultGroups?.[0]?.domain, "feed");
+  assert.equal(controller.store.getState().searchFilters[0]?.persistenceScope, "route");
+  assert.equal(controller.store.getState().searchResults?.grouping?.strategy, "flat");
+  assert.equal(controller.store.getState().searchResults?.zeroResultGuidance?.state, "results");
+  assert.equal(controller.store.getState().searchResults?.persistence?.routeWriteback, false);
 });
 
 test("feed controller submits keyword searches and persists recent keywords", async () => {
@@ -656,6 +715,8 @@ test("feed controller submits keyword searches and persists recent keywords", as
     },
   });
   assert.deepEqual(storageValues.get("feed.recent-keywords"), ["advisory"]);
+  assert.equal(controller.store.getState().searchResults?.persistence?.routeWriteback, true);
+  assert.equal(controller.store.getState().searchResults?.persistence?.recentKeywordCount, 1);
 });
 
 test("feed controller can switch into the shared user-search scope and persist route params", async () => {
@@ -705,6 +766,8 @@ test("feed controller restores route params and can apply sort plus typo recover
   assert.equal(controller.store.getState().query.keyword, "travle");
   assert.equal(controller.store.getState().query.sortKey, "updatedAt");
   assert.equal(controller.store.getState().searchResults?.correctionKeyword, "travel");
+  assert.equal(controller.store.getState().searchResults?.zeroResultGuidance?.state, "corrected");
+  assert.equal(controller.store.getState().searchResults?.persistence?.reloadRecovery, "route");
 
   await controller.applyCorrectionTerm();
 
@@ -777,6 +840,24 @@ test("feed controller restores route query and selected item state", async () =>
   assert.equal(controller.store.getState().query.mode, "user");
   assert.equal(controller.store.getState().query.domain, "user");
   assert.equal(controller.store.getState().selectedItemId, "user-mentor");
+  assert.deepEqual(controller.store.getState().searchResults?.persistence?.routeKeys, ["keyword", "mode", "domain", "sort", "tag"]);
+});
+
+test("feed controller restores recent keyword reuse posture from storage", async () => {
+  const { kernel, storageValues } = createKernelStub();
+  storageValues.set("feed.recent-keywords", ["travel", "review"]);
+
+  const controller = createFeedController({
+    kernel,
+    feedRouteId: APP_ROUTE_IDS.feed,
+    initialState: createDefaultFeedState(),
+  });
+
+  await controller.loadInitial();
+
+  assert.deepEqual(controller.store.getState().recentKeywords, ["travel", "review"]);
+  assert.equal(controller.store.getState().searchResults?.persistence?.reloadRecovery, "storage");
+  assert.equal(controller.store.getState().searchResults?.persistence?.recentKeywordCount, 2);
 });
 
 test("feed controller routes unauthorized responses back to login", async () => {
@@ -975,6 +1056,7 @@ test("feed controller can load the content review queue", async () => {
 
   assert.equal(controller.store.getState().reviewQueue.length, 1);
   assert.equal(controller.store.getState().reviewQueue[0]?.contentId, "story-1");
+  assert.equal(controller.store.getState().reviewQueue[0]?.moderationSummary?.includes("queued"), true);
   assert.equal(controller.store.getState().selectedReviewContentId, "story-1");
   assert.equal(controller.store.getState().contentDraftForm.workflow.approvalNodes?.[1]?.assigneeLabel, "Reviewer Mina");
 });

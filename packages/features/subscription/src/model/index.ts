@@ -1,5 +1,6 @@
 import type {
   AfterSalesCase,
+  CapabilityHealthSnapshot,
   CapabilityStatus,
   DetailStatus,
   ListStatus,
@@ -26,6 +27,7 @@ export interface SubscriptionState {
   errorText: string | undefined;
   paymentExecutionDetail: string | undefined;
   paymentCapabilityStatus: CapabilityStatus | undefined;
+  paymentCapabilitySnapshot: CapabilityHealthSnapshot;
   paymentCapabilitySummary: string;
   overview: MembershipOverview | undefined;
   catalogProducts: PaymentProduct[];
@@ -93,6 +95,12 @@ export function createInitialSubscriptionState(options: CreateSubscriptionStateO
     errorText: undefined,
     paymentExecutionDetail: undefined,
     paymentCapabilityStatus: undefined,
+    paymentCapabilitySnapshot: {
+      capability: "payment",
+      available: false,
+      mode: "unknown",
+      summary: "Payment capability status is unavailable until the host runtime reports it.",
+    },
     paymentCapabilitySummary: "Payment capability status is unavailable until the host runtime reports it.",
     overview: undefined,
     catalogProducts: [],

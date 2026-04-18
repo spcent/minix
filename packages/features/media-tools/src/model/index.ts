@@ -1,4 +1,5 @@
 import type {
+  CapabilityHealthSnapshot,
   CapabilityStatus,
   ShareAttribution,
   ShareChannel,
@@ -32,9 +33,15 @@ export interface MediaToolsState {
   usageExamples: string[];
   uploadAvailable: boolean;
   shareAvailable: boolean;
+  locationAvailable: boolean;
   uploadCapabilityStatus: CapabilityStatus | undefined;
   shareCapabilityStatus: CapabilityStatus | undefined;
   clipboardCapabilityStatus: CapabilityStatus | undefined;
+  locationCapabilityStatus: CapabilityStatus | undefined;
+  uploadCapabilitySnapshot: CapabilityHealthSnapshot;
+  shareCapabilitySnapshot: CapabilityHealthSnapshot;
+  clipboardCapabilitySnapshot: CapabilityHealthSnapshot;
+  locationCapabilitySnapshot: CapabilityHealthSnapshot;
   uploadCapabilitySummary: string;
   shareCapabilitySummary: string;
   uploadProviderSummary: string;
@@ -208,9 +215,35 @@ export function createDefaultMediaToolsState(
     usageExamples: options.usageExamples ?? ["upload", "share", "attribution"],
     uploadAvailable: false,
     shareAvailable: false,
+    locationAvailable: false,
     uploadCapabilityStatus: undefined,
     shareCapabilityStatus: undefined,
     clipboardCapabilityStatus: undefined,
+    locationCapabilityStatus: undefined,
+    uploadCapabilitySnapshot: {
+      capability: "upload",
+      available: false,
+      mode: "unknown",
+      summary: "Upload capability status is unavailable until the host runtime reports it.",
+    },
+    shareCapabilitySnapshot: {
+      capability: "share",
+      available: false,
+      mode: "unknown",
+      summary: "Share capability status is unavailable until the host runtime reports it.",
+    },
+    clipboardCapabilitySnapshot: {
+      capability: "clipboard",
+      available: false,
+      mode: "unknown",
+      summary: "Clipboard capability status is unavailable until the host runtime reports it.",
+    },
+    locationCapabilitySnapshot: {
+      capability: "location",
+      available: false,
+      mode: "unknown",
+      summary: "Location capability status is unavailable until the host runtime reports it.",
+    },
     uploadCapabilitySummary: "Upload capability status is unavailable until the host runtime reports it.",
     shareCapabilitySummary: "Share capability status is unavailable until the host runtime reports it.",
     uploadProviderSummary: createDefaultUploadProviderSummary(),

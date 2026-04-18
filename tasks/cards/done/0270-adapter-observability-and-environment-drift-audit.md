@@ -48,7 +48,7 @@ Make host-runtime differences and deployment drift easier to inspect without wea
 - depends on:
   - `tasks/cards/done/0253-provider-adapters-and-ops-hardening.md`
   - `tasks/cards/done/0254-verification-and-evidence-automation-hardening.md`
-  - `tasks/cards/active/0268-capability-health-and-host-readiness-snapshots.md`
+  - `tasks/cards/done/0268-capability-health-and-host-readiness-snapshots.md`
 - blocked by:
   - final release closure for the current `P0` queue
 - integration notes:
@@ -93,8 +93,20 @@ Make host-runtime differences and deployment drift easier to inspect without wea
 
 ## Acceptance
 
-- [ ] degraded-mode and adapter observability are clearer without leaking host APIs into shared business code
-- [ ] remote evidence packs are repeatable across preview and production
-- [ ] local, preview, and production rollout posture can be compared more directly
-- [ ] no release gate is weakened to compensate for missing observability
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] degraded-mode and adapter observability are clearer without leaking host APIs into shared business code
+- [x] remote evidence packs are repeatable across preview and production
+- [x] local, preview, and production rollout posture can be compared more directly
+- [x] no release gate is weakened to compensate for missing observability
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Extended `/ops/diagnostics` with additive `environmentSummary` and `evidencePack` fields so rollout posture can be captured and compared without opening a second diagnostics channel.
+- Updated `scripts/verify-api-remote.mjs` so remote verification can write a repeatable JSON evidence pack when `MINIX_REMOTE_EVIDENCE_OUTPUT` is set.
+- Added `scripts/compare-remote-evidence.mjs` to compare local, preview, and production evidence packs directly by comparable rollout status.
+- Kept adapter boundaries explicit: host-runtime detection remains in platform adapters, while tracked observability and rollout comparison stay in ops diagnostics and scripts.
+
+## Verification Notes
+
+- `node --import tsx --test apps/api/src/app.test.ts`
+- `pnpm verify`

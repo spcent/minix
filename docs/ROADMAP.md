@@ -233,15 +233,15 @@ These backlog areas are now split into a first task-card batch under `0259+`:
   Covers backlog items `21` to `22`.
 - [`../tasks/cards/done/0265-share-channel-readiness-and-attribution-hardening.md`](../tasks/cards/done/0265-share-channel-readiness-and-attribution-hardening.md)
   Covers backlog items `23` to `24`.
-- [`../tasks/cards/active/0266-content-recommendation-and-moderation-governance.md`](../tasks/cards/active/0266-content-recommendation-and-moderation-governance.md)
+- [`../tasks/cards/done/0266-content-recommendation-and-moderation-governance.md`](../tasks/cards/done/0266-content-recommendation-and-moderation-governance.md)
   Covers backlog items `25` to `27`.
-- [`../tasks/cards/active/0267-discover-search-quality-and-persistence.md`](../tasks/cards/active/0267-discover-search-quality-and-persistence.md)
+- [`../tasks/cards/done/0267-discover-search-quality-and-persistence.md`](../tasks/cards/done/0267-discover-search-quality-and-persistence.md)
   Covers backlog items `28` to `29`.
-- [`../tasks/cards/active/0268-capability-health-and-host-readiness-snapshots.md`](../tasks/cards/active/0268-capability-health-and-host-readiness-snapshots.md)
+- [`../tasks/cards/done/0268-capability-health-and-host-readiness-snapshots.md`](../tasks/cards/done/0268-capability-health-and-host-readiness-snapshots.md)
   Covers backlog item `30`.
-- [`../tasks/cards/active/0269-route-restore-and-deep-link-certification.md`](../tasks/cards/active/0269-route-restore-and-deep-link-certification.md)
+- [`../tasks/cards/done/0269-route-restore-and-deep-link-certification.md`](../tasks/cards/done/0269-route-restore-and-deep-link-certification.md)
   Covers backlog item `31`.
-- [`../tasks/cards/active/0270-adapter-observability-and-environment-drift-audit.md`](../tasks/cards/active/0270-adapter-observability-and-environment-drift-audit.md)
+- [`../tasks/cards/done/0270-adapter-observability-and-environment-drift-audit.md`](../tasks/cards/done/0270-adapter-observability-and-environment-drift-audit.md)
   Covers backlog items `32` to `34`.
 
 ## Priority 3: Expansion Requiring A Scope Decision

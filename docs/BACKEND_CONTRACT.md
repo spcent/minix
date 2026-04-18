@@ -37,8 +37,8 @@ The repo now enforces this posture with a contract-governance guard in `scripts/
 | settings | `preferences`, `featureToggles`, `privacyOptions` | `packages/contracts/src/api/settings.ts` | `effectivePolicy`, `notificationChannels`, and `lockedSettingKeys` extend the same settings summary |
 | messages | `notificationList`, `messageThread`, `unreadBadge` | `packages/contracts/src/api/message.ts` | messages are polling-only by design in the current sample |
 | payment | `order`, `paymentIntent`, `paymentResult`, `entitlement` | `packages/contracts/src/api/payment.ts`, `packages/contracts/src/api/membership.ts` | generic hosts expose an order-center route; novel hosts keep order follow-up inside membership |
-| content | `contentCard`, `contentDetail`, `contentAccess` | `packages/contracts/src/api/content.ts` | discover, detail, and novel flows reuse the same card/detail/access vocabulary |
-| search | `searchQuery`, `searchFilters`, `searchResults` | `packages/contracts/src/api/feed.ts`, `packages/contracts/src/api/search.ts`, `packages/contracts/src/api/novels.ts` | discover now carries `activeDomain`, `domainTabs`, and grouped results |
+| content | `contentCard`, `contentDetail`, `contentAccess` | `packages/contracts/src/api/content.ts` | discover, detail, and novel flows reuse the same card/detail/access vocabulary, with additive lane, moderation, and attachment summaries |
+| search | `searchQuery`, `searchFilters`, `searchResults` | `packages/contracts/src/api/feed.ts`, `packages/contracts/src/api/search.ts`, `packages/contracts/src/api/novels.ts` | discover now carries `activeDomain`, `domainTabs`, grouped results, bounded zero-result guidance, and persistence posture |
 | upload | `uploadTask`, `uploadAsset`, `uploadError` | `packages/contracts/src/api/upload.ts` | upload assets now use `coverImageUrl` consistently and carry additive governance, ownership, retention, and derived-asset summaries |
 | share | `sharePayload`, `shareChannel`, `shareAttribution` | `packages/contracts/src/api/share.ts` | short-link and poster metadata stay inside the normalized share envelope, with additive readiness, fallback, and attribution-diagnostic summaries |
 | feedback | `feedbackTicket`, `feedbackCategory`, `feedbackStatus` | `packages/contracts/src/api/feedback.ts` | feedback now propagates shared context into support-thread linkage |
@@ -79,7 +79,7 @@ Feature code consumes normalized capability metadata before executing a platform
 - `share` may degrade to clipboard copy
 - `upload` may use a configured runtime or a host fallback
 - `payment` is unavailable unless the host runtime injects a real payment bridge
-- shared controllers should keep host-visible capability summaries in normalized state; adapter-specific behavior still stays in `packages/platform-*`
+- shared controllers should keep host-visible capability summaries and capability-health snapshots in normalized state; adapter-specific behavior still stays in `packages/platform-*`
 
 H5 and WeChat both expose capability status through the shared runtime surface, but the underlying implementation remains platform-specific.
 
@@ -178,6 +178,9 @@ Current posture:
 - discover is the canonical shared search surface
 - default discover and cross-domain discover now share the same result vocabulary
 - managed-content draft and lifecycle work stay embedded in the shared discover route on official hosts
+- discover filters now declare route persistence and reload behavior explicitly inside the shared search envelope
+- search results now expose grouped-result strategy, bounded typo or zero-result guidance, and recent-query persistence posture without creating a second search runtime
+- recommendation lanes, moderation posture, and attachment summaries now stay additive inside `contentCard`, `contentDetail`, and review-queue outputs instead of creating a second editorial stack
 - novel flows extend the same content vocabulary with reader-specific fields
 - future editorial, moderation, ranking, and richer asset metadata should stay additive to the same `contentCard`, `contentDetail`, `contentAccess`, and `searchResults` vocabulary instead of creating a second content stack
 

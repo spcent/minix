@@ -21,8 +21,10 @@ import {
   createFeedSearchResults,
   createRecoverySuggestions,
   createSearchDomainTabs,
+  createSearchGroupingSummary,
   createSearchRankingSummary,
   createSearchResultGroups,
+  createSearchZeroResultGuidance,
   createSuggestionTerms,
   createUserSearchItems,
   decorateSearchItems,
@@ -129,6 +131,8 @@ function createDiscoverDomainFilter(input: {
     key: "domain",
     label: "Search domain",
     selectedKeys: input.activeDomain === "all" || input.activeDomain === "feed" ? [] : [input.activeDomain],
+    persistenceScope: "route",
+    reloadBehavior: "restore",
     options: [
       { key: "all", label: "All", count: total },
       { key: "feed", label: "Feed", count: input.feedCount },
@@ -223,6 +227,8 @@ function createUnifiedFeedResults(
 
   const resultGroups = createSearchResultGroups(scopedGroups);
   const correctionKeyword = flattened.length === 0 ? createCorrectionKeyword(input.keyword, hotKeywords) : undefined;
+  const grouping = createSearchGroupingSummary(scopedGroups, requestedDomain);
+  const zeroResultGuidance = createSearchZeroResultGuidance(input.keyword, flattened.length, correctionKeyword, hotKeywords);
   return {
     items: pagedItems,
     page: input.page,
@@ -283,6 +289,8 @@ function createUnifiedFeedResults(
       ),
       activeDomain,
       resultGroups,
+      grouping,
+      zeroResultGuidance,
     },
   };
 }
@@ -397,6 +405,8 @@ export function listFeed(input: {
           "feed",
         ),
         resultGroups: createSearchResultGroups([{ domain: "feed", label: "Feed", items: filteredItems }]),
+        grouping: createSearchGroupingSummary([{ domain: "feed", items: filteredItems }], "feed"),
+        zeroResultGuidance: createSearchZeroResultGuidance(keyword, filteredItems.length, correctionKeyword, hotKeywords),
       },
     ),
   };

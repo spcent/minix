@@ -85,7 +85,10 @@ pnpm api:deploy:preview
 3. Verify the preview API:
 
 ```bash
-MINIX_API_BASE_URL="https://<preview-worker>.workers.dev" pnpm verify:api:remote
+MINIX_API_BASE_URL="https://<preview-worker>.workers.dev" \
+MINIX_REMOTE_EVIDENCE_OUTPUT=".tmp/preview-remote-evidence.json" \
+pnpm verify:api:remote
+pnpm verify:api:remote:render .tmp/preview-remote-evidence.json preview
 ```
 
 After API verification, inspect the authenticated `/ops/diagnostics` response on the target environment and confirm the provider-readiness summary matches the intended rollout posture for auth, messages, payment callbacks, upload, and share.
@@ -133,7 +136,11 @@ After preview passes:
 ```bash
 pnpm api:d1:migrate:production
 pnpm api:deploy:production
-MINIX_API_BASE_URL="https://<production-worker>.workers.dev" pnpm verify:api:remote
+MINIX_API_BASE_URL="https://<production-worker>.workers.dev" \
+MINIX_REMOTE_EVIDENCE_OUTPUT=".tmp/production-remote-evidence.json" \
+pnpm verify:api:remote
+pnpm verify:api:remote:render .tmp/production-remote-evidence.json production
+pnpm verify:api:remote:compare .tmp/preview-remote-evidence.json .tmp/production-remote-evidence.json
 ```
 
 3. Deploy both H5 samples to Pages production:

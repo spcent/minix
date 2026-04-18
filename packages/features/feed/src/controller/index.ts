@@ -345,12 +345,41 @@ function createSearchResults(
   response: FeedListResponse,
   recentKeywords: string[],
   fallbackEmptyText: string,
+  options: {
+    restoredFromRoute?: boolean;
+    routeWritebackEnabled?: boolean;
+    activeTag?: string | undefined;
+  } = {},
 ): SearchResults<FeedItem> {
   const nextSearchResults = structuredClone(response.searchResults);
+  const routeKeys = [
+    ...(response.searchQuery.keyword ? ["keyword"] : []),
+    ...(response.searchQuery.mode !== "global" ? ["mode"] : []),
+    ...(response.searchQuery.domain !== "feed" ? ["domain"] : []),
+    ...(response.searchQuery.sortKey && response.searchQuery.sortKey !== "recommended" ? ["sort"] : []),
+    ...(options.activeTag && options.activeTag !== "all" ? ["tag"] : []),
+    ...response.searchFilters
+      .filter((group) => group.key !== "domain" && group.key !== "tag" && group.selectedKeys.some((key) => key !== "all"))
+      .map((group) => group.key),
+  ];
+  const reloadRecovery =
+    options.restoredFromRoute ? "route" : recentKeywords.length > 0 ? "storage" : "none";
   return {
     ...nextSearchResults,
     recentKeywords,
     emptyText: nextSearchResults.emptyText || fallbackEmptyText,
+    persistence: {
+      routeKeys,
+      routeWriteback: options.routeWritebackEnabled ?? false,
+      reloadRecovery,
+      recentKeywordCount: recentKeywords.length,
+      label:
+        reloadRecovery === "route"
+          ? "Active discover filters and query params were restored from the current route."
+          : reloadRecovery === "storage"
+            ? "Recent discover keywords were restored from shared storage for quick reuse."
+            : "Discover filters stay route-addressable and recent keywords start empty until the first search.",
+    },
   };
 }
 
@@ -747,7 +776,11 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         return handleFeedFailure(result);
       }
 
-      const nextSearchResults = createSearchResults(result.value, store.getState().recentKeywords, store.getState().emptyText);
+      const nextSearchResults = createSearchResults(result.value, store.getState().recentKeywords, store.getState().emptyText, {
+        restoredFromRoute: store.getState().status.restoredFromRoute,
+        routeWritebackEnabled: Boolean(feedRouteId),
+        ...(store.getState().activeTag ? { activeTag: store.getState().activeTag } : {}),
+      });
       const nextItems = nextSearchResults.items.map((item) => ({ ...item }));
       const selectedItemId = deriveSelectedItemId(nextItems, store.getState().selectedItemId);
       const loadState = nextItems.length > 0 ? "ready" : "empty";
@@ -848,7 +881,11 @@ export function createFeedController(options: CreateFeedControllerOptions) {
 
       const nextItems = result.value.items.map((item) => ({ ...item }));
       const selectedItemId = deriveSelectedItemId(nextItems, store.getState().selectedItemId);
-      const nextSearchResults = createSearchResults(result.value, store.getState().recentKeywords, store.getState().emptyText);
+      const nextSearchResults = createSearchResults(result.value, store.getState().recentKeywords, store.getState().emptyText, {
+        restoredFromRoute: store.getState().status.restoredFromRoute,
+        routeWritebackEnabled: Boolean(feedRouteId),
+        ...(store.getState().activeTag ? { activeTag: store.getState().activeTag } : {}),
+      });
       const loadState = nextItems.length > 0 ? "ready" : "empty";
       store.setState({
         loading: false,
@@ -913,7 +950,11 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         return handleFeedFailure(result);
       }
 
-      const nextSearchResults = createSearchResults(result.value, current.recentKeywords, current.emptyText);
+      const nextSearchResults = createSearchResults(result.value, current.recentKeywords, current.emptyText, {
+        restoredFromRoute: current.status.restoredFromRoute,
+        routeWritebackEnabled: Boolean(feedRouteId),
+        ...(current.activeTag ? { activeTag: current.activeTag } : {}),
+      });
       const nextItems = [...current.items, ...nextSearchResults.items.map((item) => ({ ...item }))];
       const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
       const loadState = nextItems.length > 0 ? "ready" : "empty";

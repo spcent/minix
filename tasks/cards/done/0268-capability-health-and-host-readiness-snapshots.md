@@ -88,8 +88,21 @@ Make capability health easier to inspect in shared state and host-visible diagno
 
 ## Acceptance
 
-- [ ] capability-health snapshots stay normalized in shared state
-- [ ] host readiness is clearer for payment, share, upload, clipboard, and location
-- [ ] adapter-specific behavior remains isolated in platform packages
-- [ ] no host-local fallback system replaces shared capability modeling
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] capability-health snapshots stay normalized in shared state
+- [x] host readiness is clearer for payment, share, upload, clipboard, and location
+- [x] adapter-specific behavior remains isolated in platform packages
+- [x] no host-local fallback system replaces shared capability modeling
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added `CapabilityHealthSnapshot` to the shared capability contract and `createCapabilityHealthSnapshot` in `packages/core` so shared controllers can consume one normalized host-readiness shape.
+- Updated `packages/features/media-tools` to keep upload, share, clipboard, and location readiness in shared snapshot state alongside the existing capability summaries.
+- Updated `packages/features/subscription` to keep payment readiness in the same snapshot vocabulary instead of relying only on a summary string.
+- Kept raw capability detection and fallback execution inside the platform adapters; no host-local fallback layer or diagnostic console was introduced.
+
+## Verification Notes
+
+- `node --import tsx --test packages/features/media-tools/src/controller/index.test.ts`
+- `node --import tsx --test packages/features/subscription/src/controller/index.test.ts`
+- `pnpm verify`

@@ -91,6 +91,7 @@ Provision real share providers, validate deployed short-link and poster URLs, an
 - repo code already exposes normalized share rollout posture and attribution metadata without needing host-local wrappers
 - `/ops/diagnostics` now exposes `providerReadiness.share.distribution` so short-link, poster, and URL-host readiness is visible on the deployed target
 - release docs now require short-link provider, poster provider, deployed URL checks, and attribution validation evidence in the release log
+- preview and production verification can now emit repeatable evidence packs with `MINIX_REMOTE_EVIDENCE_OUTPUT=... pnpm verify:api:remote`, then render release-log snippets with `pnpm verify:api:remote:render <evidence-path> <label>`
 
 ## Verification Notes
 

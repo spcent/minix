@@ -257,6 +257,8 @@ Platform-specific code lives only in:
 
 Adapters translate host APIs into stable core contracts. Shared code must not call `wx.*` or `window.*` directly.
 
+Capability health should be exposed back to shared code as normalized snapshots. Runtime adapters still own the raw host API checks, but shared controllers should consume one additive snapshot shape for payment, share, upload, clipboard, and location instead of building host-local diagnostic branches.
+
 ### Hosts
 
 Host apps own enablement and host-only policy, not shared business behavior.
@@ -308,6 +310,7 @@ Core rules:
 6. Future content and discover growth must extend the existing shared discover, content, upload, and feedback stack additively before any new route family is justified.
 7. Future user and relationship growth must extend the shared account workspace additively before any dedicated user-detail surface is justified.
 8. Capability UX hardening should improve normalized shared capability summaries first; runtime-specific branching still belongs in `packages/platform-*`.
+9. Capability health snapshots should stay in shared controller state and reuse the same snapshot vocabulary across features before any host-visible diagnostics copy is added.
 
 ## 8. Shared Protocol Posture
 

@@ -250,6 +250,8 @@ test("subscription controller loads overview and route context", async () => {
   assert.equal(controller.store.getState().orderListStatus.firstLoaded, true);
   assert.equal(controller.store.getState().recommendedPlanId, "monthly");
   assert.equal(controller.store.getState().paymentCapabilityStatus?.mode, "native");
+  assert.equal(controller.store.getState().paymentCapabilitySnapshot.capability, "payment");
+  assert.equal(controller.store.getState().paymentCapabilitySnapshot.mode, "native");
   assert.equal(controller.store.getState().paymentCapabilitySummary, "Configured payment runtime is available.");
   assert.equal(
     controller.store.getState().unlockOutcomeLabel,
@@ -344,6 +346,7 @@ test("subscription controller surfaces unavailable payment posture before purcha
   await controller.load();
 
   assert.equal(controller.store.getState().paymentCapabilityStatus?.mode, "unavailable");
+  assert.equal(controller.store.getState().paymentCapabilitySnapshot.mode, "unavailable");
   assert.equal(
     controller.store.getState().paymentCapabilitySummary,
     "Payment runtime is unavailable on this host. Order creation can still succeed, but a host payment bridge is required before native payment execution can continue.",

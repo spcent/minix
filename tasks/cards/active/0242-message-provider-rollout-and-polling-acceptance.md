@@ -91,6 +91,7 @@ Provision real external touchpoint providers, confirm the polling-only transport
 - repo code already keeps message provider posture explicit and preserves polling-only sync as an intentional release decision instead of an accidental transport gap
 - `/ops/diagnostics` now exposes `providerReadiness.messages.touchpoints` so the deployed target can show whether production channel config is complete or still in review
 - release docs now require explicit polling-only acceptance notes and provider ownership evidence for the release log
+- preview and production verification can now emit repeatable evidence packs with `MINIX_REMOTE_EVIDENCE_OUTPUT=... pnpm verify:api:remote`, then render release-log snippets with `pnpm verify:api:remote:render <evidence-path> <label>`
 
 ## Verification Notes
 
