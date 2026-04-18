@@ -129,12 +129,27 @@ export function createSecurityCenter(userState: UserState): SecurityCenter {
   const latestPrompt: AuthSecurityPrompt | undefined = security?.latestPrompt
     ? { ...security.latestPrompt }
     : undefined;
+  const trustedDevices = deviceIdentities.filter((device) => device.trusted).length;
+  const provisionalDevices = deviceIdentities.filter((device) => device.trustLabel === "provisional").length;
+  const reviewRequiredDevices = deviceIdentities.filter((device) => !device.trusted).length;
+  const latestSeenAt = deviceIdentities[0]?.lastSeenAt;
 
   return {
     deviceIdentities,
     auditEvents,
     ...(latestRateLimit ? { latestRateLimit: { ...latestRateLimit } } : {}),
     ...(latestPrompt ? { latestPrompt } : {}),
+    ...(deviceIdentities.length > 0
+      ? {
+          deviceSummary: {
+            totalDevices: deviceIdentities.length,
+            trustedDevices,
+            provisionalDevices,
+            reviewRequiredDevices,
+            ...(latestSeenAt ? { latestSeenAt } : {}),
+          },
+        }
+      : {}),
   };
 }
 

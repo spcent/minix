@@ -187,6 +187,33 @@ export function listUserRelations(
           ),
     )
     .sort((left, right) => (right.lastInteractionAt ?? "").localeCompare(left.lastInteractionAt ?? ""));
+  const availableKinds = [
+    "following",
+    "followers",
+    "friends",
+    "blocked",
+    "remarks",
+  ].filter((kind) =>
+    records.some((record) => {
+      switch (kind) {
+        case "following":
+          return record.following && !record.blocked;
+        case "followers":
+          return record.followedBy && !record.blocked;
+        case "friends":
+          return (
+            record.friend ||
+            record.friendState === "mutual" ||
+            record.friendState === "incoming_request" ||
+            record.friendState === "outgoing_request"
+          );
+        case "blocked":
+          return record.blocked;
+        case "remarks":
+          return Boolean(record.remarkName);
+      }
+    }),
+  ) as ListUserRelationsRequest["kind"][];
 
   const startIndex = (page - 1) * pageSize;
   const items = filtered.slice(startIndex, startIndex + pageSize).map(
@@ -206,6 +233,11 @@ export function listUserRelations(
       hasMore: startIndex + pageSize < filtered.length,
       total: filtered.length,
     },
+    summaryLabel:
+      filtered.length > 0
+        ? `${filtered.length} ${request.kind} relationship records available in the shared account workspace.`
+        : `No ${request.kind} relationships match the current filters.`,
+    availableKinds,
     ...(request.keyword ? { keyword: request.keyword } : {}),
   };
 }

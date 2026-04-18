@@ -3,6 +3,7 @@ import type {
   SettingsFeatureToggles,
   SettingsNotificationChannel,
   SettingsNotificationChannelPreference,
+  SettingsNotificationPreset,
   SettingsPreferences,
   SettingsPrivacyOptions,
   SettingsProfileVisibility,
@@ -34,6 +35,21 @@ interface NotificationChannelProviderConfig {
   locale: string;
   fallbackToInApp: boolean;
   defaultEnabled: boolean;
+}
+
+function createNotificationPreset(input: {
+  presetKey: SettingsNotificationPreset["presetKey"];
+  label: string;
+  description: string;
+  active: boolean;
+}): SettingsNotificationPreset {
+  return {
+    presetKey: input.presetKey,
+    label: input.label,
+    description: input.description,
+    active: input.active,
+    domains: ["account", "messages", "feedback"],
+  };
 }
 
 export function createDefaultSettingsPreferences(deployEnv: string | undefined): SettingsPreferences {
@@ -223,6 +239,7 @@ export function resolveSettingsState(
   privacyOptions: SettingsPrivacyOptions;
   effectivePolicy: SettingsEffectivePolicy;
   notificationChannels: SettingsNotificationChannelPreference[];
+  notificationPresets: SettingsNotificationPreset[];
   lockedSettingKeys: string[];
 } {
   const defaultPreferences = createDefaultSettingsPreferences(deployEnv);
@@ -334,6 +351,74 @@ export function resolveSettingsState(
     : preferences.device.networkStrategy === "data-saver"
       ? REDUCED_UPLOAD_CHUNK_SIZE_BYTES
       : DEFAULT_UPLOAD_CHUNK_SIZE_BYTES;
+  const notificationPresetKey: SettingsNotificationPreset["presetKey"] = !preferences.notificationsEnabled
+    ? "paused"
+    : eligibleChannels.length <= 1
+      ? "in_app_only"
+      : notificationChannels.every((item) => !item.enabled || item.unsubscribed || item.channel === "subscription_message" || item.channel === "push")
+        ? "balanced"
+        : "all_eligible";
+  const notificationPresetLabel =
+    notificationPresetKey === "paused"
+      ? "Notifications paused"
+      : notificationPresetKey === "in_app_only"
+        ? "In-app only"
+        : notificationPresetKey === "balanced"
+          ? "Balanced delivery"
+          : "All eligible channels";
+  const notificationPresets: SettingsNotificationPreset[] = [
+    createNotificationPreset({
+      presetKey: "all_eligible",
+      label: "All eligible channels",
+      description: "Use every eligible remote channel plus in-app fallback when notifications remain enabled.",
+      active: notificationPresetKey === "all_eligible",
+    }),
+    createNotificationPreset({
+      presetKey: "balanced",
+      label: "Balanced delivery",
+      description: "Prefer in-app, subscription messages, and lightweight push posture before heavier external channels.",
+      active: notificationPresetKey === "balanced",
+    }),
+    createNotificationPreset({
+      presetKey: "in_app_only",
+      label: "In-app only",
+      description: "Keep notification follow-up inside the shared signed-in workspace without remote delivery.",
+      active: notificationPresetKey === "in_app_only",
+    }),
+    createNotificationPreset({
+      presetKey: "paused",
+      label: "Paused",
+      description: "Pause notification delivery while preserving the same shared policy vocabulary across account, messages, and feedback.",
+      active: notificationPresetKey === "paused",
+    }),
+  ];
+  const notificationPolicySourceSummary =
+    preferences.notificationsEnabled
+      ? `${notificationPresetLabel} derived from global notification preference, per-channel toggles, and provider readiness.`
+      : "Notifications are globally disabled before per-channel policy is applied.";
+  const privacyPolicySourceSummary = `Privacy visibility resolves from profile visibility, recommendation consent, and analytics consent inside the shared settings workspace.`;
+  const autoplaySummary = preferences.device.autoplay
+    ? preferences.device.weakNetworkMode
+      ? "Autoplay preference is on, but weak-network mode forces autoplay off."
+      : "Autoplay stays enabled for capable devices."
+    : "Autoplay is disabled by user preference.";
+  const weakNetworkSummary = preferences.device.weakNetworkMode
+    ? "Weak-network mode is active and reduces upload chunk size plus autoplay behavior."
+    : "Weak-network mode is inactive and standard upload behavior applies.";
+  const diagnosticsSummary =
+    deployEnv === "production"
+      ? "Diagnostics stay locked in production regardless of local debug toggles."
+      : preferences.developerOptions.logsEnabled
+        ? "Diagnostics remain available in debug environments."
+        : "Diagnostics are disabled by the current debug preference.";
+  const developerPolicySourceSummary =
+    deployEnv === "production"
+      ? "Developer controls are locked by environment policy."
+      : "Developer controls follow debug-environment preferences and shared experiment governance.";
+  const developerExposureSummary =
+    deployEnv === "production"
+      ? "Production hides editable diagnostics and experiment switches."
+      : "Debug hosts may expose diagnostics and experiment switches through the shared settings workspace.";
 
   return {
     preferences,
@@ -350,6 +435,9 @@ export function resolveSettingsState(
         emailEnabled: Boolean(notificationChannels.find((item) => item.channel === "email")?.enabled),
         eligibleChannels,
         stationFallbackEnabled: true,
+        presetKey: notificationPresetKey,
+        presetLabel: notificationPresetLabel,
+        policySourceSummary: notificationPolicySourceSummary,
       },
       privacy: {
         profileVisibility: privacyOptions.profileVisibility,
@@ -357,6 +445,7 @@ export function resolveSettingsState(
         relationSearchVisible: privacyOptions.profileVisibility !== "signed_in_only",
         personalizedRankingEnabled: privacyOptions.personalizedRecommendations,
         analyticsCollectionEnabled: privacyOptions.analyticsEnabled,
+        policySourceSummary: privacyPolicySourceSummary,
       },
       device: {
         autoplayEnabled: preferences.device.autoplay && !preferences.device.weakNetworkMode,
@@ -364,6 +453,10 @@ export function resolveSettingsState(
         networkStrategy: preferences.device.networkStrategy,
         uploadChunkSizeBytes,
         diagnosticsEnabled: preferences.developerOptions.logsEnabled && deployEnv !== "production",
+        autoplaySummary,
+        weakNetworkSummary,
+        diagnosticsSummary,
+        policySourceSummary: "Device policy resolves from network strategy, weak-network mode, autoplay preference, and environment diagnostics posture.",
       },
       developer: {
         environment: deployEnv === "production" ? "production" : "debug",
@@ -371,12 +464,15 @@ export function resolveSettingsState(
         experimentsEditable: deployEnv !== "production",
         logsEnabled: preferences.developerOptions.logsEnabled,
         experimentsEnabled: featureToggles.experimentsEnabled,
+        exposureSummary: developerExposureSummary,
+        policySourceSummary: developerPolicySourceSummary,
         ...(deployEnv === "production"
           ? { lockedReason: "Developer diagnostics are locked in production." }
           : {}),
       },
     },
     notificationChannels,
+    notificationPresets,
     lockedSettingKeys,
   };
 }

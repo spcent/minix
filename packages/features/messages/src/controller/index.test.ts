@@ -43,6 +43,15 @@ function createThread(unreadCount: number, lastMessagePreview = "Reply"): Messag
       recoverable: true,
       lastSyncedAt: "2026-04-08T09:10:00.000Z",
     },
+    supportProgress: {
+      state: "assigned",
+      queueLabel: "Product Support",
+      assigneeLabel: "Support Bot",
+      nextStepLabel: "Reply in the same thread to continue follow-up.",
+      supportLoopSummary: "Product Support is now handling this case in the shared support thread.",
+      operatorActionSummary:
+        "Product Support can reassign the queue or update template posture while external delivery remains in explicit sample mode.",
+    },
   };
 }
 
@@ -84,7 +93,32 @@ function createOutboundMessage(
       : {}),
     attemptCount,
     retryable: status === "failed",
-    touchpoints: [],
+    touchpoints: [
+      {
+        channel: "subscription_message",
+        executable: true,
+        enabled: true,
+        statusLabel: status === "failed" ? "Sample gateway is temporarily unavailable." : "Sample gateway accepted the dispatch.",
+        deliverySummary:
+          status === "failed"
+            ? "Sample gateway failed to deliver through subscription message; retry or operator intervention can restore the external lane."
+            : "Sample gateway accepted the subscription message dispatch and polling will finalize the receipt.",
+        fallbackSummary: "If this external lane fails or is skipped, the in-app inbox remains the durable fallback.",
+        providerKey: "wechat_subscription",
+        providerLabel: "Sample gateway",
+        providerMode: "sample",
+        receipt: {
+          receiptId: "receipt-out-1",
+          status: status === "failed" ? "failed" : "sent",
+          retryCount: attemptCount - 1,
+          retryable: status === "failed",
+          attemptSummary:
+            status === "failed"
+              ? `${attemptCount} attempts; delivery failed and can be retried.`
+              : `${attemptCount} attempts; accepted by the provider and waiting for polling confirmation.`,
+        },
+      },
+    ],
   };
 }
 
@@ -661,6 +695,14 @@ test("messages controller can send an outbound message into the selected thread"
   assert.equal(controller.store.getState().messageItems.at(-1)?.body, "Can you review my next attempt?");
   assert.equal(controller.store.getState().messageThread?.lastMessagePreview, "Can you review my next attempt?");
   assert.equal(controller.store.getState().messageItems.at(-1)?.deliveryStatus, "pending");
+  assert.equal(
+    controller.store.getState().messageItems.at(-1)?.touchpoints[0]?.receipt?.attemptSummary,
+    "1 attempts; accepted by the provider and waiting for polling confirmation.",
+  );
+  assert.equal(
+    controller.store.getState().messageThread?.supportProgress?.supportLoopSummary,
+    "Product Support is now handling this case in the shared support thread.",
+  );
 });
 
 test("messages controller retries a failed outbound message", async () => {

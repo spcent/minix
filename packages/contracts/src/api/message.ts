@@ -48,6 +48,8 @@ export interface MessageTouchpointTemplate {
   locale: string;
   title?: string;
   channelConstraint?: MessageTouchpointChannel;
+  governanceLabel?: string;
+  operatorActionSummary?: string;
 }
 
 export interface MessageTouchpointReceipt {
@@ -62,6 +64,7 @@ export interface MessageTouchpointReceipt {
   retryCount: number;
   retryable: boolean;
   nextRetryAt?: string;
+  attemptSummary?: string;
 }
 
 export interface MessageTouchpoint {
@@ -70,6 +73,8 @@ export interface MessageTouchpoint {
   enabled: boolean;
   delivered?: boolean;
   statusLabel?: string;
+  deliverySummary?: string;
+  fallbackSummary?: string;
   templateKey?: string;
   providerKey?: string;
   providerLabel?: string;
@@ -175,6 +180,8 @@ export interface MessageSupportProgress {
   queueLabel?: string;
   assigneeLabel?: string;
   nextStepLabel?: string;
+  supportLoopSummary?: string;
+  operatorActionSummary?: string;
 }
 
 export interface MessageGroupState {

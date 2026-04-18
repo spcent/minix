@@ -114,13 +114,33 @@ export function upsertDeviceIdentity(input: {
 
   const security = ensureAuthSecurityState(input.userState);
   const existing = security.devicesById[input.deviceId];
+  const repeatSeen = Boolean(existing);
   const trusted = input.trust ?? existing?.trusted ?? input.riskDecision?.level === "allow";
+  const trustScore =
+    input.riskDecision?.score
+    ?? existing?.trustScore
+    ?? (trusted ? (repeatSeen ? 96 : 72) : (repeatSeen ? 42 : 24));
+  const trustLabel = trusted ? (repeatSeen ? "trusted" : "provisional") : "review";
+  const reviewSummary =
+    input.riskDecision?.reviewSummary
+    ?? existing?.reviewSummary
+    ?? (trusted
+      ? repeatSeen
+        ? "Recognized device context matches prior successful sign-ins."
+        : "This device passed the current checks but remains newly seen."
+      : repeatSeen
+        ? "Known device context changed and should stay under review."
+        : "First-seen device should stay under review until the sign-in is confirmed.");
   const next: AuthDeviceIdentity = {
     deviceId: input.deviceId,
     platform: input.platform,
     trusted,
     firstSeenAt: existing?.firstSeenAt ?? input.now,
     lastSeenAt: input.now,
+    trustScore,
+    trustLabel,
+    repeatSeen,
+    reviewSummary,
     ...(trusted
       ? { trustedAt: existing?.trustedAt ?? input.now }
       : existing?.trustedAt
@@ -351,6 +371,7 @@ export function evaluateSecurityDecision(input: {
   const deviceId = input.deviceId ?? input.riskContext?.deviceId;
   const security = ensureAuthSecurityState(input.userState);
   const existingDevice = deviceId ? security.devicesById[deviceId] : undefined;
+  const repeatedDevice = Boolean(existingDevice);
   const suspicious =
     input.forceReview ||
     input.riskContext?.scene === "suspicious-login" ||
@@ -358,6 +379,27 @@ export function evaluateSecurityDecision(input: {
     input.riskContext?.ipRegion === "unusual-region" ||
     deviceId === "device-risk-review" ||
     Boolean(deviceId && !existingDevice);
+  const score = suspicious
+    ? input.forceReview
+      ? 18
+      : repeatedDevice
+        ? 42
+        : 24
+    : repeatedDevice
+      ? 96
+      : 72;
+  const reviewSummary = suspicious
+    ? repeatedDevice
+      ? "Known device context changed and requires review before the session is treated as trusted."
+      : "First-seen device requires review before the session is treated as trusted."
+    : repeatedDevice
+      ? "Recognized device context matches recent successful sign-ins."
+      : "New device passed the current checks and is stored as a provisional trusted device.";
+  const operatorActionSummary = suspicious
+    ? "Review recent account activity, confirm device ownership, and force re-authentication if the sign-in is unexpected."
+    : repeatedDevice
+      ? "No operator follow-up is required unless later audit events escalate the session."
+      : "Monitor the next successful sign-in from this device before treating it as a fully trusted posture.";
   const riskDecision: AuthRiskDecision = {
     ...(deviceId ? { deviceId } : {}),
     ...(input.riskContext?.frequencyKey
@@ -365,6 +407,10 @@ export function evaluateSecurityDecision(input: {
       : {}),
     ...(input.riskContext?.scene ? { scene: input.riskContext.scene } : {}),
     level: suspicious ? "review" : "allow",
+    score,
+    repeatedDevice,
+    reviewSummary,
+    operatorActionSummary,
     ...(suspicious
       ? { reason: existingDevice ? "unusual_device_or_region" : "new_device" }
       : {}),

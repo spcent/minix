@@ -382,6 +382,7 @@ export function createSettingsResponse(
     privacyOptions: settingsState.privacyOptions,
     effectivePolicy: settingsState.effectivePolicy,
     notificationChannels: settingsState.notificationChannels,
+    notificationPresets: settingsState.notificationPresets,
     lockedSettingKeys: settingsState.lockedSettingKeys,
   };
 }

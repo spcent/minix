@@ -129,6 +129,56 @@ function createWorkflowMessage(
   return "The current session has been merged into the target account.";
 }
 
+function createWorkflowRecoverySummary(input: {
+  kind: AuthIdentityWorkflow["kind"];
+  status: AuthIdentityWorkflow["status"];
+  mergePreview?: AuthIdentityMergePreview;
+}): string {
+  if (input.status === "merge_required") {
+    return input.mergePreview?.recoveryMessage
+      ?? "If the merge is not confirmed, the current session remains unchanged and can retry later.";
+  }
+
+  if (input.status === "blocked") {
+    return "No merge was applied. Resolve the blocking condition and retry from the current identity workspace.";
+  }
+
+  if (input.kind === "guest_upgrade") {
+    return "Guest upgrade stays inside the shared auth workspace until the formal account transition completes.";
+  }
+
+  if (input.kind === "phone_binding") {
+    return "Phone binding can be retried from the current account workspace without a separate recovery route.";
+  }
+
+  if (input.kind === "oauth_binding") {
+    return "OAuth binding can be reauthorized from the current login or account workspace without a dedicated callback page.";
+  }
+
+  return "The target account becomes the durable recovery point after merge completion.";
+}
+
+function createWorkflowOperatorActionSummary(input: {
+  status: AuthIdentityWorkflow["status"];
+  targetLabel?: string;
+}): string | undefined {
+  if (input.status === "merge_required") {
+    return input.targetLabel
+      ? `Review ownership of ${input.targetLabel} before confirming the merge.`
+      : "Review ownership of the target account before confirming the merge.";
+  }
+
+  if (input.status === "conflict") {
+    return "Resolve the conflicting provider or bound identity before retrying the transition.";
+  }
+
+  if (input.status === "blocked") {
+    return "No identity transition was applied. Resolve the blocking condition before retrying.";
+  }
+
+  return undefined;
+}
+
 function countRecordValues(record: Record<string, unknown> | undefined): number {
   return record ? Object.keys(record).length : 0;
 }
@@ -245,6 +295,11 @@ export function createIdentityWorkflow(input: {
   mergePreview?: AuthIdentityMergePreview | undefined;
   audit?: AuthIdentityAuditRecord[] | undefined;
 }): AuthIdentityWorkflow {
+  const operatorActionSummary = createWorkflowOperatorActionSummary({
+    status: input.status,
+    ...(input.targetLabel ? { targetLabel: input.targetLabel } : {}),
+  });
+
   return {
     kind: input.kind,
     status: input.status,
@@ -258,6 +313,12 @@ export function createIdentityWorkflow(input: {
     ...(input.failureReason ? { failureReason: input.failureReason } : {}),
     ...(input.mergePreview ? { mergePreview: input.mergePreview } : {}),
     ...(input.audit ? { audit: input.audit } : {}),
+    recoverySummary: createWorkflowRecoverySummary({
+      kind: input.kind,
+      status: input.status,
+      ...(input.mergePreview ? { mergePreview: input.mergePreview } : {}),
+    }),
+    ...(operatorActionSummary ? { operatorActionSummary } : {}),
   };
 }
 

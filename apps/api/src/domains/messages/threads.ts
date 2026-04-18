@@ -32,6 +32,47 @@ import { cloneTouchpoints, DEFAULT_MESSAGE_TOUCHPOINTS, cloneMessageTouchpointsF
 
 const MESSAGE_POLL_INTERVAL_MS = 5_000;
 
+export function createSharedSupportThreadSummary(input: {
+  threadId?: string;
+  queueLabel?: string;
+  assigneeLabel?: string;
+}) {
+  const queueLabel = input.queueLabel ?? "General Support";
+  const assignee = input.assigneeLabel ? ` with ${input.assigneeLabel}` : "";
+  const threadLabel = input.threadId ? `thread ${input.threadId}` : "the shared customer-service thread";
+  return `${queueLabel} continues follow-up in ${threadLabel}${assignee}.`;
+}
+
+export function createSharedSupportLoopSummary(input: {
+  state: "unassigned" | "assigned" | "waiting_user" | "resolved" | "closed";
+  queueLabel?: string;
+}) {
+  const queueLabel = input.queueLabel ?? "General Support";
+  switch (input.state) {
+    case "unassigned":
+      return `${queueLabel} has not assigned an operator yet, but the shared support thread is already reserved for follow-up.`;
+    case "assigned":
+      return `${queueLabel} is now handling this case in the shared support thread.`;
+    case "waiting_user":
+      return `${queueLabel} is waiting for more user context before continuing the shared support loop.`;
+    case "resolved":
+      return `${queueLabel} posted a resolution and keeps the same support thread available for confirmation.`;
+    case "closed":
+      return `${queueLabel} closed the support loop without creating a separate transport lane.`;
+    default:
+      return `${queueLabel} continues the shared support loop in the inbox thread.`;
+  }
+}
+
+export function createSupportOperatorActionSummary(input: {
+  providerMode?: NotificationChannelProviderRuntimeEnv["MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE"];
+  queueLabel?: string;
+}) {
+  return input.providerMode === "production"
+    ? `${input.queueLabel ?? "General Support"} can rotate assignments, templates, and delivery providers without changing the polling-only transport contract.`
+    : `${input.queueLabel ?? "General Support"} can reassign the queue or update template posture while external delivery remains in explicit sample mode.`;
+}
+
 const THREAD_SEEDS: Record<string, MessageThread> = {
   thread_private_tutor: {
     threadId: "thread_private_tutor",
@@ -142,6 +183,9 @@ const THREAD_SEEDS: Record<string, MessageThread> = {
       queueLabel: "Billing Support",
       assigneeLabel: "Support Bot",
       nextStepLabel: "Reply to reopen this support conversation.",
+      supportLoopSummary: "Billing Support posted a resolution and keeps the same support thread available for confirmation.",
+      operatorActionSummary:
+        "Billing Support can reassign the queue or update template posture while external delivery remains in explicit sample mode.",
     },
     members: [
       {
@@ -422,6 +466,49 @@ function getAllThreadRecords(userState: UserState): StoredMessageThreadRecord[] 
   return Object.values(userState.threadRecordsById);
 }
 
+function withDeliveryAttemptSummaries(message: MessageBodyItem): MessageBodyItem {
+  return {
+    ...message,
+    touchpoints: message.touchpoints.map((touchpoint) => {
+      if (!touchpoint.receipt) {
+        return touchpoint;
+      }
+      const providerLabel = touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel;
+      const attemptCount = touchpoint.receipt.retryCount + 1;
+      const deliverySummary =
+        touchpoint.channel === "in_app"
+          ? "Delivered through the shared in-app inbox lane."
+          : touchpoint.receipt.status === "failed"
+            ? `${providerLabel} failed to deliver through ${touchpoint.channel.replace("_", " ")}; retry or operator intervention can restore the external lane.`
+            : touchpoint.receipt.status === "sent" || touchpoint.receipt.status === "queued"
+              ? `${providerLabel} accepted the ${touchpoint.channel.replace("_", " ")} dispatch and polling will finalize the receipt.`
+              : touchpoint.receipt.status === "opted_out"
+                ? `${providerLabel} did not deliver because the user opted out of ${touchpoint.channel.replace("_", " ")}.`
+                : touchpoint.receipt.status === "skipped"
+                  ? `${providerLabel} did not deliver because current policy disabled ${touchpoint.channel.replace("_", " ")}.`
+                  : `${providerLabel} delivered through ${touchpoint.channel.replace("_", " ")}.`;
+      const attemptSummary =
+        touchpoint.receipt.status === "failed"
+          ? `${attemptCount} attempts; delivery failed${touchpoint.receipt.retryable ? " and can be retried" : ""}.`
+          : touchpoint.receipt.status === "sent" || touchpoint.receipt.status === "queued"
+            ? `${attemptCount} attempts; accepted by the provider and waiting for polling confirmation.`
+            : touchpoint.receipt.status === "opted_out"
+              ? `${attemptCount} attempts; blocked because the user opted out.`
+              : touchpoint.receipt.status === "skipped"
+                ? `${attemptCount} attempts; skipped by current notification policy.`
+                : `${attemptCount} attempts; delivery confirmed.`;
+      return {
+        ...touchpoint,
+        deliverySummary,
+        receipt: {
+          ...touchpoint.receipt,
+          attemptSummary,
+        },
+      };
+    }),
+  };
+}
+
 function getThreadMessages(
   userState: UserState,
   threadId: string,
@@ -486,13 +573,13 @@ function getThreadMessages(
     .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
     .map((message) => {
       if (message.direction === "inbound" && lastReadAt && message.createdAt <= lastReadAt) {
-        return {
+        return withDeliveryAttemptSummaries({
           ...message,
           deliveryStatus: "read",
           readAt: lastReadAt,
-        };
+        });
       }
-      return message;
+      return withDeliveryAttemptSummaries(message);
     });
 }
 
@@ -797,6 +884,14 @@ export function createMessageThread(
             ...(input.sourceTicketId ? { ticketId: input.sourceTicketId } : {}),
             queueLabel: "General Support",
             nextStepLabel: "Support will assign this conversation after the first message.",
+            supportLoopSummary: createSharedSupportLoopSummary({
+              state: "unassigned",
+              queueLabel: "General Support",
+            }),
+            operatorActionSummary: createSupportOperatorActionSummary({
+              providerMode: runtimeEnv?.MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE,
+              queueLabel: "General Support",
+            }),
           },
         }
       : {}),
@@ -928,12 +1023,13 @@ export function sendThreadMessage(
       : {}),
     touchpoints: persistedTouchpoints,
   };
+  const nextMessageItem = withDeliveryAttemptSummaries(messageItem);
   const record = getStoredThreadRecord(userState, input.threadId);
   if (!record) {
     return null;
   }
   const existingMessages = cloneMessageItems(record.messages, userState, runtimeEnv);
-  const nextMessages = [...existingMessages, messageItem];
+  const nextMessages = [...existingMessages, nextMessageItem];
   record.messages = nextMessages;
   userState.threadMessagesByThreadId[input.threadId] = nextMessages;
   record.updatedAt = sentAt;
@@ -959,6 +1055,14 @@ export function sendThreadMessage(
       queueLabel: record.thread.assignment.teamLabel ?? "General Support",
       assigneeLabel: record.thread.assignment.assigneeLabel ?? "Support Bot",
       nextStepLabel: failed ? "Retry this support reply." : "Support will continue in the same thread.",
+      supportLoopSummary: createSharedSupportLoopSummary({
+        state: failed ? "waiting_user" : "assigned",
+        queueLabel: record.thread.assignment.teamLabel ?? "General Support",
+      }),
+      operatorActionSummary: createSupportOperatorActionSummary({
+        providerMode: runtimeEnv?.MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE,
+        queueLabel: record.thread.assignment.teamLabel ?? "General Support",
+      }),
     };
   }
   const messageThread = deriveThreadState(userState, input.threadId, runtimeEnv);
@@ -968,7 +1072,7 @@ export function sendThreadMessage(
 
   return {
     messageThread,
-    messageItem,
+    messageItem: nextMessageItem,
     detailActions: createMessageThreadActions(messageThread, getThreadMessages(userState, input.threadId, runtimeEnv)),
     unreadBadge: createUnreadBadge(userState, 0, runtimeEnv),
     threadList: listMessageThreads(userState, { page: 1, pageSize: 20 }, runtimeEnv),
@@ -1006,12 +1110,14 @@ export function retryThreadMessage(
         touchpoint.providerMode === "sample"
           ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample retry queued; polling-only sync will finalize the next receipt.`
           : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} retry queued; polling-only sync will finalize the next receipt.`,
+      deliverySummary: `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} accepted the ${touchpoint.channel.replace("_", " ")} retry and polling will finalize the next receipt.`,
       receipt: {
         ...touchpoint.receipt,
         status: "sent" as MessageTouchpointReceiptStatus,
         attemptedAt: retriedAt,
         retryCount: touchpoint.receipt.retryCount + 1,
         retryable: false,
+        attemptSummary: `${touchpoint.receipt.retryCount + 2} attempts; accepted by the provider and waiting for polling confirmation.`,
         ...(touchpoint.receipt.providerReference ? { providerReference: touchpoint.receipt.providerReference } : {}),
       },
     };
@@ -1022,7 +1128,7 @@ export function retryThreadMessage(
   if (!messageThread) {
     return null;
   }
-  const messageItem = cloneMessageBodyItem(target, userState, runtimeEnv);
+  const messageItem = withDeliveryAttemptSummaries(cloneMessageBodyItem(target, userState, runtimeEnv));
   return {
     messageThread,
     messageItem,

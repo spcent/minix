@@ -77,6 +77,10 @@ export interface AuthRiskDecision {
   scene?: string;
   level: "allow" | "review" | "block";
   reason?: string;
+  score?: number;
+  repeatedDevice?: boolean;
+  reviewSummary?: string;
+  operatorActionSummary?: string;
 }
 
 export interface AuthDeviceIdentity {
@@ -90,6 +94,10 @@ export interface AuthDeviceIdentity {
   lastIpRegion?: string;
   lastScene?: string;
   riskLevel?: AuthRiskDecision["level"];
+  trustScore?: number;
+  trustLabel?: "trusted" | "provisional" | "review";
+  repeatSeen?: boolean;
+  reviewSummary?: string;
 }
 
 export interface AuthRateLimitState {
@@ -167,7 +175,10 @@ export interface AuthLoginMethodDescriptor {
   availableOn: LoginPlatformKind[];
   defaultOn?: LoginPlatformKind[];
   summary: string;
+  capabilitySummary?: string;
   recoverySummary?: string;
+  operatorOwned?: boolean;
+  operatorActionSummary?: string;
 }
 
 export interface AuthProviderIdentity {
@@ -208,6 +219,8 @@ export interface AuthIdentityWorkflow {
   failureReason?: AuthIdentityFailureReason;
   mergePreview?: AuthIdentityMergePreview;
   audit?: AuthIdentityAuditRecord[];
+  recoverySummary?: string;
+  operatorActionSummary?: string;
 }
 
 export interface AuthIdentityMergeImpact {

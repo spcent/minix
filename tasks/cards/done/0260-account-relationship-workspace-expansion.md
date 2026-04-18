@@ -87,8 +87,21 @@ Keep account as the canonical shared user workspace while making relationship an
 
 ## Acceptance
 
-- [ ] relation, asset, and security growth remains inside the shared account workspace
-- [ ] additive user-envelope changes stay compatible with current account outputs
-- [ ] recovery and cancellation follow-up do not imply a second user-detail stack
-- [ ] no host-local account fork is introduced
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] relation, asset, and security growth remains inside the shared account workspace
+- [x] additive user-envelope changes stay compatible with current account outputs
+- [x] recovery and cancellation follow-up do not imply a second user-detail stack
+- [x] no host-local account fork is introduced
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added additive user-envelope summaries in `packages/contracts/src/api/user.ts` for asset-history posture, relation-list posture, security device summaries, and bounded recovery or cancellation follow-up.
+- Extended `apps/api/src/domains/account/assets.ts`, `current-user.ts`, `operations.ts`, and `relations.ts` to emit those summaries from the existing account workspace instead of introducing a second user-detail route family.
+- Updated `packages/features/account/src/controller/index.ts` so the account workspace projects the new asset, relation, security, and follow-up summaries into shared stats and sections.
+- Updated `docs/BACKEND_CONTRACT.md` and `docs/ROADMAP.md` so the current account-workspace posture matches the repository implementation.
+
+## Verification Notes
+
+- `node --import tsx --test packages/features/account/src/controller/index.test.ts`
+- `node --import tsx --test apps/api/src/app.test.ts`
+- `pnpm verify`

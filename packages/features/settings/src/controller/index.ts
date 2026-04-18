@@ -229,6 +229,7 @@ function cloneModel(model: SettingsPageModel): SettingsPageModel {
     ...(model.privacyOptions ? { privacyOptions: structuredClone(model.privacyOptions) } : {}),
     ...(model.effectivePolicy ? { effectivePolicy: structuredClone(model.effectivePolicy) } : {}),
     ...(model.notificationChannels ? { notificationChannels: structuredClone(model.notificationChannels) } : {}),
+    ...(model.notificationPresets ? { notificationPresets: structuredClone(model.notificationPresets) } : {}),
     ...(model.lockedSettingKeys ? { lockedSettingKeys: [...model.lockedSettingKeys] } : {}),
     sections: model.sections.map((section) => ({
       ...section,
@@ -293,6 +294,13 @@ function createSettingsSections(response: SettingsResponse): SettingsSection[] {
               : "Editable in debug"),
         ),
         createTextItem("summary-locked-settings", "Locked settings", formatLockedSettingSummary(response)),
+        createTextItem(
+          "summary-policy-source",
+          "Policy source",
+          response.effectivePolicy.developer.policySourceSummary ??
+            response.effectivePolicy.notification.policySourceSummary ??
+            "Shared policy summary",
+        ),
       ],
     },
     {
@@ -361,22 +369,31 @@ function createSettingsSections(response: SettingsResponse): SettingsSection[] {
         createTextItem("policy-sms", "SMS enabled", response.effectivePolicy.notification.smsEnabled),
         createTextItem("policy-email", "Email enabled", response.effectivePolicy.notification.emailEnabled),
         createTextItem("eligible-channels", "Eligible channels", formatEligibleChannels(response.effectivePolicy.notification.eligibleChannels)),
+        createTextItem("notification-preset", "Notification preset", response.effectivePolicy.notification.presetLabel ?? "Not classified"),
+        createTextItem("notification-policy-source", "Notification policy source", response.effectivePolicy.notification.policySourceSummary ?? "No policy-source summary"),
         createTextItem("station-fallback", "Station fallback", response.effectivePolicy.notification.stationFallbackEnabled ?? false),
         createTextItem("policy-profile-visibility", "Resolved profile visibility", response.effectivePolicy.privacy.profileVisibility),
         createTextItem("profile-search-visible", "Profile search visible", response.effectivePolicy.privacy.profileSearchVisible),
         createTextItem("relation-search-visible", "Relation search visible", response.effectivePolicy.privacy.relationSearchVisible),
         createTextItem("personalized-ranking", "Personalized ranking", response.effectivePolicy.privacy.personalizedRankingEnabled),
         createTextItem("analytics-collection", "Analytics collection", response.effectivePolicy.privacy.analyticsCollectionEnabled),
+        createTextItem("privacy-policy-source", "Privacy policy source", response.effectivePolicy.privacy.policySourceSummary ?? "No privacy policy-source summary"),
         createTextItem("policy-autoplay", "Autoplay enabled", response.effectivePolicy.device.autoplayEnabled),
         createTextItem("policy-weak-network-mode", "Weak-network mode", response.effectivePolicy.device.weakNetworkMode),
         createTextItem("policy-network-strategy", "Resolved network strategy", response.effectivePolicy.device.networkStrategy),
         createTextItem("upload-chunk-size", "Upload chunk size", `${response.effectivePolicy.device.uploadChunkSizeBytes} bytes`),
         createTextItem("diagnostics-enabled", "Diagnostics enabled", response.effectivePolicy.device.diagnosticsEnabled),
+        createTextItem("autoplay-summary", "Autoplay summary", response.effectivePolicy.device.autoplaySummary ?? "No autoplay summary"),
+        createTextItem("weak-network-summary", "Weak-network summary", response.effectivePolicy.device.weakNetworkSummary ?? "No weak-network summary"),
+        createTextItem("diagnostics-summary", "Diagnostics summary", response.effectivePolicy.device.diagnosticsSummary ?? "No diagnostics summary"),
+        createTextItem("device-policy-source", "Device policy source", response.effectivePolicy.device.policySourceSummary ?? "No device policy-source summary"),
         createTextItem("developer-environment", "Environment", response.effectivePolicy.developer.environment),
         createTextItem("logs-editable", "Logs editable", response.effectivePolicy.developer.logsEditable),
         createTextItem("experiments-editable", "Experiments editable", response.effectivePolicy.developer.experimentsEditable),
         createTextItem("policy-logs-enabled", "Logs enabled", response.effectivePolicy.developer.logsEnabled),
         createTextItem("policy-experiments-enabled", "Experiments enabled", response.effectivePolicy.developer.experimentsEnabled),
+        createTextItem("developer-exposure-summary", "Developer exposure", response.effectivePolicy.developer.exposureSummary ?? "No developer exposure summary"),
+        createTextItem("developer-policy-source", "Developer policy source", response.effectivePolicy.developer.policySourceSummary ?? "No developer policy-source summary"),
         ...(response.effectivePolicy.developer.lockedReason
           ? [createTextItem("developer-lock-reason", "Developer lock reason", response.effectivePolicy.developer.lockedReason)]
           : []),
@@ -424,6 +441,19 @@ function createSettingsSections(response: SettingsResponse): SettingsSection[] {
               ...(channel.unsubscribable
                 ? [createTextItem(`channel-${channel.channel}-unsubscribed`, `${channel.channel} unsubscribe`, channel.unsubscribed)]
                 : []),
+            ]),
+          } satisfies SettingsSection,
+        ]
+      : []),
+    ...(response.notificationPresets && response.notificationPresets.length > 0
+      ? [
+          {
+            key: "notification-presets",
+            title: "Notification presets",
+            items: response.notificationPresets.flatMap((preset) => [
+              createTextItem(`preset-${preset.presetKey}-active`, preset.label, preset.active),
+              createTextItem(`preset-${preset.presetKey}-description`, `${preset.label} summary`, preset.description),
+              createTextItem(`preset-${preset.presetKey}-domains`, `${preset.label} domains`, preset.domains.join(", ")),
             ]),
           } satisfies SettingsSection,
         ]
@@ -497,6 +527,7 @@ function applyRemoteSettings(model: SettingsPageModel, response: SettingsRespons
     privacyOptions: response.privacyOptions,
     effectivePolicy: response.effectivePolicy,
     ...(response.notificationChannels ? { notificationChannels: response.notificationChannels } : {}),
+    ...(response.notificationPresets ? { notificationPresets: response.notificationPresets } : {}),
     lockedSettingKeys: [...response.lockedSettingKeys],
   };
 }

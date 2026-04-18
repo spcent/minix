@@ -92,8 +92,22 @@ Make notification delivery, customer-support follow-up, and operator-action visi
 
 ## Acceptance
 
-- [ ] message delivery attempts and fallback reasons are clearer in normalized shared outputs
-- [ ] inbox and feedback share a coherent support-thread posture
-- [ ] template governance and operator-action visibility remain additive
-- [ ] no transport-specific or host-local fork is introduced
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] message delivery attempts and fallback reasons are clearer in normalized shared outputs
+- [x] inbox and feedback share a coherent support-thread posture
+- [x] template governance and operator-action visibility remain additive
+- [x] no transport-specific or host-local fork is introduced
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added additive message and feedback fields in `packages/contracts/src/api/message.ts` and `packages/contracts/src/api/feedback.ts` for touchpoint delivery summaries, receipt-attempt summaries, template-governance posture, and shared support-loop summaries.
+- Extended `apps/api/src/domains/messages/touchpoints.ts` and `apps/api/src/domains/messages/threads.ts` so notifications, thread messages, and customer-service threads expose normalized delivery-attempt, fallback, and operator-action posture without changing the polling-only transport boundary.
+- Extended `apps/api/src/domains/feedback/support.ts` and `packages/features/feedback/src/controller/index.ts` so feedback bootstrap and ticket status reuse the same shared support-thread vocabulary as inbox threads instead of inventing a feedback-only support model.
+- Synced `docs/BACKEND_CONTRACT.md` and `docs/ROADMAP.md` to reflect the stronger message-delivery and support-loop baseline.
+
+## Verification Notes
+
+- `node --import tsx --test packages/features/messages/src/controller/index.test.ts`
+- `node --import tsx --test packages/features/feedback/src/controller/index.test.ts`
+- `node --import tsx --test apps/api/src/app.test.ts`
+- `pnpm verify`

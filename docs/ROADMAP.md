@@ -24,8 +24,11 @@ The repo has already completed the main shared-kernel work for:
 - canonical domain outputs
 - shared page-protocol adoption
 - shared account and settings summaries
+- richer account workspace summaries for relations, asset history, security posture, and cancellation follow-up
+- richer settings workspace summaries for policy-source, notification presets, device behavior, and environment governance
 - discover and content-search normalization
 - cross-domain context envelopes
+- auth risk, recovery, and provider-capability metadata inside the shared auth envelope
 
 The main remaining release gap is no longer kernel shape. It is operator rollout and evidence capture for provider-backed areas.
 
@@ -216,13 +219,13 @@ Treat the detailed backlog as a candidate pool, not a commitment list.
 
 These backlog areas are now split into a first task-card batch under `0259+`:
 
-- [`../tasks/cards/active/0259-auth-risk-and-identity-governance-hardening.md`](../tasks/cards/active/0259-auth-risk-and-identity-governance-hardening.md)
+- [`../tasks/cards/done/0259-auth-risk-and-identity-governance-hardening.md`](../tasks/cards/done/0259-auth-risk-and-identity-governance-hardening.md)
   Covers backlog items `1` to `4`.
-- [`../tasks/cards/active/0260-account-relationship-workspace-expansion.md`](../tasks/cards/active/0260-account-relationship-workspace-expansion.md)
+- [`../tasks/cards/done/0260-account-relationship-workspace-expansion.md`](../tasks/cards/done/0260-account-relationship-workspace-expansion.md)
   Covers backlog items `5` to `8`.
-- [`../tasks/cards/active/0261-settings-policy-and-governance-expansion.md`](../tasks/cards/active/0261-settings-policy-and-governance-expansion.md)
+- [`../tasks/cards/done/0261-settings-policy-and-governance-expansion.md`](../tasks/cards/done/0261-settings-policy-and-governance-expansion.md)
   Covers backlog items `9` to `12`.
-- [`../tasks/cards/active/0262-message-delivery-and-support-loop-hardening.md`](../tasks/cards/active/0262-message-delivery-and-support-loop-hardening.md)
+- [`../tasks/cards/done/0262-message-delivery-and-support-loop-hardening.md`](../tasks/cards/done/0262-message-delivery-and-support-loop-hardening.md)
   Covers backlog items `13` to `16`.
 - [`../tasks/cards/active/0263-payment-commerce-diagnostics-and-continuity.md`](../tasks/cards/active/0263-payment-commerce-diagnostics-and-continuity.md)
   Covers backlog items `17` to `20`.

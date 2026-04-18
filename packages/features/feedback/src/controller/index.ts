@@ -350,7 +350,8 @@ function createDetailStatePatch(
           ? structuredClone(detail.feedbackCategory.supportEntry)
           : undefined,
     revisitAction: detail.feedbackStatus.revisitAction ? structuredClone(detail.feedbackStatus.revisitAction) : undefined,
-    serviceLoopSummary: detail.feedbackStatus.nextStepLabel ?? detail.feedbackStatus.progressLabel,
+    serviceLoopSummary:
+      detail.feedbackStatus.supportLoopSummary ?? detail.feedbackStatus.nextStepLabel ?? detail.feedbackStatus.progressLabel,
     serviceHint:
       detail.feedbackStatus.supportEntry?.label ??
       detail.feedbackCategory.supportEntry?.label ??

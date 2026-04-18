@@ -705,24 +705,35 @@ test("current user, settings, and discovery endpoints expose normalized shared o
   assert.equal(meResponse.status, 200);
   const mePayload = (await meResponse.json()) as {
     userProfile: { nickname?: string };
-    accountSummary: { userId: string; assets: { membership?: { headline?: string } } };
-    userStatus: { availability: string };
+    accountSummary: { userId: string; assets: { membership?: { headline?: string }; historySummary?: string; latestLedgerTitle?: string } };
+    userStatus: { availability: string; recoverySummary?: string; cancellationSummary?: string };
     identityWorkflows: { canUpgradeGuest: boolean; mergePending: boolean };
     securityCenter: {
       deviceIdentities: Array<{ deviceId: string }>;
       auditEvents: Array<{ scope: string; action: string }>;
       latestRateLimit?: { scope: string };
+      deviceSummary?: { totalDevices: number; reviewRequiredDevices: number };
     };
     accountOperations: Array<{ kind: string; available: boolean }>;
     relationTargets: Array<{ targetUserId: string; actions: Array<{ kind: string }> }>;
   };
   assert.equal(mePayload.userProfile.nickname, "MiniX User");
   assert.equal(mePayload.accountSummary.userId, "minix-demo-user");
+  assert.match(mePayload.accountSummary.assets.historySummary ?? "", /ledger entries/i);
+  assert.equal(typeof mePayload.accountSummary.assets.latestLedgerTitle, "string");
   assert.equal(mePayload.userStatus.availability, "enabled");
+  assert.match(mePayload.userStatus.recoverySummary ?? "", /recovery credential/i);
+  assert.match(mePayload.userStatus.cancellationSummary ?? "", /No cancellation request/i);
   assert.equal(mePayload.identityWorkflows.canUpgradeGuest, false);
   assert.equal(mePayload.identityWorkflows.mergePending, false);
   assert.equal(Array.isArray(mePayload.securityCenter.auditEvents), true);
   assert.equal(mePayload.securityCenter.auditEvents.some((event) => event.scope === "auth"), true);
+  assert.equal(
+    mePayload.securityCenter.deviceSummary
+      ? mePayload.securityCenter.deviceSummary.totalDevices >= 1
+      : true,
+    true,
+  );
   assert.equal(mePayload.accountOperations.some((item) => item.kind === "edit_profile"), true);
   assert.equal(mePayload.relationTargets[0]?.targetUserId, "creator_sample");
 
@@ -734,11 +745,20 @@ test("current user, settings, and discovery endpoints expose normalized shared o
     preferences: { language: string; developerOptions: { logsEnabled: boolean } };
     featureToggles: { accountCenterEnabled: boolean };
     privacyOptions: { profileVisibilityLabel: string };
+    effectivePolicy: {
+      notification: { presetKey?: string; policySourceSummary?: string };
+      developer: { policySourceSummary?: string };
+    };
+    notificationPresets?: Array<{ presetKey: string; active: boolean }>;
   };
   assert.equal(settingsPayload.preferences.language, "zh-CN");
   assert.equal(settingsPayload.preferences.developerOptions.logsEnabled, true);
   assert.equal(settingsPayload.featureToggles.accountCenterEnabled, true);
   assert.equal(settingsPayload.privacyOptions.profileVisibilityLabel, "Visible inside signed-in surfaces only");
+  assert.equal(settingsPayload.effectivePolicy.notification.presetKey, "balanced");
+  assert.match(settingsPayload.effectivePolicy.notification.policySourceSummary ?? "", /provider readiness/i);
+  assert.match(settingsPayload.effectivePolicy.developer.policySourceSummary ?? "", /debug-environment preferences/i);
+  assert.equal(settingsPayload.notificationPresets?.some((preset) => preset.presetKey === "balanced" && preset.active), true);
 
   const feedResponse = await app.request("http://localhost/feed?keyword=travel&tag=speaking", {
     headers: { authorization: `Bearer ${session.accessToken}` },
@@ -851,9 +871,11 @@ test("settings updates persist and affect notifications, discovery, and upload p
   const updatedSettings = (await updateResponse.json()) as {
     privacyOptions: { profileVisibility: string; analyticsEnabled: boolean };
     effectivePolicy: {
-      notification: { eligibleChannels: string[]; inAppEnabled: boolean; smsEnabled: boolean; emailEnabled: boolean };
-      device: { autoplayEnabled: boolean; uploadChunkSizeBytes: number; weakNetworkMode: boolean };
+      notification: { eligibleChannels: string[]; inAppEnabled: boolean; smsEnabled: boolean; emailEnabled: boolean; presetKey?: string };
+      device: { autoplayEnabled: boolean; uploadChunkSizeBytes: number; weakNetworkMode: boolean; weakNetworkSummary?: string };
+      developer: { policySourceSummary?: string };
     };
+    notificationPresets?: Array<{ presetKey: string; active: boolean }>;
   };
   assert.equal(updatedSettings.privacyOptions.profileVisibility, "public");
   assert.equal(updatedSettings.privacyOptions.analyticsEnabled, false);
@@ -861,9 +883,13 @@ test("settings updates persist and affect notifications, discovery, and upload p
   assert.equal(updatedSettings.effectivePolicy.notification.inAppEnabled, false);
   assert.equal(updatedSettings.effectivePolicy.notification.smsEnabled, false);
   assert.equal(updatedSettings.effectivePolicy.notification.emailEnabled, false);
+  assert.equal(updatedSettings.effectivePolicy.notification.presetKey, "paused");
   assert.equal(updatedSettings.effectivePolicy.device.autoplayEnabled, false);
   assert.equal(updatedSettings.effectivePolicy.device.weakNetworkMode, true);
   assert.equal(updatedSettings.effectivePolicy.device.uploadChunkSizeBytes, 8192);
+  assert.match(updatedSettings.effectivePolicy.device.weakNetworkSummary ?? "", /Weak-network mode is active/i);
+  assert.match(updatedSettings.effectivePolicy.developer.policySourceSummary ?? "", /debug-environment preferences/i);
+  assert.equal(updatedSettings.notificationPresets?.some((preset) => preset.presetKey === "paused" && preset.active), true);
 
   const notificationsResponse = await app.request("http://localhost/notifications?page=1&pageSize=2", {
     headers: { authorization: `Bearer ${session.accessToken}` },
@@ -986,16 +1012,18 @@ test("settings updates persist and affect notifications, discovery, and upload p
   const persistedSettingsPayload = (await persistedSettingsResponse.json()) as {
     privacyOptions: { profileVisibility: string; analyticsEnabled: boolean };
     effectivePolicy: {
-      notification: { eligibleChannels: string[] };
+      notification: { eligibleChannels: string[]; presetKey?: string };
       device: { uploadChunkSizeBytes: number };
-      developer: { environment: string };
+      developer: { environment: string; policySourceSummary?: string };
     };
   };
   assert.equal(persistedSettingsPayload.privacyOptions.profileVisibility, "public");
   assert.equal(persistedSettingsPayload.privacyOptions.analyticsEnabled, false);
   assert.deepEqual(persistedSettingsPayload.effectivePolicy.notification.eligibleChannels, []);
+  assert.equal(persistedSettingsPayload.effectivePolicy.notification.presetKey, "paused");
   assert.equal(persistedSettingsPayload.effectivePolicy.device.uploadChunkSizeBytes, 8192);
   assert.equal(persistedSettingsPayload.effectivePolicy.developer.environment, "debug");
+  assert.match(persistedSettingsPayload.effectivePolicy.developer.policySourceSummary ?? "", /debug-environment preferences/i);
 });
 
 test("settings debug controls are locked in production bindings", async () => {
@@ -1016,7 +1044,18 @@ test("settings debug controls are locked in production bindings", async () => {
   const settingsPayload = (await settingsResponse.json()) as {
     preferences: { developerOptions: { logsEnabled: boolean; experimentsEnabled: boolean } };
     featureToggles: { experimentsEnabled: boolean };
-    effectivePolicy: { developer: { environment: string; logsEditable: boolean; experimentsEditable: boolean; lockedReason?: string } };
+    effectivePolicy: {
+      developer: {
+        environment: string;
+        logsEditable: boolean;
+        experimentsEditable: boolean;
+        lockedReason?: string;
+        policySourceSummary?: string;
+        exposureSummary?: string;
+      };
+      notification: { presetKey?: string };
+    };
+    notificationPresets?: Array<{ presetKey: string; active: boolean }>;
     lockedSettingKeys: string[];
   };
   assert.equal(settingsPayload.preferences.developerOptions.logsEnabled, false);
@@ -1026,6 +1065,10 @@ test("settings debug controls are locked in production bindings", async () => {
   assert.equal(settingsPayload.effectivePolicy.developer.logsEditable, false);
   assert.equal(settingsPayload.effectivePolicy.developer.experimentsEditable, false);
   assert.equal(settingsPayload.effectivePolicy.developer.lockedReason, "Developer diagnostics are locked in production.");
+  assert.equal(settingsPayload.effectivePolicy.notification.presetKey, "balanced");
+  assert.equal(settingsPayload.effectivePolicy.developer.policySourceSummary, "Developer controls are locked by environment policy.");
+  assert.match(settingsPayload.effectivePolicy.developer.exposureSummary ?? "", /Production hides editable diagnostics/i);
+  assert.equal(settingsPayload.notificationPresets?.some((preset) => preset.presetKey === "balanced" && preset.active), true);
   assert.deepEqual(settingsPayload.lockedSettingKeys, [
     "preferences.developerOptions.logsEnabled",
     "preferences.developerOptions.experimentsEnabled",
@@ -1055,13 +1098,14 @@ test("settings debug controls are locked in production bindings", async () => {
   const updatedPayload = (await updateResponse.json()) as {
     preferences: { developerOptions: { logsEnabled: boolean; experimentsEnabled: boolean } };
     featureToggles: { experimentsEnabled: boolean };
-    effectivePolicy: { developer: { logsEnabled: boolean; experimentsEnabled: boolean } };
+    effectivePolicy: { developer: { logsEnabled: boolean; experimentsEnabled: boolean; policySourceSummary?: string } };
   };
   assert.equal(updatedPayload.preferences.developerOptions.logsEnabled, false);
   assert.equal(updatedPayload.preferences.developerOptions.experimentsEnabled, false);
   assert.equal(updatedPayload.featureToggles.experimentsEnabled, false);
   assert.equal(updatedPayload.effectivePolicy.developer.logsEnabled, false);
   assert.equal(updatedPayload.effectivePolicy.developer.experimentsEnabled, false);
+  assert.equal(updatedPayload.effectivePolicy.developer.policySourceSummary, "Developer controls are locked by environment policy.");
 });
 
 test("account operation endpoints update normalized account and relation state", async () => {
@@ -1147,6 +1191,8 @@ test("account operation endpoints update normalized account and relation state",
       kind: string;
       items: Array<{ targetUserId: string; friendState?: string }>;
       pagination: { page: number; pageSize: number; hasMore: boolean; total?: number };
+      summaryLabel?: string;
+      availableKinds?: string[];
     };
   };
   assert.equal(followingListPayload.relationList.kind, "following");
@@ -1155,6 +1201,8 @@ test("account operation endpoints update normalized account and relation state",
   assert.equal(followingListPayload.relationList.items[0]?.friendState, "outgoing_request");
   assert.equal(followingListPayload.relationList.pagination.page, 1);
   assert.equal(followingListPayload.relationList.pagination.pageSize, 1);
+  assert.match(followingListPayload.relationList.summaryLabel ?? "", /shared account workspace/i);
+  assert.equal(followingListPayload.relationList.availableKinds?.includes("friends"), true);
 
   const relationResponse = await app.request("http://localhost/account/relations", {
     method: "POST",
@@ -1624,7 +1672,10 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
     feedbackStatus: {
       state: string;
       processingHistory: Array<{ actorLabel: string }>;
-      supportEntry?: { threadId?: string; queueKey?: string };
+      supportLoopSummary?: string;
+      operatorActionSummary?: string;
+      sharedThreadSummary?: string;
+      supportEntry?: { threadId?: string; queueKey?: string; threadSummary?: string; supportLoopSummary?: string };
       assignee?: { label: string };
       sla?: { label: string };
       revisitAction?: { enabled: boolean };
@@ -1641,6 +1692,18 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
   assert.equal(submitPayload.feedbackStatus.supportEntry?.threadId === "thread_customer_service", false);
   assert.equal(submitPayload.feedbackTicket.supportThreadId, submitPayload.feedbackStatus.supportEntry?.threadId);
   assert.equal(submitPayload.feedbackStatus.supportEntry?.queueKey, "product_support");
+  assert.equal(
+    submitPayload.feedbackStatus.supportLoopSummary,
+    "Product Support has not assigned an operator yet, but the shared support thread is already reserved for follow-up.",
+  );
+  assert.equal(
+    submitPayload.feedbackStatus.sharedThreadSummary,
+    `Product Support continues follow-up in thread ${submitPayload.feedbackStatus.supportEntry?.threadId} with Support Bot.`,
+  );
+  assert.equal(
+    submitPayload.feedbackStatus.supportEntry?.threadSummary,
+    `Product Support continues follow-up in thread ${submitPayload.feedbackStatus.supportEntry?.threadId} with Support Bot.`,
+  );
   assert.equal(submitPayload.feedbackStatus.assignee?.label, "Support Bot");
   assert.equal(submitPayload.feedbackStatus.sla?.label, "24 hour response");
   assert.equal(submitPayload.feedbackStatus.revisitAction?.enabled, true);
@@ -1653,13 +1716,17 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
   const supportThreadPayload = (await supportThreadResponse.json()) as {
     threadList: {
       items: Array<{
-        supportProgress?: { ticketId?: string };
+        supportProgress?: { ticketId?: string; supportLoopSummary?: string; operatorActionSummary?: string };
         sourceContext?: { routeId?: string };
         actorContext?: { userId?: string };
       }>;
     };
   };
   assert.equal(supportThreadPayload.threadList.items[0]?.supportProgress?.ticketId, submitPayload.feedbackTicket.ticketId);
+  assert.equal(
+    supportThreadPayload.threadList.items[0]?.supportProgress?.supportLoopSummary,
+    "Product Support is now handling this case in the shared support thread.",
+  );
   assert.equal(supportThreadPayload.threadList.items[0]?.sourceContext?.routeId, "feedback.form");
   assert.equal(supportThreadPayload.threadList.items[0]?.actorContext?.userId, session.userId);
 
@@ -3361,7 +3428,15 @@ test("message touchpoints expose production provider posture while keeping polli
   const threadPayload = (await threadResponse.json()) as {
     messageThread: {
       syncState?: { mode: string; modeLabel?: string; providerSummary?: string };
-      touchpoints: Array<{ channel: string; providerMode?: string; providerLabel?: string }>;
+      supportProgress?: { supportLoopSummary?: string; operatorActionSummary?: string };
+      touchpoints: Array<{
+        channel: string;
+        providerMode?: string;
+        providerLabel?: string;
+        fallbackSummary?: string;
+        deliverySummary?: string;
+        template?: { governanceLabel?: string; operatorActionSummary?: string };
+      }>;
     };
   };
   assert.equal(threadPayload.messageThread.syncState?.mode, "polling");
@@ -3377,6 +3452,18 @@ test("message touchpoints expose production provider posture while keeping polli
   assert.equal(
     threadPayload.messageThread.touchpoints.find((item) => item.channel === "subscription_message")?.providerLabel,
     "WeChat Subscription Gateway",
+  );
+  assert.equal(
+    threadPayload.messageThread.touchpoints.find((item) => item.channel === "subscription_message")?.fallbackSummary,
+    "If this external lane fails or is skipped, the in-app inbox remains the durable fallback.",
+  );
+  assert.equal(
+    threadPayload.messageThread.touchpoints.find((item) => item.channel === "subscription_message")?.template?.governanceLabel,
+    "Shared subscription message template",
+  );
+  assert.equal(
+    threadPayload.messageThread.supportProgress?.supportLoopSummary,
+    "Billing Support posted a resolution and keeps the same support thread available for confirmation.",
   );
 
   const sendResponse = await app.request(
@@ -3398,9 +3485,14 @@ test("message touchpoints expose production provider posture while keeping polli
       touchpoints: Array<{
         channel: string;
         statusLabel?: string;
+        deliverySummary?: string;
         providerMode?: string;
-        receipt?: { failureMessage?: string; status: string };
+        template?: { operatorActionSummary?: string };
+        receipt?: { failureMessage?: string; status: string; attemptSummary?: string };
       }>;
+    };
+    messageThread: {
+      supportProgress?: { supportLoopSummary?: string; operatorActionSummary?: string };
     };
   };
   assert.equal(sendPayload.messageItem.failureMessage, "Provider delivery failed; retry and polling-only sync can advance the receipt.");
@@ -3415,6 +3507,26 @@ test("message touchpoints expose production provider posture while keeping polli
   assert.equal(
     sendPayload.messageItem.touchpoints.find((item) => item.channel === "subscription_message")?.receipt?.failureMessage,
     "WeChat Subscription Gateway is unavailable.",
+  );
+  assert.equal(
+    sendPayload.messageItem.touchpoints.find((item) => item.channel === "subscription_message")?.receipt?.attemptSummary,
+    "1 attempts; delivery failed and can be retried.",
+  );
+  assert.equal(
+    sendPayload.messageItem.touchpoints.find((item) => item.channel === "subscription_message")?.deliverySummary,
+    "WeChat Subscription Gateway failed to deliver through subscription message; retry or operator intervention can restore the external lane.",
+  );
+  assert.equal(
+    sendPayload.messageItem.touchpoints.find((item) => item.channel === "subscription_message")?.template?.operatorActionSummary,
+    "Operators can rotate subscription message provider bindings while keeping the shared template key stable.",
+  );
+  assert.equal(
+    sendPayload.messageThread.supportProgress?.supportLoopSummary,
+    "Billing Support is waiting for more user context before continuing the shared support loop.",
+  );
+  assert.equal(
+    sendPayload.messageThread.supportProgress?.operatorActionSummary,
+    "Billing Support can rotate assignments, templates, and delivery providers without changing the polling-only transport contract.",
   );
 });
 
@@ -3915,16 +4027,21 @@ test("login can return an abnormal-login prompt for suspicious risk context", as
   assert.equal(response.status, 200);
   const payload = (await response.json()) as {
     abnormalLoginPrompt?: { title: string; severity: string };
-    riskDecision?: { level: string; reason?: string };
-    deviceIdentity?: { deviceId: string; trusted: boolean };
+    riskDecision?: { level: string; reason?: string; score?: number; repeatedDevice?: boolean; operatorActionSummary?: string };
+    deviceIdentity?: { deviceId: string; trusted: boolean; trustLabel?: string; trustScore?: number };
     rateLimitState?: { scope: string; limited: boolean };
     securityAuditEvents?: Array<{ scope: string; action: string; result: string }>;
   };
   assert.equal(payload.abnormalLoginPrompt?.title, "Unusual sign-in detected");
   assert.equal(payload.abnormalLoginPrompt?.severity, "warning");
   assert.equal(payload.riskDecision?.level, "review");
+  assert.equal(payload.riskDecision?.score, 24);
+  assert.equal(payload.riskDecision?.repeatedDevice, false);
+  assert.match(payload.riskDecision?.operatorActionSummary ?? "", /force re-authentication/i);
   assert.equal(payload.deviceIdentity?.deviceId, "device-risk-review");
   assert.equal(payload.deviceIdentity?.trusted, false);
+  assert.equal(payload.deviceIdentity?.trustLabel, "review");
+  assert.equal(payload.deviceIdentity?.trustScore, 24);
   assert.equal(payload.rateLimitState?.scope, "auth");
   assert.equal(payload.rateLimitState?.limited, false);
   assert.equal(payload.securityAuditEvents?.some((event) => event.scope === "auth" && event.action === "password_login"), true);
@@ -4011,6 +4128,8 @@ test("phone binding can surface a merge-required workflow before merge confirmat
       workflowId?: string;
       targetUserId?: string;
       failureReason?: string;
+      recoverySummary?: string;
+      operatorActionSummary?: string;
       mergePreview?: { requiresConfirmation: boolean; impacts: Array<{ key: string }> };
       audit?: Array<{ action: string }>;
     };
@@ -4022,6 +4141,8 @@ test("phone binding can surface a merge-required workflow before merge confirmat
   assert.ok(bindPayload.identityWorkflow.workflowId);
   assert.equal(bindPayload.identityWorkflow.targetUserId, "user_phone_0001");
   assert.equal(bindPayload.identityWorkflow.failureReason, "merge_confirmation_required");
+  assert.match(bindPayload.identityWorkflow.recoverySummary ?? "", /retry the merge preview/i);
+  assert.match(bindPayload.identityWorkflow.operatorActionSummary ?? "", /confirming the merge/i);
   assert.equal(bindPayload.identityWorkflow.mergePreview?.requiresConfirmation, true);
   assert.deepEqual(
     bindPayload.identityWorkflow.mergePreview?.impacts.map((impact) => impact.key),
@@ -4075,6 +4196,7 @@ test("account merge can finalize a pending identity merge into the target accoun
       stage?: string;
       workflowId?: string;
       targetUserId?: string;
+      recoverySummary?: string;
       mergePreview?: { targetUserId: string; impacts: Array<{ key: string }> };
       audit?: Array<{ action: string }>;
     };
@@ -4087,6 +4209,7 @@ test("account merge can finalize a pending identity merge into the target accoun
   assert.equal(mergePayload.identityWorkflow.stage, "completed");
   assert.equal(mergePayload.identityWorkflow.workflowId, bindPayload.identityWorkflow.workflowId);
   assert.equal(mergePayload.identityWorkflow.targetUserId, "user_phone_0001");
+  assert.match(mergePayload.identityWorkflow.recoverySummary ?? "", /durable recovery point/i);
   assert.equal(mergePayload.identityWorkflow.mergePreview?.targetUserId, "user_phone_0001");
   assert.deepEqual(
     mergePayload.identityWorkflow.mergePreview?.impacts.map((impact) => impact.key),
@@ -4153,6 +4276,8 @@ test("account merge cancellation keeps the source session recoverable and record
       status: string;
       stage?: string;
       failureReason?: string;
+      recoverySummary?: string;
+      operatorActionSummary?: string;
       audit?: Array<{ action: string }>;
     };
   };
@@ -4161,6 +4286,8 @@ test("account merge cancellation keeps the source session recoverable and record
   assert.equal(cancelPayload.identityWorkflow.status, "blocked");
   assert.equal(cancelPayload.identityWorkflow.stage, "failed");
   assert.equal(cancelPayload.identityWorkflow.failureReason, "merge_confirmation_required");
+  assert.match(cancelPayload.identityWorkflow.recoverySummary ?? "", /No merge was applied/i);
+  assert.match(cancelPayload.identityWorkflow.operatorActionSummary ?? "", /before retrying/i);
   assert.deepEqual(
     cancelPayload.identityWorkflow.audit?.map((record) => record.action),
     ["preview_created", "merge_required", "merge_blocked", "rollback_safe_failure"],

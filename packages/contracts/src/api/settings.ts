@@ -14,6 +14,8 @@ export const SETTINGS_PROFILE_VISIBILITIES = ["signed_in_only", "followers_only"
 export type SettingsProfileVisibility = (typeof SETTINGS_PROFILE_VISIBILITIES)[number];
 export const SETTINGS_NOTIFICATION_CHANNELS = ["subscription_message", "sms", "email", "push"] as const;
 export type SettingsNotificationChannel = (typeof SETTINGS_NOTIFICATION_CHANNELS)[number];
+export const SETTINGS_NOTIFICATION_PRESET_KEYS = ["all_eligible", "balanced", "in_app_only", "paused"] as const;
+export type SettingsNotificationPresetKey = (typeof SETTINGS_NOTIFICATION_PRESET_KEYS)[number];
 
 export interface SettingsPreferences {
   language: string;
@@ -71,6 +73,9 @@ export interface SettingsNotificationPolicy {
   emailEnabled: boolean;
   eligibleChannels: Array<"in_app" | "subscription_message" | "push" | "sms" | "email">;
   stationFallbackEnabled?: boolean;
+  presetKey?: SettingsNotificationPresetKey;
+  presetLabel?: string;
+  policySourceSummary?: string;
 }
 
 export interface SettingsNotificationChannelPreference {
@@ -87,12 +92,21 @@ export interface SettingsNotificationChannelPreference {
   unsubscribedAt?: string;
 }
 
+export interface SettingsNotificationPreset {
+  presetKey: SettingsNotificationPresetKey;
+  label: string;
+  description: string;
+  active: boolean;
+  domains: Array<"account" | "messages" | "feedback">;
+}
+
 export interface SettingsPrivacyPolicy {
   profileVisibility: SettingsProfileVisibility;
   profileSearchVisible: boolean;
   relationSearchVisible: boolean;
   personalizedRankingEnabled: boolean;
   analyticsCollectionEnabled: boolean;
+  policySourceSummary?: string;
 }
 
 export interface SettingsDevicePolicy {
@@ -101,6 +115,10 @@ export interface SettingsDevicePolicy {
   networkStrategy: SettingsNetworkStrategy;
   uploadChunkSizeBytes: number;
   diagnosticsEnabled: boolean;
+  autoplaySummary?: string;
+  weakNetworkSummary?: string;
+  diagnosticsSummary?: string;
+  policySourceSummary?: string;
 }
 
 export interface SettingsDeveloperPolicy {
@@ -110,6 +128,8 @@ export interface SettingsDeveloperPolicy {
   logsEnabled: boolean;
   experimentsEnabled: boolean;
   lockedReason?: string;
+  exposureSummary?: string;
+  policySourceSummary?: string;
 }
 
 export interface SettingsEffectivePolicy {
@@ -125,6 +145,7 @@ export interface SettingsResponse {
   privacyOptions: SettingsPrivacyOptions;
   effectivePolicy: SettingsEffectivePolicy;
   notificationChannels?: SettingsNotificationChannelPreference[];
+  notificationPresets?: SettingsNotificationPreset[];
   lockedSettingKeys: string[];
 }
 

@@ -37,6 +37,8 @@ function createAssetSummary(
     availableBalanceCents: overrides.availableBalanceCents ?? balanceCents - frozenBalanceCents,
     frozenBalanceCents,
     activeEntitlements: overrides.activeEntitlements ?? [],
+    historySummary: overrides.historySummary ?? "2 ledger entries across balance, membership, and entitlement history.",
+    latestLedgerTitle: overrides.latestLedgerTitle ?? "Wallet seed",
   };
 }
 
@@ -48,6 +50,7 @@ function createSecurityCenter(
     auditEvents: overrides.auditEvents ?? [],
     ...(overrides.latestRateLimit ? { latestRateLimit: overrides.latestRateLimit } : {}),
     ...(overrides.latestPrompt ? { latestPrompt: overrides.latestPrompt } : {}),
+    ...(overrides.deviceSummary ? { deviceSummary: overrides.deviceSummary } : {}),
   };
 }
 
@@ -110,6 +113,8 @@ function createKernelStub() {
         total: 1,
       },
       keyword: "Practice",
+      summaryLabel: "1 following relationship records available in the shared account workspace.",
+      availableKinds: ["following", "followers", "friends", "blocked", "remarks"],
     },
   };
   let assetHistoryResponse: UserAssetHistoryResponse = {
@@ -223,6 +228,8 @@ function createKernelStub() {
       cancellationInProgress: false,
       blacklisted: false,
       guest: false,
+      recoverySummary: "2 recovery credential paths remain available for account follow-up.",
+      cancellationSummary: "No cancellation request is currently pending.",
     },
     identityWorkflows: {
       canUpgradeGuest: false,
@@ -230,6 +237,13 @@ function createKernelStub() {
       mergePending: false,
     },
     securityCenter: createSecurityCenter({
+      deviceSummary: {
+        totalDevices: 1,
+        trustedDevices: 0,
+        provisionalDevices: 0,
+        reviewRequiredDevices: 1,
+        latestSeenAt: "2026-04-10T08:00:00.000Z",
+      },
       latestPrompt: {
         title: "Review unusual account activity",
         message: "A recent sensitive action may need confirmation.",
@@ -595,6 +609,19 @@ test("account controller loads session-backed account details and remote profile
   assert.equal(controller.store.getState().assetLedgerEntries.length, 2);
   assert.equal(controller.store.getState().sections.some((section) => section.key === "asset-ledger"), true);
   assert.equal(controller.store.getState().sections.some((section) => section.key === "security-center"), true);
+  assert.equal(
+    controller.store.getState().sections.find((section) => section.key === "assets")?.items.some(
+      (item) => item.key === "asset-history-summary" && item.value.includes("ledger entries"),
+    ),
+    true,
+  );
+  assert.equal(
+    controller.store.getState().sections.find((section) => section.key === "security-center")?.items.some(
+      (item) => item.key === "security-device-readiness" && item.value.includes("review"),
+    ),
+    true,
+  );
+  assert.equal(controller.store.getState().sections.some((section) => section.key === "account-follow-up"), true);
 });
 
 test("account controller redirects to login when the account request comes back unauthorized", async () => {
@@ -1116,6 +1143,10 @@ test("account controller can load filtered asset history and expose the ledger s
   assert.equal(result.ok, true);
   assert.equal(controller.store.getState().assetLedgerEntries[0]?.subject, "membership");
   assert.equal(controller.store.getState().sections.find((section) => section.key === "asset-ledger")?.items[0]?.label, "Membership activated");
+  assert.match(
+    controller.store.getState().sections.find((section) => section.key === "asset-ledger")?.items[0]?.hint ?? "",
+    /balance|2026-04-08/,
+  );
 });
 
 test("account controller can load a paginated relation list and keep mutation refresh aligned", async () => {
@@ -1215,6 +1246,10 @@ test("account controller can load a paginated relation list and keep mutation re
   assert.equal(controller.store.getState().relationList?.items[0]?.targetUserId, "practice_buddy");
   assert.equal(controller.store.getState().activeRelationListKind, "following");
   assert.equal(controller.store.getState().relationKeyword, "Practice");
+  assert.equal(
+    controller.store.getState().sections.find((section) => section.key === "relation-list-following")?.items[0]?.value,
+    "1 following relationship records available in the shared account workspace.",
+  );
 
   await controller.applyRelationAction({
     targetUserId: "practice_buddy",

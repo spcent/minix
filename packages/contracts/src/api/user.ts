@@ -43,6 +43,8 @@ export interface UserAssetSummary {
   availableBalanceCents: number;
   frozenBalanceCents: number;
   activeEntitlements: UserEntitlement[];
+  historySummary?: string;
+  latestLedgerTitle?: string;
 }
 
 export const USER_ASSET_LEDGER_SUBJECTS = ["points", "level", "balance", "membership", "entitlement"] as const;
@@ -196,6 +198,8 @@ export interface UserRelationList {
   items: UserRelationListItem[];
   pagination: ListPagination;
   keyword?: string;
+  summaryLabel?: string;
+  availableKinds?: UserRelationListKind[];
 }
 
 export interface AccountSummary {
@@ -219,6 +223,8 @@ export interface UserStatus {
   cancellationRequestedAt?: string;
   cancellationEffectiveAt?: string;
   cancellationRevocableUntil?: string;
+  recoverySummary?: string;
+  cancellationSummary?: string;
 }
 
 export interface IdentityWorkflowSummary {
@@ -234,6 +240,13 @@ export interface SecurityCenter {
   auditEvents: AuthSecurityAuditEvent[];
   latestRateLimit?: AuthRateLimitState;
   latestPrompt?: AuthSecurityPrompt;
+  deviceSummary?: {
+    totalDevices: number;
+    trustedDevices: number;
+    provisionalDevices: number;
+    reviewRequiredDevices: number;
+    latestSeenAt?: string;
+  };
 }
 
 export interface CurrentUserResponse {

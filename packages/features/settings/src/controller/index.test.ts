@@ -89,6 +89,9 @@ function createKernelStub() {
         emailEnabled: false,
         eligibleChannels: ["in_app", "subscription_message", "push"],
         stationFallbackEnabled: true,
+        presetKey: "balanced",
+        presetLabel: "Balanced delivery",
+        policySourceSummary: "Balanced delivery derived from global notification preference, per-channel toggles, and provider readiness.",
       },
       privacy: {
         profileVisibility: "signed_in_only",
@@ -96,6 +99,8 @@ function createKernelStub() {
         relationSearchVisible: false,
         personalizedRankingEnabled: true,
         analyticsCollectionEnabled: true,
+        policySourceSummary:
+          "Privacy visibility resolves from profile visibility, recommendation consent, and analytics consent inside the shared settings workspace.",
       },
       device: {
         autoplayEnabled: true,
@@ -103,13 +108,21 @@ function createKernelStub() {
         networkStrategy: "balanced",
         uploadChunkSizeBytes: 65536,
         diagnosticsEnabled: true,
+        autoplaySummary: "Autoplay stays enabled for capable devices.",
+        weakNetworkSummary: "Weak-network mode is inactive and standard upload behavior applies.",
+        diagnosticsSummary: "Diagnostics remain available in debug environments.",
+        policySourceSummary:
+          "Device policy resolves from network strategy, weak-network mode, autoplay preference, and environment diagnostics posture.",
       },
-            developer: {
-              environment: "debug",
-              logsEditable: true,
-              experimentsEditable: true,
-              logsEnabled: true,
-              experimentsEnabled: true,
+      developer: {
+        environment: "debug",
+        logsEditable: true,
+        experimentsEditable: true,
+        logsEnabled: true,
+        experimentsEnabled: true,
+        exposureSummary: "Debug hosts may expose diagnostics and experiment switches through the shared settings workspace.",
+        policySourceSummary:
+          "Developer controls follow debug-environment preferences and shared experiment governance.",
       },
     },
     notificationChannels: [
@@ -156,6 +169,36 @@ function createKernelStub() {
         fallbackToInApp: true,
         statusLabel: "Sample Push Provider is active in sample mode for push delivery.",
         unsubscribable: false,
+      },
+    ],
+    notificationPresets: [
+      {
+        presetKey: "all_eligible",
+        label: "All eligible channels",
+        description: "Use every eligible remote channel plus in-app fallback when notifications remain enabled.",
+        active: false,
+        domains: ["account", "messages", "feedback"],
+      },
+      {
+        presetKey: "balanced",
+        label: "Balanced delivery",
+        description: "Prefer in-app, subscription messages, and lightweight push posture before heavier external channels.",
+        active: true,
+        domains: ["account", "messages", "feedback"],
+      },
+      {
+        presetKey: "in_app_only",
+        label: "In-app only",
+        description: "Keep notification follow-up inside the shared signed-in workspace without remote delivery.",
+        active: false,
+        domains: ["account", "messages", "feedback"],
+      },
+      {
+        presetKey: "paused",
+        label: "Paused",
+        description: "Pause notification delivery while preserving the same shared policy vocabulary across account, messages, and feedback.",
+        active: false,
+        domains: ["account", "messages", "feedback"],
       },
     ],
     lockedSettingKeys: [],
@@ -274,6 +317,22 @@ function createKernelStub() {
           }
         }
         const uploadChunkSizeBytes = nextWeakNetworkMode ? 8192 : nextNetworkStrategy === "data-saver" ? 16384 : 65536;
+        const presetKey =
+          !nextNotificationsEnabled
+            ? "paused"
+            : eligibleChannels.length <= 1
+              ? "in_app_only"
+              : nextNotificationChannels?.every((item) => !item.enabled || item.unsubscribed || item.channel === "subscription_message" || item.channel === "push")
+                ? "balanced"
+                : "all_eligible";
+        const presetLabel =
+          presetKey === "paused"
+            ? "Notifications paused"
+            : presetKey === "in_app_only"
+              ? "In-app only"
+              : presetKey === "balanced"
+                ? "Balanced delivery"
+                : "All eligible channels";
         settingsResponse = {
           ...settingsResponse,
           preferences: {
@@ -317,6 +376,11 @@ function createKernelStub() {
               emailEnabled: Boolean(nextNotificationsEnabled && nextNotificationChannels?.find((item) => item.channel === "email")?.enabled),
               eligibleChannels,
               stationFallbackEnabled: true,
+              presetKey,
+              presetLabel,
+              policySourceSummary: nextNotificationsEnabled
+                ? `${presetLabel} derived from global notification preference, per-channel toggles, and provider readiness.`
+                : "Notifications are globally disabled before per-channel policy is applied.",
             },
             privacy: {
               ...settingsResponse.effectivePolicy.privacy,
@@ -333,6 +397,8 @@ function createKernelStub() {
               ...(payload.privacyOptions?.analyticsEnabled !== undefined
                 ? { analyticsCollectionEnabled: payload.privacyOptions.analyticsEnabled }
                 : {}),
+              policySourceSummary:
+                "Privacy visibility resolves from profile visibility, recommendation consent, and analytics consent inside the shared settings workspace.",
             },
             device: {
               ...settingsResponse.effectivePolicy.device,
@@ -341,13 +407,59 @@ function createKernelStub() {
               networkStrategy: nextNetworkStrategy,
               uploadChunkSizeBytes,
               diagnosticsEnabled: nextLogsEnabled,
+              autoplaySummary: nextAutoplay
+                ? nextWeakNetworkMode
+                  ? "Autoplay preference is on, but weak-network mode forces autoplay off."
+                  : "Autoplay stays enabled for capable devices."
+                : "Autoplay is disabled by user preference.",
+              weakNetworkSummary: nextWeakNetworkMode
+                ? "Weak-network mode is active and reduces upload chunk size plus autoplay behavior."
+                : "Weak-network mode is inactive and standard upload behavior applies.",
+              diagnosticsSummary: nextLogsEnabled
+                ? "Diagnostics remain available in debug environments."
+                : "Diagnostics are disabled by the current debug preference.",
+              policySourceSummary:
+                "Device policy resolves from network strategy, weak-network mode, autoplay preference, and environment diagnostics posture.",
             },
             developer: {
               ...settingsResponse.effectivePolicy.developer,
               logsEnabled: nextLogsEnabled,
               experimentsEnabled: nextExperimentsEnabled,
+              exposureSummary: "Debug hosts may expose diagnostics and experiment switches through the shared settings workspace.",
+              policySourceSummary:
+                "Developer controls follow debug-environment preferences and shared experiment governance.",
             },
           },
+          notificationPresets: [
+            {
+              presetKey: "all_eligible",
+              label: "All eligible channels",
+              description: "Use every eligible remote channel plus in-app fallback when notifications remain enabled.",
+              active: presetKey === "all_eligible",
+              domains: ["account", "messages", "feedback"],
+            },
+            {
+              presetKey: "balanced",
+              label: "Balanced delivery",
+              description: "Prefer in-app, subscription messages, and lightweight push posture before heavier external channels.",
+              active: presetKey === "balanced",
+              domains: ["account", "messages", "feedback"],
+            },
+            {
+              presetKey: "in_app_only",
+              label: "In-app only",
+              description: "Keep notification follow-up inside the shared signed-in workspace without remote delivery.",
+              active: presetKey === "in_app_only",
+              domains: ["account", "messages", "feedback"],
+            },
+            {
+              presetKey: "paused",
+              label: "Paused",
+              description: "Pause notification delivery while preserving the same shared policy vocabulary across account, messages, and feedback.",
+              active: presetKey === "paused",
+              domains: ["account", "messages", "feedback"],
+            },
+          ],
           ...(nextNotificationChannels ? { notificationChannels: nextNotificationChannels } : {}),
         };
         return ok(settingsResponse as T);
@@ -918,8 +1030,25 @@ test("settings controller can exercise device privacy and debug operations beyon
   assert.equal(controller.store.getState().preferences?.developerOptions.logsEnabled, false);
   assert.equal(controller.store.getState().preferences?.developerOptions.experimentsEnabled, false);
   assert.equal(controller.store.getState().featureToggles?.experimentsEnabled, false);
+  assert.equal(controller.store.getState().effectivePolicy?.notification.presetKey, "paused");
+  assert.match(
+    controller.store.getState().effectivePolicy?.notification.policySourceSummary ?? "",
+    /globally disabled|per-channel policy/i,
+  );
+  assert.match(
+    controller.store.getState().effectivePolicy?.device.weakNetworkSummary ?? "",
+    /Weak-network mode is active/i,
+  );
+  assert.match(
+    controller.store.getState().effectivePolicy?.developer.policySourceSummary ?? "",
+    /debug-environment preferences/i,
+  );
   assert.equal(
     controller.store.getState().sections.find((section) => section.key === "effective-policy")?.items.some((item) => item.key === "eligible-channels"),
+    true,
+  );
+  assert.equal(
+    controller.store.getState().sections.find((section) => section.key === "notification-presets")?.items.some((item) => item.key === "preset-paused-active" && item.value === true),
     true,
   );
   assert.equal(runtime.storageValues.has("reader.display"), false);
@@ -983,6 +1112,9 @@ test("settings controller surfaces locked shared settings and developer lock sum
         emailEnabled: false,
         eligibleChannels: ["in_app", "subscription_message", "push"],
         stationFallbackEnabled: true,
+        presetKey: "balanced",
+        presetLabel: "Balanced delivery",
+        policySourceSummary: "Balanced delivery derived from global notification preference, per-channel toggles, and provider readiness.",
       },
       privacy: {
         profileVisibility: "signed_in_only",
@@ -990,6 +1122,8 @@ test("settings controller surfaces locked shared settings and developer lock sum
         relationSearchVisible: false,
         personalizedRankingEnabled: true,
         analyticsCollectionEnabled: true,
+        policySourceSummary:
+          "Privacy visibility resolves from profile visibility, recommendation consent, and analytics consent inside the shared settings workspace.",
       },
       device: {
         autoplayEnabled: true,
@@ -997,6 +1131,11 @@ test("settings controller surfaces locked shared settings and developer lock sum
         networkStrategy: "balanced",
         uploadChunkSizeBytes: 65536,
         diagnosticsEnabled: false,
+        autoplaySummary: "Autoplay stays enabled for capable devices.",
+        weakNetworkSummary: "Weak-network mode is inactive and standard upload behavior applies.",
+        diagnosticsSummary: "Diagnostics stay locked in production regardless of local debug toggles.",
+        policySourceSummary:
+          "Device policy resolves from network strategy, weak-network mode, autoplay preference, and environment diagnostics posture.",
       },
       developer: {
         environment: "production",
@@ -1005,6 +1144,8 @@ test("settings controller surfaces locked shared settings and developer lock sum
         logsEnabled: false,
         experimentsEnabled: false,
         lockedReason: "Developer diagnostics are locked in production.",
+        exposureSummary: "Production hides editable diagnostics and experiment switches.",
+        policySourceSummary: "Developer controls are locked by environment policy.",
       },
     },
     notificationChannels: [
@@ -1018,6 +1159,15 @@ test("settings controller surfaces locked shared settings and developer lock sum
         fallbackToInApp: true,
         statusLabel: "Sample Push Provider is active in sample mode for push delivery.",
         unsubscribable: false,
+      },
+    ],
+    notificationPresets: [
+      {
+        presetKey: "balanced",
+        label: "Balanced delivery",
+        description: "Prefer in-app, subscription messages, and lightweight push posture before heavier external channels.",
+        active: true,
+        domains: ["account", "messages", "feedback"],
       },
     ],
     lockedSettingKeys: [
@@ -1065,6 +1215,18 @@ test("settings controller surfaces locked shared settings and developer lock sum
       .sections
       .find((section) => section.key === "locked-settings")
       ?.items.some((item) => item.label === "featureToggles.experimentsEnabled"),
+    true,
+  );
+  assert.equal(
+    controller.store.getState().sections.find((section) => section.key === "effective-policy")?.items.some(
+      (item) => item.key === "developer-policy-source" && item.value === "Developer controls are locked by environment policy.",
+    ),
+    true,
+  );
+  assert.equal(
+    controller.store.getState().sections.find((section) => section.key === "notification-presets")?.items.some(
+      (item) => item.key === "preset-balanced-active" && item.value === true,
+    ),
     true,
   );
 });

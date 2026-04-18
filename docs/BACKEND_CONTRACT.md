@@ -108,6 +108,8 @@ Current posture:
 - guest, WeChat code, phone verification, password, and OAuth are all modeled
 - SMS and OAuth production modes fail closed unless real adapters are configured
 - login and refresh both return the canonical auth envelope
+- risk and device metadata now add trust scores, repeated-device posture, review summaries, and operator follow-up hints without widening the auth response shape
+- identity workflows keep recovery and merge follow-up summaries inside the same shared workflow envelope, and login-method descriptors keep provider-capability posture explicit without forking contracts
 
 ### User And Settings
 
@@ -122,6 +124,8 @@ Current posture:
 
 - account summaries preserve session-derived data plus remote security and identity workflow data
 - settings responses project `effectivePolicy`, notification channels, and lock posture into one normalized summary
+- account workspace summaries now carry asset-history posture, relation-list posture, security device summaries, and bounded recovery or cancellation follow-up without introducing a separate user-detail stack
+- settings workspace summaries now carry policy-source explanations, reusable notification presets, device-behavior summaries, and environment-governed developer exposure without leaking host-local policy logic
 - future relation, entitlement-history, merge, and security follow-up growth should extend `userProfile`, `accountSummary`, `userStatus`, and account-workspace state additively before introducing any separate user route family
 
 ### Messages
@@ -143,6 +147,8 @@ Current posture:
 - inbox browsing and thread detail are sample-backed in the repo
 - sync mode is intentionally polling-only
 - provider identity and rollout posture are exposed through normalized metadata, not hidden host logic
+- touchpoints now carry delivery summaries, fallback summaries, receipt-attempt summaries, and bounded template-governance metadata inside the shared message envelope
+- customer-service threads and feedback tickets now share the same support-loop vocabulary for queue posture, operator-action visibility, and thread continuity
 
 ### Payment
 
@@ -186,6 +192,7 @@ Current posture:
 - upload, share, and feedback all participate in the shared context envelope
 - upload and share expose explicit provider posture through normalized metadata
 - feedback can link attachments and support-thread follow-up without inventing a second context model
+- feedback support entries and feedback status now reuse the same shared support-thread posture emitted by inbox threads instead of inventing a feedback-only support model
 
 ## Runtime Notes
 

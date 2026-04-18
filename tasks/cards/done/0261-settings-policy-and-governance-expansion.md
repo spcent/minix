@@ -85,8 +85,21 @@ Make settings a stronger policy-summary workspace without fragmenting preference
 
 ## Acceptance
 
-- [ ] policy-source and lock posture are clearer in the shared settings workspace
-- [ ] notification and experiment governance stays normalized across domains
-- [ ] environment-driven restrictions do not leak into host-local policy logic
-- [ ] settings remains a shared summary workspace
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] policy-source and lock posture are clearer in the shared settings workspace
+- [x] notification and experiment governance stays normalized across domains
+- [x] environment-driven restrictions do not leak into host-local policy logic
+- [x] settings remains a shared summary workspace
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added additive settings-envelope metadata in `packages/contracts/src/api/settings.ts` for notification presets, policy-source summaries, device-behavior summaries, and developer exposure posture.
+- Extended `apps/api/src/domains/settings/state.ts` and `apps/api/src/data.ts` so the shared settings response now emits policy-source explanations, reusable notification presets, weak-network or autoplay summaries, and environment-governed developer posture.
+- Updated `packages/features/settings/src/controller/index.ts` to project the new policy summaries into the existing settings workspace sections instead of introducing host-local wrappers.
+- Synced `docs/BACKEND_CONTRACT.md` and `docs/ROADMAP.md` to reflect the stronger settings policy-summary baseline.
+
+## Verification Notes
+
+- `node --import tsx --test packages/features/settings/src/controller/index.test.ts`
+- `node --import tsx --test apps/api/src/app.test.ts`
+- `pnpm verify`

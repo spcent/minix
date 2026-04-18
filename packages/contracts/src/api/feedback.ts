@@ -32,6 +32,8 @@ export interface FeedbackSupportEntry {
   handlerLabel?: string;
   routeId?: AppRouteId;
   threadId?: string;
+  threadSummary?: string;
+  supportLoopSummary?: string;
   updatedAt?: string;
   enabled?: boolean;
 }
@@ -77,6 +79,9 @@ export interface FeedbackStatus {
   progressLabel: string;
   revisitRequired: boolean;
   nextStepLabel?: string;
+  supportLoopSummary?: string;
+  operatorActionSummary?: string;
+  sharedThreadSummary?: string;
   faqEntry?: FeedbackFaqEntry;
   faqEntries?: FeedbackFaqEntry[];
   customerServiceEntryLabel?: string;

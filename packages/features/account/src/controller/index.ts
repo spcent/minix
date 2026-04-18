@@ -440,6 +440,16 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
           value:
             response.accountSummary.assets.activeEntitlements.map((entitlement) => entitlement.label).join(", ") || "None",
         },
+        {
+          key: "asset-history-summary",
+          label: "Asset history",
+          value: response.accountSummary.assets.historySummary ?? "No asset history summary",
+        },
+        {
+          key: "latest-ledger-title",
+          label: "Latest ledger entry",
+          value: response.accountSummary.assets.latestLedgerTitle ?? "No recent ledger entry",
+        },
       ],
     },
     {
@@ -560,6 +570,14 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
           .join(" · "),
       });
     }
+    if (securityCenter.deviceSummary) {
+      securityItems.push({
+        key: "security-device-readiness",
+        label: "Device posture",
+        value: `${securityCenter.deviceSummary.trustedDevices} trusted · ${securityCenter.deviceSummary.provisionalDevices} provisional · ${securityCenter.deviceSummary.reviewRequiredDevices} review`,
+        ...(securityCenter.deviceSummary.latestSeenAt ? { hint: securityCenter.deviceSummary.latestSeenAt } : {}),
+      });
+    }
     if (securityCenter.latestRateLimit) {
       securityItems.push({
         key: "security-latest-rate-limit",
@@ -660,6 +678,28 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
     });
   }
 
+  if (response.userStatus.recoverySummary || response.userStatus.cancellationSummary) {
+    sections.push({
+      key: "account-follow-up",
+      title: "Recovery and cancellation",
+      items: [
+        {
+          key: "recovery-summary",
+          label: "Recovery posture",
+          value: response.userStatus.recoverySummary ?? "No recovery summary",
+        },
+        {
+          key: "cancellation-summary",
+          label: "Cancellation posture",
+          value: response.userStatus.cancellationSummary ?? "No cancellation summary",
+          ...(response.userStatus.cancellationRevocableUntil
+            ? { hint: `Revocable until ${response.userStatus.cancellationRevocableUntil}` }
+            : {}),
+        },
+      ],
+    });
+  }
+
   return sections;
 }
 
@@ -671,12 +711,22 @@ function createRelationListSection(relationList: UserRelationList | undefined): 
   return {
     key: `relation-list-${relationList.kind}`,
     title: `Relationship list: ${relationList.kind}`,
-    items: relationList.items.map((item) => ({
-      key: `${relationList.kind}-${item.targetUserId}`,
-      label: item.displayName,
-      value: item.relationshipSummary,
-      ...(item.remarkName ? { hint: `Remark: ${item.remarkName}` } : {}),
-    })),
+    items: [
+      {
+        key: `relation-list-${relationList.kind}-summary`,
+        label: "List posture",
+        value: relationList.summaryLabel ?? `${relationList.pagination.total} items`,
+        ...(relationList.availableKinds && relationList.availableKinds.length > 0
+          ? { hint: `Available lists: ${relationList.availableKinds.join(", ")}` }
+          : {}),
+      },
+      ...relationList.items.map((item) => ({
+        key: `${relationList.kind}-${item.targetUserId}`,
+        label: item.displayName,
+        value: item.relationshipSummary,
+        ...(item.remarkName ? { hint: `Remark: ${item.remarkName}` } : {}),
+      })),
+    ],
   };
 }
 
@@ -692,7 +742,17 @@ function createAssetLedgerSection(entries: UserAssetLedgerEntry[]): AccountSecti
       key: entry.ledgerId,
       label: entry.title,
       value: entry.message,
-      hint: [entry.subject, entry.kind, entry.entitlement?.label, entry.membershipPlanId, entry.createdAt]
+      hint: [
+        entry.subject,
+        entry.kind,
+        entry.entitlement?.label,
+        entry.membershipPlanId,
+        entry.pointsDelta !== undefined ? `points ${entry.pointsDelta >= 0 ? "+" : ""}${entry.pointsDelta}` : undefined,
+        entry.balanceDeltaCents !== undefined
+          ? `balance ${(entry.balanceDeltaCents / 100).toFixed(2)} CNY`
+          : undefined,
+        entry.createdAt,
+      ]
         .filter(Boolean)
         .join(" · "),
     })),

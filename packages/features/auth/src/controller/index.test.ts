@@ -270,6 +270,14 @@ test("auth controller keeps wechat code as the official entry method on wechat h
     controller.store.getState().loginMethodDescriptors.find((descriptor) => descriptor.defaultOn?.includes("wechat"))?.method,
     "wechat_code",
   );
+  assert.equal(
+    controller.store.getState().loginMethodDescriptors.find((descriptor) => descriptor.method === "oauth")?.operatorOwned,
+    true,
+  );
+  assert.match(
+    controller.store.getState().loginMethodDescriptors.find((descriptor) => descriptor.method === "phone_code")?.capabilitySummary ?? "",
+    /SMS adapter/i,
+  );
 });
 
 test("auth controller silently refreshes an expired session before routing to the protected destination", async () => {
@@ -447,6 +455,11 @@ test("auth controller keeps abnormal-login prompts from successful credential lo
           deviceId: "device-risk-review",
           level: "review",
           reason: "unusual_device_or_region",
+          score: 24,
+          repeatedDevice: false,
+          reviewSummary: "First-seen device requires review before the session is treated as trusted.",
+          operatorActionSummary:
+            "Review recent account activity, confirm device ownership, and force re-authentication if the sign-in is unexpected.",
         },
         deviceIdentity: {
           deviceId: "device-risk-review",
@@ -454,6 +467,10 @@ test("auth controller keeps abnormal-login prompts from successful credential lo
           trusted: false,
           firstSeenAt: "2026-04-10T08:00:00.000Z",
           lastSeenAt: "2026-04-10T08:00:00.000Z",
+          trustScore: 24,
+          trustLabel: "review",
+          repeatSeen: false,
+          reviewSummary: "First-seen device should stay under review until the sign-in is confirmed.",
         },
         securityAuditEvents: [
           {
@@ -483,7 +500,10 @@ test("auth controller keeps abnormal-login prompts from successful credential lo
 
   assert.equal(controller.store.getState().abnormalLoginPrompt?.title, "Unusual sign-in detected");
   assert.equal(controller.store.getState().riskDecision?.level, "review");
+  assert.equal(controller.store.getState().riskDecision?.score, 24);
+  assert.match(controller.store.getState().riskDecision?.operatorActionSummary ?? "", /force re-authentication/i);
   assert.equal(controller.store.getState().deviceIdentity?.deviceId, "device-risk-review");
+  assert.equal(controller.store.getState().deviceIdentity?.trustLabel, "review");
   assert.equal(controller.store.getState().securityAuditEvents.length, 1);
   controller.clearAbnormalLoginPrompt();
   assert.equal(controller.store.getState().abnormalLoginPrompt, null);
@@ -510,6 +530,9 @@ test("auth controller stores verification security context after requesting a ph
         deviceId: "device-login-1",
         level: "review",
         reason: "new_device",
+        score: 24,
+        repeatedDevice: false,
+        reviewSummary: "First-seen device requires review before the session is treated as trusted.",
       },
       deviceIdentity: {
         deviceId: "device-login-1",
@@ -517,6 +540,9 @@ test("auth controller stores verification security context after requesting a ph
         trusted: false,
         firstSeenAt: "2026-04-10T09:00:00.000Z",
         lastSeenAt: "2026-04-10T09:00:00.000Z",
+        trustScore: 24,
+        trustLabel: "review",
+        repeatSeen: false,
       },
       rateLimitState: {
         scope: "verification",
@@ -555,7 +581,9 @@ test("auth controller stores verification security context after requesting a ph
   assert.equal(result.ok, true);
   assert.equal(controller.store.getState().phoneVerification?.debugCode, "654321");
   assert.equal(controller.store.getState().riskDecision?.reason, "new_device");
+  assert.equal(controller.store.getState().riskDecision?.repeatedDevice, false);
   assert.equal(controller.store.getState().deviceIdentity?.deviceId, "device-login-1");
+  assert.equal(controller.store.getState().deviceIdentity?.trustScore, 24);
   assert.equal(controller.store.getState().rateLimitState?.scope, "verification");
   assert.equal(controller.store.getState().securityAuditEvents[0]?.action, "verification_code_issued");
 });
@@ -897,6 +925,9 @@ test("auth controller keeps merge-required workflow state after an upgrade attem
         targetUserId: "user_phone_0001",
         failureReason: "merge_confirmation_required" as const,
         message: "This identity is already linked to account user_phone_0001. Confirm the merge to continue.",
+        recoverySummary:
+          "If the merge is not confirmed, the current session remains unchanged and can retry later.",
+        operatorActionSummary: "Review ownership of the target account before confirming the merge.",
       },
     }),
   );
@@ -915,6 +946,7 @@ test("auth controller keeps merge-required workflow state after an upgrade attem
 
   assert.equal(controller.store.getState().identityWorkflow?.status, "merge_required");
   assert.equal(controller.store.getState().identityFailureReason, "merge_confirmation_required");
+  assert.match(controller.store.getState().identityWorkflow?.recoverySummary ?? "", /session remains unchanged/i);
   assert.deepEqual(runtime.routeCalls, []);
 });
 

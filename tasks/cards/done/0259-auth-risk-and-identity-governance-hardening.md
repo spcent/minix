@@ -87,8 +87,22 @@ Make future auth and identity hardening additive to the canonical auth envelope 
 
 ## Acceptance
 
-- [ ] device-trust and abnormal-login posture are additive to the shared auth surface
-- [ ] recovery and merge-decision evidence stays inside the shared identity workflow
-- [ ] provider-specific capability differences stay documented without forking auth contracts
-- [ ] no host-local auth fork is introduced
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] device-trust and abnormal-login posture are additive to the shared auth surface
+- [x] recovery and merge-decision evidence stays inside the shared identity workflow
+- [x] provider-specific capability differences stay documented without forking auth contracts
+- [x] no host-local auth fork is introduced
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added additive auth-envelope fields for risk scores, repeated-device posture, recovery summaries, and provider-capability metadata in `packages/contracts/src/api/auth.ts`.
+- Extended `apps/api/src/domains/auth/security.ts` to emit trust-score, trust-label, review-summary, and operator-follow-up posture without widening the auth route family.
+- Extended `apps/api/src/domains/auth/identity.ts` so merge-required, blocked, and completed identity workflows keep recovery and operator-action summaries inside the shared workflow payload.
+- Updated `packages/features/auth/src/model/index.ts` and `packages/features/auth/src/controller/index.test.ts` so the shared auth workspace exposes provider-capability differences through normalized login-method descriptors instead of host-local logic.
+- Synced `docs/BACKEND_CONTRACT.md` and `docs/ROADMAP.md` to reflect the new auth-risk and identity-governance baseline.
+
+## Verification Notes
+
+- `node --import tsx --test packages/features/auth/src/controller/index.test.ts`
+- `node --import tsx --test apps/api/src/app.test.ts`
+- `pnpm verify`

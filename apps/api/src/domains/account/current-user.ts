@@ -67,6 +67,17 @@ export function createCurrentUserResponse(
   const phoneBound = Boolean(userState.boundPhoneNumber || session.identity.phoneBound);
   const wechatBound = userState.wechatBoundOverride ?? Boolean(session.identity.wechatBound);
   const providerIdentities = createProviderIdentities(session, userState);
+  const recoveryCredentialCount =
+    (phoneBound ? 1 : 0)
+    + (wechatBound ? 1 : 0)
+    + providerIdentities.filter((provider) => provider.authorizationStatus === "active").length;
+  const recoverySummary =
+    recoveryCredentialCount > 0
+      ? `${recoveryCredentialCount} recovery credential paths remain available for account follow-up.`
+      : "No durable recovery credential is configured yet.";
+  const cancellationSummary = userState.pendingCancellation
+    ? `Cancellation is in the cooling-off window until ${userState.pendingCancellation.effectiveAt}.`
+    : "No cancellation request is currently pending.";
 
   return {
     userProfile: {
@@ -127,6 +138,8 @@ export function createCurrentUserResponse(
       ...(userState.pendingCancellation
         ? { cancellationRevocableUntil: userState.pendingCancellation.revokeUntil }
         : {}),
+      recoverySummary,
+      cancellationSummary,
     },
     identityWorkflows: {
       canUpgradeGuest: session.authStatus === "guest" || Boolean(session.identity.anonymous),

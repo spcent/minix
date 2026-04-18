@@ -186,6 +186,8 @@ function createKernelStub() {
                   channel: "messages",
                   routeId: APP_ROUTE_IDS.messages,
                   threadId: "thread_customer_service",
+                  threadSummary: "Product Support continues follow-up in thread thread_customer_service with Support Desk.",
+                  supportLoopSummary: "Product Support posted a resolution and keeps the same support thread available for confirmation.",
                 },
               },
               {
@@ -225,6 +227,8 @@ function createKernelStub() {
                 queueKey: "product_support",
                 queueLabel: "Product Support",
                 handlerLabel: "Support Desk",
+                threadSummary: "Product Support continues follow-up in thread thread_customer_service with Support Desk.",
+                supportLoopSummary: "Product Support posted a resolution and keeps the same support thread available for confirmation.",
                 enabled: true,
                 updatedAt: "2026-04-08T10:00:00.000Z",
               },
@@ -236,6 +240,8 @@ function createKernelStub() {
               channel: "messages",
               routeId: APP_ROUTE_IDS.messages,
               threadId: "thread_customer_service",
+              threadSummary: "Product Support continues follow-up in thread thread_customer_service with Support Desk.",
+              supportLoopSummary: "Product Support posted a resolution and keeps the same support thread available for confirmation.",
             },
             serviceLoopSummary: "Use the support entry if you need to add more context.",
             ticketList: {
@@ -369,6 +375,10 @@ function createKernelStub() {
             progressLabel: "Queued for initial review",
             revisitRequired: true,
             nextStepLabel: "Use the support entry if you need to add more context.",
+            supportLoopSummary: "Product Support has not assigned an operator yet, but the shared support thread is already reserved for follow-up.",
+            operatorActionSummary:
+              "Product Support can reassign the queue or update template posture while external delivery remains in explicit sample mode.",
+            sharedThreadSummary: "Product Support continues follow-up in thread thread_customer_service with Support Desk.",
             faqEntries: [
               {
                 entryId: "faq_account_recovery",
@@ -683,6 +693,10 @@ function createKernelStub() {
             progressLabel: "Being processed by support",
             revisitRequired: true,
             nextStepLabel: "Reply from the support entry to continue this ticket.",
+            supportLoopSummary: "Product Support is now handling this case in the shared support thread.",
+            operatorActionSummary:
+              "Product Support can reassign the queue or update template posture while external delivery remains in explicit sample mode.",
+            sharedThreadSummary: "Product Support continues follow-up in thread thread_customer_service with Support Desk.",
             supportEntry: {
               entryId: "support_feedback",
               label: "Open Support Desk",
@@ -917,6 +931,10 @@ function createKernelStub() {
             progressLabel: "Queued for initial review",
             revisitRequired: Boolean(request.revisitRequested),
             nextStepLabel: "Use the support entry if you need to add more context.",
+            supportLoopSummary: "Product Support has not assigned an operator yet, but the shared support thread is already reserved for follow-up.",
+            operatorActionSummary:
+              "Product Support can reassign the queue or update template posture while external delivery remains in explicit sample mode.",
+            sharedThreadSummary: "Product Support continues follow-up in thread thread_customer_service with Support Desk.",
             supportEntry: {
               entryId: "support_feedback",
               label: "Open Support Desk",
@@ -988,6 +1006,10 @@ test("feedback controller loads bootstrap data and captures local context", asyn
   assert.equal(controller.store.getState().formValues.userId, "feedback-user");
   assert.equal(controller.store.getState().values.sourceRouteId, APP_ROUTE_IDS.feedback);
   assert.match(controller.store.getState().values.deviceSummary ?? "", /userAgent/);
+  assert.equal(
+    controller.store.getState().supportEntry?.threadSummary,
+    "Product Support continues follow-up in thread thread_customer_service with Support Desk.",
+  );
   assert.equal(controller.store.getState().recommendedFaqEntries.length, 1);
   assert.equal(controller.store.getState().supportEntry?.threadId, "thread_customer_service");
 });
@@ -1137,7 +1159,7 @@ test("feedback controller can request a ticket revisit and keep support-loop sta
 
   assert.equal(controller.store.getState().latestStatus?.state, "in_progress");
   assert.equal(controller.store.getState().latestStatus?.processingHistory.length, 2);
-  assert.equal(controller.store.getState().serviceLoopSummary, "Reply from the support entry to continue this ticket.");
+  assert.equal(controller.store.getState().serviceLoopSummary, "Product Support is now handling this case in the shared support thread.");
 });
 
 test("feedback controller can apply support operator actions and keep queue state aligned", async () => {

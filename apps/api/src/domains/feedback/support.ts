@@ -19,7 +19,13 @@ import type {
 import { APP_ROUTE_IDS } from "@minix/contracts";
 
 import type { SessionRecord, UserState } from "../../types";
-import { createMessageThread, sendThreadMessage } from "../messages/threads";
+import {
+  createMessageThread,
+  createSharedSupportLoopSummary,
+  createSharedSupportThreadSummary,
+  createSupportOperatorActionSummary,
+  sendThreadMessage,
+} from "../messages/threads";
 
 const FEEDBACK_FAQ_ENTRIES: Record<string, FeedbackFaqEntry> = {
   account: {
@@ -61,6 +67,15 @@ function createFeedbackSupportEntry(
     handlerLabel: queueLabel,
     routeId: APP_ROUTE_IDS.messages,
     threadId: "thread_customer_service",
+    threadSummary: createSharedSupportThreadSummary({
+      threadId: "thread_customer_service",
+      queueLabel,
+      assigneeLabel: queueLabel,
+    }),
+    supportLoopSummary: createSharedSupportLoopSummary({
+      state: "resolved",
+      queueLabel,
+    }),
     updatedAt: "2026-04-07T18:10:00.000Z",
     enabled: true,
   };
@@ -282,6 +297,27 @@ export function createFeedbackStatus(
     supportEntry?: FeedbackSupportEntry;
   } = {},
 ): FeedbackStatus {
+  const queueLabel = options.queueLabel ?? category.defaultQueueLabel ?? "General Support";
+  const supportEntry = options.supportEntry ?? category.supportEntry;
+  const assigneeLabel = options.assignee?.label ?? supportEntry?.handlerLabel;
+  const threadSummary = createSharedSupportThreadSummary({
+    ...(supportEntry?.threadId ? { threadId: supportEntry.threadId } : {}),
+    queueLabel,
+    ...(assigneeLabel ? { assigneeLabel } : {}),
+  });
+  const supportLoopSummary = createSharedSupportLoopSummary({
+    state:
+      state === "submitted"
+        ? "unassigned"
+        : state === "triaged" || state === "in_progress"
+          ? "assigned"
+          : state === "waiting_user"
+            ? "waiting_user"
+            : state === "resolved"
+              ? "resolved"
+              : "closed",
+    queueLabel,
+  });
   const history: FeedbackStatus["processingHistory"] = [
     {
       recordedAt: createdAt,
@@ -383,13 +419,16 @@ export function createFeedbackStatus(
             ? "Open a follow-up if the issue returns."
             : "Use the support entry if you need to add more context.",
     revisitRequired,
+    supportLoopSummary,
+    operatorActionSummary: createSupportOperatorActionSummary({ queueLabel }),
+    sharedThreadSummary: threadSummary,
     ...(category.faqEntry ? { faqEntry: { ...category.faqEntry } } : {}),
     ...(category.faqEntries ? { faqEntries: category.faqEntries.map((entry) => ({ ...entry })) } : {}),
     ...(category.customerServiceEntryLabel ? { customerServiceEntryLabel: category.customerServiceEntryLabel } : {}),
     ...(options.supportEntry
-      ? { supportEntry: { ...options.supportEntry } }
+      ? { supportEntry: { ...options.supportEntry, threadSummary, supportLoopSummary } }
       : category.supportEntry
-        ? { supportEntry: { ...category.supportEntry } }
+        ? { supportEntry: { ...category.supportEntry, threadSummary, supportLoopSummary } }
         : {}),
     ...(options.queueKey ? { queueKey: options.queueKey } : category.defaultQueueKey ? { queueKey: category.defaultQueueKey } : {}),
     ...(options.queueLabel ? { queueLabel: options.queueLabel } : category.defaultQueueLabel ? { queueLabel: category.defaultQueueLabel } : {}),
@@ -581,11 +620,50 @@ export function ensureFeedbackSupportThread(
     threadId: threadResponse.messageThread.threadId,
     body: `[${ticketId}] ${description}`,
   });
+  const threadRecord = userState.threadRecordsById[threadResponse.messageThread.threadId];
+  if (threadRecord) {
+    const queueLabel = category.defaultQueueLabel ?? seedSupportEntry.queueLabel ?? "General Support";
+    const assigneeLabel = seedSupportEntry.handlerLabel ?? "Support Bot";
+    threadRecord.thread.assignment = {
+      assigneeUserId: "support_agent_1",
+      assigneeLabel,
+      teamLabel: queueLabel,
+      assignedAt: now,
+      statusLabel: `Assigned to ${queueLabel}`,
+    };
+    threadRecord.thread.supportProgress = {
+      state: "assigned",
+      ticketId,
+      queueLabel,
+      assigneeLabel,
+      nextStepLabel: "Support will continue in the same thread.",
+      supportLoopSummary: createSharedSupportLoopSummary({
+        state: "assigned",
+        queueLabel,
+      }),
+      operatorActionSummary: createSupportOperatorActionSummary({
+        queueLabel,
+      }),
+    };
+  }
   return {
     ...seedSupportEntry,
     ...(category.defaultQueueKey ? { queueKey: category.defaultQueueKey } : {}),
     ...(category.defaultQueueLabel ? { queueLabel: category.defaultQueueLabel } : {}),
     threadId: threadResponse.messageThread.threadId,
+    threadSummary: createSharedSupportThreadSummary({
+      threadId: threadResponse.messageThread.threadId,
+      ...(category.defaultQueueLabel ?? seedSupportEntry.queueLabel
+        ? { queueLabel: category.defaultQueueLabel ?? seedSupportEntry.queueLabel }
+        : {}),
+      ...(seedSupportEntry.handlerLabel ? { assigneeLabel: seedSupportEntry.handlerLabel } : {}),
+    }),
+    supportLoopSummary: createSharedSupportLoopSummary({
+      state: "assigned",
+      ...(category.defaultQueueLabel ?? seedSupportEntry.queueLabel
+        ? { queueLabel: category.defaultQueueLabel ?? seedSupportEntry.queueLabel }
+        : {}),
+    }),
     updatedAt: now,
     enabled: true,
   };

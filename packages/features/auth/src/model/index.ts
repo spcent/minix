@@ -103,7 +103,10 @@ export function createAuthLoginMethodDescriptors(platform?: LoginPlatformKind): 
       availableOn: ["wechat"],
       ...(defaultMethod === "wechat_code" ? { defaultOn: ["wechat"] } : {}),
       summary: "Official WeChat hosts use wx.login and exchange the returned platform code through /auth/login.",
+      capabilitySummary: "Available only on official WeChat hosts with platform code exchange wired through the shared auth runtime.",
       recoverySummary: "If re-authentication is required, the preserved destination stays on the current login surface until wx.login succeeds again.",
+      operatorOwned: true,
+      operatorActionSummary: "Operators own WeChat app credentials, server exchange safety, and callback-domain posture outside tracked source.",
     },
     {
       method: "guest",
@@ -112,6 +115,7 @@ export function createAuthLoginMethodDescriptors(platform?: LoginPlatformKind): 
       availableOn: ["h5"],
       ...(defaultMethod === "guest" ? { defaultOn: ["h5"] } : {}),
       summary: "The official H5 host uses the built-in guest path for the primary Home sign-in action.",
+      capabilitySummary: "Built into the shared auth surface. No provider callback or external credential dependency is required.",
       recoverySummary: "Guest entry has no provider callback and stays on the current login surface until a protected route asks for a formal session.",
     },
     {
@@ -120,7 +124,10 @@ export function createAuthLoginMethodDescriptors(platform?: LoginPlatformKind): 
       providerMode: "sample",
       availableOn: ["h5", "wechat"],
       summary: "Phone login depends on /auth/verification-code/request. Local and sample deployments use the simulated SMS provider until operator SMS credentials are configured.",
+      capabilitySummary: "The shared auth flow is stable, but production delivery readiness depends on the configured SMS adapter and message-template rollout.",
       recoverySummary: "Verification-code issue, retry, and password-recovery handoff stay on the current login or identity page. No separate callback route is required.",
+      operatorOwned: true,
+      operatorActionSummary: "Operators own SMS credentials, template approval, frequency controls, and production-rate monitoring.",
     },
     {
       method: "password",
@@ -128,6 +135,7 @@ export function createAuthLoginMethodDescriptors(platform?: LoginPlatformKind): 
       providerMode: "builtin",
       availableOn: ["h5", "wechat"],
       summary: "Password login verifies stored hashed credentials. Phone-based password setup and reset still depend on the verification provider.",
+      capabilitySummary: "Credential verification is built into the shared auth surface, while password recovery stays coupled to the verification provider.",
       recoverySummary: "Password recovery remains tied to the current login or identity page and reuses the verification provider instead of a dedicated reset host route.",
     },
     {
@@ -136,7 +144,10 @@ export function createAuthLoginMethodDescriptors(platform?: LoginPlatformKind): 
       providerMode: "sample",
       availableOn: ["h5", "wechat"],
       summary: "OAuth state, callback, and account binding flows are implemented. Local and sample deployments use a sample authorization posture until a production provider is injected by the operator.",
+      capabilitySummary: "Provider differences stay inside the shared auth envelope through provider mode, provider label, and callback-state handling.",
       recoverySummary: "OAuth authorize and callback return to the current login or bind page. Operators own provider credentials and callback-domain registration outside tracked source.",
+      operatorOwned: true,
+      operatorActionSummary: "Operators own provider credentials, callback registration, and any provider-specific review or app-verification steps.",
     },
   ];
 }

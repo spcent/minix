@@ -73,6 +73,9 @@ export function deriveUserAssetSummary(userState: UserState): {
   activeEntitlements: UserEntitlement[];
 } {
   const assetLedgerEntries = userState.assetLedgerEntries ?? [];
+  const latestLedgerEntry = assetLedgerEntries
+    .slice()
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
   let points = 0;
   let level = 1;
   let balanceCents = 0;
@@ -103,6 +106,11 @@ export function deriveUserAssetSummary(userState: UserState): {
     availableBalanceCents: balanceCents - frozenBalanceCents,
     frozenBalanceCents,
     activeEntitlements,
+    historySummary:
+      assetLedgerEntries.length > 0
+        ? `${assetLedgerEntries.length} ledger entries across balance, membership, and entitlement history.`
+        : "No asset history has been recorded yet.",
+    ...(latestLedgerEntry ? { latestLedgerTitle: latestLedgerEntry.title } : {}),
   };
 
   return {
