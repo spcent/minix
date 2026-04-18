@@ -44,9 +44,9 @@ Prevent shared contracts from drifting into incompatible host-local variants or 
 ## Dependencies
 
 - depends on:
-  - `tasks/cards/active/0248-shared-output-envelope-normalization-audit.md`
-  - `tasks/cards/active/0251-page-protocol-adoption-gap-audit-refresh.md`
-  - `tasks/cards/active/0252-cross-domain-context-envelope-audit.md`
+  - `tasks/cards/done/0248-shared-output-envelope-normalization-audit.md`
+  - `tasks/cards/done/0251-page-protocol-adoption-gap-audit-refresh.md`
+  - `tasks/cards/done/0252-cross-domain-context-envelope-audit.md`
 - blocked by:
   - none
 - integration notes:

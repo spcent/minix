@@ -47,7 +47,7 @@ Make future content-surface growth deliberate, shared-first, and compatible with
 ## Dependencies
 
 - depends on:
-  - `tasks/cards/active/0250-content-search-and-discover-output-alignment.md`
+  - `tasks/cards/done/0250-content-search-and-discover-output-alignment.md`
 - blocked by:
   - final release closure for the current `P0` queue
 - integration notes:

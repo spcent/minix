@@ -47,7 +47,7 @@ Reduce release drift by making preview, production, and cross-host evidence more
 
 - depends on:
   - `tasks/cards/active/0246-release-execution-and-signoff.md`
-  - `tasks/cards/active/0247-release-follow-up-queue-coordination.md`
+  - `tasks/cards/done/0247-release-follow-up-queue-coordination.md`
 - blocked by:
   - none
 - integration notes:

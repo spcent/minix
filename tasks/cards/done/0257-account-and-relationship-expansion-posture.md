@@ -44,7 +44,7 @@ Allow future user-surface growth without fragmenting account state into disconne
 ## Dependencies
 
 - depends on:
-  - `tasks/cards/active/0249-user-and-settings-summary-alignment.md`
+  - `tasks/cards/done/0249-user-and-settings-summary-alignment.md`
 - blocked by:
   - final release closure for the current `P0` queue
 - integration notes:

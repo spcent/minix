@@ -51,7 +51,7 @@ Keep content cards, detail summaries, search filters, search results, and manage
 ## Dependencies
 
 - depends on:
-  - `tasks/cards/active/0248-shared-output-envelope-normalization-audit.md`
+  - `tasks/cards/done/0248-shared-output-envelope-normalization-audit.md`
 - blocked by:
   - none
 - integration notes:

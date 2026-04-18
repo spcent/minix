@@ -47,7 +47,7 @@ Keep `userProfile`, `accountSummary`, `userStatus`, `preferences`, `featureToggl
 ## Dependencies
 
 - depends on:
-  - `tasks/cards/active/0248-shared-output-envelope-normalization-audit.md`
+  - `tasks/cards/done/0248-shared-output-envelope-normalization-audit.md`
 - blocked by:
   - none
 - integration notes:

@@ -44,9 +44,9 @@ Keep page-protocol usage explicit and prevent feature-local flags from quietly r
 ## Dependencies
 
 - depends on:
-  - `tasks/cards/active/0248-shared-output-envelope-normalization-audit.md`
-  - `tasks/cards/active/0249-user-and-settings-summary-alignment.md`
-  - `tasks/cards/active/0250-content-search-and-discover-output-alignment.md`
+  - `tasks/cards/done/0248-shared-output-envelope-normalization-audit.md`
+  - `tasks/cards/done/0249-user-and-settings-summary-alignment.md`
+  - `tasks/cards/done/0250-content-search-and-discover-output-alignment.md`
 - blocked by:
   - none
 - integration notes:

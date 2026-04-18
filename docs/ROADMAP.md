@@ -63,7 +63,7 @@ This should harden the existing domains, not widen them.
 
 Recommended cards:
 
-- [`../tasks/cards/active/0253-provider-adapters-and-ops-hardening.md`](../tasks/cards/active/0253-provider-adapters-and-ops-hardening.md)
+- [`../tasks/cards/done/0253-provider-adapters-and-ops-hardening.md`](../tasks/cards/done/0253-provider-adapters-and-ops-hardening.md)
 
 ### 2. Verification And Evidence Automation
 
@@ -76,7 +76,7 @@ The repo should reduce manual release drift further:
 
 Recommended cards:
 
-- [`../tasks/cards/active/0254-verification-and-evidence-automation-hardening.md`](../tasks/cards/active/0254-verification-and-evidence-automation-hardening.md)
+- [`../tasks/cards/done/0254-verification-and-evidence-automation-hardening.md`](../tasks/cards/done/0254-verification-and-evidence-automation-hardening.md)
 
 ### 3. Shared Contract Governance
 
@@ -89,7 +89,7 @@ The current shared envelopes are in place, but future hardening can still improv
 
 Recommended cards:
 
-- [`../tasks/cards/active/0255-shared-contract-governance-hardening.md`](../tasks/cards/active/0255-shared-contract-governance-hardening.md)
+- [`../tasks/cards/done/0255-shared-contract-governance-hardening.md`](../tasks/cards/done/0255-shared-contract-governance-hardening.md)
 
 ## Priority 2: Safe Product-Surface Expansion
 
@@ -110,7 +110,7 @@ The rule is to extend the current content, search, upload, and feedback contract
 
 Recommended cards:
 
-- [`../tasks/cards/active/0256-content-and-discover-expansion-posture.md`](../tasks/cards/active/0256-content-and-discover-expansion-posture.md)
+- [`../tasks/cards/done/0256-content-and-discover-expansion-posture.md`](../tasks/cards/done/0256-content-and-discover-expansion-posture.md)
 
 ### 2. Richer Account And Relationship Flows
 
@@ -125,7 +125,7 @@ The rule is to keep account as the canonical user workspace rather than introduc
 
 Recommended cards:
 
-- [`../tasks/cards/active/0257-account-and-relationship-expansion-posture.md`](../tasks/cards/active/0257-account-and-relationship-expansion-posture.md)
+- [`../tasks/cards/done/0257-account-and-relationship-expansion-posture.md`](../tasks/cards/done/0257-account-and-relationship-expansion-posture.md)
 
 ### 3. Better Host Capability Experience
 
@@ -139,7 +139,7 @@ The rule is to keep capability state normalized in shared code while leaving run
 
 Recommended cards:
 
-- [`../tasks/cards/active/0258-host-capability-experience-hardening.md`](../tasks/cards/active/0258-host-capability-experience-hardening.md)
+- [`../tasks/cards/done/0258-host-capability-experience-hardening.md`](../tasks/cards/done/0258-host-capability-experience-hardening.md)
 
 ## Priority 3: Expansion Requiring A Scope Decision
 
@@ -194,17 +194,17 @@ Future work should keep following these rules:
 
 Use this order after the current `P0` release queue closes:
 
-1. [`../tasks/cards/active/0253-provider-adapters-and-ops-hardening.md`](../tasks/cards/active/0253-provider-adapters-and-ops-hardening.md)
+1. [`../tasks/cards/done/0253-provider-adapters-and-ops-hardening.md`](../tasks/cards/done/0253-provider-adapters-and-ops-hardening.md)
    Stabilize the provider-backed production path first so later hardening work builds on a clearer operational baseline.
-2. [`../tasks/cards/active/0254-verification-and-evidence-automation-hardening.md`](../tasks/cards/active/0254-verification-and-evidence-automation-hardening.md)
+2. [`../tasks/cards/done/0254-verification-and-evidence-automation-hardening.md`](../tasks/cards/done/0254-verification-and-evidence-automation-hardening.md)
    Tighten release and evidence automation after provider posture is clearer, so verification reflects the real rollout model.
-3. [`../tasks/cards/active/0255-shared-contract-governance-hardening.md`](../tasks/cards/active/0255-shared-contract-governance-hardening.md)
+3. [`../tasks/cards/done/0255-shared-contract-governance-hardening.md`](../tasks/cards/done/0255-shared-contract-governance-hardening.md)
    Harden canonical output and protocol-governance rules once release-facing verification is more stable.
-4. [`../tasks/cards/active/0256-content-and-discover-expansion-posture.md`](../tasks/cards/active/0256-content-and-discover-expansion-posture.md)
+4. [`../tasks/cards/done/0256-content-and-discover-expansion-posture.md`](../tasks/cards/done/0256-content-and-discover-expansion-posture.md)
    Define the next safe content-growth posture after contract governance is clearer.
-5. [`../tasks/cards/active/0257-account-and-relationship-expansion-posture.md`](../tasks/cards/active/0257-account-and-relationship-expansion-posture.md)
+5. [`../tasks/cards/done/0257-account-and-relationship-expansion-posture.md`](../tasks/cards/done/0257-account-and-relationship-expansion-posture.md)
    Expand account and relationship planning after the account workspace and contract-governance posture are stable.
-6. [`../tasks/cards/active/0258-host-capability-experience-hardening.md`](../tasks/cards/active/0258-host-capability-experience-hardening.md)
+6. [`../tasks/cards/done/0258-host-capability-experience-hardening.md`](../tasks/cards/done/0258-host-capability-experience-hardening.md)
    Run capability-experience hardening after the provider-backed flows and shared capability boundaries are easier to verify.
 
 ## Parallelism Notes
@@ -226,15 +226,15 @@ Use this checklist to assign the post-release queue by function instead of by ca
 
 ### Backend
 
-- own [`../tasks/cards/active/0253-provider-adapters-and-ops-hardening.md`](../tasks/cards/active/0253-provider-adapters-and-ops-hardening.md)
-- own the API-side parts of [`../tasks/cards/active/0255-shared-contract-governance-hardening.md`](../tasks/cards/active/0255-shared-contract-governance-hardening.md)
-- support the content/discover and account-growth posture work in [`../tasks/cards/active/0256-content-and-discover-expansion-posture.md`](../tasks/cards/active/0256-content-and-discover-expansion-posture.md) and [`../tasks/cards/active/0257-account-and-relationship-expansion-posture.md`](../tasks/cards/active/0257-account-and-relationship-expansion-posture.md)
+- own [`../tasks/cards/done/0253-provider-adapters-and-ops-hardening.md`](../tasks/cards/done/0253-provider-adapters-and-ops-hardening.md)
+- own the API-side parts of [`../tasks/cards/done/0255-shared-contract-governance-hardening.md`](../tasks/cards/done/0255-shared-contract-governance-hardening.md)
+- support the content/discover and account-growth posture work in [`../tasks/cards/done/0256-content-and-discover-expansion-posture.md`](../tasks/cards/done/0256-content-and-discover-expansion-posture.md) and [`../tasks/cards/done/0257-account-and-relationship-expansion-posture.md`](../tasks/cards/done/0257-account-and-relationship-expansion-posture.md)
 
 ### Frontend
 
-- own host-visible verification and evidence improvements in [`../tasks/cards/active/0254-verification-and-evidence-automation-hardening.md`](../tasks/cards/active/0254-verification-and-evidence-automation-hardening.md)
-- help enforce shared-controller and protocol posture in [`../tasks/cards/active/0255-shared-contract-governance-hardening.md`](../tasks/cards/active/0255-shared-contract-governance-hardening.md)
-- own shared feature and host-runtime aspects of [`../tasks/cards/active/0256-content-and-discover-expansion-posture.md`](../tasks/cards/active/0256-content-and-discover-expansion-posture.md), [`../tasks/cards/active/0257-account-and-relationship-expansion-posture.md`](../tasks/cards/active/0257-account-and-relationship-expansion-posture.md), and [`../tasks/cards/active/0258-host-capability-experience-hardening.md`](../tasks/cards/active/0258-host-capability-experience-hardening.md)
+- own host-visible verification and evidence improvements in [`../tasks/cards/done/0254-verification-and-evidence-automation-hardening.md`](../tasks/cards/done/0254-verification-and-evidence-automation-hardening.md)
+- help enforce shared-controller and protocol posture in [`../tasks/cards/done/0255-shared-contract-governance-hardening.md`](../tasks/cards/done/0255-shared-contract-governance-hardening.md)
+- own shared feature and host-runtime aspects of [`../tasks/cards/done/0256-content-and-discover-expansion-posture.md`](../tasks/cards/done/0256-content-and-discover-expansion-posture.md), [`../tasks/cards/done/0257-account-and-relationship-expansion-posture.md`](../tasks/cards/done/0257-account-and-relationship-expansion-posture.md), and [`../tasks/cards/done/0258-host-capability-experience-hardening.md`](../tasks/cards/done/0258-host-capability-experience-hardening.md)
 
 ### Release
 

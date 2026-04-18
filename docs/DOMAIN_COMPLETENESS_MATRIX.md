@@ -61,7 +61,7 @@ The remaining release-facing queue is mostly operator-owned:
 
 | Priority | Card | Current purpose | Evidence anchor |
 | --- | --- | --- | --- |
-| `P0` | [`../tasks/cards/active/0247-release-follow-up-queue-coordination.md`](../tasks/cards/active/0247-release-follow-up-queue-coordination.md) | keep rollout order, blockers, and closeout criteria explicit | [`./RELEASE_RUNBOOK.md`](./RELEASE_RUNBOOK.md), [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md) |
+| `P0` | [`../tasks/cards/done/0247-release-follow-up-queue-coordination.md`](../tasks/cards/done/0247-release-follow-up-queue-coordination.md) | keep rollout order, blockers, and closeout criteria explicit | [`./RELEASE_RUNBOOK.md`](./RELEASE_RUNBOOK.md), [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md) |
 | `P0` | [`../tasks/cards/active/0241-auth-provider-operator-rollout.md`](../tasks/cards/active/0241-auth-provider-operator-rollout.md) | close auth provider rollout and callback readiness | [`./PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md) |
 | `P0` | [`../tasks/cards/active/0242-message-provider-rollout-and-polling-acceptance.md`](../tasks/cards/active/0242-message-provider-rollout-and-polling-acceptance.md) | close external message-provider rollout and explicit polling acceptance | [`./PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md) |
 | `P0` | [`../tasks/cards/active/0243-payment-merchant-rollout-and-callback-ops.md`](../tasks/cards/active/0243-payment-merchant-rollout-and-callback-ops.md) | close merchant, callback, and reconciliation rollout | [`./PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md) |
