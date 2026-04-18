@@ -86,6 +86,12 @@ export function registerPaymentCallbackRoutes(options: RegisterPaymentRoutesOpti
       rejected.callbackVerification = {
         status: "rejected",
         message: verification.message,
+        diagnosticsSummary:
+          "Callback verification rejected the payload, so operator follow-up should inspect signature, replay, or merchant configuration.",
+        operatorActionSummary:
+          existing.paymentIntent.gatewayReference?.providerMode === "production"
+            ? "Inspect webhook secret, merchant callback payload, and replay posture before retrying reconciliation."
+            : "Inspect the sample callback payload and replay posture before retrying reconciliation.",
         callbackReference: verification.callbackReference,
       };
       appendCallbackLedger(rejected, {

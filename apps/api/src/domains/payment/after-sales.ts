@@ -65,6 +65,10 @@ export function createAfterSalesCaseRecord(input: {
           ? "Refund completed in sample after-sales flow"
           : "Refund completed in after-sales flow"
         : "Pending order cancelled before settlement",
+    continuitySummary:
+      input.kind === "refund"
+        ? "Refund continuity stays attached to the same shared order detail, entitlement, and ledger surfaces."
+        : "Cancellation continuity stays attached to the same shared order detail and reconciliation surfaces.",
     ...(input.reason ? { reason: input.reason } : {}),
     ...(input.kind === "refund"
       ? { refundAmountCents: input.detail.order.totalAmountCents }

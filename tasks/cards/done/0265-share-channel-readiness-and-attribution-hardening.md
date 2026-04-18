@@ -85,8 +85,21 @@ Make share behavior easier to reason about across native share, clipboard fallba
 
 ## Acceptance
 
-- [ ] share-channel readiness is clearer across native, clipboard, short-link, and poster flows
-- [ ] attribution replay and invite-binding diagnostics stay additive to the shared share model
-- [ ] fallback posture remains normalized across hosts
-- [ ] no host-local share fork is introduced
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] share-channel readiness is clearer across native, clipboard, short-link, and poster flows
+- [x] attribution replay and invite-binding diagnostics stay additive to the shared share model
+- [x] fallback posture remains normalized across hosts
+- [x] no host-local share fork is introduced
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added additive share-envelope fields for payload readiness, channel readiness, fallback posture, replay diagnostics, recognition summaries, and invite-binding summaries in `packages/contracts/src/api/share.ts`.
+- Updated `apps/api/src/domains/share/attribution.ts` so prepare, resolve, return-recognition, and attribution-report responses all project normalized readiness and diagnostics metadata without creating host-local share wrappers.
+- Updated `packages/features/media-tools` to preserve short-link and poster metadata together with host-visible readiness, fallback, and attribution-diagnostic summaries in shared state.
+- Synced `docs/BACKEND_CONTRACT.md` and `docs/ROADMAP.md` to the current share hardening posture.
+
+## Verification Notes
+
+- `node --import tsx --test packages/features/media-tools/src/controller/index.test.ts`
+- `node --import tsx --test apps/api/src/app.test.ts`
+- `pnpm verify`

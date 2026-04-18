@@ -12,6 +12,7 @@ const uploadGovernanceSchema = z.object({
   acceptedFileTypes: z.array(z.enum(["image", "audio", "video", "pdf", "avatar", "attachment"])),
   sensitiveReviewRequired: z.boolean(),
   expiresInDays: z.number().int().positive().optional(),
+  governanceSummary: z.string().min(1).optional(),
 });
 
 const uploadLifecycleSchema = z.object({
@@ -22,6 +23,18 @@ const uploadLifecycleSchema = z.object({
   canCancel: z.boolean(),
   lastTransitionAt: z.string().min(1).optional(),
   expiresAt: z.string().min(1).optional(),
+  retentionSummary: z.string().min(1).optional(),
+  cleanupSummary: z.string().min(1).optional(),
+});
+
+const uploadDerivedAssetVariantSchema = z.object({
+  kind: z.enum(["original", "thumbnail", "cover", "preview"]),
+  url: z.string().min(1),
+  label: z.string().min(1),
+  width: z.number().int().positive().optional(),
+  height: z.number().int().positive().optional(),
+  durationSeconds: z.number().positive().optional(),
+  pageCount: z.number().int().positive().optional(),
 });
 
 export const uploadAssetSchema = z.object({
@@ -33,11 +46,18 @@ export const uploadAssetSchema = z.object({
   coverImageUrl: z.string().min(1).optional(),
   metadata: z.object({
     sizeBytes: z.number().int().nonnegative(),
+    mimeType: z.string().min(1).optional(),
+    checksum: z.string().min(1).optional(),
+    checksumAlgorithm: z.enum(["sha256"]).optional(),
     width: z.number().int().positive().optional(),
     height: z.number().int().positive().optional(),
     durationSeconds: z.number().positive().optional(),
     pageCount: z.number().int().positive().optional(),
+    variants: z.array(uploadDerivedAssetVariantSchema).optional(),
+    reviewAnnotations: z.array(z.string().min(1)).optional(),
   }),
+  derivedAssetSummary: z.string().min(1).optional(),
+  ownershipSummary: z.string().min(1).optional(),
 });
 
 const uploadTaskSchema = z.object({
@@ -53,6 +73,7 @@ const uploadTaskSchema = z.object({
   reviewStatus: z.enum(["not_required", "pending", "approved", "rejected"]),
   reviewMessage: z.string().min(1).optional(),
   lifecycle: uploadLifecycleSchema,
+  ownershipSummary: z.string().min(1).optional(),
 });
 
 const uploadErrorSchema = z.object({
@@ -163,11 +184,30 @@ export function normalizeUploadAsset(asset: z.infer<typeof uploadAssetSchema>): 
     ...(asset.coverImageUrl !== undefined ? { coverImageUrl: asset.coverImageUrl } : {}),
     metadata: {
       sizeBytes: asset.metadata.sizeBytes,
+      ...(asset.metadata.mimeType !== undefined ? { mimeType: asset.metadata.mimeType } : {}),
+      ...(asset.metadata.checksum !== undefined ? { checksum: asset.metadata.checksum } : {}),
+      ...(asset.metadata.checksumAlgorithm !== undefined ? { checksumAlgorithm: asset.metadata.checksumAlgorithm } : {}),
       ...(asset.metadata.width !== undefined ? { width: asset.metadata.width } : {}),
       ...(asset.metadata.height !== undefined ? { height: asset.metadata.height } : {}),
       ...(asset.metadata.durationSeconds !== undefined ? { durationSeconds: asset.metadata.durationSeconds } : {}),
       ...(asset.metadata.pageCount !== undefined ? { pageCount: asset.metadata.pageCount } : {}),
+      ...(asset.metadata.variants !== undefined
+        ? {
+            variants: asset.metadata.variants.map((variant) => ({
+              kind: variant.kind,
+              url: variant.url,
+              label: variant.label,
+              ...(variant.width !== undefined ? { width: variant.width } : {}),
+              ...(variant.height !== undefined ? { height: variant.height } : {}),
+              ...(variant.durationSeconds !== undefined ? { durationSeconds: variant.durationSeconds } : {}),
+              ...(variant.pageCount !== undefined ? { pageCount: variant.pageCount } : {}),
+            })),
+          }
+        : {}),
+      ...(asset.metadata.reviewAnnotations !== undefined ? { reviewAnnotations: asset.metadata.reviewAnnotations } : {}),
     },
+    ...(asset.derivedAssetSummary !== undefined ? { derivedAssetSummary: asset.derivedAssetSummary } : {}),
+    ...(asset.ownershipSummary !== undefined ? { ownershipSummary: asset.ownershipSummary } : {}),
   };
 }
 
@@ -195,6 +235,9 @@ export function normalizeUploadSelectionResult(payload: z.infer<typeof uploadSel
         ...(payload.uploadTask.governance.expiresInDays !== undefined
           ? { expiresInDays: payload.uploadTask.governance.expiresInDays }
           : {}),
+        ...(payload.uploadTask.governance.governanceSummary !== undefined
+          ? { governanceSummary: payload.uploadTask.governance.governanceSummary }
+          : {}),
       },
       reviewStatus: payload.uploadTask.reviewStatus,
       ...(payload.uploadTask.reviewMessage !== undefined ? { reviewMessage: payload.uploadTask.reviewMessage } : {}),
@@ -208,7 +251,14 @@ export function normalizeUploadSelectionResult(payload: z.infer<typeof uploadSel
           ? { lastTransitionAt: payload.uploadTask.lifecycle.lastTransitionAt }
           : {}),
         ...(payload.uploadTask.lifecycle.expiresAt !== undefined ? { expiresAt: payload.uploadTask.lifecycle.expiresAt } : {}),
+        ...(payload.uploadTask.lifecycle.retentionSummary !== undefined
+          ? { retentionSummary: payload.uploadTask.lifecycle.retentionSummary }
+          : {}),
+        ...(payload.uploadTask.lifecycle.cleanupSummary !== undefined
+          ? { cleanupSummary: payload.uploadTask.lifecycle.cleanupSummary }
+          : {}),
       },
+      ...(payload.uploadTask.ownershipSummary !== undefined ? { ownershipSummary: payload.uploadTask.ownershipSummary } : {}),
     },
     ...(payload.uploadAsset !== undefined ? { uploadAsset: normalizeUploadAsset(payload.uploadAsset) } : {}),
     ...(payload.uploadError !== undefined

@@ -42,6 +42,9 @@ export interface SubscriptionState {
   paymentResult: PaymentResult | undefined;
   callbackVerification: PaymentCallbackVerification | undefined;
   reconciliation: PaymentReconciliation | undefined;
+  paymentContinuitySummary: string | undefined;
+  paymentDiagnosticsSummary: string | undefined;
+  afterSalesContinuitySummary: string | undefined;
   entitlement: MembershipEntitlement | undefined;
   commerceDetailStatus: DetailStatus;
   transactionMessage: string | undefined;
@@ -116,6 +119,9 @@ export function createInitialSubscriptionState(options: CreateSubscriptionStateO
     paymentResult: undefined,
     callbackVerification: undefined,
     reconciliation: undefined,
+    paymentContinuitySummary: undefined,
+    paymentDiagnosticsSummary: undefined,
+    afterSalesContinuitySummary: undefined,
     entitlement: undefined,
     commerceDetailStatus: {
       loadState: "idle",

@@ -439,6 +439,9 @@ test("subscription controller can purchase membership and continue back to the b
         channel: "h5_pay",
         status: "succeeded",
         clientAction: "h5_redirect",
+        capabilitySummary: "H5 payment can continue through redirect-based execution and resume through the shared order detail surface.",
+        executionSummary:
+          "The sample h5 pay execution completed, but callback verification and reconciliation still provide the continuity checkpoints.",
       },
       paymentResult: {
         orderId: "ord_reader_1",
@@ -447,6 +450,9 @@ test("subscription controller can purchase membership and continue back to the b
         duplicateProtected: false,
         callbackVerified: false,
         message: "Payment completed in the sample payment domain.",
+        continuitySummary:
+          "The payment result is successful, but shared commerce continuity still depends on callback verification and reconciliation staying aligned.",
+        duplicateProtectionSummary: "No duplicate-payment guard was triggered for this commerce attempt.",
       },
       operationResult: {
         operation: "verify_callback",
@@ -521,6 +527,11 @@ test("subscription controller can purchase membership and continue back to the b
   assert.equal(controller.store.getState().entitlement?.sourceOrderId, "ord_reader_1");
   assert.equal(controller.store.getState().lastPurchasedPlanId, "monthly");
   assert.equal(controller.store.getState().transactionMessage, "Ledger entries recorded for the paid membership order.");
+  assert.equal(
+    controller.store.getState().paymentContinuitySummary,
+    "The payment result is successful, but shared commerce continuity still depends on callback verification and reconciliation staying aligned.",
+  );
+  assert.match(controller.store.getState().paymentDiagnosticsSummary ?? "", /H5 payment can continue through redirect-based execution/);
   assert.equal(
     controller.store.getState().purchaseSuccessMessage,
     "Membership unlocked. Return to the blocked chapter with your reading position intact.",
@@ -758,6 +769,7 @@ test("subscription controller can purchase a generic sku and manage subscription
       channel: "h5_pay" as const,
       status: "succeeded" as const,
       clientAction: "h5_redirect" as const,
+      capabilitySummary: "H5 payment can continue through redirect-based execution and resume through the shared order detail surface.",
     },
     paymentResult: {
       orderId: "ord_sub_1",
@@ -766,14 +778,20 @@ test("subscription controller can purchase a generic sku and manage subscription
       duplicateProtected: false,
       callbackVerified: false,
       message: "Study Club Plus Monthly completed in the sample payment domain.",
+      continuitySummary:
+        "The payment result is successful, but shared commerce continuity still depends on callback verification and reconciliation staying aligned.",
     },
     callbackVerification: {
       status: "pending" as const,
       message: "The sample gateway callback has not been verified yet.",
+      diagnosticsSummary: "Callback verification is still waiting on the sample gateway payload.",
     },
     reconciliation: {
       status: "pending" as const,
       message: "The sample order has not been reconciled yet.",
+      diagnosticsSummary:
+        "Reconciliation is still pending, so callback and order state should be treated as provisional continuity checkpoints.",
+      ledgerAuditSummary: "Callback and reconciliation ledgers will keep the append-only audit trail for this order.",
     },
     entitlement: {
       entitlementId: "ent_study_club_ord_sub_1",
@@ -949,6 +967,10 @@ test("subscription controller can purchase a generic sku and manage subscription
   ];
   await controller.loadAfterSalesDetail("as_refund_1");
   assert.equal(controller.store.getState().selectedAfterSalesCase?.caseId, "as_refund_1");
+  assert.equal(
+    controller.store.getState().paymentContinuitySummary,
+    "The payment result is successful, but shared commerce continuity still depends on callback verification and reconciliation staying aligned.",
+  );
 });
 
 test("subscription controller can refresh, cancel, refund, and reconcile transaction state", async () => {
@@ -982,6 +1004,7 @@ test("subscription controller can refresh, cancel, refund, and reconcile transac
       channel: "h5_pay" as const,
       status: "processing" as const,
       clientAction: "h5_redirect" as const,
+      capabilitySummary: "H5 payment can continue through redirect-based execution and resume through the shared order detail surface.",
     },
     paymentResult: {
       orderId: "ord_pending_1",
@@ -990,14 +1013,20 @@ test("subscription controller can refresh, cancel, refund, and reconcile transac
       duplicateProtected: false,
       callbackVerified: false,
       message: "Payment is pending gateway confirmation in the sample payment domain.",
+      continuitySummary:
+        "The order is held in pending continuity until the sample callback and reconciliation steps finish.",
     },
     callbackVerification: {
       status: "pending" as const,
       message: "The sample gateway callback has not been verified yet.",
+      diagnosticsSummary: "Callback verification is still waiting on the sample gateway payload.",
     },
     reconciliation: {
       status: "pending" as const,
       message: "The sample order has not been reconciled yet.",
+      diagnosticsSummary:
+        "Reconciliation is still pending, so callback and order state should be treated as provisional continuity checkpoints.",
+      ledgerAuditSummary: "Callback and reconciliation ledgers will keep the append-only audit trail for this order.",
     },
     entitlement: {
       entitlementId: "ent_membership_ord_pending_1",
@@ -1039,14 +1068,27 @@ test("subscription controller can refresh, cancel, refund, and reconcile transac
         ...latestOrderDetail,
         order: { ...latestOrderDetail.order, status: "cancelled", updatedAt: "2026-04-08T10:10:00.000Z" },
         paymentIntent: { ...latestOrderDetail.paymentIntent, status: "cancelled" },
-        paymentResult: { ...latestOrderDetail.paymentResult, status: "cancelled", message: "Order cancelled before payment completion." },
-        reconciliation: { status: "reconciled", message: "Order cancellation and payment result are aligned.", checkedAt: "2026-04-08T10:10:00.000Z" },
+        paymentResult: {
+          ...latestOrderDetail.paymentResult,
+          status: "cancelled",
+          message: "Order cancelled before payment completion.",
+          continuitySummary:
+            "The order was cancelled before settlement, and shared commerce continuity now depends on reconciliation confirming the closed state.",
+        },
+        reconciliation: {
+          status: "reconciled",
+          message: "Order cancellation and payment result are aligned.",
+          diagnosticsSummary: "Reconciliation confirmed that the cancellation and stored payment result are aligned.",
+          ledgerAuditSummary: "Operation and reconciliation ledgers keep the append-only audit trail for this cancellation.",
+          checkedAt: "2026-04-08T10:10:00.000Z",
+        },
         operationResult: {
           operation: "cancel",
           applied: true,
           orderStatus: "cancelled",
           paymentStatus: "cancelled",
           message: "Order cancelled before payment completion.",
+          continuitySummary: "Cancellation continuity now flows through the same order detail and reconciliation surfaces.",
           processedAt: "2026-04-08T10:10:00.000Z",
         },
       };
@@ -1056,13 +1098,20 @@ test("subscription controller can refresh, cancel, refund, and reconcile transac
     if (path === "/payments/reconcile") {
       latestOrderDetail = {
         ...latestOrderDetail,
-        reconciliation: { status: "reconciled", message: "The stored payment result matches the current order state.", checkedAt: "2026-04-08T10:11:00.000Z" },
+        reconciliation: {
+          status: "reconciled",
+          message: "The stored payment result matches the current order state.",
+          diagnosticsSummary: "Reconciliation confirmed that stored order state, payment result, and callback posture are aligned.",
+          ledgerAuditSummary: "Reconciliation and operation ledgers keep the append-only audit trail for this order.",
+          checkedAt: "2026-04-08T10:11:00.000Z",
+        },
         operationResult: {
           operation: "reconcile",
           applied: true,
           orderStatus: latestOrderDetail.order.status,
           paymentStatus: latestOrderDetail.paymentResult.status,
           message: "The stored payment result matches the current order state.",
+          continuitySummary: "Reconciliation updated the canonical order detail without creating a second payment surface.",
           processedAt: "2026-04-08T10:11:00.000Z",
         },
       };
@@ -1073,15 +1122,29 @@ test("subscription controller can refresh, cancel, refund, and reconcile transac
       latestOrderDetail = {
         ...latestOrderDetail,
         order: { ...latestOrderDetail.order, status: "refunded", updatedAt: "2026-04-08T10:20:00.000Z" },
-        paymentResult: { ...latestOrderDetail.paymentResult, status: "refunded", paid: false, message: "Refund completed in the sample payment domain." },
+        paymentResult: {
+          ...latestOrderDetail.paymentResult,
+          status: "refunded",
+          paid: false,
+          message: "Refund completed in the sample payment domain.",
+          continuitySummary:
+            "The order moved into refund continuity, and shared after-sales plus ledger views remain the canonical follow-up surface.",
+        },
         entitlement: { ...latestOrderDetail.entitlement, active: false, statusLabel: "Refunded" },
-        reconciliation: { status: "reconciled", message: "Refund state reconciled with the stored order record.", checkedAt: "2026-04-08T10:20:00.000Z" },
+        reconciliation: {
+          status: "reconciled",
+          message: "Refund state reconciled with the stored order record.",
+          diagnosticsSummary: "Reconciliation confirmed that refund state and stored order detail are aligned.",
+          ledgerAuditSummary: "Refund, callback, and reconciliation ledgers keep the append-only audit trail for this order.",
+          checkedAt: "2026-04-08T10:20:00.000Z",
+        },
         operationResult: {
           operation: "refund",
           applied: true,
           orderStatus: "refunded",
           paymentStatus: "refunded",
           message: "Refund completed in the sample payment domain.",
+          continuitySummary: "Refund continuity now flows through the same order, entitlement, and after-sales surfaces.",
           processedAt: "2026-04-08T10:20:00.000Z",
         },
       };
@@ -1126,6 +1189,10 @@ test("subscription controller can refresh, cancel, refund, and reconcile transac
   await controller.cancelOrder();
   assert.equal(controller.store.getState().order?.status, "cancelled");
   assert.equal(controller.store.getState().transactionMessage, "Order cancelled before payment completion.");
+  assert.equal(
+    controller.store.getState().paymentContinuitySummary,
+    "The order was cancelled before settlement, and shared commerce continuity now depends on reconciliation confirming the closed state.",
+  );
 
   latestOrderDetail = {
     ...latestOrderDetail,
@@ -1142,4 +1209,8 @@ test("subscription controller can refresh, cancel, refund, and reconcile transac
   assert.equal(controller.store.getState().order?.status, "refunded");
   assert.equal(controller.store.getState().paymentResult?.status, "refunded");
   assert.equal(controller.store.getState().canRefundOrder, false);
+  assert.equal(
+    controller.store.getState().paymentContinuitySummary,
+    "The order moved into refund continuity, and shared after-sales plus ledger views remain the canonical follow-up surface.",
+  );
 });

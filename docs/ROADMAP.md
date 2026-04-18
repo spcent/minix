@@ -227,11 +227,11 @@ These backlog areas are now split into a first task-card batch under `0259+`:
   Covers backlog items `9` to `12`.
 - [`../tasks/cards/done/0262-message-delivery-and-support-loop-hardening.md`](../tasks/cards/done/0262-message-delivery-and-support-loop-hardening.md)
   Covers backlog items `13` to `16`.
-- [`../tasks/cards/active/0263-payment-commerce-diagnostics-and-continuity.md`](../tasks/cards/active/0263-payment-commerce-diagnostics-and-continuity.md)
+- [`../tasks/cards/done/0263-payment-commerce-diagnostics-and-continuity.md`](../tasks/cards/done/0263-payment-commerce-diagnostics-and-continuity.md)
   Covers backlog items `17` to `20`.
-- [`../tasks/cards/active/0264-upload-governance-and-derived-asset-metadata.md`](../tasks/cards/active/0264-upload-governance-and-derived-asset-metadata.md)
+- [`../tasks/cards/done/0264-upload-governance-and-derived-asset-metadata.md`](../tasks/cards/done/0264-upload-governance-and-derived-asset-metadata.md)
   Covers backlog items `21` to `22`.
-- [`../tasks/cards/active/0265-share-channel-readiness-and-attribution-hardening.md`](../tasks/cards/active/0265-share-channel-readiness-and-attribution-hardening.md)
+- [`../tasks/cards/done/0265-share-channel-readiness-and-attribution-hardening.md`](../tasks/cards/done/0265-share-channel-readiness-and-attribution-hardening.md)
   Covers backlog items `23` to `24`.
 - [`../tasks/cards/active/0266-content-recommendation-and-moderation-governance.md`](../tasks/cards/active/0266-content-recommendation-and-moderation-governance.md)
   Covers backlog items `25` to `27`.

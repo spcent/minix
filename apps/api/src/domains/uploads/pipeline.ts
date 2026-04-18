@@ -60,7 +60,23 @@ function cloneUploadAsset(asset: UploadAsset): UploadAsset {
       ...(asset.metadata.height !== undefined ? { height: asset.metadata.height } : {}),
       ...(asset.metadata.durationSeconds !== undefined ? { durationSeconds: asset.metadata.durationSeconds } : {}),
       ...(asset.metadata.pageCount !== undefined ? { pageCount: asset.metadata.pageCount } : {}),
+      ...(asset.metadata.variants
+        ? {
+            variants: asset.metadata.variants.map((variant) => ({
+              kind: variant.kind,
+              url: variant.url,
+              label: variant.label,
+              ...(variant.width !== undefined ? { width: variant.width } : {}),
+              ...(variant.height !== undefined ? { height: variant.height } : {}),
+              ...(variant.durationSeconds !== undefined ? { durationSeconds: variant.durationSeconds } : {}),
+              ...(variant.pageCount !== undefined ? { pageCount: variant.pageCount } : {}),
+            })),
+          }
+        : {}),
+      ...(asset.metadata.reviewAnnotations ? { reviewAnnotations: [...asset.metadata.reviewAnnotations] } : {}),
     },
+    ...(asset.derivedAssetSummary ? { derivedAssetSummary: asset.derivedAssetSummary } : {}),
+    ...(asset.ownershipSummary ? { ownershipSummary: asset.ownershipSummary } : {}),
   };
 }
 
@@ -91,6 +107,7 @@ function cloneUploadTask(task: UploadTask): UploadTask {
       acceptedFileTypes: [...task.governance.acceptedFileTypes],
       sensitiveReviewRequired: task.governance.sensitiveReviewRequired,
       ...(task.governance.expiresInDays !== undefined ? { expiresInDays: task.governance.expiresInDays } : {}),
+      ...(task.governance.governanceSummary ? { governanceSummary: task.governance.governanceSummary } : {}),
     },
     reviewStatus: task.reviewStatus,
     ...(task.reviewMessage ? { reviewMessage: task.reviewMessage } : {}),
@@ -102,7 +119,10 @@ function cloneUploadTask(task: UploadTask): UploadTask {
       canCancel: task.lifecycle.canCancel,
       ...(task.lifecycle.lastTransitionAt ? { lastTransitionAt: task.lifecycle.lastTransitionAt } : {}),
       ...(task.lifecycle.expiresAt ? { expiresAt: task.lifecycle.expiresAt } : {}),
+      ...(task.lifecycle.retentionSummary ? { retentionSummary: task.lifecycle.retentionSummary } : {}),
+      ...(task.lifecycle.cleanupSummary ? { cleanupSummary: task.lifecycle.cleanupSummary } : {}),
     },
+    ...(task.ownershipSummary ? { ownershipSummary: task.ownershipSummary } : {}),
   };
 }
 
@@ -171,6 +191,7 @@ function cloneUploadReviewRecord(reviewRecord: UploadReviewRecord): UploadReview
     ...(reviewRecord.reviewedAt ? { reviewedAt: reviewRecord.reviewedAt } : {}),
     ...(reviewRecord.message ? { message: reviewRecord.message } : {}),
     ...(reviewRecord.reasonCodes ? { reasonCodes: [...reviewRecord.reasonCodes] } : {}),
+    ...(reviewRecord.annotationSummary ? { annotationSummary: reviewRecord.annotationSummary } : {}),
   };
 }
 
@@ -180,6 +201,9 @@ function cloneUploadCleanupRecord(cleanupRecord: UploadCleanupRecord): UploadCle
     ...(cleanupRecord.cleanupScheduledAt ? { cleanupScheduledAt: cleanupRecord.cleanupScheduledAt } : {}),
     ...(cleanupRecord.cleanupReason ? { cleanupReason: cleanupRecord.cleanupReason } : {}),
     referenced: cleanupRecord.referenced,
+    ...(cleanupRecord.ownershipSummary ? { ownershipSummary: cleanupRecord.ownershipSummary } : {}),
+    ...(cleanupRecord.retentionSummary ? { retentionSummary: cleanupRecord.retentionSummary } : {}),
+    ...(cleanupRecord.cleanupSummary ? { cleanupSummary: cleanupRecord.cleanupSummary } : {}),
   };
 }
 
@@ -191,6 +215,7 @@ function cloneUploadReference(reference: UploadReference): UploadReference {
     ...(reference.sourceContext ? { sourceContext: { ...reference.sourceContext } } : {}),
     ...(reference.actorContext ? { actorContext: { ...reference.actorContext } } : {}),
     attachedAt: reference.attachedAt,
+    ...(reference.ownerSummary ? { ownerSummary: reference.ownerSummary } : {}),
   };
 }
 
@@ -365,7 +390,7 @@ function createUploadErrorRecord(
       ? { expiresAt: new Date(Date.parse(now) + failedTask.governance.expiresInDays * 24 * 60 * 60 * 1000).toISOString() }
       : {}),
   });
-  return {
+  const record: StoredUploadRecord = {
     source,
     selection: cloneUploadSelectionResult(selection),
     uploadTask: failedTask,
@@ -396,6 +421,8 @@ function createUploadErrorRecord(
     chunksByIndex: {},
     binaryByChunkIndex: {},
   };
+  synchronizeUploadRecordSummaries(record);
+  return record;
 }
 
 export function createUploadResponse(record: StoredUploadRecord): UploadPipelineResponse {
@@ -428,6 +455,193 @@ function calculateUploadExpiresAt(task: UploadTask, now: string): string | undef
     : undefined;
 }
 
+function formatAcceptedFileTypes(fileTypes: UploadTask["governance"]["acceptedFileTypes"]): string {
+  if (fileTypes.length === 0) {
+    return "configured asset types";
+  }
+  if (fileTypes.length === 1) {
+    return fileTypes[0] ?? "configured asset type";
+  }
+  if (fileTypes.length === 2) {
+    return `${fileTypes[0] ?? "configured asset type"} and ${fileTypes[1] ?? "configured asset type"}`;
+  }
+  const lastFileType = fileTypes[fileTypes.length - 1] ?? "configured asset type";
+  return `${fileTypes.slice(0, -1).join(", ")}, and ${lastFileType}`;
+}
+
+function createUploadGovernanceSummary(task: UploadTask): string {
+  const sizeLimitMb = Math.round((task.governance.maxSizeBytes / (1024 * 1024)) * 10) / 10;
+  const reviewClause = task.governance.sensitiveReviewRequired
+    ? "Sensitive review remains enabled for this upload flow."
+    : "No additional sensitive review is required for this upload flow.";
+  const retentionClause =
+    task.governance.expiresInDays !== undefined
+      ? `Retention expires after ${task.governance.expiresInDays} days unless a business reference keeps the asset active.`
+      : "Retention remains active until the business flow clears the asset.";
+  return `Upload accepts ${formatAcceptedFileTypes(task.governance.acceptedFileTypes)} up to ${sizeLimitMb} MB. ${reviewClause} ${retentionClause}`;
+}
+
+function createUploadOwnershipSummary(references: UploadReference[]): string {
+  if (references.length === 0) {
+    return "Asset ownership is not yet bound to a business record.";
+  }
+  const [primaryReference, ...rest] = references;
+  if (!primaryReference) {
+    return "Asset ownership is not yet bound to a business record.";
+  }
+  return rest.length > 0
+    ? `Asset is bound to ${primaryReference.ownerType} ${primaryReference.ownerId} as ${primaryReference.role}, plus ${rest.length} additional reference${rest.length === 1 ? "" : "s"}.`
+    : `Asset is bound to ${primaryReference.ownerType} ${primaryReference.ownerId} as ${primaryReference.role}.`;
+}
+
+function createUploadReferenceOwnerSummary(reference: UploadReference): string {
+  const sourceLabel = reference.sourceContext?.label ?? reference.sourceContext?.routeId ?? reference.sourceContext?.pagePath;
+  return sourceLabel
+    ? `${reference.ownerType} ${reference.ownerId} uses this asset as ${reference.role} from ${sourceLabel}.`
+    : `${reference.ownerType} ${reference.ownerId} uses this asset as ${reference.role}.`;
+}
+
+function createUploadRetentionSummary(task: UploadTask, cleanupRecord?: UploadCleanupRecord): string {
+  if (task.lifecycle.retentionStatus === "expired") {
+    return cleanupRecord?.cleanupScheduledAt
+      ? `Retention expired and cleanup completed after ${cleanupRecord.cleanupScheduledAt}.`
+      : "Retention expired and the upload is no longer active.";
+  }
+  if (task.lifecycle.retentionStatus === "scheduled_cleanup") {
+    return cleanupRecord?.cleanupScheduledAt
+      ? `Retention is scheduled for cleanup at ${cleanupRecord.cleanupScheduledAt}.`
+      : "Retention is scheduled for cleanup.";
+  }
+  if (task.lifecycle.expiresAt) {
+    return `Retention remains active until ${task.lifecycle.expiresAt} unless the asset is cleaned earlier.`;
+  }
+  return "Retention remains active for this upload.";
+}
+
+function createUploadCleanupSummary(cleanupRecord: UploadCleanupRecord | undefined, task: UploadTask): string {
+  if (cleanupRecord?.retentionStatus === "scheduled_cleanup") {
+    const scheduledAt = cleanupRecord.cleanupScheduledAt
+      ? ` Cleanup is queued for ${cleanupRecord.cleanupScheduledAt}.`
+      : " Cleanup is queued.";
+    const reason = cleanupRecord.cleanupReason ? ` Reason: ${cleanupRecord.cleanupReason}.` : "";
+    return `Cleanup is pending for this upload.${scheduledAt}${reason}`;
+  }
+  if (cleanupRecord?.retentionStatus === "expired") {
+    return "Cleanup completed and the upload has expired.";
+  }
+  if (task.lifecycle.canCancel) {
+    return "Cleanup is not scheduled while the upload remains active or under review.";
+  }
+  return "Cleanup is idle until retention changes or the asset loses its references.";
+}
+
+function createDerivedAssetVariants(asset: UploadAsset): NonNullable<UploadAsset["metadata"]["variants"]> {
+  const variants: NonNullable<UploadAsset["metadata"]["variants"]> = [
+    {
+      kind: "original",
+      url: asset.url,
+      label: "Original asset",
+      ...(asset.metadata.width !== undefined ? { width: asset.metadata.width } : {}),
+      ...(asset.metadata.height !== undefined ? { height: asset.metadata.height } : {}),
+      ...(asset.metadata.durationSeconds !== undefined ? { durationSeconds: asset.metadata.durationSeconds } : {}),
+      ...(asset.metadata.pageCount !== undefined ? { pageCount: asset.metadata.pageCount } : {}),
+    },
+  ];
+
+  if (asset.thumbnailUrl) {
+    variants.push({
+      kind: "thumbnail",
+      url: asset.thumbnailUrl,
+      label: "Thumbnail",
+      ...(asset.metadata.width !== undefined ? { width: Math.max(1, Math.round(asset.metadata.width / 4)) } : {}),
+      ...(asset.metadata.height !== undefined ? { height: Math.max(1, Math.round(asset.metadata.height / 4)) } : {}),
+    });
+  }
+
+  if (asset.coverImageUrl) {
+    variants.push({
+      kind: "cover",
+      url: asset.coverImageUrl,
+      label: "Cover image",
+      ...(asset.metadata.width !== undefined ? { width: asset.metadata.width } : {}),
+      ...(asset.metadata.height !== undefined ? { height: asset.metadata.height } : {}),
+    });
+  }
+
+  return variants;
+}
+
+function createUploadReviewAnnotations(record: StoredUploadRecord): string[] {
+  const annotations: string[] = [`Review status: ${record.uploadTask.reviewStatus}.`];
+  if (record.reviewRecord?.provider) {
+    annotations.push(`Provider: ${record.reviewRecord.provider}.`);
+  }
+  if (record.reviewRecord?.message) {
+    annotations.push(record.reviewRecord.message);
+  }
+  if (record.reviewRecord?.reasonCodes?.length) {
+    annotations.push(`Reason codes: ${record.reviewRecord.reasonCodes.join(", ")}.`);
+  }
+  if (record.cleanupRecord?.cleanupReason) {
+    annotations.push(`Cleanup reason: ${record.cleanupRecord.cleanupReason}.`);
+  }
+  return annotations;
+}
+
+function createDerivedAssetSummary(asset: UploadAsset): string {
+  const variantCount = asset.metadata.variants?.length ?? 0;
+  const physicalSummary =
+    asset.metadata.width !== undefined && asset.metadata.height !== undefined
+      ? `Primary dimensions are ${asset.metadata.width}x${asset.metadata.height}.`
+      : asset.metadata.durationSeconds !== undefined
+        ? `Primary duration is ${asset.metadata.durationSeconds} seconds.`
+        : asset.metadata.pageCount !== undefined
+          ? `Primary document length is ${asset.metadata.pageCount} pages.`
+          : "Primary asset metadata is file-level only.";
+  return variantCount > 0
+    ? `${variantCount} derived asset variant${variantCount === 1 ? "" : "s"} are available. ${physicalSummary}`
+    : physicalSummary;
+}
+
+function synchronizeUploadRecordSummaries(record: StoredUploadRecord) {
+  const ownershipSummary = createUploadOwnershipSummary(record.references);
+  record.uploadTask.governance.governanceSummary = createUploadGovernanceSummary(record.uploadTask);
+  record.uploadTask.ownershipSummary = ownershipSummary;
+  record.uploadTask.lifecycle.retentionSummary = createUploadRetentionSummary(record.uploadTask, record.cleanupRecord);
+  record.uploadTask.lifecycle.cleanupSummary = createUploadCleanupSummary(record.cleanupRecord, record.uploadTask);
+
+  record.references = record.references.map((reference) => ({
+    ...reference,
+    ownerSummary: createUploadReferenceOwnerSummary(reference),
+  }));
+
+  if (record.cleanupRecord) {
+    record.cleanupRecord.ownershipSummary = ownershipSummary;
+    record.cleanupRecord.retentionSummary = createUploadRetentionSummary(record.uploadTask, record.cleanupRecord);
+    record.cleanupRecord.cleanupSummary = createUploadCleanupSummary(record.cleanupRecord, record.uploadTask);
+  }
+
+  const reviewAnnotations = createUploadReviewAnnotations(record);
+  if (record.reviewRecord) {
+    if (reviewAnnotations.length > 0) {
+      record.reviewRecord.annotationSummary = reviewAnnotations.join(" ");
+    } else {
+      delete record.reviewRecord.annotationSummary;
+    }
+  }
+
+  if (record.uploadAsset) {
+    record.uploadAsset.ownershipSummary = ownershipSummary;
+    record.uploadAsset.metadata.variants = createDerivedAssetVariants(record.uploadAsset);
+    if (reviewAnnotations.length > 0) {
+      record.uploadAsset.metadata.reviewAnnotations = reviewAnnotations;
+    } else {
+      delete record.uploadAsset.metadata.reviewAnnotations;
+    }
+    record.uploadAsset.derivedAssetSummary = createDerivedAssetSummary(record.uploadAsset);
+  }
+}
+
 function updateUploadRetention(record: StoredUploadRecord, input: {
   retentionStatus: UploadCleanupRecord["retentionStatus"];
   referenced?: boolean;
@@ -441,6 +655,7 @@ function updateUploadRetention(record: StoredUploadRecord, input: {
     ...(input.cleanupReason ? { cleanupReason: input.cleanupReason } : {}),
     referenced: input.referenced ?? record.cleanupRecord?.referenced ?? false,
   };
+  synchronizeUploadRecordSummaries(record);
 }
 
 export function createUploadSessionRecord(
@@ -524,7 +739,7 @@ export function createUploadSessionRecord(
     ...(expiresAt ? { expiresAt } : {}),
   });
 
-  return {
+  const record: StoredUploadRecord = {
     source: "backend_session",
     selection: {
       ...selection,
@@ -551,6 +766,8 @@ export function createUploadSessionRecord(
     chunksByIndex: {},
     binaryByChunkIndex: {},
   };
+  synchronizeUploadRecordSummaries(record);
+  return record;
 }
 
 export function appendUploadChunkRecord(
@@ -615,6 +832,7 @@ export function appendUploadChunkRecord(
     storageProvider: resolveUploadStorageProvider(runtimeEnv),
     message: `${uploadedChunkCount}/${record.transfer.chunks.length} chunks uploaded.`,
   };
+  synchronizeUploadRecordSummaries(record);
   return record;
 }
 
@@ -702,6 +920,7 @@ export function completeUploadRecord(
       cleanupReason: "review_rejected",
       referenced: record.references.length > 0,
     });
+    synchronizeUploadRecordSummaries(record);
     return record;
   }
 
@@ -733,6 +952,7 @@ export function completeUploadRecord(
     retentionStatus: "active",
     referenced: record.references.length > 0,
   });
+  synchronizeUploadRecordSummaries(record);
   return record;
 }
 
@@ -761,6 +981,7 @@ export function attachUploadRecord(
     retentionStatus: "active",
     referenced: true,
   });
+  synchronizeUploadRecordSummaries(record);
   return record;
 }
 
@@ -860,6 +1081,7 @@ export function retryUploadPipeline(
     storageProvider: resolveUploadStorageProvider(runtimeEnv),
     message: "Upload retry prepared.",
   };
+  synchronizeUploadRecordSummaries(record);
   return record;
 }
 
@@ -901,6 +1123,7 @@ export function cancelUploadPipeline(
     cleanupReason: "user_cancelled",
     referenced: record.references.length > 0,
   });
+  synchronizeUploadRecordSummaries(record);
   return record;
 }
 

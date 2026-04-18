@@ -39,8 +39,8 @@ The repo now enforces this posture with a contract-governance guard in `scripts/
 | payment | `order`, `paymentIntent`, `paymentResult`, `entitlement` | `packages/contracts/src/api/payment.ts`, `packages/contracts/src/api/membership.ts` | generic hosts expose an order-center route; novel hosts keep order follow-up inside membership |
 | content | `contentCard`, `contentDetail`, `contentAccess` | `packages/contracts/src/api/content.ts` | discover, detail, and novel flows reuse the same card/detail/access vocabulary |
 | search | `searchQuery`, `searchFilters`, `searchResults` | `packages/contracts/src/api/feed.ts`, `packages/contracts/src/api/search.ts`, `packages/contracts/src/api/novels.ts` | discover now carries `activeDomain`, `domainTabs`, and grouped results |
-| upload | `uploadTask`, `uploadAsset`, `uploadError` | `packages/contracts/src/api/upload.ts` | upload assets now use `coverImageUrl` consistently |
-| share | `sharePayload`, `shareChannel`, `shareAttribution` | `packages/contracts/src/api/share.ts` | short-link and poster metadata stay inside the normalized share envelope |
+| upload | `uploadTask`, `uploadAsset`, `uploadError` | `packages/contracts/src/api/upload.ts` | upload assets now use `coverImageUrl` consistently and carry additive governance, ownership, retention, and derived-asset summaries |
+| share | `sharePayload`, `shareChannel`, `shareAttribution` | `packages/contracts/src/api/share.ts` | short-link and poster metadata stay inside the normalized share envelope, with additive readiness, fallback, and attribution-diagnostic summaries |
 | feedback | `feedbackTicket`, `feedbackCategory`, `feedbackStatus` | `packages/contracts/src/api/feedback.ts` | feedback now propagates shared context into support-thread linkage |
 
 ## Shared Context Envelope
@@ -162,6 +162,8 @@ Current posture:
 
 - order creation, purchase, callback verification, refund, and reconciliation are modeled
 - production-mode callback verification expects operator-owned secrets and merchant setup
+- payment outputs now carry callback diagnostics, reconciliation diagnostics, idempotency summaries, ledger-audit summaries, and continuity summaries without changing the canonical `order` / `paymentIntent` / `paymentResult` / `entitlement` envelope
+- subscription and after-sales follow-up stay attached to the same shared commerce detail instead of creating host-local payment-result wrappers
 
 ### Content And Search
 
@@ -191,6 +193,8 @@ Current posture:
 
 - upload, share, and feedback all participate in the shared context envelope
 - upload and share expose explicit provider posture through normalized metadata
+- upload now keeps governance summaries, ownership summaries, cleanup summaries, derived variants, and review annotations inside the same normalized upload envelope
+- share now keeps channel-readiness summaries, fallback summaries, replay summaries, and invite-binding diagnostics inside the same normalized share envelope
 - feedback can link attachments and support-thread follow-up without inventing a second context model
 - feedback support entries and feedback status now reuse the same shared support-thread posture emitted by inbox threads instead of inventing a feedback-only support model
 

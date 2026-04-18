@@ -336,12 +336,21 @@ export function createPaymentOperationResult(input: {
   message: string;
   processedAt?: string;
 }) {
+  const continuitySummary =
+    input.operation === "verify_callback"
+      ? "Callback handling updated the shared order state, but reconciliation remains the follow-up continuity checkpoint."
+      : input.operation === "reconcile"
+        ? "Reconciliation updated the canonical order detail without creating a second payment surface."
+        : input.operation === "refund"
+          ? "Refund continuity now flows through the same order, entitlement, and after-sales surfaces."
+          : "Cancellation continuity now flows through the same order detail and reconciliation surfaces.";
   return {
     operation: input.operation,
     applied: input.applied,
     orderStatus: input.orderStatus,
     paymentStatus: input.paymentStatus,
     message: input.message,
+    continuitySummary,
     processedAt: input.processedAt ?? new Date().toISOString(),
   };
 }
@@ -442,13 +451,22 @@ export function applyOrderCancellation(
     next.paymentResult.message = reason
       ? `Order cancelled before payment completion. Reason: ${reason}.`
       : "Order cancelled before payment completion.";
+    next.paymentResult.continuitySummary =
+      "The order was cancelled before settlement, and shared commerce continuity now depends on reconciliation confirming the closed state.";
+    next.paymentResult.duplicateProtectionSummary = next.paymentResult.duplicateProtected
+      ? "Duplicate-payment protection prevented a second charge and returned the stored order state."
+      : "No duplicate-payment guard was triggered for this commerce attempt.";
     next.callbackVerification = {
       status: "pending",
       message: "No callback verification is required after the cancellation.",
+      diagnosticsSummary: "Callback verification is no longer required because the order closed before settlement.",
+      operatorActionSummary: "Operators can inspect the order and reconciliation ledgers without reopening a second payment flow.",
     };
     next.reconciliation = {
       status: "reconciled",
       message: "Order cancellation and payment result are aligned.",
+      diagnosticsSummary: "Reconciliation confirmed that the cancellation and stored payment result are aligned.",
+      ledgerAuditSummary: "Operation and reconciliation ledgers keep the append-only audit trail for this cancellation.",
       checkedAt: processedAt,
     };
   }
@@ -512,15 +530,24 @@ export function applyOrderRefund(
         : reason
           ? `Refund completed. Reason: ${reason}.`
           : "Refund completed.";
+    next.paymentResult.continuitySummary =
+      "The order moved into refund continuity, and shared after-sales plus ledger views remain the canonical follow-up surface.";
+    next.paymentResult.duplicateProtectionSummary = next.paymentResult.duplicateProtected
+      ? "Duplicate-payment protection prevented a second charge and returned the stored order state."
+      : "No duplicate-payment guard was triggered for this commerce attempt.";
     next.callbackVerification = {
       status: "verified",
       message: "The payment callback remained verified through the refund transition.",
+      diagnosticsSummary: "Callback verification stayed valid through the refund transition.",
+      operatorActionSummary: "Operators can inspect refund and callback ledgers without changing the shared commerce envelope.",
       verifiedAt: processedAt,
       callbackReference: next.callbackVerification.callbackReference ?? `cb_${next.order.orderId}`,
     };
     next.reconciliation = {
       status: "reconciled",
       message: "Refund state reconciled with the stored order record.",
+      diagnosticsSummary: "Reconciliation confirmed that refund state and stored order detail are aligned.",
+      ledgerAuditSummary: "Refund, callback, and reconciliation ledgers keep the append-only audit trail for this order.",
       checkedAt: processedAt,
     };
     if (next.entitlement) {
@@ -591,6 +618,9 @@ export function applyPaymentCallback(
   const processedAt = new Date().toISOString();
   const verified = payload.verified !== false;
   const providerMode = next.paymentIntent.gatewayReference?.providerMode ?? "sample";
+  next.paymentResult.duplicateProtectionSummary = next.paymentResult.duplicateProtected
+    ? "Duplicate-payment protection prevented a second charge and returned the stored order state."
+    : "No duplicate-payment guard was triggered for this commerce attempt.";
   next.order.updatedAt = processedAt;
   next.callbackVerification = {
     status: verified ? "verified" : "rejected",
@@ -603,6 +633,16 @@ export function applyPaymentCallback(
         : "Production callback verification rejected the callback payload.",
     ...(verified ? { verifiedAt: processedAt } : {}),
     ...(payload.callbackReference ? { callbackReference: payload.callbackReference } : {}),
+    diagnosticsSummary: verified
+      ? "Callback verification completed and the shared order detail can now be trusted as the gateway source of truth."
+      : "Callback verification rejected the payload, so operator follow-up should inspect signature, replay, or merchant configuration.",
+    operatorActionSummary: verified
+      ? providerMode === "sample"
+        ? "Operators can still inspect callback and reconciliation evidence even while the gateway remains in explicit sample mode."
+        : "Operators can inspect callback and reconciliation evidence without changing the shared commerce envelope."
+      : providerMode === "sample"
+        ? "Inspect the sample callback payload and replay posture before retrying reconciliation."
+        : "Inspect webhook secret, merchant callback payload, and replay posture before retrying reconciliation.",
   };
   next.paymentIntent.status = verified ? "succeeded" : "verifying";
 
@@ -614,6 +654,8 @@ export function applyPaymentCallback(
     next.paymentResult.callbackVerified = true;
     next.paymentResult.message =
       "Payment callback confirmed the successful payment result.";
+    next.paymentResult.continuitySummary =
+      "The payment result is successful, but shared commerce continuity still depends on callback verification and reconciliation staying aligned.";
     next.paymentResult.polledAt = processedAt;
     if (next.entitlement) {
       next.entitlement.active = true;
@@ -628,6 +670,8 @@ export function applyPaymentCallback(
     next.paymentResult.message = verified
       ? "Payment callback marked the order as failed."
       : "Payment callback could not be verified and the order remains in a failed state.";
+    next.paymentResult.continuitySummary =
+      "The payment result failed, so follow-up should focus on retry posture and ledger visibility instead of entitlement continuity.";
     next.paymentResult.polledAt = processedAt;
     if (next.entitlement) {
       next.entitlement.active = false;
@@ -640,6 +684,8 @@ export function applyPaymentCallback(
     next.paymentResult.paid = false;
     next.paymentResult.callbackVerified = verified;
     next.paymentResult.message = "Payment callback marked the order as cancelled.";
+    next.paymentResult.continuitySummary =
+      "The order was cancelled before settlement, and shared commerce continuity now depends on reconciliation confirming the closed state.";
     next.paymentResult.polledAt = processedAt;
     if (next.entitlement) {
       next.entitlement.active = false;
@@ -650,6 +696,8 @@ export function applyPaymentCallback(
   next.reconciliation = {
     status: "pending",
     message: "Callback applied. Reconciliation is still pending.",
+    diagnosticsSummary: "Reconciliation is still pending, so callback and order state should be treated as provisional continuity checkpoints.",
+    ledgerAuditSummary: "Callback and reconciliation ledgers will keep the append-only audit trail for this order.",
   };
   next.operationResult = createPaymentOperationResult({
     operation: "verify_callback",
@@ -718,11 +766,15 @@ export function applyPaymentReconciliation(
     ? {
         status: "reconciled",
         message: "The stored payment result matches the current order state.",
+        diagnosticsSummary: "Reconciliation confirmed that stored order state, payment result, and callback posture are aligned.",
+        ledgerAuditSummary: "Reconciliation and operation ledgers keep the append-only audit trail for this order.",
         checkedAt: processedAt,
       }
     : {
         status: "mismatch",
         message: "The stored payment result does not match the current order state.",
+        diagnosticsSummary: "Reconciliation found a mismatch between stored order state and the latest payment result.",
+        ledgerAuditSummary: "Use callback, payment, and reconciliation ledgers to audit the mismatch before any manual correction.",
         checkedAt: processedAt,
         mismatchReason: `${next.order.status} vs ${next.paymentResult.status}`,
       };

@@ -3,9 +3,14 @@ import type {
   ShareAttribution,
   ShareChannel,
   SharePayload,
+  SharePosterAsset,
+  ShareShortLinkRecord,
   UploadAsset,
+  UploadCleanupRecord,
   UploadError,
   UploadGovernance,
+  UploadReference,
+  UploadReviewRecord,
   UploadTask,
 } from "@minix/contracts";
 
@@ -36,10 +41,22 @@ export interface MediaToolsState {
   shareProviderSummary: string;
   uploadTask: UploadTask;
   uploadAsset: UploadAsset | undefined;
+  uploadReviewRecord: UploadReviewRecord | undefined;
+  uploadCleanupRecord: UploadCleanupRecord | undefined;
+  uploadReferences: UploadReference[];
   uploadError: UploadError | undefined;
+  uploadGovernanceSummary: string;
+  uploadOwnershipSummary: string;
+  uploadRetentionSummary: string;
+  uploadDerivedAssetSummary: string;
   sharePayload: SharePayload;
   shareChannel: ShareChannel;
   shareAttribution: ShareAttribution;
+  shareShortLinkRecord: ShareShortLinkRecord | undefined;
+  sharePosterAsset: SharePosterAsset | undefined;
+  shareChannelReadinessSummary: string;
+  shareFallbackSummary: string;
+  shareAttributionDiagnosticsSummary: string;
   lastResult: MediaToolsResult | undefined;
   errorText: string | undefined;
 }
@@ -89,6 +106,22 @@ export function createDefaultUploadTask(): UploadTask {
 
 export function createDefaultUploadProviderSummary(): string {
   return "Upload review and storage posture remains sample-backed through sample-upload-policy and sample-object-storage until production review and storage providers are configured.";
+}
+
+export function createDefaultUploadGovernanceSummary(): string {
+  return "Upload governance details will appear after the shared upload pipeline returns a task.";
+}
+
+export function createDefaultUploadOwnershipSummary(): string {
+  return "Upload ownership details will appear after the asset is attached to a business record.";
+}
+
+export function createDefaultUploadRetentionSummary(): string {
+  return "Upload retention details will appear after the shared upload pipeline returns lifecycle data.";
+}
+
+export function createDefaultUploadDerivedAssetSummary(): string {
+  return "Derived asset details will appear after the shared upload pipeline returns asset metadata.";
 }
 
 export function createDefaultSharePayload(): SharePayload {
@@ -146,6 +179,18 @@ export function createDefaultShareProviderSummary(): string {
   return "Share landing-target normalization is backend-backed, while poster generation remains sample-backed and channel dispatch still depends on the host native share or clipboard fallback path.";
 }
 
+export function createDefaultShareChannelReadinessSummary(): string {
+  return "Share channel readiness details will appear after the shared share flow returns channel metadata.";
+}
+
+export function createDefaultShareFallbackSummary(): string {
+  return "Share fallback details will appear after the shared share flow resolves channel posture.";
+}
+
+export function createDefaultShareAttributionDiagnosticsSummary(): string {
+  return "Share attribution diagnostics will appear after the shared share flow records replay and return signals.";
+}
+
 export function createDefaultMediaToolsState(
   options: CreateDefaultMediaToolsStateOptions = {},
 ): MediaToolsState {
@@ -172,10 +217,22 @@ export function createDefaultMediaToolsState(
     shareProviderSummary: createDefaultShareProviderSummary(),
     uploadTask: createDefaultUploadTask(),
     uploadAsset: undefined,
+    uploadReviewRecord: undefined,
+    uploadCleanupRecord: undefined,
+    uploadReferences: [],
     uploadError: undefined,
+    uploadGovernanceSummary: createDefaultUploadGovernanceSummary(),
+    uploadOwnershipSummary: createDefaultUploadOwnershipSummary(),
+    uploadRetentionSummary: createDefaultUploadRetentionSummary(),
+    uploadDerivedAssetSummary: createDefaultUploadDerivedAssetSummary(),
     sharePayload: createDefaultSharePayload(),
     shareChannel: createDefaultShareChannel(),
     shareAttribution: createDefaultShareAttribution(),
+    shareShortLinkRecord: undefined,
+    sharePosterAsset: undefined,
+    shareChannelReadinessSummary: createDefaultShareChannelReadinessSummary(),
+    shareFallbackSummary: createDefaultShareFallbackSummary(),
+    shareAttributionDiagnosticsSummary: createDefaultShareAttributionDiagnosticsSummary(),
     lastResult: undefined,
     errorText: undefined,
   };

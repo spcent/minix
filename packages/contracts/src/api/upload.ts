@@ -50,6 +50,7 @@ export interface UploadGovernance {
   acceptedFileTypes: UploadFileType[];
   sensitiveReviewRequired: boolean;
   expiresInDays?: number;
+  governanceSummary?: string;
 }
 
 export interface UploadProgress {
@@ -66,6 +67,18 @@ export interface UploadLifecycle {
   canCancel: boolean;
   lastTransitionAt?: string;
   expiresAt?: string;
+  retentionSummary?: string;
+  cleanupSummary?: string;
+}
+
+export interface UploadDerivedAssetVariant {
+  kind: "original" | "thumbnail" | "cover" | "preview";
+  url: string;
+  label: string;
+  width?: number;
+  height?: number;
+  durationSeconds?: number;
+  pageCount?: number;
 }
 
 export interface UploadAssetMetadata {
@@ -77,6 +90,8 @@ export interface UploadAssetMetadata {
   height?: number;
   durationSeconds?: number;
   pageCount?: number;
+  variants?: UploadDerivedAssetVariant[];
+  reviewAnnotations?: string[];
 }
 
 export interface UploadAsset {
@@ -87,6 +102,8 @@ export interface UploadAsset {
   thumbnailUrl?: string;
   coverImageUrl?: string;
   metadata: UploadAssetMetadata;
+  derivedAssetSummary?: string;
+  ownershipSummary?: string;
 }
 
 export interface UploadError {
@@ -153,6 +170,7 @@ export interface UploadReviewRecord {
   reviewedAt?: string;
   message?: string;
   reasonCodes?: string[];
+  annotationSummary?: string;
 }
 
 export interface UploadCleanupRecord {
@@ -160,6 +178,9 @@ export interface UploadCleanupRecord {
   cleanupScheduledAt?: string;
   cleanupReason?: string;
   referenced: boolean;
+  ownershipSummary?: string;
+  retentionSummary?: string;
+  cleanupSummary?: string;
 }
 
 export interface UploadReference {
@@ -169,6 +190,7 @@ export interface UploadReference {
   sourceContext?: SourceContextSnapshot;
   actorContext?: ActorContextSnapshot;
   attachedAt: string;
+  ownerSummary?: string;
 }
 
 export interface UploadTask {
@@ -188,6 +210,7 @@ export interface UploadTask {
   reviewStatus: UploadReviewStatus;
   reviewMessage?: string;
   lifecycle: UploadLifecycle;
+  ownershipSummary?: string;
 }
 
 export interface UploadSelectionRequest {

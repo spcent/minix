@@ -19,7 +19,14 @@ import { createStore, describeCapabilityStatus, ok, type AppKernel } from "@mini
 
 import {
   createDefaultMediaToolsState,
+  createDefaultShareAttributionDiagnosticsSummary,
+  createDefaultShareChannelReadinessSummary,
+  createDefaultShareFallbackSummary,
+  createDefaultUploadDerivedAssetSummary,
+  createDefaultUploadGovernanceSummary,
+  createDefaultUploadOwnershipSummary,
   createDefaultShareProviderSummary,
+  createDefaultUploadRetentionSummary,
   createDefaultShareAttribution,
   createDefaultUploadProviderSummary,
   type MediaToolsResult,
@@ -53,10 +60,22 @@ function cloneState(state: MediaToolsState): MediaToolsState {
     uploadCapabilitySummary: state.uploadCapabilitySummary,
     shareCapabilitySummary: state.shareCapabilitySummary,
     ...(state.uploadAsset ? { uploadAsset: structuredClone(state.uploadAsset) } : {}),
+    ...(state.uploadReviewRecord ? { uploadReviewRecord: structuredClone(state.uploadReviewRecord) } : {}),
+    ...(state.uploadCleanupRecord ? { uploadCleanupRecord: structuredClone(state.uploadCleanupRecord) } : {}),
+    uploadReferences: state.uploadReferences.map((reference) => structuredClone(reference)),
     ...(state.uploadError ? { uploadError: structuredClone(state.uploadError) } : {}),
+    uploadGovernanceSummary: state.uploadGovernanceSummary,
+    uploadOwnershipSummary: state.uploadOwnershipSummary,
+    uploadRetentionSummary: state.uploadRetentionSummary,
+    uploadDerivedAssetSummary: state.uploadDerivedAssetSummary,
     sharePayload: structuredClone(state.sharePayload),
     shareChannel: structuredClone(state.shareChannel),
     shareAttribution: structuredClone(state.shareAttribution),
+    ...(state.shareShortLinkRecord ? { shareShortLinkRecord: structuredClone(state.shareShortLinkRecord) } : {}),
+    ...(state.sharePosterAsset ? { sharePosterAsset: structuredClone(state.sharePosterAsset) } : {}),
+    shareChannelReadinessSummary: state.shareChannelReadinessSummary,
+    shareFallbackSummary: state.shareFallbackSummary,
+    shareAttributionDiagnosticsSummary: state.shareAttributionDiagnosticsSummary,
     usageExamples: [...state.usageExamples],
     ...(state.lastResult ? { lastResult: { ...state.lastResult } } : {}),
   };
@@ -73,6 +92,33 @@ function deriveUploadProviderSummary(response: UploadPipelineResponse): string {
   return providerMode === "production"
     ? `Upload review is backed by ${provider}, and asset storage resolves through ${storageProvider ?? "configured object storage"} for this workspace.`
     : `Upload review and storage posture remains sample-backed through ${provider} and ${storageProvider ?? "sample-object-storage"} for this workspace.`;
+}
+
+function deriveUploadOwnershipSummary(response: UploadPipelineResponse): string {
+  return (
+    response.uploadTask.ownershipSummary ??
+    response.uploadAsset?.ownershipSummary ??
+    response.cleanupRecord?.ownershipSummary ??
+    response.references?.[0]?.ownerSummary ??
+    createDefaultUploadOwnershipSummary()
+  );
+}
+
+function deriveUploadGovernanceSummary(response: UploadPipelineResponse): string {
+  return response.uploadTask.governance.governanceSummary ?? createDefaultUploadGovernanceSummary();
+}
+
+function deriveUploadRetentionSummary(response: UploadPipelineResponse): string {
+  return (
+    response.uploadTask.lifecycle.retentionSummary ??
+    response.cleanupRecord?.retentionSummary ??
+    response.cleanupRecord?.cleanupSummary ??
+    createDefaultUploadRetentionSummary()
+  );
+}
+
+function deriveUploadDerivedAssetSummary(response: UploadPipelineResponse): string {
+  return response.uploadAsset?.derivedAssetSummary ?? createDefaultUploadDerivedAssetSummary();
 }
 
 function deriveShareProviderSummary(
@@ -101,6 +147,52 @@ function deriveShareProviderSummary(
   }
 
   return createDefaultShareProviderSummary();
+}
+
+function deriveShareChannelReadinessSummary(
+  response:
+    | SharePrepareResponse
+    | ShareReturnRecognitionResponse
+    | ShareShortLinkResolveResponse
+    | ShareAttributionReportResponse,
+): string {
+  return (
+    response.shareChannel.readinessSummary ??
+    response.shortLinkRecord?.readinessSummary ??
+    response.posterAsset?.readinessSummary ??
+    response.sharePayload.readinessSummary ??
+    createDefaultShareChannelReadinessSummary()
+  );
+}
+
+function deriveShareFallbackSummary(
+  response:
+    | SharePrepareResponse
+    | ShareReturnRecognitionResponse
+    | ShareShortLinkResolveResponse
+    | ShareAttributionReportResponse,
+): string {
+  return (
+    response.shareChannel.fallbackSummary ??
+    response.posterAsset?.fallbackSummary ??
+    createDefaultShareFallbackSummary()
+  );
+}
+
+function deriveShareAttributionDiagnosticsSummary(
+  response:
+    | SharePrepareResponse
+    | ShareReturnRecognitionResponse
+    | ShareShortLinkResolveResponse
+    | ShareAttributionReportResponse,
+): string {
+  return (
+    response.shareAttribution.recognitionSummary ??
+    response.shareAttribution.replaySummary ??
+    response.shortLinkRecord?.diagnosticsSummary ??
+    response.shareAttribution.inviteBindingSummary ??
+    createDefaultShareAttributionDiagnosticsSummary()
+  );
 }
 
 export function createMediaToolsController(options: CreateMediaToolsControllerOptions) {
@@ -216,7 +308,14 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
       uploadProviderSummary: deriveUploadProviderSummary(response),
       uploadTask: response.uploadTask,
       uploadAsset: response.uploadAsset,
+      uploadReviewRecord: response.reviewRecord,
+      uploadCleanupRecord: response.cleanupRecord,
+      uploadReferences: response.references ?? [],
       uploadError: response.uploadError,
+      uploadGovernanceSummary: deriveUploadGovernanceSummary(response),
+      uploadOwnershipSummary: deriveUploadOwnershipSummary(response),
+      uploadRetentionSummary: deriveUploadRetentionSummary(response),
+      uploadDerivedAssetSummary: deriveUploadDerivedAssetSummary(response),
       lastResult: {
         status: response.uploadError ? "failed" : "succeeded",
         message:
@@ -521,7 +620,12 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
             sharePayload: resolved.value.sharePayload,
             shareChannel: resolved.value.shareChannel,
             shareAttribution: resolved.value.shareAttribution,
+            shareShortLinkRecord: resolved.value.shortLinkRecord,
+            sharePosterAsset: resolved.value.posterAsset,
             shareProviderSummary: deriveShareProviderSummary(resolved.value),
+            shareChannelReadinessSummary: deriveShareChannelReadinessSummary(resolved.value),
+            shareFallbackSummary: deriveShareFallbackSummary(resolved.value),
+            shareAttributionDiagnosticsSummary: deriveShareAttributionDiagnosticsSummary(resolved.value),
           });
         }
       }
@@ -552,7 +656,12 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
         sharePayload: recognized.value.sharePayload,
         shareChannel: recognized.value.shareChannel,
         shareAttribution: recognized.value.shareAttribution,
+        shareShortLinkRecord: recognized.value.shortLinkRecord,
+        sharePosterAsset: recognized.value.posterAsset,
         shareProviderSummary: deriveShareProviderSummary(recognized.value),
+        shareChannelReadinessSummary: deriveShareChannelReadinessSummary(recognized.value),
+        shareFallbackSummary: deriveShareFallbackSummary(recognized.value),
+        shareAttributionDiagnosticsSummary: deriveShareAttributionDiagnosticsSummary(recognized.value),
         lastResult: {
           status: "succeeded",
           message:
@@ -589,7 +698,12 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
         sharePayload: result.value.sharePayload,
         shareChannel: result.value.shareChannel,
         shareAttribution: result.value.shareAttribution,
+        shareShortLinkRecord: result.value.shortLinkRecord,
+        sharePosterAsset: result.value.posterAsset,
         shareProviderSummary: deriveShareProviderSummary(result.value),
+        shareChannelReadinessSummary: deriveShareChannelReadinessSummary(result.value),
+        shareFallbackSummary: deriveShareFallbackSummary(result.value),
+        shareAttributionDiagnosticsSummary: deriveShareAttributionDiagnosticsSummary(result.value),
         lastResult: {
           status: "succeeded",
           message: "Share attribution report loaded.",

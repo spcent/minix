@@ -44,6 +44,7 @@ export interface SharePayload {
   sourceContext?: SourceContextSnapshot;
   landingTarget?: ShareLandingTarget;
   returnTarget?: AuthRedirectTarget;
+  readinessSummary?: string;
 }
 
 export interface ShareChannel {
@@ -51,6 +52,8 @@ export interface ShareChannel {
   label: string;
   executable: boolean;
   channelMarker?: string;
+  readinessSummary?: string;
+  fallbackSummary?: string;
 }
 
 export interface ShareAttribution {
@@ -71,6 +74,9 @@ export interface ShareAttribution {
   lastLandingPath?: string;
   inviteBoundUserId?: string;
   returnTarget?: AuthRedirectTarget;
+  recognitionSummary?: string;
+  replaySummary?: string;
+  inviteBindingSummary?: string;
 }
 
 export interface ShareShortLinkRecord {
@@ -84,6 +90,8 @@ export interface ShareShortLinkRecord {
   createdAt: string;
   resolvedCount: number;
   lastResolvedAt?: string;
+  readinessSummary?: string;
+  diagnosticsSummary?: string;
 }
 
 export interface SharePosterAsset {
@@ -94,6 +102,8 @@ export interface SharePosterAsset {
   thumbnailUrl?: string;
   createdAt: string;
   expiresAt?: string;
+  readinessSummary?: string;
+  fallbackSummary?: string;
 }
 
 export interface ShareAttributionReport {

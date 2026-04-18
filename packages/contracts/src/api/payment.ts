@@ -180,6 +180,7 @@ export interface Order {
   totalAmountCents: number;
   idempotencyKey?: string;
   duplicateProtected: boolean;
+  idempotencySummary?: string;
   source?: string;
   novelId?: string;
   chapterId?: string;
@@ -194,6 +195,8 @@ export interface PaymentIntent {
   channel: PaymentChannel;
   status: PaymentIntentStatus;
   clientAction: PaymentClientAction;
+  capabilitySummary?: string;
+  executionSummary?: string;
   clientPayload?: Record<string, string | number | boolean>;
   gatewayReference?: PaymentGatewayReference;
   gatewayRequest?: PaymentGatewayExecutionRequest;
@@ -208,12 +211,16 @@ export interface PaymentResult {
   duplicateProtected: boolean;
   callbackVerified: boolean;
   message: string;
+  continuitySummary?: string;
+  duplicateProtectionSummary?: string;
   polledAt?: string;
 }
 
 export interface PaymentCallbackVerification {
   status: PaymentCallbackVerificationStatus;
   message: string;
+  diagnosticsSummary?: string;
+  operatorActionSummary?: string;
   verifiedAt?: string;
   callbackReference?: string;
 }
@@ -221,6 +228,8 @@ export interface PaymentCallbackVerification {
 export interface PaymentReconciliation {
   status: PaymentReconciliationStatus;
   message: string;
+  diagnosticsSummary?: string;
+  ledgerAuditSummary?: string;
   checkedAt?: string;
   mismatchReason?: string;
 }
@@ -231,6 +240,7 @@ export interface PaymentOperationResult {
   orderStatus: OrderStatus;
   paymentStatus: PaymentResultStatus;
   message: string;
+  continuitySummary?: string;
   processedAt: string;
   assetLedgerIds?: string[];
 }
@@ -268,6 +278,7 @@ export interface AfterSalesCase {
   status: AfterSalesStatus;
   title: string;
   resultLabel: string;
+  continuitySummary?: string;
   reason?: string;
   refundAmountCents?: number;
   createdAt: string;

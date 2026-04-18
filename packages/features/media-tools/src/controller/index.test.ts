@@ -172,12 +172,17 @@ function createKernelStub() {
                 pagePath: "/workspace/media-tools",
                 label: "Media Tools",
               },
+              readinessSummary:
+                "Invite payload is prepared for copy_link. Short-link handoff is prepared. Poster delivery is not required.",
             },
             shareChannel: {
               kind: "copy_link",
               label: "Copy Link",
               executable: true,
               channelMarker: "host-h5-demo",
+              readinessSummary:
+                "copy_link is normalized in shared state. Share infrastructure remains sample-backed. Short-link delivery is available. Poster delivery is not required.",
+              fallbackSummary: "Clipboard copy remains the normalized fallback for link-style share flows.",
             },
             shareAttribution: {
               attributionId: "share_prepare_1",
@@ -287,6 +292,10 @@ function createKernelStub() {
               lastReturnAt: "2026-04-08T09:40:00.000Z",
               lastLandingPath: "/login",
               inviteBoundUserId: "shared-user",
+              recognitionSummary: "Share counts are 1 sent, 1 clicked, 1 returned, and 1 converted.",
+              replaySummary: "Short-link replay has been resolved 1 time.",
+              inviteBindingSummary:
+                "Invite binding is active and last recognized user shared-user is attached to the attribution record.",
             },
             shortLinkRecord: {
               attributionId: "share_prepare_1",
@@ -297,6 +306,8 @@ function createKernelStub() {
               createdAt: "2026-04-08T09:39:00.000Z",
               resolvedCount: 1,
               lastResolvedAt: "2026-04-08T09:40:00.000Z",
+              readinessSummary: "Short-link delivery remains sample-backed through sample-short-link.",
+              diagnosticsSummary: "Short-link has resolved 1 time, last at 2026-04-08T09:40:00.000Z.",
             },
             posterAsset: {
               assetId: "share_poster_share1",
@@ -549,12 +560,17 @@ function createKernelStub() {
               channelMarker: "host-h5-demo",
               inviteCode: "MINIX42",
               shareToken: "share_prepare_1",
+              readinessSummary:
+                "Invite payload is prepared for copy_link. Short-link handoff is prepared. Poster delivery is prepared.",
             },
             shareChannel: {
               kind: "copy_link",
               label: "Copy Link",
               executable: true,
               channelMarker: "host-h5-demo",
+              readinessSummary:
+                "copy_link is normalized in shared state. Share infrastructure remains sample-backed. Short-link delivery is available. Poster delivery is available.",
+              fallbackSummary: "Clipboard copy remains the normalized fallback for link-style share flows.",
             },
             shareAttribution: {
               attributionId: "share_prepare_1",
@@ -654,6 +670,10 @@ function createKernelStub() {
               lastReturnAt: "2026-04-08T09:40:00.000Z",
               lastLandingPath: "/login",
               inviteBoundUserId: "shared-user",
+              recognitionSummary: "Share counts are 1 sent, 1 clicked, 1 returned, and 1 converted.",
+              replaySummary: "Short-link replay has been resolved 1 time.",
+              inviteBindingSummary:
+                "Invite binding is active and last recognized user shared-user is attached to the attribution record.",
             },
             shortLinkRecord: {
               attributionId: "share_prepare_1",
@@ -664,12 +684,17 @@ function createKernelStub() {
               createdAt: "2026-04-08T09:39:00.000Z",
               resolvedCount: 1,
               lastResolvedAt: "2026-04-08T09:40:00.000Z",
+              readinessSummary: "Short-link delivery remains sample-backed through sample-short-link.",
+              diagnosticsSummary: "Short-link has resolved 1 time, last at 2026-04-08T09:40:00.000Z.",
             },
             posterAsset: {
               assetId: "share_poster_share1",
               provider: "sample",
               url: "https://example.test/posters/share1.svg",
               createdAt: "2026-04-08T09:39:00.000Z",
+              readinessSummary: "Poster generation remains sample-backed through sample.",
+              fallbackSummary:
+                "Poster delivery can still fall back to copy-link or save-image behavior in the host runtime.",
             },
             attributionReport: {
               shareAttribution: {
@@ -894,6 +919,8 @@ function createKernelStub() {
                 acceptedFileTypes: ["image", "pdf", "attachment"],
                 sensitiveReviewRequired: true,
                 expiresInDays: 30,
+                governanceSummary:
+                  "Upload accepts image, pdf, and attachment up to 9.5 MB. Sensitive review remains enabled for this upload flow. Retention expires after 30 days unless a business reference keeps the asset active.",
               },
               reviewStatus: "pending",
               reviewMessage: "Sensitive review is pending in the upload pipeline.",
@@ -905,7 +932,11 @@ function createKernelStub() {
                 canCancel: true,
                 lastTransitionAt: "2026-04-08T10:03:00.000Z",
                 expiresAt: "2026-05-08T10:00:00.000Z",
+                retentionSummary:
+                  "Retention remains active until 2026-05-08T10:00:00.000Z unless the asset is cleaned earlier.",
+                cleanupSummary: "Cleanup is not scheduled while the upload remains active or under review.",
               },
+              ownershipSummary: "Asset ownership is not yet bound to a business record.",
             },
             uploadAsset: {
               assetId: "asset_backend_1",
@@ -917,7 +948,43 @@ function createKernelStub() {
                 sizeBytes: 100,
                 checksum: uploadTransfer.fileChecksum,
                 checksumAlgorithm: "sha256",
+                variants: [
+                  {
+                    kind: "original",
+                    url: "https://example.test/uploads/asset_backend_1",
+                    label: "Original asset",
+                  },
+                  {
+                    kind: "thumbnail",
+                    url: "https://example.test/uploads/asset_backend_1/thumb",
+                    label: "Thumbnail",
+                  },
+                ],
+                reviewAnnotations: [
+                  "Review status: pending.",
+                  "Provider: sample-upload-policy.",
+                  "Sensitive review is pending in the upload pipeline.",
+                ],
               },
+              derivedAssetSummary: "2 derived asset variants are available. Primary asset metadata is file-level only.",
+              ownershipSummary: "Asset ownership is not yet bound to a business record.",
+            },
+            reviewRecord: {
+              status: "pending",
+              provider: "sample-upload-policy",
+              providerMode: "sample",
+              storageProvider: "sample-object-storage",
+              message: "Sensitive review is pending in the upload pipeline.",
+              annotationSummary:
+                "Review status: pending. Provider: sample-upload-policy. Sensitive review is pending in the upload pipeline.",
+            },
+            cleanupRecord: {
+              retentionStatus: "active",
+              referenced: false,
+              ownershipSummary: "Asset ownership is not yet bound to a business record.",
+              retentionSummary:
+                "Retention remains active until 2026-05-08T10:00:00.000Z unless the asset is cleaned earlier.",
+              cleanupSummary: "Cleanup is not scheduled while the upload remains active or under review.",
             },
           } as T);
         }
@@ -1013,6 +1080,8 @@ function createKernelStub() {
                 acceptedFileTypes: ["image", "pdf", "attachment"],
                 sensitiveReviewRequired: true,
                 expiresInDays: 30,
+                governanceSummary:
+                  "Upload accepts image, pdf, and attachment up to 9.5 MB. Sensitive review remains enabled for this upload flow. Retention expires after 30 days unless a business reference keeps the asset active.",
               },
               reviewStatus: "pending",
               reviewMessage: "Upload cancelled: user_cancelled.",
@@ -1024,7 +1093,11 @@ function createKernelStub() {
                 canCancel: false,
                 lastTransitionAt: "2026-04-08T10:06:00.000Z",
                 expiresAt: "2026-05-08T10:00:00.000Z",
+                retentionSummary: "Retention is scheduled for cleanup at 2026-04-08T10:06:00.000Z.",
+                cleanupSummary:
+                  "Cleanup is pending for this upload. Cleanup is queued for 2026-04-08T10:06:00.000Z. Reason: user_cancelled.",
               },
+              ownershipSummary: "Asset ownership is not yet bound to a business record.",
             },
             uploadAsset: {
               assetId: "asset_backend_1",
@@ -1034,7 +1107,21 @@ function createKernelStub() {
               thumbnailUrl: "https://example.test/uploads/asset_backend_1/thumb",
               metadata: {
                 sizeBytes: 100,
+                variants: [
+                  {
+                    kind: "original",
+                    url: "https://example.test/uploads/asset_backend_1",
+                    label: "Original asset",
+                  },
+                  {
+                    kind: "thumbnail",
+                    url: "https://example.test/uploads/asset_backend_1/thumb",
+                    label: "Thumbnail",
+                  },
+                ],
               },
+              derivedAssetSummary: "2 derived asset variants are available. Primary asset metadata is file-level only.",
+              ownershipSummary: "Asset ownership is not yet bound to a business record.",
             },
             uploadError: {
               code: "UPLOAD_CANCELLED",
@@ -1042,6 +1129,16 @@ function createKernelStub() {
               recoverable: true,
               retryable: true,
               stage: "canceled",
+            },
+            cleanupRecord: {
+              retentionStatus: "scheduled_cleanup",
+              cleanupScheduledAt: "2026-04-08T10:06:00.000Z",
+              cleanupReason: "user_cancelled",
+              referenced: false,
+              ownershipSummary: "Asset ownership is not yet bound to a business record.",
+              retentionSummary: "Retention is scheduled for cleanup at 2026-04-08T10:06:00.000Z.",
+              cleanupSummary:
+                "Cleanup is pending for this upload. Cleanup is queued for 2026-04-08T10:06:00.000Z. Reason: user_cancelled.",
             },
           } as T);
         }
@@ -1137,6 +1234,12 @@ test("media-tools controller stores upload contract output after the primary act
   assert.equal(controller.store.getState().uploadTask.stage, "reviewing");
   assert.equal(controller.store.getState().uploadTask.lifecycle.backendBacked, true);
   assert.equal(controller.store.getState().uploadAsset?.assetId, "asset_backend_1");
+  assert.equal(controller.store.getState().uploadGovernanceSummary.includes("Sensitive review remains enabled"), true);
+  assert.equal(controller.store.getState().uploadRetentionSummary.includes("Retention remains active until"), true);
+  assert.equal(controller.store.getState().uploadOwnershipSummary, "Asset ownership is not yet bound to a business record.");
+  assert.equal(controller.store.getState().uploadDerivedAssetSummary.includes("derived asset variants"), true);
+  assert.equal(controller.store.getState().uploadReviewRecord?.annotationSummary?.includes("Review status: pending."), true);
+  assert.equal(controller.store.getState().uploadCleanupRecord?.cleanupSummary?.includes("Cleanup is not scheduled"), true);
   assert.equal(controller.store.getState().lastResult?.status, "succeeded");
   assert.equal(controller.store.getState().uploadProviderSummary.includes("sample-upload-policy"), true);
 });
@@ -1154,6 +1257,7 @@ test("media-tools controller can cancel and retry the backend-backed upload task
   assert.equal(controller.store.getState().uploadTask.stage, "canceled");
   assert.equal(controller.store.getState().uploadTask.lifecycle.canRetry, true);
   assert.equal(controller.store.getState().uploadError?.code, "UPLOAD_CANCELLED");
+  assert.equal(controller.store.getState().uploadRetentionSummary.includes("scheduled for cleanup"), true);
 
   await controller.retryPrimaryAction();
 
@@ -1176,6 +1280,9 @@ test("media-tools controller stores share contract output after the secondary ac
   assert.equal(controller.store.getState().shareAttribution.clickCount, 1);
   assert.equal(controller.store.getState().shareAttribution.returnCount, 1);
   assert.equal(controller.store.getState().shareAttribution.conversionCount, 1);
+  assert.equal(controller.store.getState().shareChannelReadinessSummary.length > 0, true);
+  assert.equal(controller.store.getState().shareFallbackSummary.length > 0, true);
+  assert.equal(controller.store.getState().shareAttributionDiagnosticsSummary.length > 0, true);
   assert.equal(controller.store.getState().sharePayload.sourceContext?.pagePath, "/workspace/media-tools");
   assert.equal(controller.store.getState().shareAttribution.actorContext?.userId, "shared-user");
   assert.equal(controller.store.getState().lastResult?.message.includes("Share link copied"), true);
@@ -1217,6 +1324,7 @@ test("media-tools controller can load the attribution report after share resolut
   assert.equal(controller.store.getState().shareAttribution.returnCount, 1);
   assert.equal(controller.store.getState().shareAttribution.conversionCount, 1);
   assert.equal(controller.store.getState().sharePayload.posterImageUrl, "https://example.test/posters/share1.svg");
+  assert.equal(controller.store.getState().shareChannelReadinessSummary.length > 0, true);
   assert.equal(controller.store.getState().lastResult?.message, "Share attribution report loaded.");
   assert.equal(controller.store.getState().shareProviderSummary.includes("sample-backed"), true);
 });
@@ -1345,6 +1453,7 @@ test("media-tools controller surfaces production share provider posture from att
   assert.equal(controller.store.getState().shareProviderSummary.includes("branch-io"), true);
   assert.equal(controller.store.getState().shareProviderSummary.includes("canvas-render-service"), true);
   assert.equal(controller.store.getState().shareProviderSummary.includes("sample-backed"), false);
+  assert.equal(controller.store.getState().shareChannelReadinessSummary.length > 0, true);
 });
 
 test("media-tools controller can route into settings when configured", async () => {

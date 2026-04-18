@@ -2019,18 +2019,25 @@ test("upload endpoints support session, chunk, complete, attach, retry, and canc
       stage: string;
       chunkingReserved: boolean;
       uploadedChunkCount?: number;
-      lifecycle: { backendBacked: boolean; canCancel: boolean };
+      governance: { governanceSummary?: string };
+      lifecycle: { backendBacked: boolean; canCancel: boolean; retentionSummary?: string };
+      ownershipSummary?: string;
     };
-    uploadAsset?: { assetId: string; url: string };
+    uploadAsset?: { assetId: string; url: string; derivedAssetSummary?: string; metadata?: { variants?: unknown[] } };
   };
   assert.equal(created.source, "backend_session");
   assert.equal(created.uploadTask.stage, "uploading");
   assert.equal(created.uploadTask.lifecycle.backendBacked, true);
   assert.equal(created.uploadTask.lifecycle.canCancel, true);
   assert.equal(created.uploadTask.chunkingReserved, false);
+  assert.equal(created.uploadTask.governance.governanceSummary?.includes("Sensitive review remains enabled"), true);
+  assert.equal(created.uploadTask.lifecycle.retentionSummary?.includes("Retention remains active until"), true);
+  assert.equal(created.uploadTask.ownershipSummary, "Asset ownership is not yet bound to a business record.");
   assert.equal(created.session?.nextChunkIndex, 0);
   assert.equal(created.transfer?.chunks.length, 4);
   assert.equal(Boolean(created.uploadAsset?.assetId), true);
+  assert.equal(created.uploadAsset?.derivedAssetSummary?.includes("derived asset variant"), true);
+  assert.equal((created.uploadAsset?.metadata?.variants?.length ?? 0) >= 1, true);
 
   const firstChunkResponse = await app.request("http://localhost/uploads/chunk", {
     method: "POST",
@@ -2077,14 +2084,19 @@ test("upload endpoints support session, chunk, complete, attach, retry, and canc
   assert.equal(completeResponse.status, 200);
   const completed = (await completeResponse.json()) as {
     source: string;
-    uploadTask: { stage: string; reviewStatus: string; lifecycle: { canCancel: boolean } };
-    uploadAsset?: { assetId: string; metadata?: { checksum?: string } };
+    uploadTask: { stage: string; reviewStatus: string; lifecycle: { canCancel: boolean; cleanupSummary?: string } };
+    uploadAsset?: { assetId: string; derivedAssetSummary?: string; metadata?: { checksum?: string; reviewAnnotations?: string[] } };
+    reviewRecord?: { annotationSummary?: string };
   };
   assert.equal(completed.source, "backend_complete");
   assert.equal(completed.uploadTask.stage, "reviewing");
   assert.equal(completed.uploadTask.reviewStatus, "pending");
   assert.equal(completed.uploadTask.lifecycle.canCancel, true);
+  assert.equal(completed.reviewRecord?.annotationSummary?.includes("Review status: pending."), true);
+  assert.equal(completed.uploadTask.lifecycle.cleanupSummary?.includes("Cleanup is not scheduled"), true);
   assert.equal(completed.uploadAsset?.metadata?.checksum, created.transfer?.fileChecksum);
+  assert.equal(completed.uploadAsset?.derivedAssetSummary?.includes("derived asset variant"), true);
+  assert.equal(completed.uploadAsset?.metadata?.reviewAnnotations?.includes("Review status: pending."), true);
 
   const attachResponse = await app.request("http://localhost/uploads/attach", {
     method: "POST",
@@ -2101,11 +2113,14 @@ test("upload endpoints support session, chunk, complete, attach, retry, and canc
   assert.equal(attachResponse.status, 200);
   const attached = (await attachResponse.json()) as {
     source: string;
-    references?: Array<{ ownerType: string; ownerId: string; role: string }>;
+    uploadTask?: { ownershipSummary?: string };
+    references?: Array<{ ownerType: string; ownerId: string; role: string; ownerSummary?: string }>;
   };
   assert.equal(attached.source, "backend_attach");
   assert.equal(attached.references?.[0]?.ownerType, "content");
   assert.equal(attached.references?.[0]?.ownerId, "lesson_1");
+  assert.equal(attached.references?.[0]?.ownerSummary?.includes("lesson_1"), true);
+  assert.equal(attached.uploadTask?.ownershipSummary?.includes("lesson_1"), true);
 
   const assetResponse = await app.request(`http://localhost/uploads/assets/${completed.uploadAsset?.assetId}`, {
     headers: { authorization: `Bearer ${session.accessToken}` },
@@ -2123,13 +2138,16 @@ test("upload endpoints support session, chunk, complete, attach, retry, and canc
   assert.equal(cancelResponse.status, 200);
   const cancelled = (await cancelResponse.json()) as {
     source: string;
-    uploadTask: { stage: string; lifecycle: { canRetry: boolean; retentionStatus: string } };
+    uploadTask: { stage: string; lifecycle: { canRetry: boolean; retentionStatus: string; retentionSummary?: string } };
     uploadError?: { code: string };
+    cleanupRecord?: { cleanupSummary?: string };
   };
   assert.equal(cancelled.source, "backend_cancel");
   assert.equal(cancelled.uploadTask.stage, "canceled");
   assert.equal(cancelled.uploadTask.lifecycle.canRetry, true);
   assert.equal(cancelled.uploadTask.lifecycle.retentionStatus, "scheduled_cleanup");
+  assert.equal(cancelled.uploadTask.lifecycle.retentionSummary?.includes("scheduled for cleanup"), true);
+  assert.equal(cancelled.cleanupRecord?.cleanupSummary?.includes("user_cancelled"), true);
   assert.equal(cancelled.uploadError?.code, "UPLOAD_CANCELLED");
 
   const retryResponse = await app.request("http://localhost/uploads/retry", {
@@ -2224,16 +2242,18 @@ test("upload endpoints expose production storage and review posture through env-
   const created = (await sessionResponse.json()) as {
     session?: { sessionId: string };
     transfer?: { fileChecksum: string; checksumAlgorithm: "sha256"; chunks: Array<unknown> };
-    uploadAsset?: { url: string; thumbnailUrl?: string; coverImageUrl?: string };
-    reviewRecord?: { provider: string; providerMode?: string; storageProvider?: string };
-    uploadTask: { taskId: string };
+    uploadAsset?: { url: string; thumbnailUrl?: string; coverImageUrl?: string; metadata?: { variants?: unknown[] } };
+    reviewRecord?: { provider: string; providerMode?: string; storageProvider?: string; annotationSummary?: string };
+    uploadTask: { taskId: string; governance: { governanceSummary?: string } };
   };
   assert.equal(created.reviewRecord?.provider, "tencent-content-review");
   assert.equal(created.reviewRecord?.providerMode, "production");
   assert.equal(created.reviewRecord?.storageProvider, "cloudflare-r2");
+  assert.equal(created.uploadTask.governance.governanceSummary?.includes("Sensitive review remains enabled"), true);
   assert.equal(created.uploadAsset?.url.startsWith("https://assets.example.test/uploads/assets/"), true);
   assert.equal(created.uploadAsset?.thumbnailUrl?.startsWith("https://assets.example.test/uploads/assets/"), true);
   assert.equal(created.uploadAsset?.coverImageUrl, "https://example.test/local/production-cover.png");
+  assert.equal((created.uploadAsset?.metadata?.variants?.length ?? 0) >= 2, true);
 
   for (const chunk of created.transfer?.chunks ?? []) {
     const chunkResponse = await app.request(
@@ -2269,11 +2289,14 @@ test("upload endpoints expose production storage and review posture through env-
   assert.equal(completeResponse.status, 200);
   const completed = (await completeResponse.json()) as {
     uploadTask: { reviewMessage?: string };
-    reviewRecord?: { provider: string; providerMode?: string; storageProvider?: string; message?: string };
+    uploadAsset?: { metadata?: { reviewAnnotations?: string[] } };
+    reviewRecord?: { provider: string; providerMode?: string; storageProvider?: string; message?: string; annotationSummary?: string };
   };
   assert.equal(completed.reviewRecord?.provider, "tencent-content-review");
   assert.equal(completed.reviewRecord?.providerMode, "production");
   assert.equal(completed.reviewRecord?.storageProvider, "cloudflare-r2");
+  assert.equal(completed.reviewRecord?.annotationSummary?.includes("tencent-content-review"), true);
+  assert.equal(completed.uploadAsset?.metadata?.reviewAnnotations?.includes("Provider: tencent-content-review."), true);
   assert.equal(
     completed.uploadTask.reviewMessage,
     "Sensitive review is pending through the configured upload review provider.",
@@ -2335,9 +2358,10 @@ test("share endpoints preserve attribution through prepare and return recognitio
   assert.equal(prepareResponse.status, 200);
   const prepared = (await prepareResponse.json()) as {
     landingTarget: { path?: string; shortLink?: string; shortCode?: string; authRedirect?: { path?: string; source?: string } };
-    sharePayload: { shareToken?: string; shortLink?: string; sourceContext?: { pagePath?: string } };
-    shareAttribution: { attributionId?: string; preparedAt?: string; actorContext?: { userId?: string } };
-    shortLinkRecord?: { shortCode?: string; resolvedCount?: number };
+    sharePayload: { shareToken?: string; shortLink?: string; sourceContext?: { pagePath?: string }; readinessSummary?: string };
+    shareChannel: { readinessSummary?: string; fallbackSummary?: string };
+    shareAttribution: { attributionId?: string; preparedAt?: string; actorContext?: { userId?: string }; replaySummary?: string };
+    shortLinkRecord?: { shortCode?: string; resolvedCount?: number; readinessSummary?: string };
     attributionReport?: { shareAttribution?: { returnCount?: number } };
   };
   assert.equal(prepared.landingTarget.path, "/login");
@@ -2346,10 +2370,15 @@ test("share endpoints preserve attribution through prepare and return recognitio
   assert.equal(prepared.landingTarget.authRedirect?.path, "/workspace/media-tools");
   assert.equal(Boolean(prepared.sharePayload.shareToken), true);
   assert.equal(prepared.sharePayload.sourceContext?.pagePath, "/workspace/media-tools");
+  assert.equal(prepared.sharePayload.readinessSummary?.includes("Short-link handoff is prepared"), true);
+  assert.equal(prepared.shareChannel.readinessSummary?.includes("Short-link delivery is available"), true);
+  assert.equal(prepared.shareChannel.fallbackSummary?.includes("Clipboard copy"), true);
   assert.equal(Boolean(prepared.shareAttribution.attributionId), true);
   assert.equal(Boolean(prepared.shareAttribution.preparedAt), true);
   assert.equal(prepared.shareAttribution.actorContext?.userId, session.userId);
+  assert.equal(prepared.shareAttribution.replaySummary, "Short-link replay has not been resolved yet.");
   assert.equal(prepared.shortLinkRecord?.resolvedCount, 0);
+  assert.equal(prepared.shortLinkRecord?.readinessSummary?.includes("sample-backed"), true);
   assert.equal(prepared.attributionReport?.shareAttribution?.returnCount, 0);
 
   const resolveResponse = await app.request(
@@ -2380,7 +2409,10 @@ test("share endpoints preserve attribution through prepare and return recognitio
       conversionCount: number;
       inviteBoundUserId?: string;
       lastLandingPath?: string;
+      recognitionSummary?: string;
+      inviteBindingSummary?: string;
     };
+    shortLinkRecord?: { diagnosticsSummary?: string };
   };
   assert.equal(recognized.shareAttribution.returnFlowRecognized, true);
   assert.equal(recognized.shareAttribution.clickCount, 1);
@@ -2388,6 +2420,9 @@ test("share endpoints preserve attribution through prepare and return recognitio
   assert.equal(recognized.shareAttribution.conversionCount, 1);
   assert.equal(recognized.shareAttribution.inviteBoundUserId, session.userId);
   assert.equal(recognized.shareAttribution.lastLandingPath, "/login");
+  assert.equal(recognized.shareAttribution.recognitionSummary?.includes("1 returned"), true);
+  assert.equal(recognized.shareAttribution.inviteBindingSummary?.includes(session.userId), true);
+  assert.equal(recognized.shortLinkRecord?.diagnosticsSummary?.includes("resolved 1 time"), true);
 
   const reportResponse = await app.request(
     `http://localhost/share/report?attributionId=${prepared.shareAttribution.attributionId ?? ""}`,
@@ -2506,17 +2541,23 @@ test("share endpoints expose production short-link and poster posture through en
   );
   assert.equal(response.status, 200);
   const prepared = (await response.json()) as {
-    sharePayload?: { shortLink?: string; posterImageUrl?: string };
-    shortLinkRecord?: { shortLink?: string; provider?: string; providerMode?: string };
-    posterAsset?: { url?: string; provider?: string; providerMode?: string };
+    sharePayload?: { shortLink?: string; posterImageUrl?: string; readinessSummary?: string };
+    shareChannel?: { readinessSummary?: string };
+    shortLinkRecord?: { shortLink?: string; provider?: string; providerMode?: string; readinessSummary?: string };
+    posterAsset?: { url?: string; provider?: string; providerMode?: string; readinessSummary?: string; fallbackSummary?: string };
   };
   assert.equal(prepared.shortLinkRecord?.provider, "branch-io");
   assert.equal(prepared.shortLinkRecord?.providerMode, "production");
   assert.equal(prepared.shortLinkRecord?.shortLink, "https://mini.example.test/s/12345678");
+  assert.equal(prepared.shortLinkRecord?.readinessSummary?.includes("backed by branch-io"), true);
   assert.equal(prepared.sharePayload?.shortLink, "https://mini.example.test/s/12345678");
+  assert.equal(prepared.sharePayload?.readinessSummary?.includes("Poster delivery is prepared"), true);
+  assert.equal(prepared.shareChannel?.readinessSummary?.includes("Provider-backed share infrastructure is configured"), true);
   assert.equal(prepared.posterAsset?.provider, "canvas-render-service");
   assert.equal(prepared.posterAsset?.providerMode, "production");
   assert.equal(prepared.posterAsset?.url, "https://cdn.example.test/share-posters/12345678.svg");
+  assert.equal(prepared.posterAsset?.readinessSummary?.includes("canvas-render-service"), true);
+  assert.equal(prepared.posterAsset?.fallbackSummary?.includes("save-image"), true);
   assert.equal(prepared.sharePayload?.posterImageUrl, prepared.posterAsset?.url);
 });
 
@@ -2666,17 +2707,29 @@ test("pending membership orders can be confirmed by callback and reconciled", as
   assert.equal(callbackResponse.status, 200);
   const confirmed = (await callbackResponse.json()) as {
     order: { status: string };
-    paymentResult: { status: string; paid: boolean; callbackVerified: boolean };
-    callbackVerification: { status: string; callbackReference?: string };
-    operationResult?: { assetLedgerIds?: string[] };
+    paymentResult: { status: string; paid: boolean; callbackVerified: boolean; continuitySummary?: string };
+    callbackVerification: { status: string; callbackReference?: string; diagnosticsSummary?: string };
+    operationResult?: { assetLedgerIds?: string[]; continuitySummary?: string };
   };
   assert.equal(confirmed.order.status, "paid");
   assert.equal(confirmed.paymentResult.status, "success");
   assert.equal(confirmed.paymentResult.paid, true);
   assert.equal(confirmed.paymentResult.callbackVerified, true);
+  assert.equal(
+    confirmed.paymentResult.continuitySummary,
+    "The payment result is successful, but shared commerce continuity still depends on callback verification and reconciliation staying aligned.",
+  );
   assert.equal(confirmed.callbackVerification.status, "verified");
   assert.equal(confirmed.callbackVerification.callbackReference, "cb_sample_success");
+  assert.equal(
+    confirmed.callbackVerification.diagnosticsSummary,
+    "Callback verification completed and the shared order detail can now be trusted as the gateway source of truth.",
+  );
   assert.equal(confirmed.operationResult?.assetLedgerIds?.length, 3);
+  assert.equal(
+    confirmed.operationResult?.continuitySummary,
+    "Callback handling updated the shared order state, but reconciliation remains the follow-up continuity checkpoint.",
+  );
 
   const reconcileResponse = await app.request("http://localhost/payments/reconcile", {
     method: "POST",
@@ -2687,12 +2740,24 @@ test("pending membership orders can be confirmed by callback and reconciled", as
   });
   assert.equal(reconcileResponse.status, 200);
   const reconciled = (await reconcileResponse.json()) as {
-    reconciliation: { status: string };
-    operationResult: { operation: string; applied: boolean };
+    reconciliation: { status: string; diagnosticsSummary?: string; ledgerAuditSummary?: string };
+    operationResult: { operation: string; applied: boolean; continuitySummary?: string };
   };
   assert.equal(reconciled.reconciliation.status, "reconciled");
+  assert.equal(
+    reconciled.reconciliation.diagnosticsSummary,
+    "Reconciliation confirmed that stored order state, payment result, and callback posture are aligned.",
+  );
+  assert.equal(
+    reconciled.reconciliation.ledgerAuditSummary,
+    "Reconciliation and operation ledgers keep the append-only audit trail for this order.",
+  );
   assert.equal(reconciled.operationResult.operation, "reconcile");
   assert.equal(reconciled.operationResult.applied, true);
+  assert.equal(
+    reconciled.operationResult.continuitySummary,
+    "Reconciliation updated the canonical order detail without creating a second payment surface.",
+  );
 });
 
 test("production payment callbacks require signatures, reject replay, and persist ledgers", async () => {

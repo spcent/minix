@@ -196,6 +196,17 @@ export function createSubscriptionController(options: CreateSubscriptionControll
 
   function applyOrderDetailToState(current: SubscriptionState, detail: OrderDetailResponse): Partial<SubscriptionState> {
     const entitlement = detail.entitlement as SubscriptionState["entitlement"];
+    const paymentContinuitySummary =
+      detail.paymentResult.continuitySummary ??
+      detail.operationResult?.continuitySummary ??
+      detail.afterSalesCases?.[0]?.continuitySummary;
+    const diagnosticsParts = [
+      detail.paymentIntent.capabilitySummary,
+      detail.paymentIntent.executionSummary,
+      detail.callbackVerification.diagnosticsSummary,
+      detail.reconciliation.diagnosticsSummary,
+      detail.reconciliation.ledgerAuditSummary,
+    ].filter((value): value is string => Boolean(value));
     return {
       selectedOrderId: detail.order.orderId,
       order: detail.order,
@@ -203,6 +214,9 @@ export function createSubscriptionController(options: CreateSubscriptionControll
       paymentResult: detail.paymentResult,
       callbackVerification: detail.callbackVerification,
       reconciliation: detail.reconciliation,
+      paymentContinuitySummary,
+      paymentDiagnosticsSummary: diagnosticsParts.length > 0 ? diagnosticsParts.join(" ") : undefined,
+      afterSalesContinuitySummary: detail.afterSalesCases?.[0]?.continuitySummary,
       commerceDetailStatus: createDetailStatus("ready", {
         entryContext: "list",
         requestedDetailId: detail.order.orderId,
@@ -600,6 +614,14 @@ export function createSubscriptionController(options: CreateSubscriptionControll
               providerMode === "sample"
                 ? "Callback verification is pending until the sample gateway confirms the order."
                 : "Callback verification is pending until the gateway confirms the order.",
+            diagnosticsSummary:
+              providerMode === "sample"
+                ? "Callback verification is still waiting on the sample gateway payload."
+                : "Callback verification is still waiting on the production gateway payload.",
+            operatorActionSummary:
+              providerMode === "sample"
+                ? "Operators can still inspect callback and reconciliation evidence even while the gateway remains in explicit sample mode."
+                : "Operators can inspect callback and reconciliation evidence without changing the shared commerce envelope.",
           },
           reconciliation: {
             status: result.value.paymentResult.status === "success" ? "pending" : "not_required",
@@ -609,6 +631,11 @@ export function createSubscriptionController(options: CreateSubscriptionControll
                   ? "The sample order still needs reconciliation."
                   : "The order still needs reconciliation."
                 : "Reconciliation is not required for this transaction state.",
+            diagnosticsSummary:
+              result.value.paymentResult.status === "success"
+                ? "Reconciliation is still pending, so callback and order state should be treated as provisional continuity checkpoints."
+                : "Reconciliation is not required for the current payment posture.",
+            ledgerAuditSummary: "Callback and reconciliation ledgers will keep the append-only audit trail for this order.",
           },
           entitlement: result.value.entitlement,
         }),

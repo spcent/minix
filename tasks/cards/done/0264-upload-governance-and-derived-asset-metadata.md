@@ -85,8 +85,21 @@ Make upload assets, retention, ownership, and review posture more informative wi
 
 ## Acceptance
 
-- [ ] derived-asset metadata remains additive to the shared upload envelope
-- [ ] governance, retention, and ownership posture is clearer in shared state
-- [ ] upload stays one normalized pipeline across hosts
-- [ ] no host-specific upload fork is introduced
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] derived-asset metadata remains additive to the shared upload envelope
+- [x] governance, retention, and ownership posture is clearer in shared state
+- [x] upload stays one normalized pipeline across hosts
+- [x] no host-specific upload fork is introduced
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added additive upload-envelope fields for governance summaries, retention summaries, ownership summaries, review annotations, and derived variants in `packages/contracts/src/api/upload.ts`.
+- Updated `apps/api/src/domains/uploads/pipeline.ts` to keep one normalized upload pipeline while projecting governance, derived-asset, retention, cleanup, and reference-owner posture through `uploadTask`, `uploadAsset`, `reviewRecord`, `cleanupRecord`, and `references`.
+- Updated `packages/features/media-tools` to retain upload review, cleanup, and reference state together with host-visible governance, ownership, retention, and derived-asset summaries.
+- Synced `docs/BACKEND_CONTRACT.md` and `docs/ROADMAP.md` to the current upload-governance posture.
+
+## Verification Notes
+
+- `node --import tsx --test packages/features/media-tools/src/controller/index.test.ts`
+- `node --import tsx --test apps/api/src/app.test.ts`
+- `pnpm verify`

@@ -6,7 +6,9 @@ import type {
   OrderList,
   OrderListResponse,
   OrderSummary,
+  PaymentCallbackVerification,
   PaymentIntent,
+  PaymentReconciliation,
   PaymentReconciliationLedgerEntry,
   PaymentResult,
   PurchaseMembershipRequest,
@@ -32,6 +34,130 @@ import {
   resolveMembershipSku,
 } from "./catalog";
 import { createSubscriptionRecord } from "./subscriptions";
+
+function createOrderIdempotencySummary(input: {
+  duplicateProtected: boolean;
+  idempotencyKey?: string;
+}) {
+  if (input.duplicateProtected) {
+    return "Duplicate-payment protection reused the existing order outcome instead of creating a second charge.";
+  }
+  if (input.idempotencyKey) {
+    return "This order carries an idempotency key so repeated submits can be folded into the same commerce flow.";
+  }
+  return "This order does not carry an idempotency key, so repeated submits may create independent commerce attempts.";
+}
+
+function createPaymentIntentCapabilitySummary(input: {
+  platform: SessionRecord["platform"];
+  channel: Order["channel"];
+}) {
+  if (input.channel === "wechat_pay") {
+    return input.platform === "wechat"
+      ? "Native WeChat payment can continue through the shared payment bridge when the host capability is available."
+      : "WeChat payment was selected outside the WeChat runtime, so a host-native payment bridge is still required before execution can continue.";
+  }
+  if (input.channel === "h5_pay") {
+    return "H5 payment can continue through redirect-based execution and resume through the shared order detail surface.";
+  }
+  if (input.channel === "membership_purchase") {
+    return "Membership purchase resolves inside the shared commerce flow without a separate host-local payment wrapper.";
+  }
+  return "Virtual entitlement purchase resolves inside the shared commerce flow without a separate host-local payment wrapper.";
+}
+
+function createPaymentIntentExecutionSummary(input: {
+  providerMode: "sample" | "production";
+  pending: boolean;
+  channel: Order["channel"];
+}) {
+  const channelLabel = input.channel.replace("_", " ");
+  if (input.pending) {
+    return input.providerMode === "sample"
+      ? `The sample ${channelLabel} execution is waiting for callback confirmation and later reconciliation.`
+      : `${channelLabel} execution is waiting for verified callback confirmation and later reconciliation.`;
+  }
+  return input.providerMode === "sample"
+    ? `The sample ${channelLabel} execution completed, but callback verification and reconciliation still provide the continuity checkpoints.`
+    : `${channelLabel} execution completed, and callback verification plus reconciliation remain the continuity checkpoints.`;
+}
+
+function createPaymentResultContinuitySummary(input: {
+  status: PaymentResult["status"];
+  providerMode: "sample" | "production";
+}) {
+  switch (input.status) {
+    case "pending":
+      return input.providerMode === "sample"
+        ? "The order is held in pending continuity until the sample callback and reconciliation steps finish."
+        : "The order is held in pending continuity until verified callback and reconciliation steps finish.";
+    case "success":
+      return "The payment result is successful, but shared commerce continuity still depends on callback verification and reconciliation staying aligned.";
+    case "failure":
+      return "The payment result failed, so follow-up should focus on retry posture and ledger visibility instead of entitlement continuity.";
+    case "cancelled":
+      return "The order was cancelled before settlement, and shared commerce continuity now depends on reconciliation confirming the closed state.";
+    case "refunded":
+      return "The order moved into refund continuity, and shared after-sales plus ledger views remain the canonical follow-up surface.";
+    default:
+      return undefined;
+  }
+}
+
+function createDuplicateProtectionSummary(duplicateProtected: boolean) {
+  return duplicateProtected
+    ? "Duplicate-payment protection prevented a second charge and returned the stored order state."
+    : "No duplicate-payment guard was triggered for this commerce attempt.";
+}
+
+function createCallbackDiagnosticsSummary(input: {
+  status: PaymentCallbackVerification["status"];
+  providerMode: "sample" | "production";
+}) {
+  switch (input.status) {
+    case "pending":
+      return input.providerMode === "sample"
+        ? "Callback verification is still waiting on the sample gateway payload."
+        : "Callback verification is still waiting on the production gateway payload.";
+    case "verified":
+      return "Callback verification completed and the shared order detail can now be trusted as the gateway source of truth.";
+    case "rejected":
+      return "Callback verification rejected the payload, so operator follow-up should inspect signature, replay, or merchant configuration.";
+    default:
+      return undefined;
+  }
+}
+
+function createCallbackOperatorActionSummary(input: {
+  status: PaymentCallbackVerification["status"];
+  providerMode: "sample" | "production";
+}) {
+  if (input.status === "rejected") {
+    return input.providerMode === "sample"
+      ? "Inspect the sample callback payload and replay posture before retrying reconciliation."
+      : "Inspect webhook secret, merchant callback payload, and replay posture before retrying reconciliation.";
+  }
+  return input.providerMode === "sample"
+    ? "Operators can still inspect callback and reconciliation evidence even while the gateway remains in explicit sample mode."
+    : "Operators can inspect callback and reconciliation evidence without changing the shared commerce envelope.";
+}
+
+function createReconciliationDiagnosticsSummary(input: {
+  status: PaymentReconciliation["status"];
+}) {
+  switch (input.status) {
+    case "pending":
+      return "Reconciliation is still pending, so callback and order state should be treated as provisional continuity checkpoints.";
+    case "reconciled":
+      return "Reconciliation confirmed that stored order state, payment result, and callback posture are aligned.";
+    case "mismatch":
+      return "Reconciliation found a mismatch between stored order state and the latest payment result.";
+    case "not_required":
+      return "Reconciliation is not required for the current payment posture.";
+    default:
+      return undefined;
+  }
+}
 
 function createInitialPaymentMessage(input: {
   providerMode: "sample" | "production";
@@ -91,6 +217,10 @@ export function createMembershipOrderDetail(
     totalAmountCents: amountCents,
     ...(payload.idempotencyKey ? { idempotencyKey: payload.idempotencyKey } : {}),
     duplicateProtected,
+    idempotencySummary: createOrderIdempotencySummary({
+      duplicateProtected,
+      ...(payload.idempotencyKey ? { idempotencyKey: payload.idempotencyKey } : {}),
+    }),
     ...(payload.source ? { source: payload.source } : {}),
     ...(payload.novelId ? { novelId: payload.novelId } : {}),
     ...(payload.chapterId ? { chapterId: payload.chapterId } : {}),
@@ -114,12 +244,32 @@ export function createMembershipOrderDetail(
     providerMode,
     gatewayOrderId: gatewayExecution.response.gatewayOrderId,
   };
+  const paymentContinuitySummary = createPaymentResultContinuitySummary({
+    status: pending ? "pending" : "success",
+    providerMode,
+  });
+  const callbackDiagnosticsSummary = createCallbackDiagnosticsSummary({
+    status: "pending",
+    providerMode,
+  });
+  const reconciliationDiagnosticsSummary = createReconciliationDiagnosticsSummary({
+    status: "pending",
+  });
   const paymentIntent: PaymentIntent = {
     intentId: `pi_${orderId}`,
     orderId,
     channel,
     status: pending ? "processing" : "succeeded",
     clientAction: session.platform === "wechat" ? "wechat_sdk" : "h5_redirect",
+    capabilitySummary: createPaymentIntentCapabilitySummary({
+      platform: session.platform,
+      channel,
+    }),
+    executionSummary: createPaymentIntentExecutionSummary({
+      providerMode,
+      pending,
+      channel,
+    }),
     clientPayload: {
       orderId,
       channel,
@@ -152,6 +302,8 @@ export function createMembershipOrderDetail(
       pending,
       duplicateProtected,
     }),
+    duplicateProtectionSummary: createDuplicateProtectionSummary(duplicateProtected),
+    ...(paymentContinuitySummary ? { continuitySummary: paymentContinuitySummary } : {}),
     ...(pending ? {} : { polledAt: now }),
   };
   const entitlement = createMembershipEntitlement(payload.planId, orderId);
@@ -183,8 +335,19 @@ export function createMembershipOrderDetail(
     sku,
     paymentIntent,
     paymentResult,
-    callbackVerification: createPendingCallbackVerification(providerMode),
-    reconciliation: createPendingReconciliation(providerMode),
+    callbackVerification: {
+      ...createPendingCallbackVerification(providerMode),
+      ...(callbackDiagnosticsSummary ? { diagnosticsSummary: callbackDiagnosticsSummary } : {}),
+      operatorActionSummary: createCallbackOperatorActionSummary({
+        status: "pending",
+        providerMode,
+      }),
+    },
+    reconciliation: {
+      ...createPendingReconciliation(providerMode),
+      ...(reconciliationDiagnosticsSummary ? { diagnosticsSummary: reconciliationDiagnosticsSummary } : {}),
+      ledgerAuditSummary: "Callback and reconciliation ledgers will keep the append-only audit trail for this order.",
+    },
     paymentLedger: [
       createPaymentLedgerEntry({
         kind: "payment",
@@ -242,6 +405,10 @@ export function createProductOrderDetail(
     totalAmountCents: sku.amountCents,
     ...(payload.idempotencyKey ? { idempotencyKey: payload.idempotencyKey } : {}),
     duplicateProtected,
+    idempotencySummary: createOrderIdempotencySummary({
+      duplicateProtected,
+      ...(payload.idempotencyKey ? { idempotencyKey: payload.idempotencyKey } : {}),
+    }),
     ...(payload.source ? { source: payload.source } : {}),
     ...(payload.novelId ? { novelId: payload.novelId } : {}),
     ...(payload.chapterId ? { chapterId: payload.chapterId } : {}),
@@ -265,12 +432,32 @@ export function createProductOrderDetail(
     providerMode,
     gatewayOrderId: gatewayExecution.response.gatewayOrderId,
   };
+  const productPaymentContinuitySummary = createPaymentResultContinuitySummary({
+    status: pending ? "pending" : "success",
+    providerMode,
+  });
+  const productCallbackDiagnosticsSummary = createCallbackDiagnosticsSummary({
+    status: "pending",
+    providerMode,
+  });
+  const productReconciliationDiagnosticsSummary = createReconciliationDiagnosticsSummary({
+    status: "pending",
+  });
   const paymentIntent: PaymentIntent = {
     intentId: `pi_${orderId}`,
     orderId,
     channel,
     status: pending ? "processing" : "succeeded",
     clientAction: session.platform === "wechat" ? "wechat_sdk" : "h5_redirect",
+    capabilitySummary: createPaymentIntentCapabilitySummary({
+      platform: session.platform,
+      channel,
+    }),
+    executionSummary: createPaymentIntentExecutionSummary({
+      providerMode,
+      pending,
+      channel,
+    }),
     clientPayload: {
       orderId,
       channel,
@@ -304,6 +491,8 @@ export function createProductOrderDetail(
       duplicateProtected,
       title: sku.title,
     }),
+    duplicateProtectionSummary: createDuplicateProtectionSummary(duplicateProtected),
+    ...(productPaymentContinuitySummary ? { continuitySummary: productPaymentContinuitySummary } : {}),
     ...(pending ? {} : { polledAt: now }),
   };
   const entitlement =
@@ -334,8 +523,21 @@ export function createProductOrderDetail(
     sku,
     paymentIntent,
     paymentResult,
-    callbackVerification: createPendingCallbackVerification(providerMode),
-    reconciliation: createPendingReconciliation(providerMode),
+    callbackVerification: {
+      ...createPendingCallbackVerification(providerMode),
+      ...(productCallbackDiagnosticsSummary ? { diagnosticsSummary: productCallbackDiagnosticsSummary } : {}),
+      operatorActionSummary: createCallbackOperatorActionSummary({
+        status: "pending",
+        providerMode,
+      }),
+    },
+    reconciliation: {
+      ...createPendingReconciliation(providerMode),
+      ...(productReconciliationDiagnosticsSummary
+        ? { diagnosticsSummary: productReconciliationDiagnosticsSummary }
+        : {}),
+      ledgerAuditSummary: "Callback and reconciliation ledgers will keep the append-only audit trail for this order.",
+    },
     paymentLedger: [
       createPaymentLedgerEntry({
         kind: "payment",
