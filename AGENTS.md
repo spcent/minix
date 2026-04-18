@@ -48,6 +48,32 @@ Do not casually widen scope with new platform families, new top-level packages, 
 7. Update docs when behavior, workflow, release posture, or accepted exceptions change.
 8. Run validation from the repo root.
 
+## Feature Completion Rules
+
+When continuing an existing capability, prefer closing the whole shared slice instead of patching one host only.
+
+1. Normalize business outputs to the canonical domain envelopes in `docs/BACKEND_CONTRACT.md`.
+2. Reuse shared page protocols before inventing feature-local loading, detail, or form state.
+3. Keep route restore, selection restore, and unauthorized-return behavior inside shared controllers when the behavior is cross-host.
+4. Treat account and settings as summary workspaces; do not force them into fake list/detail shells.
+5. Keep provider posture explicit. If a production path still depends on operator rollout, fail closed in production mode and document it.
+6. When an intentional exception remains, record it in `docs/DOMAIN_COMPLETENESS_MATRIX.md` instead of hiding it in controller code or host copy.
+
+## API And Controller Rules
+
+- `packages/features/*` controllers should own normalized state, cross-host route synchronization, and action results.
+- `apps/api/src/domains/*` should return shared envelopes and keep provider-specific metadata additive rather than replacing the base shape.
+- Thin route entry files are preferred. Move shaping, persistence, and workflow logic into domain helpers when a route grows.
+- Do not add host-specific copy or host-only fallback semantics to shared controllers unless every official host consumes the same behavior.
+- Prefer extending existing envelopes such as `session`, `accountSummary`, `searchResults`, `uploadTask`, or `feedbackStatus` over adding sibling wrappers.
+
+## Test Expectations
+
+- Add or update controller tests when shared state, route restore, action lifecycle, or output projection changes.
+- Add or update API tests when request or response envelopes, provider posture, or domain workflow behavior changes.
+- Run `pnpm verify:feature <feature-name>` when a feature package changes.
+- Run `pnpm verify` before closeout unless the change is docs-only.
+
 ## Scaffolds
 
 Prefer existing scripts before creating files manually:

@@ -13,6 +13,17 @@ This file complements [`AGENTS.md`](../AGENTS.md). Keep it short, practical, and
 7. Regenerate derived files instead of editing generated outputs.
 8. Update docs when behavior or accepted exceptions change.
 
+## Completion Checklist
+
+Use this checklist when continuing feature or code completion work:
+
+1. Confirm whether the domain already has a canonical output in [`docs/BACKEND_CONTRACT.md`](./BACKEND_CONTRACT.md).
+2. Extend shared controller state before adding host-local wrappers or duplicate selectors.
+3. Reuse shared list/detail/form protocols unless the domain is an explicit exception.
+4. Keep provider-backed behavior explicit and production-safe; do not silently reuse sample fallbacks in production mode.
+5. Record any intentional exception or remaining rollout gap in [`docs/DOMAIN_COMPLETENESS_MATRIX.md`](./DOMAIN_COMPLETENESS_MATRIX.md).
+6. Add or update tests at the same layer where behavior changed.
+
 ## Where To Put Code
 
 ### Shared
@@ -51,6 +62,15 @@ Prefer thin `routes.ts` entry files and split large domains into `routes.<concer
 - hand-editing generated host manifests, registries, or WeChat shell files
 - rebuilding host-local wrappers around shared outputs when the contract can be normalized instead
 - moving domain logic back into `apps/api/src/app.ts`
+- hiding operator-owned rollout gaps inside sample-mode controller logic
+
+## Completion Heuristics
+
+- If the same behavior should appear on more than one official host, prefer shared controller or contract changes first.
+- If only one host differs because of runtime capability, keep the difference in `packages/platform-*` or the host manifest.
+- If a route returns a shape that another host or controller would also need, normalize the API envelope instead of adapting it in one caller.
+- If a feature starts carrying route restore, detail status, or submit lifecycle by hand, stop and check whether an existing page protocol should own it.
+- If a production rollout is not in-repo, keep the repo side explicit and document the remaining operator step instead of simulating completeness.
 
 ## Validation
 

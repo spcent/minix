@@ -195,97 +195,58 @@ Minimal UI primitives and shells:
 
 ---
 
-# MiniX v0.1 Architecture
+## 5. Current Repository Shape
 
-## Scope
+The repository is now frozen to the `v1.0.0` sample surface:
 
-`v0.1` only validates one core path:
-
-`bootstrap -> ensureLogin -> request -> items page -> settings -> logout`
-
-The implementation target is WeChat Mini Program first. H5 only exists to verify that shared abstractions are not WeChat-specific.
-
-## Frozen v1.0 Support Surface
-
-`v1.0` is frozen to four official sample apps:
-
+- `apps/api`
 - `apps/host-h5`
 - `apps/host-wechat`
 - `apps/novel-h5`
 - `apps/novel-wechat`
 
-The release goal is to make these four samples reliable under one explicit kernel contract, not to broaden MiniX into a larger framework.
+The goal is to keep these samples reliable under one explicit kernel contract. MiniX is not expanding into a broader rendering framework or new platform family in the current release line.
 
-## Production Readiness Boundary
-
-The repository now distinguishes between:
-
-- release-complete shared behavior and sample-host coverage
-- operator-owned external setup such as real provider credentials, WeChat console allowlists, and Cloudflare resource ids
-
-That boundary is intentional. MiniX `v1.0.0` freezes a defensible official-sample system, not a credentials-in-repo turnkey SaaS deployment.
-
-For the exact release boundary, provider setup, capability support matrix, and accepted deferred issues, use [`docs/PRODUCTION_READINESS.md`](/docs/PRODUCTION_READINESS.md).
-
-## Layers
+## 6. Shared Code Placement
 
 ### Contracts
 
-Stable shared contracts live in `packages/contracts`:
+`packages/contracts` owns:
 
 - backend request and response shapes
 - route ids and route maps
-- feature-facing shared payload types
+- canonical domain output shapes
+- shared page and capability contracts
+
+When a domain surface changes across more than one host, change the contract first instead of adapting one caller locally.
 
 ### Core
 
-### Sample API Structure
+`packages/core` owns:
 
-The sample API under `apps/api/src` now follows the same explicit-boundary rule as the runtime packages.
-
-Use these layers:
-
-- `app.ts`: app creation plus top-level middleware only
-- `app-composition*.ts`: route-group wiring, security wiring, and job wiring
-- `http/*`: shared request parsing, auth header helpers, CORS, response helpers, and route-context loaders
-- `domains/*/routes.ts`: the public domain entry that mounts that domain's route tree
-- `domains/*/routes.*.ts`: domain-internal route slices split by business concern
-- `domains/*/route-options.ts`: the domain's route registration option type
-- `domains/*/route-helpers.ts`: domain-local helper wiring when a route family shares repeated orchestration
-
-The practical rule is:
-
-- composition layers import only each domain's `routes.ts`
-- `routes.ts` stays an assembly file
-- business HTTP handlers live in `routes.*.ts`
-- shared HTTP concerns go in `http/*`
-- cross-domain business derivation belongs in the existing domain modules, not back in `app.ts`
-
-Current reference examples:
-
-- `apps/api/src/domains/payment/routes.ts` assembles `routes.commerce.ts`, `routes.after-sales.ts`, and `routes.callbacks.ts`
-- `apps/api/src/domains/account/routes.ts` assembles `routes.identity.ts`, `routes.security.ts`, and `routes.relations.ts`
-
-When adding new API behavior, do not reopen a monolithic `routes.ts`, `app.ts`, or `data.ts` file. Extend the relevant domain slice or add a new `routes.*.ts` module under that domain instead.
-
-Shared business runtime lives in `packages/core`:
-
-- `src/ports/*`: host-facing contracts and adapter interfaces
+- `src/ports/*`: adapter-facing contracts
 - `src/runtime/*`: shared orchestration and service composition
-- `src/store/*`: cache, page models, and lightweight state containers
-- `src/error/*` and `src/types/*`: shared primitives used across the runtime
+- `src/store/*`: shared page models and state containers
+- `src/error/*` and `src/types/*`: runtime primitives
 
-Core code must not directly call `wx.*` or `window.*`.
+Cross-feature runtime helpers belong here, not inside one feature package.
 
 ### Features
 
-Reusable business logic lives in `packages/features/*`:
+`packages/features/*` owns:
 
-- `auth`
-- `items`
-- `settings`
+- normalized controller state
+- cross-host route synchronization
+- action lifecycle
+- feature-owned defaults and host-facing manifests
 
-Feature packages may depend on `contracts` and `core`, but not on platform packages.
+Feature packages may depend on `contracts` and `core`, but not on platform packages or host apps.
+
+When continuing an existing capability:
+
+- prefer extending the existing feature package over creating a sibling package
+- reuse canonical domain outputs instead of adding feature-local wrappers
+- reuse shared page protocols before inventing bespoke loading, detail, or form state
 
 ### Platform Adapters
 
@@ -294,91 +255,90 @@ Platform-specific code lives only in:
 - `packages/platform-wechat/src/adapters/*`
 - `packages/platform-h5/src/adapters/*`
 
-Adapters translate host APIs into stable core contracts.
+Adapters translate host APIs into stable core contracts. Shared code must not call `wx.*` or `window.*` directly.
 
-### Host Apps
+### Hosts
 
-`apps/host-wechat` and `apps/host-h5` prove the architecture with minimal host flows.
+Host apps own enablement and host-only policy, not shared business behavior.
 
-Host apps may orchestrate manifests, mock wiring, and platform registration, but they must not own shared business flows.
+Editable source of truth:
 
-Within each host, `src/manifest/page-definitions.ts` is the editable source of truth for page wiring:
+- `apps/*/src/manifest/page-definitions.ts`
 
-- host page enablement lives in `page-definitions.ts`
-- host-specific overrides such as route path, render mode, shell metadata, and UI policy live alongside each page definition
-- feature-owned defaults should stay in `packages/features/*`
-- generated `app.manifest.ts`, `page-manifest.ts`, `page-config.ts`, and `src/registrations/page-registry.ts` are derived outputs
-- `runtime.pages` is derived from generated registries instead of duplicated by hand
-- shell modules may call generic page-entry helpers, but should not define business behavior
+Derived outputs:
 
-This keeps the architecture explicit without introducing a unified view DSL: platform differences remain visible in host manifests and platform adapters, while shared business changes stay inside feature packages.
+- `src/manifest/app.manifest.ts`
+- `src/manifest/page-manifest.ts`
+- `src/manifest/page-config.ts`
+- `src/registrations/page-registry.ts`
+- WeChat shell outputs
 
-Within each host, `src/manifest/page-manifest.ts` is a runtime-loadable typed data module:
+Change the source manifest, then regenerate derived files. Do not patch generated host files manually.
 
-- route ids and route paths live in importable host page metadata
-- host route maps are derived from that metadata instead of handwritten duplicates
-- scripts and scaffolds should read the manifest directly instead of regex-parsing unrelated wiring files
+### Sample API
 
-Within each host, `src/manifest/page-definitions.ts` is the editable source of truth for host page definitions:
+The sample API under `apps/api/src` follows the same explicit-boundary rule.
 
-- feature flags and page definitions live behind explicit builder helpers so shape checks happen at the source boundary
-- `src/manifest/app.manifest.ts` is generated from that source instead of being hand-maintained
-- guards and scaffolds should update the source module, then regenerate derived host manifest files
-- protected-route recovery is evaluated by the shared manifest runtime, which preserves route id, path, params, source, and re-auth reason before redirecting to login
+Use these layers:
 
-Within each host, `src/manifest/page-config.ts` isolates host-owned configurable page state:
+- `app.ts`: app creation and top-level middleware only
+- `app-composition*.ts`: route-group and top-level wiring
+- `http/*`: shared request, auth-header, CORS, and response helpers
+- `domains/*/routes.ts`: domain entry and assembly
+- `domains/*/routes.*.ts`: domain-internal route slices
 
-- host page defaults stay outside kernel bootstrap assembly
-- guards and scaffolds can update configurable page coverage without parsing `app.manifest.ts`
+Practical rules:
 
-Within `apps/host-h5`, render coverage is also metadata-driven:
+- `app.ts` and composition layers stay thin
+- `routes.ts` stays an assembly file
+- business handlers and workflow shaping live in the domain slices
+- cross-domain business derivation stays in domain modules, not back in `app.ts`
 
-- `src/manifest/page-manifest.ts` declares whether a page uses `custom` or `generic` rendering
-- `src/render/page-registry.ts` exports the custom renderer registry for tooling and guards
+## 7. Completion Rules
 
-## Frozen v0.1 Contracts
+When continuing feature or code completion work, prefer closing the whole shared slice rather than patching a single host.
 
-The following contracts are allowed to shape the first implementation:
+Core rules:
 
-- `AppError` and `Result<T>`
-- `StorageAdapter`
-- `RequestAdapter`
-- `AuthAdapter`
-- `RouterAdapter`
-- minimal `UIAdapter`
+1. Normalize outputs to the canonical domain envelopes documented in [`docs/BACKEND_CONTRACT.md`](/docs/BACKEND_CONTRACT.md).
+2. Keep route restore, selection restore, unauthorized return, and shared action state inside shared controllers when the behavior is cross-host.
+3. Treat account and settings as summary workspaces; do not force them into fake list/detail shells.
+4. Keep provider posture explicit. If production behavior still depends on operator rollout, fail closed in production mode and document the remaining operator step.
+5. Record intentional exceptions or remaining rollout gaps in [`docs/DOMAIN_COMPLETENESS_MATRIX.md`](/docs/DOMAIN_COMPLETENESS_MATRIX.md) instead of burying them in host copy or controller drift.
 
-The following remain out of scope until the host proof validates the first path:
+## 8. Shared Protocol Posture
 
-- telemetry
-- capability detection
-- lifecycle abstraction
-- app kit and code generators
+MiniX prefers shared page protocols over feature-local state machines.
 
-## v1.0 Release Boundary
+Current posture:
 
-For `v1.0`, the official support promise is narrower than the broad capability list in the overview sections above.
+- list-like surfaces should use the shared list protocol
+- detail-like surfaces should use the shared detail protocol
+- workflow and submit surfaces should use the shared form protocol
+- account and settings remain explicit summary-workspace exceptions
+- reader remains an explicit immersive-runtime exception
+- auth login and identity handoff remain provider-aware workflow exceptions
 
-`v1.0` must support:
+If a feature starts duplicating list/detail/form state by hand, the architecture expectation is to stop and move that behavior back onto the shared protocol surface.
 
-- shared auth, request, session, router, storage, and minimal UI contracts
-- manifest-driven host wiring for `host-*` and `novel-*`
-- official H5 and WeChat samples for both the narrow shared flow and the richer novel flow
+## 9. Release Boundary
 
-`v1.0` does not yet promise:
+The repository distinguishes between:
 
-- a formal telemetry abstraction
-- a formal lifecycle abstraction
-- a formal capability abstraction
-- new platform targets beyond H5 and WeChat
-- a unified rendering layer across hosts
+- release-complete shared behavior and official-host coverage
+- operator-owned external setup such as real provider credentials, WeChat allowlists, and Cloudflare resource ids
 
-## Acceptance
+That split is intentional. `v1.0.0` is a defensible official-sample system, not a credentials-in-repo turnkey deployment.
 
-The architecture is considered valid only if:
+For exact release readiness and operator setup, use [`docs/PRODUCTION_READINESS.md`](/docs/PRODUCTION_READINESS.md) and [`docs/RELEASE_RUNBOOK.md`](/docs/RELEASE_RUNBOOK.md).
 
-1. the WeChat host completes the main flow
-2. all platform differences stay inside adapters
-3. services consistently return `Result<T>`
-4. adding a new items-style page does not require new core contracts
-5. route selection happens through route ids plus host route maps
-6. shared layers do not directly reference `wx.*` or `window.*`, and `pnpm verify` enforces that rule
+## 10. Validation And Acceptance
+
+Architecture changes are only acceptable when all of the following remain true:
+
+1. shared layers do not directly reference host globals
+2. platform differences stay in adapters or host manifests
+3. services and expected business failures stay on `Result<T>` or normalized app errors
+4. route selection stays manifest-driven through route ids and host metadata
+5. new shared behavior does not require hand-maintained duplicate route maps or generated-file edits
+6. validation continues to pass through `pnpm verify` and any relevant scoped feature or host checks
