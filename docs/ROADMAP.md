@@ -1,36 +1,262 @@
 # Roadmap
 
-## Current Scope
+This roadmap reflects the current `v1.0.0` repository posture. It is not a product wish list. It is a bounded view of what should be tightened next, what can be expanded safely, and what still requires an explicit scope decision.
 
-`v0.1` proves one shared product path across WeChat and H5:
+Use it together with:
 
-`login -> /auth/login -> protected /items -> settings -> logout`
+- [`../README.md`](../README.md)
+- [`./ARCHITECTURE.md`](./ARCHITECTURE.md)
+- [`./DOMAIN_COMPLETENESS_MATRIX.md`](./DOMAIN_COMPLETENESS_MATRIX.md)
+- [`./PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md)
 
-The current goal is architectural confidence, not product breadth.
+## Current Posture
 
-## Frozen v1.0 Support Surface
+The current official sample surface is:
 
-`v1.0` is frozen to four official sample apps:
-
+- `apps/api`
 - `apps/host-h5`
 - `apps/host-wechat`
 - `apps/novel-h5`
 - `apps/novel-wechat`
 
-The release goal is not to add more product breadth. It is to make these four samples reliable, explicit, and supportable under one shared MiniX kernel story.
+The repo has already completed the main shared-kernel work for:
 
-## Near-Term Priorities
+- canonical domain outputs
+- shared page-protocol adoption
+- shared account and settings summaries
+- discover and content-search normalization
+- cross-domain context envelopes
 
-1. Freeze the `v1.0` release contract, support matrix, and non-goals.
-2. Harden auth, session, request, and protected-route behavior across H5 and WeChat.
-3. Replace accidental mock-first release behavior with explicit environment selection.
-4. Keep host wiring manifest- and registry-driven.
-5. Add release-grade verification beyond static guards and unit tests.
-6. Align docs and sample hosts with the actual shipped support surface.
+The main remaining release gap is no longer kernel shape. It is operator rollout and evidence capture for provider-backed areas.
 
-## Deferred Until Scope Changes
+## Priority 0: Release Closure
 
-- new platform targets
-- new top-level shared packages without a strong boundary reason
-- broad UI abstraction layers
-- feature breadth unrelated to the frozen `v1.0` host and novel sample surface
+These are the only true short-term blockers for the frozen release surface:
+
+1. close auth provider rollout and callback readiness
+2. close message provider rollout and polling acceptance
+3. close payment merchant and callback rollout
+4. close upload provider and asset-host rollout
+5. close share provider and attribution rollout
+6. capture final release execution evidence and signoff
+
+Reference queue:
+
+- [`./DOMAIN_COMPLETENESS_MATRIX.md`](./DOMAIN_COMPLETENESS_MATRIX.md)
+- `tasks/cards/active/0241` through `0247`
+
+## Priority 1: Post-Release Hardening
+
+After release closure, the next safe improvements are still inside the current scope.
+
+### 1. Provider Adapters And Ops Hardening
+
+Keep the shared contracts stable, but improve the production path around them:
+
+- real SMS and OAuth provider adapters
+- real merchant and callback diagnostics
+- real upload storage and review backends
+- real short-link and poster providers
+- stronger environment validation and rollout checklists
+
+This should harden the existing domains, not widen them.
+
+Recommended cards:
+
+- [`../tasks/cards/active/0253-provider-adapters-and-ops-hardening.md`](../tasks/cards/active/0253-provider-adapters-and-ops-hardening.md)
+
+### 2. Verification And Evidence Automation
+
+The repo should reduce manual release drift further:
+
+- stronger remote verification around preview and production parity
+- clearer evidence capture for operator-owned rollout decisions
+- more targeted blackbox coverage for cross-host route restore, identity transitions, and provider-fallback posture
+- better regression guards for canonical output envelopes and protocol exceptions
+
+Recommended cards:
+
+- [`../tasks/cards/active/0254-verification-and-evidence-automation-hardening.md`](../tasks/cards/active/0254-verification-and-evidence-automation-hardening.md)
+
+### 3. Shared Contract Governance
+
+The current shared envelopes are in place, but future hardening can still improve discipline:
+
+- contract snapshot or schema drift checks
+- stricter normalization guards for shared domain outputs
+- more explicit compatibility policy for additive response fields
+- clearer boundaries for summary-workspace exceptions such as account and settings
+
+Recommended cards:
+
+- [`../tasks/cards/active/0255-shared-contract-governance-hardening.md`](../tasks/cards/active/0255-shared-contract-governance-hardening.md)
+
+## Priority 2: Safe Product-Surface Expansion
+
+These directions fit the current kernel story, but they should start only after release closure and only if they reuse the existing shared shape.
+
+### 1. Richer Content And Discover Flows
+
+Possible expansions:
+
+- more explicit editorial or managed-content workflows on top of the shared discover lane
+- richer recommendation or ranking strategies
+- stronger content lifecycle review and moderation posture
+- more complete attachment, asset, and derived-content metadata
+
+The rule is to extend the current content, search, upload, and feedback contracts instead of creating a second content stack.
+
+Recommended cards:
+
+- [`../tasks/cards/active/0256-content-and-discover-expansion-posture.md`](../tasks/cards/active/0256-content-and-discover-expansion-posture.md)
+
+### 2. Richer Account And Relationship Flows
+
+Possible expansions:
+
+- stronger relation graph workflows
+- clearer asset, membership, and entitlement history
+- more explicit security-center and abnormal-login follow-up
+- more complete account merge and recovery posture
+
+The rule is to keep account as the canonical user workspace rather than introducing disconnected user-detail surfaces too early.
+
+Recommended cards:
+
+- [`../tasks/cards/active/0257-account-and-relationship-expansion-posture.md`](../tasks/cards/active/0257-account-and-relationship-expansion-posture.md)
+
+### 3. Better Host Capability Experience
+
+Possible expansions:
+
+- more explicit degraded-mode UX contracts
+- stronger capability diagnostics and fallback guidance
+- richer payment, share, and upload host-runtime reporting
+
+The rule is to keep capability state normalized in shared code while leaving runtime differences in `packages/platform-*`.
+
+Recommended cards:
+
+- [`../tasks/cards/active/0258-host-capability-experience-hardening.md`](../tasks/cards/active/0258-host-capability-experience-hardening.md)
+
+## Priority 3: Expansion Requiring A Scope Decision
+
+These directions are plausible, but they are not automatic next steps.
+
+### 1. New Platform Targets
+
+Examples:
+
+- Douyin
+- Alipay
+- native app shells
+
+Only start this when:
+
+- the current H5 and WeChat contracts are stable enough to reuse
+- platform capability gaps are explicit
+- host wiring and scaffold expectations are documented for the new family
+
+### 2. Stronger Kernel Abstractions
+
+Examples:
+
+- formal telemetry abstraction
+- formal lifecycle abstraction
+- broader capability abstraction
+- stronger host-generic UI shell or layout contracts
+
+Only start this when repeated use across more than one official host or product line justifies the abstraction.
+
+### 3. Dedicated Operational Or Editorial Consoles
+
+Examples:
+
+- separate CMS or moderation host
+- dedicated operations console
+- dedicated customer-service tooling
+
+Only start this when the current bounded discover, feedback, inbox, and account surfaces are no longer sufficient and the new console has a clear ownership model.
+
+## Expansion Rules
+
+Future work should keep following these rules:
+
+1. stabilize and extend existing shared contracts before creating new wrappers
+2. prefer shared controller and protocol work before host-local duplication
+3. keep provider rollout explicit instead of simulating completeness in sample mode
+4. document intentional exceptions and rollout gaps in the tracked docs
+5. do not add new top-level packages or platform families without a written reason
+
+## Recommended Execution Order
+
+Use this order after the current `P0` release queue closes:
+
+1. [`../tasks/cards/active/0253-provider-adapters-and-ops-hardening.md`](../tasks/cards/active/0253-provider-adapters-and-ops-hardening.md)
+   Stabilize the provider-backed production path first so later hardening work builds on a clearer operational baseline.
+2. [`../tasks/cards/active/0254-verification-and-evidence-automation-hardening.md`](../tasks/cards/active/0254-verification-and-evidence-automation-hardening.md)
+   Tighten release and evidence automation after provider posture is clearer, so verification reflects the real rollout model.
+3. [`../tasks/cards/active/0255-shared-contract-governance-hardening.md`](../tasks/cards/active/0255-shared-contract-governance-hardening.md)
+   Harden canonical output and protocol-governance rules once release-facing verification is more stable.
+4. [`../tasks/cards/active/0256-content-and-discover-expansion-posture.md`](../tasks/cards/active/0256-content-and-discover-expansion-posture.md)
+   Define the next safe content-growth posture after contract governance is clearer.
+5. [`../tasks/cards/active/0257-account-and-relationship-expansion-posture.md`](../tasks/cards/active/0257-account-and-relationship-expansion-posture.md)
+   Expand account and relationship planning after the account workspace and contract-governance posture are stable.
+6. [`../tasks/cards/active/0258-host-capability-experience-hardening.md`](../tasks/cards/active/0258-host-capability-experience-hardening.md)
+   Run capability-experience hardening after the provider-backed flows and shared capability boundaries are easier to verify.
+
+## Parallelism Notes
+
+- `0253` should start first because it clarifies production posture for several later slices.
+- `0254` and `0255` may overlap once `0253` establishes the updated provider and rollout assumptions.
+- `0256` and `0257` are the best parallel pair after `0255`, because one focuses on content/discover and the other on account/workspace growth.
+- `0258` can overlap the tail of `0256` or `0257` if the capability boundary work does not compete for the same files, but it should not begin before `0253`.
+
+## Owner Checklist
+
+Use this checklist to assign the post-release queue by function instead of by card number only.
+
+### Product
+
+- confirm which post-release hardening outcomes are release quality work versus true product-surface expansion
+- approve any explicit exception that would break the current account-workspace or discover-centered posture
+- sign off on any future scope decision around new platform families, dedicated consoles, or stronger kernel abstractions
+
+### Backend
+
+- own [`../tasks/cards/active/0253-provider-adapters-and-ops-hardening.md`](../tasks/cards/active/0253-provider-adapters-and-ops-hardening.md)
+- own the API-side parts of [`../tasks/cards/active/0255-shared-contract-governance-hardening.md`](../tasks/cards/active/0255-shared-contract-governance-hardening.md)
+- support the content/discover and account-growth posture work in [`../tasks/cards/active/0256-content-and-discover-expansion-posture.md`](../tasks/cards/active/0256-content-and-discover-expansion-posture.md) and [`../tasks/cards/active/0257-account-and-relationship-expansion-posture.md`](../tasks/cards/active/0257-account-and-relationship-expansion-posture.md)
+
+### Frontend
+
+- own host-visible verification and evidence improvements in [`../tasks/cards/active/0254-verification-and-evidence-automation-hardening.md`](../tasks/cards/active/0254-verification-and-evidence-automation-hardening.md)
+- help enforce shared-controller and protocol posture in [`../tasks/cards/active/0255-shared-contract-governance-hardening.md`](../tasks/cards/active/0255-shared-contract-governance-hardening.md)
+- own shared feature and host-runtime aspects of [`../tasks/cards/active/0256-content-and-discover-expansion-posture.md`](../tasks/cards/active/0256-content-and-discover-expansion-posture.md), [`../tasks/cards/active/0257-account-and-relationship-expansion-posture.md`](../tasks/cards/active/0257-account-and-relationship-expansion-posture.md), and [`../tasks/cards/active/0258-host-capability-experience-hardening.md`](../tasks/cards/active/0258-host-capability-experience-hardening.md)
+
+### Release
+
+- keep release-facing evidence expectations synchronized while `0253` and `0254` evolve the ops and verification posture
+- ensure post-release hardening does not silently weaken the current release gate or provider-failure posture
+- carry forward any accepted deferred issues or new rollout rules into release docs only when they become explicit repo policy
+
+## Handoff Points
+
+- Product to Backend:
+  confirm which hardening work is still inside the current product posture and which change would require an explicit scope decision.
+- Backend to Frontend:
+  confirm final shared envelopes, rollout diagnostics, and degraded-mode expectations before frontend compensates in host code.
+- Frontend to Release:
+  provide any new verification expectations, host-visible fallback rules, or evidence requirements that should affect release documents.
+- Release to Product:
+  surface when a proposed hardening slice is actually becoming a new scope decision rather than a safe post-release improvement.
+
+## Not Next
+
+The following are still poor next steps for this repository:
+
+- broad view-layer unification
+- large host-local UI abstraction layers
+- new top-level catch-all shared packages
+- feature breadth unrelated to the current official sample surface
+- hiding production gaps behind sample-mode defaults
