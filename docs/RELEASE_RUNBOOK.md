@@ -1,180 +1,101 @@
-# MiniX v1.0 Release Runbook
+# MiniX Release Runbook
 
-This runbook defines the minimum operator path from local verification to `release candidate` promotion and final `v1.0` release.
+This runbook defines the minimum path from a verified commit to preview and production promotion for the current `v1.0.0` sample surface.
 
-It exists because MiniX now has strong repo-level verification, but the final release still includes manual WeChat validation and Cloudflare promotion steps that should not live only in chat history.
+Use it together with:
 
-Coverage ownership by workflow is tracked in [`docs/PRODUCTION_REGRESSION_MATRIX.md`](/docs/PRODUCTION_REGRESSION_MATRIX.md).
+- [`../README.md`](../README.md)
+- [`./PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md)
+- [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md)
 
 ## Release Scope
 
-The frozen official `v1.0` sample surface is:
+The official release surface is:
 
+- `apps/api`
 - `apps/host-h5`
 - `apps/host-wechat`
 - `apps/novel-h5`
 - `apps/novel-wechat`
-- `apps/api`
 
-The supported remote API environments are:
+The supported remote environments are:
 
 - `preview`
 - `production`
 
-The current remote state is expected to use:
-
-- D1: `minix-api-preview`
-- D1: `minix-api-production`
-- Cloudflare default `workers.dev` domains before any custom-domain cutover
-- Cloudflare Pages project `minix-host-h5`
-- Cloudflare Pages project `minix-novel-h5`
-
-## Release Naming And Version Source Of Truth
-
-Use these rules consistently:
-
-- RC builds should be recorded as `v1.0.0-rc.N`
-- the final public release tag should be `v1.0.0`
-- [`CHANGELOG.md`](/CHANGELOG.md) is the human-readable release note source of truth
-- [`docs/RELEASE_NOTES_TEMPLATE.md`](/docs/RELEASE_NOTES_TEMPLATE.md) is the required note structure for RC and final announcements
-- tracked package manifests and runtime version stamps report `1.0.0` in the final release-cut commit
-
 ## Preconditions
 
-Before promoting an RC or final release, confirm:
+Before any RC or production promotion:
 
-- the working tree is clean, or any intentional release-only diffs are already reviewed
-- `preview` and `production` Cloudflare bindings are prepared from the safe template [`apps/api/wrangler.jsonc`](/apps/api/wrangler.jsonc)
-- the real remote ids live only in the ignored `apps/api/wrangler.private.jsonc`
-- `wrangler` authentication is valid
-- Playwright Chromium is installed locally
-- WeChat DevTools can open both official WeChat samples
-- no `globalThis.__MINIX_BOOTSTRAP_ENV__ = { useMock: true }` override is active in the validation session
-
-## Signoff Owners And Evidence
-
-Use this ownership split consistently so release blockers do not hide inside ad hoc chat instructions.
-
-| Area | Primary owner | Required evidence |
-| --- | --- | --- |
-| API and Worker config | platform or backend operator | target env vars reviewed, `DB` and `AUTH_RATE_LIMIT_KV` bindings confirmed, deployed Worker URL recorded |
-| H5 validation | web release owner | `pnpm verify:h5:blackbox` and remote preview verification results recorded |
-| WeChat validation | WeChat validator or QA | manual gate completion notes with environment, app target, and date |
-| Payment, auth, upload, message, and share provider rollout | operator owning external providers | provider mode, callback or allowlist setup, and rollout confirmation captured in release evidence |
-| RC or final promotion | release manager | completed verification log entry and final go or no-go note |
+- the intended release commit is selected and the working tree is reviewed
+- real Cloudflare ids live only in the ignored `apps/api/wrangler.private.jsonc`
+- `wrangler` authentication works
+- Playwright Chromium is installed
+- WeChat DevTools can open both Mini Program samples
+- no mock-only bootstrap override is active in the validation session
 
 ## Active Release Bundle
 
-The active `P0` release bundle is tracked by:
+The current release queue is:
 
-- `0241` auth provider operator rollout
+- `0241` auth provider rollout
 - `0242` message provider rollout and polling acceptance
-- `0243` payment merchant rollout and callback ops
+- `0243` payment rollout and callback ops
 - `0244` upload provider rollout and asset-host cutover
-- `0245` share provider rollout and attribution ops
+- `0245` share rollout and attribution ops
 - `0246` release execution and signoff
-- `0247` release follow-up queue coordination
-
-Use `0247` as the coordination source of truth before any operator starts closing `0241` through `0246` independently.
+- `0247` release queue coordination
 
 Execution rule:
 
-1. confirm queue owner, target environment, and evidence location first
-2. allow `0241` through `0245` to proceed in parallel only after that coordination posture exists
-3. treat `0246` as the final closeout slice for the whole bundle, not just another parallel task
+1. `0247` sets owners, environments, and evidence locations first.
+2. `0241` to `0245` may proceed in parallel after that.
+3. `0246` closes only after provider rollout and manual validation evidence are recorded.
 
-Bundle closeout criteria:
+## Local Release Gate
 
-- all provider-mode decisions are explicit for auth, messages, payment, upload, and share
-- required callback, allowlist, asset-host, and remote-origin setup is recorded
-- preview and production evidence is captured in [`docs/VERIFICATION_LOG.md`](/docs/VERIFICATION_LOG.md) when applicable
-- manual WeChat validation is recorded for the intended target environment
-- final signoff records a clear go or no-go owner instead of leaving blockers implicit
-
-## Repo-Owned Checks vs Operator-Owned Setup
-
-Repo-owned checks:
-
-- `pnpm verify`
-- `pnpm verify:official-integrations`
-- `pnpm verify:h5:blackbox`
-- `pnpm verify:release`
-- `pnpm verify:api:remote`
-- `pnpm verify:preview:remote`
-
-Operator-owned setup:
-
-- Worker env vars and bindings
-- WeChat allowlists
-- H5 remote origin and API base URL setup
-- external auth, payment, message, upload, and share provider rollout
-- manual WeChat validation
-
-## RC Checklist
-
-Run from the repo root unless a step says otherwise.
-
-1. Install dependencies.
+Run from the repo root:
 
 ```bash
 pnpm install
 pnpm exec playwright install chromium
-```
-
-2. Run the repo gate.
-
-```bash
 pnpm verify
-```
-
-3. Run the real local API integration gate.
-
-```bash
 pnpm verify:official-integrations
 pnpm verify:h5:blackbox
 pnpm verify:release
 ```
 
-`pnpm verify:h5:blackbox` now runs the full local Playwright matrix under [`tests/e2e`](/tests/e2e), not only the original smoke file.
+Record the command results in [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md).
 
-4. Verify Cloudflare access before any remote promotion.
+## Preview Promotion
+
+1. Confirm Cloudflare access:
 
 ```bash
 pnpm api:whoami
 ```
 
-If `apps/api/wrangler.private.jsonc` does not exist yet, create it from the committed template and fill in the real remote ids before any preview or production migration:
-
-```bash
-cp apps/api/wrangler.jsonc apps/api/wrangler.private.jsonc
-```
-
-5. Apply preview migrations and deploy preview.
+2. Apply preview migrations and deploy the preview Worker:
 
 ```bash
 pnpm api:d1:migrate:preview
 pnpm api:deploy:preview
 ```
 
-6. Record the emitted `workers.dev` URL and verify the remote API surface.
+3. Verify the preview API:
 
 ```bash
 MINIX_API_BASE_URL="https://<preview-worker>.workers.dev" pnpm verify:api:remote
 ```
 
-7. Deploy the official H5 samples to Cloudflare Pages preview.
+4. Deploy both H5 samples to Pages preview:
 
 ```bash
 MINIX_API_BASE_URL="https://<preview-worker>.workers.dev" pnpm pages:deploy:host-h5:preview
 MINIX_API_BASE_URL="https://<preview-worker>.workers.dev" pnpm pages:deploy:novel-h5:preview
 ```
 
-Expected preview H5 URLs:
-
-- `https://preview.minix-host-h5.pages.dev`
-- `https://preview.minix-novel-h5.pages.dev`
-
-8. Run the scripted preview proof against the deployed preview URLs.
+5. Verify the preview host pair:
 
 ```bash
 MINIX_API_BASE_URL="https://<preview-worker>.workers.dev" \
@@ -183,90 +104,29 @@ MINIX_NOVEL_H5_BASE_URL="https://preview.minix-novel-h5.pages.dev" \
 pnpm verify:preview:remote
 ```
 
-9. Perform the manual WeChat gate in DevTools.
-10. Capture release evidence in [`docs/VERIFICATION_LOG.md`](/docs/VERIFICATION_LOG.md):
-    - preview Worker URL
-    - preview H5 URLs
-    - command results for `pnpm verify`, `pnpm verify:official-integrations`, `pnpm verify:h5:blackbox`, `pnpm verify:release`, and `pnpm verify:preview:remote`
-    - WeChat validator name, environment, and date
-    - auth, message, payment, upload, and share provider rollout evidence
-    - explicit signoff owner and go or no-go decision
-11. If every step passes, mark the build as `RC`.
-12. Record the RC as `v1.0.0-rc.N` in the verification log, then use the release note template and changelog source of truth before moving on.
+6. Run the manual WeChat gate against the preview target.
 
 ## Manual WeChat Gate
 
-The WeChat gate complements automation. It is a release blocker if either official Mini Program sample fails these checks.
+Validate both `apps/host-wechat` and `apps/novel-wechat` against the intended API target.
 
-### Shared Setup
+Minimum checks:
 
-- import [`apps/host-wechat`](/apps/host-wechat) and [`apps/novel-wechat`](/apps/novel-wechat) into WeChat DevTools
-- keep `miniprogramRoot` set to `miniprogram/`
-- create ignored private config files before real release validation:
-  - `cp apps/host-wechat/project.private.config.json.example apps/host-wechat/project.private.config.json`
-  - `cp apps/novel-wechat/project.private.config.json.example apps/novel-wechat/project.private.config.json`
-- validate against the intended API target:
-  - local smoke: default `http://localhost:3000`
-  - preview smoke: `globalThis.__MINIX_BOOTSTRAP_ENV__ = { apiBaseUrl: "https://<preview-worker>.workers.dev" }`
-- do not enable mock mode for release validation
-- use separate real Mini Program `appId` values for `host-wechat` and `novel-wechat`
-- configure the final HTTPS API domain in WeChat console allowlists before preview or production validation:
-  - request合法域名
-  - uploadFile合法域名
-  - downloadFile合法域名
+- startup succeeds without runtime errors
+- sign-in succeeds against the target API
+- protected navigation and route return behave correctly
+- account, settings, inbox, feedback, and media-tools surfaces do not regress
+- novel catalog, detail, reader, bookshelf, and membership flows do not regress
+- logout or session reset behaves correctly
 
-### `host-wechat` Manual Gate
+Do not promote if either Mini Program sample crashes, hangs, falls back to mock-only behavior, or loses the expected route return or persistence behavior.
 
-Confirm all of the following:
+## Production Promotion
 
-- app opens to login without runtime errors
-- sign in succeeds and unlocks the protected navigation path
-- protected deep-link entry returns to the intended route after sign-in instead of dropping back to home
-- overview renders after sign-in
-- `/items` loads protected data instead of a mock placeholder
-- marking progress or navigating through the lesson does not break state
-- account center renders real summary, status, and security sections
-- account identity entry points render correctly for the current session shape
-- search center query, filter changes, and route restoration behave consistently
-- inbox filters, unread toggles, and reserved thread summaries render without stale state
-- feedback submit, latest status refresh, and sample attachment capture succeed
-- media tools upload/share open the correct native or degraded flow without runtime errors
-- settings opens with authenticated state
-- logout clears session state and returns to login
-- relaunch after logout does not silently restore a revoked session
+After preview passes:
 
-### `novel-wechat` Manual Gate
-
-Confirm all of the following:
-
-- app opens without runtime errors
-- sign in succeeds against the intended API target
-- catalog loads real sample covers and not broken external placeholders
-- catalog search and recent or hot term reuse behave correctly
-- detail view opens from catalog
-- reader opens from detail or continue-reading affordances
-- saving reading progress succeeds
-- bookshelf reflects the expected saved or default state
-- membership center opens for locked flows
-- membership purchase returns to the intended route context
-- returning from membership back into reader or TOC preserves the expected chapter target
-- preferences changes return cleanly to the reading flow that launched them
-
-### Manual Gate Failure Rule
-
-Do not promote from `preview` to `production` if:
-
-- either WeChat app crashes or hangs during startup
-- either flow accidentally uses mock-only data or behavior
-- login, logout, bookshelf, reader save, or membership return cannot be completed once end to end
-
-## Final Release Promotion
-
-After RC passes:
-
-1. Re-run the local release gates on the commit you plan to tag.
-2. Re-run the preview deploy and remote API verification if the API changed after the last RC.
-3. Promote the API schema and Worker to `production`.
+1. Re-run the local release gate on the intended production commit if it changed after preview.
+2. Deploy the production Worker:
 
 ```bash
 pnpm api:d1:migrate:production
@@ -274,96 +134,47 @@ pnpm api:deploy:production
 MINIX_API_BASE_URL="https://<production-worker>.workers.dev" pnpm verify:api:remote
 ```
 
-4. Deploy the official H5 samples to Cloudflare Pages production.
+3. Deploy both H5 samples to Pages production:
 
 ```bash
 MINIX_API_BASE_URL="https://<production-worker>.workers.dev" pnpm pages:deploy:host-h5:production
 MINIX_API_BASE_URL="https://<production-worker>.workers.dev" pnpm pages:deploy:novel-h5:production
 ```
 
-Expected production H5 URLs:
+4. Repeat the manual WeChat gate against the production API target.
+5. Update [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md) with commit SHA, URLs, command results, provider rollout evidence, manual validation, and final signoff.
+6. Only then publish the final release record.
 
-- `https://minix-host-h5.pages.dev`
-- `https://minix-novel-h5.pages.dev`
+## Required Evidence
 
-5. Repeat the manual WeChat gate against the production API target.
-6. Update [`docs/VERIFICATION_LOG.md`](/docs/VERIFICATION_LOG.md) with:
-   - git commit SHA
-   - preview Worker URL
-   - production Worker URL
-   - preview H5 URLs
-   - production H5 URLs
-   - verification commands executed
-   - manual WeChat validator and date
-   - provider rollout evidence for auth, message, payment, upload, and share
-   - explicit signoff owner and final go or no-go decision
-7. Confirm tracked package manifests and runtime version stamps still report `1.0.0`.
-8. Update [`CHANGELOG.md`](/CHANGELOG.md) with the final release record and render the announcement from [`docs/RELEASE_NOTES_TEMPLATE.md`](/docs/RELEASE_NOTES_TEMPLATE.md).
-9. Only then create the `v1.0.0` release tag and publish the `v1.0.0` announcement.
+Every RC or final release record should capture:
 
-## Rollback
+- release name
+- commit SHA
+- local gate results
+- preview and production API URLs when applicable
+- preview and production H5 URLs when applicable
+- manual WeChat validator, date, target environment, and result
+- auth, message, payment, upload, and share rollout state
+- signoff owner and go/no-go decision
 
-Use the narrowest rollback that restores a known good state.
+## Rollback Rule
 
-### API Rollback
+Use the smallest rollback that restores a known good state:
 
-- redeploy the previous known-good Worker bundle to the affected environment
-- if a schema change caused the regression, stop and evaluate forward-fix vs data rollback before applying more migrations
-- re-run `pnpm verify:api:remote` against the rolled-back environment
+- redeploy the previous Worker if the API regressed
+- redeploy the previous H5 host build if the web host regressed
+- rerun remote verification against the rolled-back environment
+- rerun the Mini Program manual gate only for affected flows
 
-## Debugging Path
-
-Use this minimum path before treating a preview or production API issue as unknown:
-
-1. capture the client-side `x-trace-id` from the failing request, or reproduce with a known trace id
-2. run:
-
-```bash
-pnpm api:tail:preview
-```
-
-or:
-
-```bash
-pnpm api:tail:production
-```
-
-3. match the echoed `X-Trace-Id` response header to the Worker log line
-4. confirm whether the failure is auth, CORS, or route/data specific
-
-Current support assumptions:
-
-- auth failure and auth throttling logs include the trace id
-- `pnpm verify:api:remote` checks trace-id echo behavior for remote API verification
-- client requests are expected to send `x-trace-id`, and the API echoes it back even on error responses
-
-### Sample App Rollback
-
-- retag or redeploy the previous known-good host commit
-- confirm the same API target still works with the rolled-back hosts
-- re-run the manual WeChat gate for the affected app only if the rollback touches Mini Program behavior
-
-## Hotfix Path
+## Hotfix Rule
 
 For a post-release hotfix:
 
 1. isolate the smallest reversible patch
-2. run `pnpm verify`
-3. run `pnpm verify:official-integrations`
-4. run `pnpm verify:h5:blackbox` if H5 behavior changed
-5. redeploy preview first if the API changed
-6. repeat the manual WeChat gate only for the impacted flows
-7. promote to production after the fix is re-verified
-
-## Release Record
-
-Every RC or final release should capture a short note with:
-
-- release name or tag
-- commit SHA
-- local gates that passed
-- remote API URL verified
-- whether WeChat manual validation passed
-- any known deferred issues that are explicitly accepted
-
-Use [`CHANGELOG.md`](/CHANGELOG.md) as the release note ledger and [`docs/RELEASE_NOTES_TEMPLATE.md`](/docs/RELEASE_NOTES_TEMPLATE.md) as the note shape.
+2. rerun `pnpm verify`
+3. rerun `pnpm verify:official-integrations`
+4. rerun `pnpm verify:h5:blackbox` if H5 behavior changed
+5. redeploy preview first if API behavior changed
+6. rerun the manual WeChat gate only for affected flows
+7. promote only after the updated evidence is recorded

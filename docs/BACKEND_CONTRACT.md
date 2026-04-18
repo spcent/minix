@@ -1,1211 +1,192 @@
-# MiniX v1.0 Backend Contract
+# MiniX Backend Contract
 
-## Goal
+This document summarizes the current server-facing contract used by the `v1.0.0` release-cut repository. It is intentionally concise and should stay aligned with the real types under `packages/contracts` and the real API domains under `apps/api/src/domains`.
 
-Freeze the minimum server contract before implementing auth and request services. `v0.1` assumes JSON request and response bodies.
+Use it together with:
 
-## Frozen v1.0 Support Surface
+- [`../README.md`](../README.md)
+- [`./DOMAIN_COMPLETENESS_MATRIX.md`](./DOMAIN_COMPLETENESS_MATRIX.md)
+- [`./PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md)
 
-The `v1.0` release supports four official sample apps:
+## Scope
+
+The current contract surface supports these official samples:
 
 - `apps/host-h5`
 - `apps/host-wechat`
 - `apps/novel-h5`
 - `apps/novel-wechat`
 
-The backend contract is therefore split into two practical layers:
+It is split into two layers:
 
-- minimum shared host endpoints for the narrow learning flow
-- richer official-sample endpoints used by the novel hosts
+- shared host flows used across all official samples
+- richer novel and commerce flows used by the novel samples
 
-This document does not imply that every endpoint is required by every host. It freezes the server-facing surface that official `v1.0` samples are allowed to depend on.
+This document is a baseline, not a full endpoint dump. The source of truth for exact shapes remains the typed contracts and API route implementations.
 
-## Canonical Domain Output Baseline
+## Canonical Domain Outputs
 
-The contract surface now treats the domain outputs named in [`docs/DOMAIN_COMPLETENESS_MATRIX.md`](/docs/DOMAIN_COMPLETENESS_MATRIX.md) as the canonical shared envelope vocabulary for official hosts.
+Shared controllers and hosts should consume the normalized nested outputs below instead of inventing host-local wrappers.
 
-Use these rules when extending responses:
-
-- prefer one named shared output per business concern instead of inventing host-local wrappers
-- preserve output names such as `session`, `identity`, `accountSummary`, `notificationList`, `paymentResult`, `contentAccess`, `searchResults`, `uploadTask`, `sharePayload`, and `feedbackStatus`
-- if a response needs provider-specific or workflow-specific metadata, extend the existing envelope instead of replacing it with a new ad hoc shape
-- when compatibility convenience fields exist, keep the canonical nested output authoritative in docs and shared controllers
-
-Canonical response mapping:
-
-| Domain | Canonical Outputs | Typed Response Owners | Notes |
+| Domain | Canonical outputs | Main contract owners | Current notes |
 | --- | --- | --- | --- |
-| login | `session`, `identity`, `authStatus`, `redirectTarget` | `LoginResponse`, `RefreshTokenResponse`, `IdentityTransitionResponse` in `packages/contracts/src/api/auth.ts` | top-level token and profile fields remain compatibility conveniences, but shared flow should treat the nested session and identity outputs as authoritative |
-| user | `userProfile`, `accountSummary`, `userStatus` | `CurrentUserResponse`, `AccountOperationResponse`, `UserRelationMutationResponse`, `UserRelationListResponse` in `packages/contracts/src/api/user.ts` | identity workflow and security-center data extend the user envelope; they do not replace it |
-| settings | `preferences`, `featureToggles`, `privacyOptions` | `SettingsResponse` in `packages/contracts/src/api/settings.ts` | `effectivePolicy`, `notificationChannels`, and `lockedSettingKeys` extend the same settings summary instead of creating a second host-local policy model |
-| messages | `notificationList`, `messageThread`, `unreadBadge` | `NotificationListResponse`, `MessageThreadResponse`, `MarkNotificationsReadResponse`, `SendMessageResponse` in `packages/contracts/src/api/message.ts` | `threadList` and `reservedThreads` are list-management extensions around the canonical inbox outputs |
-| payment | `order`, `paymentIntent`, `paymentResult`, `entitlement` | `OrderDetailResponse`, `PurchaseOrderResponse`, `PurchaseMembershipResponse` in `packages/contracts/src/api/payment.ts` and `packages/contracts/src/api/membership.ts` | callback, reconciliation, subscription, and after-sales data extend the commerce envelope |
-| content | `contentCard`, `contentDetail`, `contentAccess` | `ContentDetailResponse`, `SaveContentDraftResponse`, `ContentLifecycleMutationResponse`, `NovelCard`, `NovelDetail` | discover and novel surfaces may embed content summaries, but should reuse the same card/detail/access outputs |
-| search | `searchQuery`, `searchFilters`, `searchResults` | `FeedListResponse` in `packages/contracts/src/api/feed.ts`, `NovelListResponse` in `packages/contracts/src/api/novels.ts` | discover remains the canonical cross-host search lane for official hosts |
-| upload | `uploadTask`, `uploadAsset`, `uploadError` | `UploadSelectionResult`, `UploadPipelineResponse` in `packages/contracts/src/api/upload.ts` | session, review, cleanup, and references extend the upload pipeline without replacing the canonical task/asset/error outputs |
-| share | `sharePayload`, `shareChannel`, `shareAttribution` | `SharePrepareResponse`, `ShareReturnRecognitionResponse`, `ShareShortLinkResolveResponse`, `ShareAttributionReportResponse` in `packages/contracts/src/api/share.ts` | landing target, short-link record, poster asset, and attribution report are share extensions |
-| feedback | `feedbackTicket`, `feedbackCategory`, `feedbackStatus` | `FeedbackTicketDetailResponse`, `SubmitFeedbackResponse`, `FeedbackRevisitResponse`, `FeedbackTicketActionResponse` in `packages/contracts/src/api/feedback.ts` | bootstrap and list responses may be partial, but detailed ticket flows should preserve the full ticket/category/status envelope |
+| auth | `session`, `identity`, `authStatus`, `redirectTarget` | `packages/contracts/src/api/auth.ts` | login and refresh keep compatibility top-level token fields, but the nested session and identity outputs are authoritative |
+| user | `userProfile`, `accountSummary`, `userStatus` | `packages/contracts/src/api/user.ts` | account responses also carry identity workflow and security-center data |
+| settings | `preferences`, `featureToggles`, `privacyOptions` | `packages/contracts/src/api/settings.ts` | `effectivePolicy`, `notificationChannels`, and `lockedSettingKeys` extend the same settings summary |
+| messages | `notificationList`, `messageThread`, `unreadBadge` | `packages/contracts/src/api/message.ts` | messages are polling-only by design in the current sample |
+| payment | `order`, `paymentIntent`, `paymentResult`, `entitlement` | `packages/contracts/src/api/payment.ts`, `packages/contracts/src/api/membership.ts` | generic hosts expose an order-center route; novel hosts keep order follow-up inside membership |
+| content | `contentCard`, `contentDetail`, `contentAccess` | `packages/contracts/src/api/content.ts` | discover, detail, and novel flows reuse the same card/detail/access vocabulary |
+| search | `searchQuery`, `searchFilters`, `searchResults` | `packages/contracts/src/api/feed.ts`, `packages/contracts/src/api/search.ts`, `packages/contracts/src/api/novels.ts` | discover now carries `activeDomain`, `domainTabs`, and grouped results |
+| upload | `uploadTask`, `uploadAsset`, `uploadError` | `packages/contracts/src/api/upload.ts` | upload assets now use `coverImageUrl` consistently |
+| share | `sharePayload`, `shareChannel`, `shareAttribution` | `packages/contracts/src/api/share.ts` | short-link and poster metadata stay inside the normalized share envelope |
+| feedback | `feedbackTicket`, `feedbackCategory`, `feedbackStatus` | `packages/contracts/src/api/feedback.ts` | feedback now propagates shared context into support-thread linkage |
 
-## Shared Context Envelope Baseline
+## Shared Context Envelope
 
-Cross-domain coordination now uses one shared context vocabulary for route and actor metadata across messages, share, upload, and feedback.
+Messages, share, upload, and feedback now share one context vocabulary.
 
-Use these rules when extending context-heavy payloads:
+- `sourceContext`: route or page provenance such as `pagePath`, `routeId`, optional `label`, and route params
+- `actorContext`: actor or runtime provenance such as `userId`, `platform`, `appVersion`, and optional device summary
 
-- `sourceContext` carries route or page provenance through `pagePath`, `routeId`, optional `label`, and optional route `params`
-- `actorContext` carries actor or runtime provenance through `userId`, `platform`, `appVersion`, and optional `deviceSummary`
-- provider-specific, moderation-specific, or delivery-specific fields should extend the domain payload around these context blocks instead of replacing them with domain-local context wrappers
-- when legacy flat fields still exist for compatibility, shared controllers and API routes should prefer the nested `sourceContext` and `actorContext` blocks as the canonical shape
+Current adoption:
 
-Current shared adoption:
+- feedback submission stores and reuses `sourceContext` and `actorContext`
+- upload reference binding carries the same two blocks
+- share preparation returns source and attribution context using the same vocabulary
+- message thread creation persists the same context shape
 
-- feedback submission carries `context.sourceContext` and `context.actorContext`, and the linked support thread reuses the same context blocks
-- upload reference binding carries `reference.sourceContext` and `reference.actorContext`
-- share preparation carries `sharePayload.sourceContext` and `shareAttribution.actorContext`
-- message thread creation carries `sourceContext` and `actorContext` directly on the thread request and persisted thread summary
+## Shared Page-State Baseline
 
-## Shared Page State Baseline
+The API and shared controllers assume these protocol boundaries:
 
-Feature controllers consuming shared list/detail protocols should normalize business state into the common page status surface instead of inventing feature-local flags.
+- list-like surfaces use the shared list status model
+- detail-like surfaces use the shared detail status model
+- workflow and action surfaces use the shared form status model
 
-- `ListStatus` now covers `loading`, `refreshing`, `appending`, `empty`, `error`, `partial`, and `skeleton`, plus `staleData`, retry capability, and route-recovery metadata through `restoredQueryKeys` and `restoredSelectionId`.
-- `DetailStatus` now covers `ready`, `stale`, `deleted`, `forbidden`, `offline`, `unavailable`, `unpublished`, and deep-link recovery via `recoveredFromLink` and `requestedDetailId`.
-- Official sample adoptions in `v1.0` include items progress lists, feed/search lists, inbox notification lists, novel detail pages, message-thread detail states, subscription commerce detail states, account operation forms, feedback forms, and managed-content draft forms.
-- Inbox notification and thread-detail consumers now include all four sample hosts, and they intentionally expose `MessageSyncState.mode = "polling"` rather than implying an unimplemented realtime transport.
-- Generic hosts may expose a dedicated order-center route backed by the same shared subscription controller, while novel hosts intentionally keep order follow-up on the membership-centered reading flow.
-- Managed-content authoring and review remain embedded in the shared discover/feed route on official hosts; the sample stance is an explicit bounded studio lane, not a missing host-local CMS.
-- Explicit exceptions in `v1.0` are also part of the contract posture:
-  - auth login and identity handoff remain provider-aware credential workflows instead of generic `FormPageState` flows
-  - reader remains an immersive chapter runtime instead of a shared `DetailPageState`
-  - subscription order history remains an embedded list collection on the shared commerce controller even when a generic host exposes it through a dedicated order-center route
+Important explicit exceptions:
+
+- auth login and identity handoff remain provider-aware workflows, not generic form pages
+- reader remains an immersive runtime, not a generic detail page
+- account and settings keep summary-style workspaces instead of forcing page-root list/detail shells
 
 ## Platform Capability Baseline
 
-Platform capability adapters must return normalized capability status metadata before feature controllers attempt execution.
-
-- `CapabilityStatus` now reports `available`, `mode = native | degraded | unavailable`, `detail`, `reason`, and optional `fallbackActionLabel`.
-- `CapabilityActionResult` may report degraded execution with fallback guidance when the host substitutes clipboard copy or another non-primary path.
-- H5 baseline:
-  - `clipboard`, `device`, and `location` execute through browser APIs when available
-  - `share` prefers `navigator.share` and degrades to clipboard copy when only clipboard is available
-  - `upload` uses a configured upload runtime or falls back to the browser file picker
-  - `payment` requires an injected H5 payment runtime and otherwise reports an unavailable capability state
-- WeChat baseline:
-  - `clipboard`, `device`, `location`, `payment`, and `upload` execute through runtime `wx` bridges when available
-  - `share` prefers `showShareMenu` and degrades to clipboard copy when only clipboard is available
-
-## Endpoints
-
-### `POST /auth/login`
-
-Request:
-
-```json
-{
-  "platform": "wechat",
-  "credential": {
-    "code": "temporary-platform-code"
-  }
-}
-```
-
-Supported login methods are `wechat_code`, `guest`, `phone_code`, `password`, and `oauth`.
-
-- official H5 hosts use the built-in `guest` path as the primary Home sign-in action unless a host injects another credential provider explicitly
-- official WeChat hosts use `wx.login` and submit the returned platform code through `wechat_code`
-- `phone_code` must use a dynamic challenge issued by `POST /auth/verification-code/request`; static demo codes are no longer part of the default login path.
-- `password` must match a stored hashed credential configured through `POST /auth/password/register` or `POST /auth/password/reset`.
-- `oauth` must include a provider token, provider user id, and a valid state issued by `POST /auth/oauth/authorize`, or complete through `POST /auth/oauth/callback`.
-- successful responses may include `riskDecision`, `deviceIdentity`, `rateLimitState`, `securityAuditEvents`, `credentialProtection`, and `abnormalLoginPrompt` in addition to the standard session output.
+Feature code consumes normalized capability metadata before executing a platform action.
 
-Response:
+- `clipboard`, `device`, and `location` normalize availability instead of assuming the host runtime
+- `share` may degrade to clipboard copy
+- `upload` may use a configured runtime or a host fallback
+- `payment` is unavailable unless the host runtime injects a real payment bridge
 
-```json
-{
-  "userId": "u_123",
-  "accessToken": "access-token",
-  "refreshToken": "refresh-token",
-  "expiresAt": 1760000000000,
-  "session": {
-    "accessToken": "access-token",
-    "refreshToken": "refresh-token",
-    "expiresAt": 1760000000000,
-    "tokenType": "Bearer"
-  },
-  "identity": {
-    "userId": "u_123",
-    "anonymous": false,
-    "phoneBound": true,
-    "wechatBound": true
-  },
-  "authStatus": "authenticated",
-  "redirectTarget": {
-    "path": "/items",
-    "source": "login"
-  },
-  "profile": {
-    "nickname": "MiniX User",
-    "avatarUrl": "http://localhost:3000/sample-assets/profiles/minix-user.svg"
-  }
-}
-```
-
-The refresh response shape matches `POST /auth/login`, including optional `rateLimitState` and `securityAuditEvents` fields when the sample security baseline is active.
-
-### `POST /auth/verification-code/request`
-
-Issues a short-lived phone verification challenge for `login`, `guest_upgrade`, `phone_binding`, `change_phone`, `password_reset`, or `account_security`.
-
-Response semantics:
-
-- returns `verificationId`, masked phone number, expiry timestamp, retry interval, max attempts, and delivery metadata
-- `account_security` challenges are attached to the current signed-in account when an access token is present so high-risk account operations can verify the existing owner
-- `delivery.providerMode = "sample" | "production"` makes the current SMS backing explicit to the host
-- local/sample deployments use the built-in simulated SMS provider and may expose `delivery.debugCode` for automated tests
-- production deployments must inject an SMS delivery adapter into the API runtime; switching `MINIX_AUTH_SMS_PROVIDER_MODE=production` without a configured provider returns `503 PROVIDER_UNAVAILABLE` instead of silently falling back to simulated delivery
-- provider-backed verification applies equally to `login`, `password_reset`, and `account_security` purposes because they all issue through the same challenge endpoint before credential submission or account mutation
-- provider failures normalize to `credentialProtection.failureReason = "provider_unavailable"` and may include `retryAfterSeconds` guidance when the backing provider reports a retry window
-- verification-code issue, retry, and password-recovery handoff stay on the current login or identity page; official hosts do not require a dedicated SMS recovery route
-- consuming login and account flows must submit the returned code before it expires or before the attempt limit is exhausted
-- responses may also carry `riskDecision`, `deviceIdentity`, `rateLimitState`, and recent `securityAuditEvents`
-
-### `POST /auth/password/register`
-
-Creates or replaces a hashed password credential for an account or phone subject.
-
-Response semantics:
-
-- returns the derived user id, normalized credential subject, and credential-protection metadata
-- phone-based password registration must be paired with a `password_reset` verification challenge
-
-### `POST /auth/password/reset`
-
-Resets a phone-based password credential after a valid `password_reset` verification challenge.
-
-### `POST /auth/oauth/authorize`
-
-Creates a short-lived OAuth state record and returns a provider authorization URL.
+H5 and WeChat both expose capability status through the shared runtime surface, but the underlying implementation remains platform-specific.
 
-- accepts `purpose = login | bind`; `bind` states are bound to the current authenticated session when an access token is present
-- returns the normalized provider state, provider label, provider mode, expiry, and authorization URL that the client must preserve through callback or bind completion
-- local and sample deployments keep `providerMode = "sample"` explicit and return a sample authorization URL
-- production deployments must inject an OAuth provider adapter before `providerMode = "production"` can be used; setting production mode without that adapter returns `503 PROVIDER_UNAVAILABLE` instead of silently falling back to the sample URL
-- OAuth authorize and callback stay bound to the current login or bind page; official hosts do not require a separate callback-only route
+## Domain Route Summary
 
-### `POST /auth/oauth/callback`
+The current API surface is grouped by domain under `apps/api/src/domains/*`.
 
-Validates OAuth provider, state, provider token, and provider user id, persists the provider identity, and returns the authenticated session.
+### Auth
 
-- production callback validation uses the configured provider adapter to validate the provider token and normalize the provider user id before account linkage or session issuance
-- provider-backed failures normalize to `credentialProtection.failureReason = "oauth_token_invalid"` or `provider_unavailable`, so hosts can keep callback guidance on the current login or bind surface
+Representative routes:
 
-### `POST /auth/identity/bind-oauth`
+- `POST /auth/login`
+- `POST /auth/refresh`
+- `POST /auth/logout`
+- `POST /auth/verification-code/request`
+- `POST /auth/password/register`
+- `POST /auth/password/reset`
+- `POST /auth/oauth/authorize`
+- `POST /auth/oauth/callback`
+- `POST /auth/identity/upgrade`
+- `POST /auth/identity/bind-phone`
+- `POST /auth/identity/bind-oauth`
 
-Links a third-party provider identity to the current authenticated account.
+Current posture:
 
-- requires a valid OAuth state from `POST /auth/oauth/authorize` with `purpose = bind`
-- persists provider identities into `accountSummary.providerIdentities`
-- returns `identityWorkflow.kind = oauth_binding`
-- when the provider is already linked elsewhere, returns `identityWorkflow.status = merge_required` with merge-preview guidance instead of silently reassigning the identity
+- guest, WeChat code, phone verification, password, and OAuth are all modeled
+- SMS and OAuth production modes fail closed unless real adapters are configured
+- login and refresh both return the canonical auth envelope
 
-### `POST /auth/logout`
+### User And Settings
 
-This endpoint is optional for `v0.1`. If omitted, the client clears the local session only.
+Representative routes:
 
-### `POST /auth/refresh`
+- `GET /account/current`
+- account profile, relation, and identity mutation routes under `apps/api/src/domains/account`
+- `GET /settings`
+- settings mutation routes under `apps/api/src/domains/settings`
 
-Refreshes an expired access token using a valid refresh token.
+Current posture:
 
-Request:
+- account summaries preserve session-derived data plus remote security and identity workflow data
+- settings responses project `effectivePolicy`, notification channels, and lock posture into one normalized summary
 
-```json
-{
-  "platform": "wechat",
-  "refreshToken": "refresh-token"
-}
-```
+### Messages
 
-Response:
+Representative routes:
 
-```json
-{
-  "userId": "u_123",
-  "accessToken": "next-access-token",
-  "refreshToken": "next-refresh-token",
-  "expiresAt": 1760003600000,
-  "session": {
-    "accessToken": "next-access-token",
-    "refreshToken": "next-refresh-token",
-    "expiresAt": 1760003600000,
-    "tokenType": "Bearer"
-  },
-  "identity": {
-    "userId": "u_123",
-    "anonymous": false,
-    "phoneBound": true,
-    "wechatBound": true
-  },
-  "authStatus": "authenticated",
-  "profile": {
-    "nickname": "MiniX User",
-    "avatarUrl": "http://localhost:3000/sample-assets/profiles/minix-user.svg"
-  }
-}
-```
+- `GET /notifications`
+- `POST /notifications/read`
+- `GET /messages/threads`
+- `GET /messages/thread`
+- `POST /messages/thread/create`
+- `POST /messages/thread/send`
+- `POST /messages/thread/read`
+- `POST /messages/thread/retry`
+- `POST /messages/thread/sync`
 
-### `POST /auth/identity/upgrade`
+Current posture:
 
-Promotes a guest session into a formal account through phone verification or password credentials.
+- inbox browsing and thread detail are sample-backed in the repo
+- sync mode is intentionally polling-only
+- provider identity and rollout posture are exposed through normalized metadata, not hidden host logic
 
-Request:
+### Payment
 
-```json
-{
-  "credential": {
-    "method": "phone_code",
-    "phoneNumber": "13800000022",
-    "verificationCode": "code-from-/auth/verification-code/request"
-  },
-  "redirectTarget": {
-    "path": "/items",
-    "source": "account"
-  }
-}
-```
+Representative routes:
 
-Response semantics:
+- purchase and order routes under `apps/api/src/domains/payment/routes.commerce.ts`
+- callback routes under `apps/api/src/domains/payment/routes.callbacks.ts`
+- after-sales and reconciliation routes under `apps/api/src/domains/payment/routes.after-sales.ts`
 
-- returns a normal authenticated session with `identityWorkflow.status = "completed"` when the guest upgrade succeeds
-- returns the current guest session with `identityWorkflow.status = "merge_required"` when the verified identity already belongs to another account
-- returns the current session with `identityWorkflow.status = "blocked"` for explicit workflow failures such as invalid verification code
-- `identityWorkflow.workflowId`, `stage`, `mergePreview`, and `audit` are present when a workflow needs preview, confirmation, completion, or rollback-safe recovery evidence
+Current posture:
 
-### `POST /auth/identity/bind-phone`
+- order creation, purchase, callback verification, refund, and reconciliation are modeled
+- production-mode callback verification expects operator-owned secrets and merchant setup
 
-Binds a verified phone number to the current WeChat-backed session.
+### Content And Search
 
-The merge-required branch returns a preview of source and target uploaded assets, message history, feedback tickets, managed content, and relationship impact before account data is moved.
+Representative routes:
 
-### `POST /auth/identity/merge`
+- discover and feed routes under `apps/api/src/domains/content/feed.ts`
+- search routes under `apps/api/src/domains/content/search.ts`
+- content detail and lifecycle routes under `apps/api/src/domains/content/routes.ts`
 
-Confirms or cancels a pending merge and returns a user-visible identity workflow state.
+Current posture:
 
-- `confirm: true` completes the merge, revokes the source session, issues a target account session, and appends `merge_confirmed` and `merge_completed` audit records.
-- `confirm: false` leaves source and target account data unchanged, returns `identityWorkflow.status = "blocked"`, and appends `merge_blocked` plus `rollback_safe_failure` audit records.
-- target mismatches return a blocked workflow with `failureReason = "merge_target_mismatch"` instead of mutating either account.
+- discover is the canonical shared search surface
+- default discover and cross-domain discover now share the same result vocabulary
+- managed-content draft and lifecycle work stay embedded in the shared discover route on official hosts
+- novel flows extend the same content vocabulary with reader-specific fields
 
-### `GET /orders/catalog`
+### Upload, Share, And Feedback
 
-Returns the shared product and SKU catalog used by membership packages, one-time virtual goods, subscription products, and value-added services.
+Representative routes:
 
-### `POST /orders/purchase`
+- upload session, chunk, complete, attach, retry, cancel under `apps/api/src/domains/uploads`
+- share preparation, return recognition, and attribution reporting under `apps/api/src/domains/share`
+- feedback bootstrap, submit, detail, revisit, and action routes under `apps/api/src/domains/feedback`
 
-Creates a generic SKU-backed order and returns the normalized order, SKU, payment, entitlement, and optional subscription state.
+Current posture:
 
-### `GET /orders/list`
-
-Returns a paginated order list with optional `status` and `productType` filters.
-
-### `POST /orders/cancel`
-
-Cancels a pending order before payment completion.
-
-### `POST /orders/refund`
-
-Moves a paid order into the refund flow and returns the updated order detail.
-
-### `GET /subscriptions`
-
-Returns the active subscription and membership-renewal records derived from the current order history.
-
-### `POST /subscriptions/cancel`
-
-Disables auto-renew for the selected subscription while preserving access for the current paid term.
-
-### `POST /subscriptions/renew`
-
-Creates the next paid term for an existing subscription and returns the renewed order plus subscription state.
-
-### `GET /after-sales/list`
-
-Returns the durable after-sales cases created by order cancellation and refund flows.
-
-### `GET /after-sales/detail`
-
-Returns one after-sales case plus the related order and latest operation result.
-
-### `POST /payments/callback`
-
-Applies a payment provider callback outcome to an order and records callback verification metadata.
-
-- `providerMode = "sample"` keeps the local mock behavior explicit and accepts the legacy `verified` field for tests and demos.
-- `providerMode = "production"` requires `callbackReference`, `nonce`, `timestamp`, and an HMAC-SHA256 `signature` over order id, outcome, callback reference, nonce, timestamp, and gateway transaction id.
-- stale callbacks, missing signatures, signature mismatches, and replayed callback references or nonces are rejected and recorded in `callbackLedger`.
-- successful callbacks append `paymentLedger`, `operationLedger`, and callback verification records with gateway references.
-
-### `POST /payments/reconcile`
-
-Reconciles stored order state against stored payment state and returns reconciliation metadata.
-
-### `POST /uploads`
-
-Compatibility endpoint that accepts a platform-selected upload payload and runs the full sample session, chunk, and completion flow in one request.
-
-### `POST /uploads/session`
-
-Creates a durable upload session, object key, checksum contract, and resumable chunk manifest from the selected asset metadata plus transfer payload.
-
-The sample implementation also appends upload-scope security audit events and upload rate-limit state into the authenticated account security center.
-
-Official media-tools hosts surface the current review/storage posture directly from returned upload metadata so `sample-upload-policy` remains explicit in UX until a production backend is configured.
-
-- `reviewRecord.providerMode = "sample" | "production"` makes the current upload posture explicit to the host
-- `reviewRecord.storageProvider` identifies the object-storage backing paired with the current review provider posture
-- production posture can also project asset URLs through an operator-configured base URL without changing the shared upload route set
-
-### `POST /uploads/chunk`
-
-Transfers one chunk into the sample object-storage lane, verifies checksum and byte-range metadata, and updates durable progress state.
-
-### `POST /uploads/complete`
-
-Verifies the assembled file checksum, finalizes the durable asset reference, and returns review plus cleanup metadata.
-
-### `POST /uploads/attach`
-
-Backfills the finalized asset into a business owner reference such as `feedback`, `content`, or `avatar`.
-
-The current sample pipeline intentionally splits responsibility:
-
-- platform adapters only choose media or files and may supply transfer payloads
-- the backend owns session creation, chunk verification, checksum validation, review status, cleanup state, resource binding, and production-safe provider posture metadata
-- `reference.sourceContext` and `reference.actorContext` preserve where the binding came from and which runtime or actor initiated it, so downstream domains do not invent per-owner attach context wrappers
-
-### `POST /uploads/retry`
-
-Retries a previously failed or cancelled upload task and returns a refreshed resumable upload session state.
-
-### `POST /uploads/cancel`
-
-Cancels a backend-backed upload task and moves it into scheduled cleanup semantics.
-
-### `POST /share/prepare`
-
-Normalizes a share payload into a landing target, durable short-link record, optional poster asset url, and backend-backed attribution record before dispatch.
-
-The sample implementation also appends share-scope security audit events and share rate-limit state into the authenticated account security center.
-
-Official media-tools hosts surface the current share-provider posture directly from returned report metadata so sample-backed poster generation and host-native channel fallback remain explicit in UX.
-
-Returned share-specific additions:
-
-- `landingTarget.shortCode`
-- `shortLinkRecord`
-- `posterAsset` for `scenario = "poster"` or `shareChannel.kind = "poster_image"`
-- `attributionReport`
-- `shortLinkRecord.providerMode = "sample" | "production"` makes the current short-link posture explicit to the host
-- `shortLinkRecord.provider` identifies the configured short-link backing for the prepared share
-- `posterAsset.providerMode = "sample" | "production"` makes the current poster-generation posture explicit to the host
-- `posterAsset.provider` identifies the configured poster-generation backing for the prepared share
-- production posture can also project short-link and poster URLs through operator-configured base URLs without changing the shared route set
-- `sharePayload.sourceContext` and `shareAttribution.actorContext` are preserved through preparation and return recognition so hosts can keep one route-provenance and actor-provenance vocabulary across growth flows
-
-### `GET /share/resolve`
-
-Resolves a prepared short link by `shortCode` or `attributionId` and increments the click-side attribution counters.
-
-### `POST /share/return`
-
-Recognizes a share landing or conversion and updates stored return/conversion counters plus invite-binding metadata.
-
-### `GET /share/report`
-
-Returns the latest attribution report for a prepared share, including:
-
-- share count
-- click count
-- return count
-- conversion count
-- resolved short-link metrics
-- poster asset metadata when the share prepared a poster channel
-
-### `GET /messages/threads`
-
-Returns the durable conversation list with unread sorting, type filtering, and polling sync metadata.
-
-- `messageThread.syncState.mode` is currently fixed to `polling`
-- `modeLabel`, `statusLabel`, and `providerSummary` make the polling-only delivery posture explicit for host UX instead of implying a real-time transport
-
-### `GET /messages/thread`
-
-Returns a conversation-capable message thread including:
-
-- `messageThread` summary
-- `messageItems` for the thread body list
-- `detailActions` describing bounded reply and read behavior
-- `unreadBadge`
-- optional `threadList` and `changed` flags for polling-based sync recovery
-
-### `POST /messages/thread/create`
-
-Creates a durable private, consultation, customer-service, or group thread and returns the refreshed thread list.
-
-The sample implementation also appends message-scope security audit events and message rate-limit state into the authenticated account security center.
-
-The thread request may also carry `sourceContext` and `actorContext` so support, consultation, or user-initiated threads can preserve the originating route and runtime identity without a host-local adapter layer.
-
-### `POST /messages/thread/read`
-
-Marks a thread as read and updates the thread-level unread counters.
-
-### `POST /messages/thread/send`
-
-Appends an outbound message into a bounded sample conversation surface for private, consultation, and customer-service threads.
-
-- outbound delivery is polling-backed and progresses through `pending`, `delivered`, or `failed`
-- each external touchpoint returns provider metadata, template selection, delivery receipt state, retryability, and unsubscribe hints alongside the in-app fallback touchpoint
-- when `providerMode = "sample"`, status labels and failure messages stay explicit that delivery is sample-backed and finalized through polling-only sync rather than a live provider callback
-- when `providerMode = "production"`, provider labels and failure copy stay free of sample wording while still exposing that sync remains polling-only
-- user notification-channel preferences are enforced before dispatch; opted-out or disabled channels return `opted_out` or `skipped` receipts while in-app delivery remains available
-- the same centralized security audit and rate-limit baseline used by thread creation also applies here
-- group reply permissions are enforced by `replyPolicy`, `members`, and `groupState`
-- consultation and customer-service threads expose assignment plus progress metadata in the same response surface
-
-### `POST /messages/thread/retry`
-
-Retries a failed outbound message and returns the refreshed thread detail plus unread aggregate.
-
-- failed external touchpoints move back to `sent`, increment their retry counters, and remain polling-backed until sync finalizes provider receipts
-- retry labels remain explicit that receipts will not settle until the next polling-only sync cycle
-
-### `GET /messages/thread/sync`
-
-Polling endpoint that accepts the last seen cursor and returns `changed = false` when the durable thread state is unchanged.
-
-- successful polling also advances queued or sent external delivery receipts to `delivered` in the sample provider model
-- there is no real-time transport in the current official-sample message surface; host UX should treat polling as the only synchronization contract, even when external providers are operator-configured for production
-
-### `GET /settings`
-
-Returns the normalized settings center payload for the authenticated account.
-
-The response includes:
-
-- `preferences`
-- `featureToggles`
-- `privacyOptions`
-- `effectivePolicy`
-- `notificationChannels`
-- `lockedSettingKeys`
-
-`effectivePolicy` is the backend-resolved behavior surface that downstream features should consume instead of re-deriving local rules.
-
-`notificationChannels` exposes the per-channel delivery policy for `subscription_message`, `sms`, `email`, and `push`, including enablement, unsubscribe state, provider labeling, locale, and whether in-app fallback stays active.
-
-`lockedSettingKeys` lists the shared settings that are intentionally non-editable under the current environment or policy posture, so hosts and feature controllers can expose lock state without re-deriving it locally.
-
-The shared settings controller currently projects this payload into one stable summary model:
-
-- `preferences`, `featureToggles`, `privacyOptions`, `effectivePolicy`, `notificationChannels`, and `lockedSettingKeys` are all preserved on `SettingsPageModel`
-- `settings-summary` gives hosts one human-readable posture section for notification, privacy, developer, and lock-state overview
-- `locked-settings` is emitted only when the backend returns explicit locked keys, so production-only restrictions stay visible without host-specific branches
-
-### `POST /settings`
-
-Persists a partial `UpdateSettingsRequest` into the authenticated account state and returns the refreshed normalized settings payload.
-
-Supported sample semantics:
-
-- notification preferences and channel toggles update touchpoint eligibility for notification and message delivery
-- `notificationChannels` accepts per-channel enable and unsubscribe mutations without changing the shared route shape
-- privacy preferences update profile discovery exposure, relation search exposure, and personalization flags used by feed and user-search results
-- device preferences update autoplay policy, weak-network behavior, and upload chunk sizing for resumable uploads
-- developer options are environment-scoped; production bindings return locked developer controls through `effectivePolicy.developer` and `lockedSettingKeys`
-- persisted settings survive session refresh and later session restoration because they are stored with the account state
-
-### `POST /account/profile`
-
-Updates bounded profile fields on the current account and returns the refreshed normalized account-operation surface.
-
-### `POST /account/change-phone`
-
-Updates the currently bound phone number after a valid `change_phone` verification challenge and returns the refreshed normalized account-operation surface.
-
-- requires `riskConfirmed = true`
-- requires `securityVerificationCode` when the account already has a verified phone
-- appends an `operationRecord` and starts a short change cooldown in the sample state
-- updates `securityCenter` with account-scope audit events and the latest account-operation rate-limit state
-
-### `POST /account/unbind`
-
-Removes the WeChat binding from the current sample account when the operation is available.
-
-- requires `riskConfirmed = true`
-- requires an `account_security` verification code from the currently bound phone
-- requires another fallback credential to remain available
-- appends an `operationRecord` and starts a short unbind cooldown in the sample state
-- updates `securityCenter` with account-scope audit events and the latest account-operation rate-limit state
-
-### `POST /account/provider/unlink`
-
-Removes a linked OAuth provider identity from the current account when another login method remains available.
-
-- requires `provider`, `providerUserId`, `riskConfirmed = true`, and an `account_security` verification code
-- rejects the operation when unlinking would leave the account without any usable login method
-- marks the provider identity as `authorizationStatus = unlinked`, appends an `operationRecord`, and emits account-scope security audit state
-
-### `POST /account/provider/revoke`
-
-Revokes the current account's authorization for a linked OAuth provider without deleting its identity record.
-
-- requires `provider`, `providerUserId`, `riskConfirmed = true`, and an `account_security` verification code
-- rejects the operation when revoking would leave the account without any usable login method
-- marks the provider identity as `authorizationStatus = revoked`, preserves the linked provider record for later reauthorization, appends an `operationRecord`, and emits account-scope security audit state
-
-### `POST /account/cancellation`
-
-Handles both cancellation request and cancellation revoke through `action = request | revoke`.
-
-- request mode requires `riskConfirmed = true` and an `account_security` verification code
-- request mode moves the account into `cancellation_pending`, sets `cancellationRequestedAt` / `cancellationEffectiveAt` / `cancellationRevocableUntil`, and appends an `operationRecord`
-- revoke mode clears the pending cancellation during the cooling-off window and appends an `operationRecord`
-- both request and revoke flows update `securityCenter` with account-scope audit events and the latest account-operation rate-limit state
-
-### `POST /account/relations`
-
-Applies bounded relation actions for the current sample relation target.
-
-Supported sample actions:
-
-- `follow`
-- `unfollow`
-- `block`
-- `unblock`
-- `set_remark`
-- `clear_remark`
-
-Additional sample semantics:
-
-- accepts optional `listKind`, `page`, `pageSize`, and `keyword` so relation list surfaces can refresh after a mutation without a second round-trip
-- relation targets now expose explicit `friendState` values such as `mutual`, `incoming_request`, and `outgoing_request`
-
-### `GET /account/relations/list`
-
-Returns a paginated relationship list for one of:
-
-- `following`
-- `followers`
-- `friends`
-- `blocked`
-- `remarks`
-
-Additional sample semantics:
-
-- supports `page`, `pageSize`, and `keyword`
-- each list item reuses the shared relation action surface and includes explicit mutual or pending friend semantics
-
-### `GET /account/assets/history`
-
-Returns append-only asset ledger history for the authenticated account.
-
-Additional sample semantics:
-
-- supports `page`, `pageSize`, and `subject = all | points | level | balance | membership | entitlement`
-- ledger entries expose balance delta, frozen-balance delta, points delta, membership plan id, and optional entitlement snapshots
-- `accountSummary.assets` is derived from ledger state rather than placeholder values and now includes `availableBalanceCents`, `frozenBalanceCents`, and `activeEntitlements`
-- sample payment, callback, cancellation, and refund flows append asset ledger entries instead of mutating balances in place
-- official hosts intentionally keep profile, relation, and asset detail inside the shared account center and search-driven entry points instead of adding a dedicated user-detail route
-
-### `GET /content/detail`
-
-Returns a bounded generic content detail payload on top of the shared `contentDetail` and `contentAccess` contracts.
-
-- supports `actorRole` to expose author, reviewer, admin, or reader permissions in the sample CMS
-- detail payload may include authoring data, attachment references, review record, permissions, and audit history
-
-### `GET /content/review-queue`
-
-Returns the sample review queue for `under_review` managed content, including attachment counts and reviewer assignment labels.
-
-### `POST /content/save-draft`
-
-Creates or updates a managed content draft, binds uploaded cover/attachment asset references, and appends audit history.
-
-### `POST /content/lifecycle`
-
-Applies a bounded lifecycle transition on generic managed content.
-
-Supported sample actions:
-
-- `publish`
-- `update`
-- `archive`
-- `delete`
-- `restore`
-- `submit_review`
-- `approve_review`
-- `reject_review`
-- `change_visibility`
-
-Additional sample semantics:
-
-- lifecycle requests may include `actorRole` so role-specific permissions can be exercised in shared feature tests
-- reviewer and admin roles can approve, reject, archive, and restore
-- author and admin roles can save drafts, submit review, and change visibility
-- reader access is denied for non-published content even when a draft or review detail payload is available to privileged roles
-
-### `GET /feed`
-
-Still backs the official feed surface, but now also acts as the bounded shared search-center orchestration for:
-
-- `mode=global`
-- `mode=content`
-- `mode=user`
-- `mode=domain`
-
-Supported sample domains:
-
-- `feed`
-- `content`
-- `novel`
-- `user`
-- `all`
-
-The normalized `searchResults` payload now carries `domainTabs` and `resultGroups` for cross-domain composition.
-
-Additional sample semantics:
-
-- `searchQuery.sortKey` preserves route-restorable sort state for the shared search center
-- the default `domain = feed` discover lane still returns explicit domain filter metadata, `searchResults.activeDomain`, `domainTabs`, and feed-scoped `resultGroups`, so hosts do not need a second local filter model for the non-cross-domain case
-- `searchResults` may include `correctionKeyword`, `correctionReason`, and `recoverySuggestions` when the current query looks like a typo or returns no results
-- `searchResults.ranking` exposes the applied ranking strategy so clients do not re-derive sorting rules locally
-- `domain = all` now interleaves top results across feed, content, novel, and user groups instead of flattening one domain at a time
-- recommended and popular ordering now include keyword-match quality in addition to freshness or reason metadata
-- user and other cross-domain search items may expose `routeTarget` so the client can jump to the bounded destination without hand-written route maps
-- managed-content draft and lifecycle mutations keep the outer `FeedItem` summary in sync with nested `contentCard` and `contentAccess` data, including cover imagery, category eyebrow, access posture, and grouped search results
-- hot terms, recent history, suggestions, filter state, and sort state are all carried in the same normalized response surface
-
-### `GET /me`
-
-Returns the authenticated user summary used by the host app.
-
-The normalized response includes:
-
-- `userProfile`
-- `accountSummary`
-- `userStatus`
-- `identityWorkflows`
-- `securityCenter`
-- `accountOperations`
-- `operationRecords`
-- `relationTargets`
-
-`securityCenter` carries:
-
-- `deviceIdentities`
-- `auditEvents`
-- `latestRateLimit`
-- `latestPrompt`
-
-`accountSummary.assets` now includes:
-
-- `points`
-- `level`
-- `membership`
-- `entitlementLabels`
-- `balanceCents`
-- `availableBalanceCents`
-- `frozenBalanceCents`
-- `activeEntitlements`
-
-`accountSummary.providerIdentities` now includes:
-
-- provider label and provider user id
-- `authorizationStatus = active | revoked | unlinked`
-- `loginEnabled`, `linkedAt`, `lastAuthorizedAt`, and optional revocation metadata
-- per-provider action descriptors for `unlink`, `revoke`, and `reauthorize`
-
-The shared account controller keeps this response as one stable user-summary surface:
-
-- `userProfile`, `accountSummary`, and `userStatus` remain the canonical summary trio
-- `identityWorkflows` and `securityCenter` extend that trio rather than replacing it with host-local state
-- session-derived summary items such as current auth posture stay visible alongside remote membership, asset, provider, and lock-state sections instead of being overwritten during hydration
-
-### `GET /items`
-
-Returns list data for the first protected list page.
-
-Suggested response shape:
-
-```json
-{
-  "items": [
-    {
-      "id": "item_1",
-      "title": "Example Item",
-      "subtitle": "Protected resource",
-      "categoryLabel": "Vocabulary",
-      "difficultyLabel": "A2",
-      "recommendedReason": "Start here to unlock the rest of today's plan.",
-      "durationMinutes": 2
-    }
-  ],
-  "page": 1,
-  "pageSize": 20,
-  "hasMore": false
-}
-```
-
-### `GET /feedback/bootstrap`
-
-Returns the shared feedback intake surface plus the current bounded service-loop handoff.
-
-The normalized response may include:
-
-- `feedbackCategories`
-- `ticketList`
-- `recommendedFaqEntries`
-- `faqCatalog`
-- `supportEntries`
-- `supportEntry`
-- `serviceLoopSummary`
-- `latestTicket`
-- `latestStatus`
-- `latestCategory`
-
-`faqCatalog` and `supportEntries` are now durable runtime data in the sample store instead of being reconstructed as purely static page defaults.
-
-### `POST /feedback`
-
-Creates a feedback ticket using the shared feedback form payload and returns:
-
-- `feedbackTicket`
-- `feedbackCategory`
-- `feedbackStatus`
-
-`feedbackStatus` now carries FAQ recommendations, queue/assignee/SLA metadata, a bounded support entry, revisit semantics, and processing history so the client does not invent a separate support model.
-
-Each submitted ticket creates a dedicated customer-service thread and links that thread back through `feedbackTicket.supportThreadId` and `feedbackStatus.supportEntry.threadId`.
-
-Feedback submission also appends feedback-scope security audit events and participates in the centralized rate-limit baseline.
-
-`context.sourceContext` and `context.actorContext` are preserved on the ticket and propagated into the linked support thread plus any upload-reference binding created during the same support flow.
-
-### `GET /feedback/tickets`
-
-Lists durable ticket summaries for the current user.
-
-- supports `page`, `pageSize`, `state`, `categoryKey`, and `keyword`
-- returns `ticketList`, `faqCatalog`, and `supportEntries`
-- ticket summaries include queue, assignee, SLA, label, and support-thread linkage
-
-### `POST /feedback/ticket/action`
-
-Applies support-operator style updates to a ticket.
-
-Supported mutations include:
-
-- moving a ticket into `triaged`, `in_progress`, `waiting_user`, `resolved`, or `closed`
-- updating `priority`, `labels`, `assignee`, `queueKey/queueLabel`, and `sla`
-- appending a processing-history note
-- optionally sending a synchronized support reply into the linked customer-service thread
-
-Returns:
-
-- `feedbackTicket`
-- `feedbackCategory`
-- `feedbackStatus`
-- `ticketList`
-
-### `POST /feedback/ticket/revisit`
-
-Reopens or advances an existing ticket inside the same shared support loop.
-
-Request:
-
-```json
-{
-  "ticketId": "fb_123",
-  "userMessage": "Please re-check after I cleared local cache."
-}
-```
-
-Response semantics:
-
-- returns the same `feedbackTicket / feedbackCategory / feedbackStatus` shape as `POST /feedback`
-- may append user follow-up history and move the ticket back into `triaged` or `in_progress`
-- relays the follow-up into the ticket-linked customer-service thread when one exists
-
-## Auth Semantics
-
-- `401` means unauthenticated or token expired
-- `403` means authenticated but forbidden
-- `429` means auth abuse controls blocked the request for the current client window
-- `POST /auth/refresh` should return `401` when the refresh token is expired, revoked, or invalid
-- `POST /auth/login`, `POST /auth/refresh`, `POST /membership/purchase`, `POST /uploads/session`, `POST /share/prepare`, `POST /feedback`, `POST /messages/thread/create`, and `POST /messages/thread/send` may return `429` with code `RATE_LIMITED`
-- `POST /auth/login` no longer validates static demo phone codes or static demo passwords by default; phone-code login uses stored verification challenges and password login uses hashed stored credentials
-- OAuth login/callback rejects missing, expired, or mismatched state with `credentialProtection.failureReason = "oauth_state_invalid"`
-- identity workflow endpoints should use `identityWorkflow.status` for merge-required or blocked business outcomes instead of forcing every branch through transport errors
-- payment endpoints should return `callbackVerification`, `reconciliation`, and optional `operationResult` as part of the order detail surface when transaction operations mutate state
-- upload endpoints should return backend-backed lifecycle, checksum, review, cleanup, and reference-binding fields so consuming features do not invent their own moderation or storage semantics
-- share endpoints should preserve attribution ids, landing targets, and auth-aligned return targets so growth flows do not invent a parallel redirect model
-- message endpoints should keep notification lists, thread summaries, and thread bodies as distinct but aligned outputs
-- settings endpoints should treat `effectivePolicy` as the source of truth for delivery, privacy exposure, upload behavior, and debug control editability
-- throttled auth responses should include `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset`
-- refresh tokens should be rotated on successful refresh; the previous refresh token becomes invalid immediately
-- access token expiry must not implicitly revoke a still-valid refresh token
-- explicit logout should revoke both the current access token and the paired refresh token when they are provided
-- all failure bodies should include a stable error code when possible
-- auth logs and counters must not include raw access tokens or refresh tokens
-
-Suggested error response:
-
-```json
-{
-  "code": "UNAUTHORIZED",
-  "message": "Access token expired"
-}
-```
-
-## Client Assumptions
-
-- access token is sent through `Authorization: Bearer <token>`
-- `Content-Type: application/json` is used for JSON bodies
-- client generates a `x-trace-id` header for every request
-- the server echoes the request trace id back through `X-Trace-Id`
-
-## Novel Demo Endpoints
-
-The standalone novel hosts build on the same auth semantics but use a richer content contract. These endpoints are currently mock-backed in the repo and should be treated as the official sample surface for future real backend work.
-
-The novel endpoints now expose two layers at once:
-
-- a generic content layer through `contentCard`, `contentDetail`, and `contentAccess`
-- a novel-specific extension layer through chapter, reading-progress, and serialized-reading fields
-- the standalone novel hosts now expose the shared discover/feed route in addition to catalog, detail, TOC, reader, and bookshelf so shared editorial discovery is visible without collapsing the novel-specific extension layer
-
-Future content products should reuse the generic layer instead of treating the novel sample as the only content model.
+- upload, share, and feedback all participate in the shared context envelope
+- upload and share expose explicit provider posture through normalized metadata
+- feedback can link attachments and support-thread follow-up without inventing a second context model
 
 ## Runtime Notes
 
-- the current sample API uses opaque random access tokens and refresh tokens stored server-side, not self-describing JWTs
-- production-oriented Worker deployments should bind `DB` to D1 for sessions and user state
-- production-oriented Worker deployments should bind `AUTH_RATE_LIMIT_KV` to Cloudflare KV for login and refresh throttling
-- auth throttling defaults to a `60` second window, `10` login attempts, and `20` refresh attempts unless the Worker env overrides:
-  - `MINIX_AUTH_RATE_LIMIT_WINDOW_SECONDS`
-  - `MINIX_AUTH_LOGIN_MAX_ATTEMPTS`
-  - `MINIX_AUTH_REFRESH_MAX_ATTEMPTS`
-- official sample media is served by the API itself under `/sample-assets/covers/:assetId.svg` and `/sample-assets/profiles/:assetId.svg`
-- sample responses may return those media URLs as absolute URLs resolved against the current API origin
-- upload selection remains adapter-only, but upload lifecycle state is now sample-backed through `/uploads/session`, `/uploads/chunk`, `/uploads/complete`, `/uploads/attach`, `/uploads/retry`, and `/uploads/cancel`
-- share dispatch remains adapter-backed, but landing-target normalization and attribution persistence are now sample-backed through `/share/prepare` and `/share/return`
-- share provider posture can switch between sample and production-safe metadata through:
-  - `MINIX_SHARE_PROVIDER_MODE`
-  - `MINIX_SHARE_SHORT_LINK_PROVIDER`
-  - `MINIX_SHARE_POSTER_PROVIDER`
-  - `MINIX_SHARE_SHORT_LINK_BASE_URL`
-  - `MINIX_SHARE_POSTER_BASE_URL`
-- notification browsing remains sample-backed through `/notifications`, while conversation-capable message flows now extend through `/messages/threads`, `/messages/thread`, `/messages/thread/create`, `/messages/thread/read`, `/messages/thread/send`, `/messages/thread/retry`, and `/messages/thread/sync`
-- provider setup, callback domains, capability support, and accepted deferred release gaps are documented in [`docs/PRODUCTION_READINESS.md`](/docs/PRODUCTION_READINESS.md)
-
-### `GET /novels`
-
-Returns catalog or home feed cards.
-
-Each item should also expose:
-
-- `contentCard` for shared content model, display, lifecycle, and recommendation-slot semantics
-- `contentAccess` for shared public/login/member/purchased visibility semantics
-
-Suggested response shape:
-
-```json
-{
-  "items": [
-    {
-      "id": "novel_lantern",
-      "slug": "lantern-under-vermilion-rain",
-      "title": "Lantern Under Vermilion Rain",
-      "authorName": "Lin Yue",
-      "summary": "A court mystery with a slow-burn political romance.",
-      "categoryKey": "mystery",
-      "categoryLabel": "Mystery",
-      "tags": [{ "key": "frontlist", "label": "Frontlist" }],
-      "status": "serializing",
-      "latestChapterId": "lantern_ch_18",
-      "latestChapterTitle": "Chapter 18",
-      "latestChapterOrder": 18,
-      "continueChapterId": "lantern_ch_12",
-      "continueChapterTitle": "Chapter 12",
-      "recommendedReason": "Because you paused here last week.",
-      "updatedAt": "2026-03-30T08:00:00.000Z",
-      "wordCount": 182000,
-      "readingCount": 8421,
-      "bookshelfCount": 1380,
-      "isFree": false,
-      "isTrial": true,
-      "requiresMembership": true,
-      "isPurchased": false
-    }
-  ],
-  "page": 1,
-  "pageSize": 20,
-  "hasMore": false
-}
-```
-
-### `GET /novels/detail`
-
-Returns a single title dossier for detail and membership intercept surfaces.
-
-The detail response should also expose:
-
-- `contentDetail` for shared content model, display, and lifecycle semantics
-- `contentAccess` for shared access and entitlement semantics
-
-Relevant fields:
-
-- core title metadata from `NovelDetail`
-- current access signals: `isFree`, `isTrial`, `requiresMembership`, `isPurchased`, `inBookshelf`
-- title reputation signals: `ratingScore`, `ratingCount`, `favoriteCount`
-- reading service copy: `updateCadenceLabel`, `updateHistoryLabel`, `trialRuleLabel`, `accessRuleSummaryLabel`
-- editorial framing: `authorPresenceLabel`, `relatedLaneLabel`
-- navigation cues: `firstChapterId`, `continueChapterId`, `latestChapter`
-- editorial discovery: `relatedNovels`
-
-### `GET /chapters`
-
-Returns the chapter directory for a title.
-
-The response should be stable enough for:
-
-- TOC rendering
-- reader side-panel rendering
-- locked or trial chapter state
-- current and continue chapter highlighting
-- current volume recovery and volume-level grouping
-
-### `GET /chapters/content`
-
-Returns the current chapter payload for the reader.
-
-The response should include:
-
-- title and body content
-- access state such as `requiresMembership`, `isFree`, `isTrial`, `isPurchased`
-- adjacent chapter ids for previous or next navigation when available
-
-### `GET /reading-progress`
-
-Loads the most recent saved chapter position for a title.
-
-Relevant fields:
-
-- `novelId`
-- `chapterId`
-- `chapterTitle`
-- `progressPercent`
-- `scrollOffset`
-- `pageIndex`
-- `updatedAt`
-
-### `POST /reading-progress`
-
-Persists the current reader position for resume flows across home, catalog, detail, TOC, and reader surfaces.
-
-The client also uses saved chapter positions to keep recommendation lanes and TOC recovery state coherent after returning from the reader.
-
-### `GET /bookshelf`
-
-Returns current bookshelf titles. The client derives grouped lanes such as active, updated, and completed from the shared response plus saved reading progress, and can also apply reading-center shelf-order preferences on top of the shared response.
-
-### `POST /bookshelf`
-
-Adds a title to the bookshelf.
-
-Suggested request:
-
-```json
-{
-  "novelId": "novel_lantern"
-}
-```
-
-### `DELETE /bookshelf`
-
-Removes a title from the bookshelf.
-
-Suggested request:
-
-```json
-{
-  "novelId": "novel_lantern"
-}
-```
-
-Both bookshelf mutations should return the next shelf snapshot plus title-level membership:
-
-```json
-{
-  "novelId": "novel_lantern",
-  "inBookshelf": true,
-  "bookshelfCount": 1381,
-  "items": []
-}
-```
-
-### `GET /membership`
-
-Returns the current membership overview for the requesting user.
-
-Relevant fields:
-
-- `active`
-- `tier`: `guest | signed-in | member`
-- `entitlementScope`: `none | chapter | title | membership`
-- `statusLabel`
-- `renewalLabel`
-- `headline`
-- `subheadline`
-- `benefits`
-
-### `POST /membership/purchase`
-
-Creates a membership order and returns unlock context plus host-executable payment parameters.
-
-Membership purchase remains a dedicated convenience entrypoint, but it now maps into the same shared product/SKU/order model used by `/orders/purchase`.
-
-Use `providerMode = "sample"` for local mock payment behavior. Use `providerMode = "production"` with `wechat_pay` or `h5_pay` to receive gateway references, signed client parameters, and durable payment ledger records.
-
-When `providerMode = "production"`, purchase, callback-verification, refund, and reconciliation copy must stay production-safe on official host surfaces instead of reusing sample-only wording.
-
-Additional sample semantics:
-
-- instant-success and pending purchases append durable asset ledger entries for wallet consumption, freezes, entitlement grant, and purchase reward points
-- generic SKU purchases append the same normalized entitlement-ledger records for subscription, one-time, and value-added fulfillment
-- subscription orders expose renewal, cancellation, grace, and after-sales state through `/subscriptions` and `/after-sales/*`
-- follow-up transaction operations such as `POST /payments/callback`, `POST /orders/cancel`, and `POST /orders/refund` return `operationResult.assetLedgerIds` so clients can trace the applied ledger records
-- membership purchase also appends payment-scope security audit events and participates in the centralized rate-limit baseline
-
-Suggested request:
-
-```json
-{
-  "planId": "quarterly",
-  "source": "reader",
-  "novelId": "novel_lantern",
-  "chapterId": "lantern_ch_12"
-}
-```
-
-Suggested response:
-
-```json
-{
-  "purchased": true,
-  "overview": {
-    "active": true,
-    "tier": "member",
-    "entitlementScope": "membership",
-    "statusLabel": "Membership active",
-    "renewalLabel": "Renews on 2026-07-01",
-    "headline": "You now have full membership access.",
-    "subheadline": "Return to the blocked chapter and continue reading.",
-    "benefits": []
-  },
-  "source": "reader",
-  "novelId": "novel_lantern",
-  "chapterId": "lantern_ch_12",
-  "returnTarget": "reader"
-}
-```
-
-## Operational Diagnostics
-
-The sample API now keeps a durable `operational_state` snapshot alongside persisted `user_state`.
-
-This governance layer records:
-
-- domain schema counts for `sessions`, `credentials`, `orders`, `uploads`, `messages`, `content`, `feedback`, and `audit_events`
-- migration/backfill records for operational bootstrap
-- background jobs for `upload_cleanup`, `payment_reconciliation`, `notification_retry`, and `cancellation_expiry`
-- monitoring events for failed jobs and rejected payment callbacks
-- administrative audit trail entries for job scheduling and manual job runs
-
-### `GET /ops/diagnostics`
-
-Returns the current operational snapshot for the signed-in user context.
-
-Supported query params:
-
-- `limit`
-- `includeCompletedJobs`
-
-Suggested response shape:
-
-```json
-{
-  "schemaVersion": 1,
-  "lastSweepAt": "2026-04-11T09:00:00.000Z",
-  "domainSchemas": [],
-  "migrations": [],
-  "backgroundJobs": [],
-  "monitoringEvents": [],
-  "auditTrail": [],
-  "governance": {
-    "queuedJobs": 0,
-    "failedJobs": 0,
-    "retryableNotifications": 0,
-    "appliedMigrations": 2
-  }
-}
-```
-
-### `POST /ops/jobs/run`
-
-Runs queued operational jobs idempotently for the signed-in user context.
-
-Supported request fields:
-
-- `kind`
-- `limit`
-
-Suggested response shape:
-
-```json
-{
-  "processedJobs": [],
-  "diagnostics": {
-    "schemaVersion": 1,
-    "backgroundJobs": [],
-    "governance": {
-      "queuedJobs": 0,
-      "failedJobs": 0,
-      "retryableNotifications": 0,
-      "appliedMigrations": 2
-    }
-  }
-}
-```
-
-Operational scheduling hooks in the sample API currently cover:
-
-- upload cancel and rejected review paths enqueue `upload_cleanup`
-- pending membership or SKU orders and post-callback mismatches enqueue `payment_reconciliation`
-- failed outbound customer-service delivery enqueues `notification_retry`
-- account cancellation cooling-off windows enqueue `cancellation_expiry`
-
-## Shared Form Workflow Notes
-
-Account operations, feedback intake, and managed content authoring now share one form-platform contract layer:
-
-- `FormSchema.fields` can describe `text`, `number`, `date`, `single_select`, `multi_select`, `upload_reference`, and `rich_text` placeholder fields
-- `FormSchema.steps` and `FormFieldDefinition.conditions` drive step order and conditional visibility instead of feature-local switch statements
-- `FormWorkflowState.draft` carries `draftId`, `recoveryKey`, `lastSavedAt`, and `restoredAt` so draft recovery can survive route/session restoration
-- `FormWorkflowState.approvalNodes` carries node state plus assignee metadata for cancellation review, support triage, and content review queues
-- `FormSubmitState.submissionKey`, `lastCompletedKey`, and `duplicateBlocked` are the shared duplicate-submit guardrail used by draft-save and submit flows
-
-## Demo-Only Notes
-
-- Storage keys such as `reader.display`, `reader.session`, and `novel.reading-center` are client-side runtime details, not backend contract fields.
-- Page-level groupings like pinned bookshelf titles or derived recommendation lanes are currently computed client-side from the shared API payloads above.
+- The sample API uses opaque access and refresh tokens stored server-side.
+- Worker deployments expect `DB` and `AUTH_RATE_LIMIT_KV`.
+- Official sample media is served from the API under `/sample-assets/*`.
+- Upload, share, and provider-backed message metadata can switch between sample and operator-owned production posture through Worker env configuration.
+
+For operator setup and release expectations, use [`./PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md) and [`./RELEASE_RUNBOOK.md`](./RELEASE_RUNBOOK.md).
