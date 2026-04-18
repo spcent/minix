@@ -95,8 +95,18 @@ Make the `0241` through `0246` rollout cards operate as one explicit release bun
 
 ## Acceptance
 
-- [ ] queue ordering across `0241` through `0246` is explicit
-- [ ] bundle-level closeout criteria are documented
-- [ ] queue docs and active-card references stay synchronized
-- [ ] no repo-code work is folded into this coordination card
-- [ ] code verification intentionally skipped if this remains docs and coordination only
+- [x] queue ordering across `0241` through `0246` is explicit
+- [x] bundle-level closeout criteria are documented
+- [x] queue docs and active-card references stay synchronized
+- [x] no repo-code work is folded into this coordination card
+- [x] code verification intentionally skipped if this remains docs and coordination only
+
+## Implementation Notes
+
+- `PRODUCTION_READINESS.md`, `RELEASE_RUNBOOK.md`, `PRODUCTION_REGRESSION_MATRIX.md`, and `VERIFICATION_LOG.md` now describe one explicit release bundle for `0241` to `0246`
+- `DOMAIN_COMPLETENESS_MATRIX.md` now states the repo-side posture for the bundle: `/ops/diagnostics` is the shared readiness checkpoint, while the remaining work is operator execution
+- all rollout cards now carry consistent implementation and verification notes so the queue stays synchronized without widening into new engineering scope
+
+## Verification Notes
+
+- docs-only coordination closeout; no additional code verification was needed for this card

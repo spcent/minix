@@ -85,3 +85,13 @@ Provision real upload review and storage backends, switch asset URL hosts where 
 - [ ] upload governance ownership and retention expectations are recorded
 - [ ] upload validation evidence is captured in release logs
 - [ ] code verification intentionally skipped if rollout remains docs and ops only
+
+## Implementation Notes
+
+- repo code already exposes upload provider posture and asset-host readiness without requiring host-local interpretation
+- `/ops/diagnostics` now exposes `providerReadiness.upload.pipeline` so storage, review, and asset-host completeness is visible on the deployed target
+- release docs now require storage provider, review provider, asset host URL, and upload validation evidence in the release log
+
+## Verification Notes
+
+- docs-only operator handoff update; no additional code verification was needed for this card

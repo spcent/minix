@@ -32,6 +32,7 @@ These items are required for release, but they are not proved by repository auto
 | Area | Repo automation coverage | Operator evidence needed |
 | --- | --- | --- |
 | Worker env vars and bindings | partial; automation proves behavior after config is present | env inventory, `DB` and `AUTH_RATE_LIMIT_KV` binding confirmation, deployed target URL |
+| `/ops/diagnostics` provider-readiness summary | partial; remote verification confirms the summary is present | actual summary values copied into the release log for preview and production |
 | WeChat domain allowlists | none | request, `uploadFile`, and `downloadFile` allowlists recorded against the deployed API domain |
 | H5 CORS and remote API base URL | partial; remote verification proves runtime only after config is present | deployed H5 URL list plus matching CORS or Pages config |
 | External auth, payment, message, upload, and share providers | partial; contracts and local tests prove shared fallback and production posture | provider rollout confirmation, callback endpoints, and secret ownership recorded |

@@ -84,6 +84,36 @@ All evidence should end up in [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md).
 
 The repo now also exposes provider-readiness diagnostics through the authenticated `/ops/diagnostics` API surface. Use it to confirm whether auth, messages, payment callbacks, upload, and share are currently in `sample`, `ready`, `review`, or `blocked` posture for the target environment.
 
+## Provider-Readiness Interpretation
+
+Treat `/ops/diagnostics` as the repo-visible posture summary for `0241` to `0245`:
+
+| Status | Meaning | Release posture |
+| --- | --- | --- |
+| `sample` | target still runs the sample provider path intentionally | acceptable only when the release record explicitly defers that production rollout |
+| `ready` | repo-visible production inputs are configured and the target no longer depends on sample fallback | acceptable for release when manual validation and ownership evidence are also recorded |
+| `review` | production mode is enabled, but env-backed rollout is still incomplete or still needs explicit acceptance | do not treat as release-ready until the missing fields or acceptance notes are recorded |
+| `blocked` | production mode is enabled but the required adapter or provider path is not actually wired | release blocker until resolved or reverted from production mode |
+
+Use that summary together with manual validation and deployment ownership. `/ops/diagnostics` is a release checkpoint, not a substitute for operator proof.
+
+## Bundle Evidence Minimum
+
+Record these bundle-level facts before closing `0241` to `0247`:
+
+- auth:
+  target env, SMS provider name, OAuth provider name, callback domain, `/ops/diagnostics` auth summary, and manual login or bind proof
+- messages:
+  target env, external channel owners, polling-only decision, `/ops/diagnostics` message summary, and inbox or notification proof
+- payment:
+  target env, merchant owner, callback URL or secret confirmation, `/ops/diagnostics` payment summary, and purchase or refund proof
+- upload:
+  target env, storage provider, review provider, asset host URL, `/ops/diagnostics` upload summary, and upload or attach proof
+- share:
+  target env, short-link provider, poster provider, deployed base URLs, `/ops/diagnostics` share summary, and short-link or attribution proof
+- release:
+  preview and production URLs, WeChat validator and date, final signoff owner, and go or no-go decision
+
 ## Active Queue Closure Rule
 
 Treat the release queue as one bundle:

@@ -85,3 +85,13 @@ Provision real share providers, validate deployed short-link and poster URLs, an
 - [ ] attribution and return-recognition evidence is captured in release logs
 - [ ] provider ownership and rollout notes are recorded for release signoff
 - [ ] code verification intentionally skipped if rollout remains docs and ops only
+
+## Implementation Notes
+
+- repo code already exposes normalized share rollout posture and attribution metadata without needing host-local wrappers
+- `/ops/diagnostics` now exposes `providerReadiness.share.distribution` so short-link, poster, and URL-host readiness is visible on the deployed target
+- release docs now require short-link provider, poster provider, deployed URL checks, and attribution validation evidence in the release log
+
+## Verification Notes
+
+- docs-only operator handoff update; no additional code verification was needed for this card

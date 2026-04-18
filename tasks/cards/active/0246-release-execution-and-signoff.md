@@ -90,3 +90,13 @@ Run the launch checklist against preview and production, collect evidence, and r
 - [ ] manual WeChat validation evidence is recorded with validator name and date
 - [ ] explicit go or no-go signoff owner is recorded
 - [ ] code verification intentionally skipped if this remains execution and docs only
+
+## Implementation Notes
+
+- repo docs now make preview and production `/ops/diagnostics` provider-readiness snapshots part of the release evidence set
+- `VERIFICATION_LOG.md` now includes explicit provider-readiness and rollout-evidence slots for preview and production execution
+- this card remains execution-only; the remaining work is to fill the tracked template with real deployed values and signoff ownership
+
+## Verification Notes
+
+- docs-only operator handoff update; no additional code verification was needed for this card

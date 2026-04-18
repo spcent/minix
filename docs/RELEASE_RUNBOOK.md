@@ -148,6 +148,23 @@ MINIX_API_BASE_URL="https://<production-worker>.workers.dev" pnpm pages:deploy:n
 6. Update [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md) with commit SHA, URLs, command results, provider rollout evidence, manual validation, and final signoff.
 7. Only then publish the final release record.
 
+## Provider Rollout Checklist
+
+Run this checklist while executing `0241` to `0245`:
+
+- auth:
+  confirm `providerReadiness.auth.sms` and `providerReadiness.auth.oauth` match the intended posture, then record SMS provider, OAuth provider, callback domain, and manual login or bind validation
+- messages:
+  confirm `providerReadiness.messages.touchpoints` matches the intended posture, then record channel owners and whether polling-only sync is accepted for the target release
+- payment:
+  confirm `providerReadiness.payment.callbacks` matches the intended posture, then record merchant owner, callback-secret confirmation, and purchase or refund validation
+- upload:
+  confirm `providerReadiness.upload.pipeline` matches the intended posture, then record storage provider, review provider, asset host URL, and upload validation
+- share:
+  confirm `providerReadiness.share.distribution` matches the intended posture, then record short-link provider, poster provider, deployed URLs, and short-link or attribution validation
+
+If any area remains `review` or `blocked`, do not hide it inside generic release notes. Record the exact remaining blocker or explicit release deferral in [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md).
+
 ## Required Evidence
 
 Every RC or final release record should capture:

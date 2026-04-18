@@ -49,19 +49,42 @@ Each release record should capture:
 #### Provider Rollout
 
 - auth:
+  - provider-readiness summary:
+  - target env confirmation:
+  - provider or callback evidence:
+  - manual validation note:
 - messages:
+  - provider-readiness summary:
+  - target env confirmation:
+  - provider ownership evidence:
+  - polling-only acceptance note:
 - payment:
+  - provider-readiness summary:
+  - target env confirmation:
+  - merchant or callback evidence:
+  - purchase or refund validation note:
 - upload:
+  - provider-readiness summary:
+  - target env confirmation:
+  - storage or review evidence:
+  - asset-host validation note:
 - share:
+  - provider-readiness summary:
+  - target env confirmation:
+  - short-link or poster evidence:
+  - attribution validation note:
 
 #### Remote Verification
 
 - preview Worker URL:
 - `pnpm verify:api:remote`:
+- preview `/ops/diagnostics` provider-readiness:
 - preview `host-h5` URL:
 - preview `novel-h5` URL:
 - `pnpm verify:preview:remote`:
 - production Worker URL:
+- production `pnpm verify:api:remote`:
+- production `/ops/diagnostics` provider-readiness:
 - production `host-h5` URL:
 - production `novel-h5` URL:
 

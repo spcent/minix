@@ -69,6 +69,12 @@ The remaining release-facing queue is mostly operator-owned:
 | `P0` | [`../tasks/cards/active/0245-share-provider-rollout-and-attribution-ops.md`](../tasks/cards/active/0245-share-provider-rollout-and-attribution-ops.md) | close short-link and poster rollout | [`./PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md) |
 | `P0` | [`../tasks/cards/active/0246-release-execution-and-signoff.md`](../tasks/cards/active/0246-release-execution-and-signoff.md) | capture final release decision and signoff | [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md) |
 
+Repo-side posture for this queue:
+
+- `/ops/diagnostics` is now the shared readiness checkpoint for auth, messages, payment callbacks, upload, and share
+- `PRODUCTION_READINESS`, `RELEASE_RUNBOOK`, and `VERIFICATION_LOG` now define the minimum evidence shape for `0241` to `0246`
+- the remaining work is still operator execution, not missing shared-kernel behavior
+
 ## Execution Order
 
 Use this order unless a release owner explicitly decides otherwise:

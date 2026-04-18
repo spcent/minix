@@ -85,3 +85,13 @@ Provision real external touchpoint providers, confirm the polling-only transport
 - [ ] inbox and notification manual validation evidence is captured
 - [ ] provider ownership and fallback behavior are recorded in release logs
 - [ ] code verification intentionally skipped if rollout remains docs and ops only
+
+## Implementation Notes
+
+- repo code already keeps message provider posture explicit and preserves polling-only sync as an intentional release decision instead of an accidental transport gap
+- `/ops/diagnostics` now exposes `providerReadiness.messages.touchpoints` so the deployed target can show whether production channel config is complete or still in review
+- release docs now require explicit polling-only acceptance notes and provider ownership evidence for the release log
+
+## Verification Notes
+
+- docs-only operator handoff update; no additional code verification was needed for this card

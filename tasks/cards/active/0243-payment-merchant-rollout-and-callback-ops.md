@@ -85,3 +85,13 @@ Provision real merchant configuration, route production callbacks correctly, and
 - [ ] payment rollout owner and evidence are captured in release logs
 - [ ] order-center and membership flows are signed off for the intended hosts
 - [ ] code verification intentionally skipped if rollout remains docs and ops only
+
+## Implementation Notes
+
+- repo code already enforces production-safe callback posture and keeps payment callback readiness visible through `/ops/diagnostics`
+- `/ops/diagnostics` now exposes `providerReadiness.payment.callbacks` so callback-secret readiness is visible on the deployed target before signoff
+- release docs now require merchant owner, callback evidence, and purchase or refund proof in the release log
+
+## Verification Notes
+
+- docs-only operator handoff update; no additional code verification was needed for this card

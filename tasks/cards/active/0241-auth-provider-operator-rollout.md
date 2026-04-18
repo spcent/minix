@@ -87,3 +87,13 @@ Provision real SMS and OAuth providers, register callback domains, and capture r
 - [ ] auth env mode toggles are enabled only on the intended deployed targets
 - [ ] login and identity verification evidence is captured in release logs
 - [ ] code verification intentionally skipped if rollout remains docs and ops only
+
+## Implementation Notes
+
+- repo code already fails closed when auth production mode lacks a real SMS or OAuth adapter
+- `/ops/diagnostics` now exposes `providerReadiness.auth.sms` and `providerReadiness.auth.oauth` so the deployed target posture is visible before manual signoff
+- release docs now require operator evidence for provider names, callback domains, target env confirmation, and login or bind validation
+
+## Verification Notes
+
+- docs-only operator handoff update; no additional code verification was needed for this card
