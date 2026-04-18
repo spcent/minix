@@ -120,6 +120,20 @@ Record these bundle-level facts before closing `0241` to `0247`:
 - release:
   preview and production URLs, WeChat validator and date, final signoff owner, and go or no-go decision
 
+## Operator Execution Sequence
+
+Use this exact repo-side sequence when collecting rollout proof for `0241` to `0246`:
+
+1. run the local release gate on the intended commit
+2. deploy the target environment
+3. emit a remote evidence pack with `MINIX_REMOTE_EVIDENCE_OUTPUT="<path>" pnpm verify:api:remote`
+4. render copy-ready markdown with `pnpm verify:api:remote:render <path> <label>`
+5. confirm the matching `/ops/diagnostics` `providerReadiness.*` keys are `ready`, or explicitly record `sample`, `review`, or `blocked`
+6. paste the rendered snippet and the manual validation result into [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md)
+7. close the corresponding task card only after the evidence log, rollout owner, and target posture all match
+
+This sequence does not replace manual validation. It keeps preview and production evidence comparable and makes rollout deferrals explicit instead of implicit.
+
 ## Active Queue Closure Rule
 
 Treat the release queue as one bundle:

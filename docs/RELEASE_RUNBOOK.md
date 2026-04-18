@@ -172,6 +172,31 @@ Run this checklist while executing `0241` to `0245`:
 
 If any area remains `review` or `blocked`, do not hide it inside generic release notes. Record the exact remaining blocker or explicit release deferral in [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md).
 
+## Operator Evidence Workflow
+
+Use this same flow for `0241` to `0246` on preview and production:
+
+1. deploy or update the target environment
+2. run `MINIX_REMOTE_EVIDENCE_OUTPUT="<path>" pnpm verify:api:remote`
+3. run `pnpm verify:api:remote:render <path> <label>`
+4. inspect authenticated `/ops/diagnostics` and confirm the matching `providerReadiness.*` keys
+5. paste the rendered snippet and manual validation notes into [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md)
+6. mark the relevant task card only after the evidence log and the target posture match
+
+Recommended evidence pack paths:
+
+- preview: `.tmp/preview-remote-evidence.json`
+- production: `.tmp/production-remote-evidence.json`
+
+Recommended ownership split:
+
+- `0241` auth: provider names, callback domain, login or bind proof
+- `0242` messages: channel owners, polling-only decision, inbox or notification proof
+- `0243` payment: merchant owner, callback confirmation, purchase or refund proof
+- `0244` upload: storage owner, review owner, asset host URL, upload or attach proof
+- `0245` share: short-link owner, poster owner, deployed URL proof, attribution proof
+- `0246` release: preview or production URLs, WeChat validator, final go or no-go signoff
+
 ## Required Evidence
 
 Every RC or final release record should capture:
