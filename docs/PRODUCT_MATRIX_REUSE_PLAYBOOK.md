@@ -43,6 +43,7 @@ If any step cannot be answered, add the smallest missing contract or shared cont
 - API account security projections should use API-domain snapshot helpers for devices, audit events, prompts, and rate-limit state.
 - Managed content API projections should use API-domain snapshot helpers for review records, audit history, authoring metadata, tags, and display topics.
 - Payment catalog product and SKU copies should use API-domain snapshot helpers so product matrices can add nested catalog metadata without revisiting clone code.
+- Message thread API projections should use API-domain snapshot helpers for nested assignment, progress, sync, and context payloads.
 - Use `apps/api/src/domains/snapshot.ts` for API-domain workflow snapshots. Keep it local to the API app instead of importing core helpers into backend-only code.
 - Feedback/support API shaping should use the API-domain snapshot helper for tickets, statuses, FAQ catalogs, support entries, and support-thread echoes so service-loop surfaces stay portable.
 - Extend `apps/api/src/domains/*` for business workflow shaping. Keep `apps/api/src/app.ts` as routing assembly and avoid pushing domain rules into host code.

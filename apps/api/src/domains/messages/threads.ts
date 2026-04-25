@@ -30,6 +30,7 @@ import type {
 import type { StoredMessageThreadRecord, UserState } from "../../types";
 import { isProductionProviderMode, isSampleProviderMode, resolveProviderPostureMode } from "../provider-posture";
 import type { NotificationChannelProviderRuntimeEnv } from "../settings/state";
+import { cloneDomainSnapshot } from "../snapshot";
 import { cloneTouchpoints, DEFAULT_MESSAGE_TOUCHPOINTS, cloneMessageTouchpointsForItem } from "./touchpoints";
 
 const MESSAGE_POLL_INTERVAL_MS = 5_000;
@@ -380,11 +381,11 @@ function cloneMessageThread(
     }, runtimeEnv),
     ...(thread.replyPolicy ? { replyPolicy: thread.replyPolicy } : {}),
     ...(thread.members ? { members: cloneThreadMembers(thread.members) } : {}),
-    ...(thread.assignment ? { assignment: { ...thread.assignment } } : {}),
-    ...(thread.consultationProgress ? { consultationProgress: { ...thread.consultationProgress } } : {}),
-    ...(thread.supportProgress ? { supportProgress: { ...thread.supportProgress } } : {}),
-    ...(thread.groupState ? { groupState: { ...thread.groupState } } : {}),
-    ...(thread.syncState ? { syncState: { ...thread.syncState } } : {}),
+    ...(thread.assignment ? { assignment: cloneDomainSnapshot(thread.assignment) } : {}),
+    ...(thread.consultationProgress ? { consultationProgress: cloneDomainSnapshot(thread.consultationProgress) } : {}),
+    ...(thread.supportProgress ? { supportProgress: cloneDomainSnapshot(thread.supportProgress) } : {}),
+    ...(thread.groupState ? { groupState: cloneDomainSnapshot(thread.groupState) } : {}),
+    ...(thread.syncState ? { syncState: cloneDomainSnapshot(thread.syncState) } : {}),
   };
 }
 
@@ -925,8 +926,8 @@ export function createMessageThread(
           : input.type === "group"
             ? "Created group thread"
             : "Created private thread",
-    ...(input.sourceContext ? { sourceContext: { ...input.sourceContext } } : {}),
-    ...(input.actorContext ? { actorContext: { ...input.actorContext } } : {}),
+    ...(input.sourceContext ? { sourceContext: cloneDomainSnapshot(input.sourceContext) } : {}),
+    ...(input.actorContext ? { actorContext: cloneDomainSnapshot(input.actorContext) } : {}),
     participantLabels: members.map((member) => member.label),
     pinned: false,
     doNotDisturb: false,
