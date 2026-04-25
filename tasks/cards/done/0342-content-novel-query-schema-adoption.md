@@ -1,6 +1,6 @@
 # Content Novel Query Schema Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -17,6 +17,10 @@ Adopt novel contract constants in content-domain novel query schemas.
 
 ## Acceptance
 
-- [ ] novel list status and sort schemas reuse novel contract constants
-- [ ] novel list route behavior remains unchanged
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] novel list status and sort schemas reuse novel contract constants
+- [x] novel list route behavior remains unchanged
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced duplicated novel status and sort enums with novel contract constants.

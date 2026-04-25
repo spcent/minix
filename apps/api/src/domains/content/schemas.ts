@@ -4,6 +4,8 @@ import {
   CONTENT_MODELS,
   CONTENT_PUBLICATION_STATES,
   CONTENT_VISIBILITIES,
+  NOVEL_SORT_VALUES,
+  NOVEL_STATUSES,
   SEARCH_DOMAINS,
   SEARCH_MODES,
 } from "@minix/contracts";
@@ -12,6 +14,7 @@ import { z } from "zod";
 import { apiPaginationQueryShape } from "../schema-helpers";
 
 const CONTENT_PUBLICATION_STATE_FILTERS = [...CONTENT_PUBLICATION_STATES, "all"] as const;
+const NOVEL_STATUS_FILTERS = [...NOVEL_STATUSES, "all"] as const;
 
 export const feedQuerySchema = z.object({
   ...apiPaginationQueryShape,
@@ -63,8 +66,8 @@ export const novelsQuerySchema = z.object({
   ...apiPaginationQueryShape,
   keyword: z.string().min(1).optional(),
   categoryKey: z.string().min(1).optional(),
-  status: z.enum(["serializing", "completed", "paused", "all"]).optional(),
-  sort: z.enum(["recommended", "updatedAt", "popular", "wordCount"]).optional(),
+  status: z.enum(NOVEL_STATUS_FILTERS).optional(),
+  sort: z.enum(NOVEL_SORT_VALUES).optional(),
 });
 
 export const novelIdQuerySchema = z.object({
