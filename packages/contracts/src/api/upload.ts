@@ -46,6 +46,9 @@ export type UploadTransferMode = (typeof UPLOAD_TRANSFER_MODES)[number];
 export const UPLOAD_REFERENCE_OWNER_TYPES = ["feedback", "content", "avatar"] as const;
 export type UploadReferenceOwnerType = (typeof UPLOAD_REFERENCE_OWNER_TYPES)[number];
 
+export const UPLOAD_DERIVED_ASSET_VARIANT_KINDS = ["original", "thumbnail", "cover", "preview"] as const;
+export type UploadDerivedAssetVariantKind = (typeof UPLOAD_DERIVED_ASSET_VARIANT_KINDS)[number];
+
 export interface UploadGovernance {
   maxSizeBytes: number;
   acceptedFileTypes: UploadFileType[];
@@ -73,7 +76,7 @@ export interface UploadLifecycle {
 }
 
 export interface UploadDerivedAssetVariant {
-  kind: "original" | "thumbnail" | "cover" | "preview";
+  kind: UploadDerivedAssetVariantKind;
   url: string;
   label: string;
   width?: number;
