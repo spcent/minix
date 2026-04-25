@@ -1,4 +1,4 @@
-import { NOTIFICATION_TYPES } from "@minix/contracts";
+import { MESSAGE_TOUCHPOINT_CHANNELS, NOTIFICATION_TYPES } from "@minix/contracts";
 import type {
   CreateMessageThreadRequest,
   CreateMessageThreadResponse,
@@ -6,6 +6,7 @@ import type {
   MarkThreadReadRequest,
   MessageBodyItem,
   MessageConsultationProgress,
+  MessageDeliveryPosture,
   MessageDeliveryStatus,
   MessageThread,
   MessageThreadActions,
@@ -430,6 +431,63 @@ function createThreadSyncState(
   };
 }
 
+export function createMessageDeliveryPosture(
+  userState: UserState,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+  input: {
+    threads?: MessageThread[];
+    messages?: MessageBodyItem[];
+  } = {},
+): MessageDeliveryPosture {
+  const providerMode = runtimeEnv?.MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE === "production" ? "production" : "sample";
+  const records = getAllThreadRecords(userState);
+  const threads = input.threads ?? records.map((record) => record.thread);
+  const storedMessages = records.flatMap((record) => record.messages);
+  const messages = [...storedMessages, ...(input.messages ?? [])];
+  const messageReceipts = messages.flatMap((message) =>
+    message.touchpoints.flatMap((touchpoint) => (touchpoint.receipt ? [touchpoint.receipt] : [])),
+  );
+  const notificationReceipts = Object.values(userState.notificationTouchpointReceiptsByNotificationId ?? {})
+    .flatMap((receiptByChannel) => Object.values(receiptByChannel));
+  const receipts = [...messageReceipts, ...notificationReceipts];
+  const failedReceiptCount = receipts.filter((receipt) => receipt.status === "failed").length;
+  const retryableReceiptCount = receipts.filter((receipt) => receipt.retryable).length;
+  const supportLoopSummary = threads.find((thread) => thread.supportProgress?.supportLoopSummary)
+    ?.supportProgress?.supportLoopSummary;
+  const consultationProgress = threads.find((thread) => thread.consultationProgress)?.consultationProgress;
+
+  return {
+    providerMode,
+    syncMode: "polling",
+    realtimeProvisioned: false,
+    pollingIntervalMs: MESSAGE_POLL_INTERVAL_MS,
+    pollingAcceptanceSummary: `Polling-only delivery acceptance runs every ${Math.round(MESSAGE_POLL_INTERVAL_MS / 1000)} seconds; realtime transport is not provisioned.`,
+    providerSummary:
+      providerMode === "production"
+        ? "Message touchpoints use production provider posture where configured, with in-app delivery as durable fallback."
+        : "Message touchpoints remain in explicit sample provider posture, with in-app delivery as durable fallback.",
+    receiptHistorySummary:
+      receipts.length > 0
+        ? `${receipts.length} provider receipt(s) tracked across notification and thread touchpoints.`
+        : "No external provider receipts have been recorded yet.",
+    retrySummary:
+      retryableReceiptCount > 0
+        ? `${retryableReceiptCount} receipt(s) are retryable; failed messages stay visible until polling or retry resolves them.`
+        : failedReceiptCount > 0
+          ? `${failedReceiptCount} failed receipt(s) require operator review or a new dispatch.`
+          : "No retryable delivery receipts are pending.",
+    failedReceiptCount,
+    retryableReceiptCount,
+    touchpointChannels: [...MESSAGE_TOUCHPOINT_CHANNELS],
+    ...(supportLoopSummary ? { supportLoopSummary } : {}),
+    ...(consultationProgress
+      ? {
+          consultationSummary: `${consultationProgress.state} consultation ${consultationProgress.caseId} remains synchronized through the shared message thread.`,
+        }
+      : {}),
+  };
+}
+
 function createThreadCursor(messages: MessageBodyItem[], thread: MessageThread, updatedAt: string) {
   return `${updatedAt}:${messages.length}:${thread.unreadCount}:${thread.lastMessageAt ?? "none"}`;
 }
@@ -765,9 +823,13 @@ export function listMessageThreadResponse(
   } = {},
   runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): MessageThreadListResponse {
+  const threadList = listMessageThreads(userState, input, runtimeEnv);
   return {
-    threadList: listMessageThreads(userState, input, runtimeEnv),
+    threadList,
     unreadBadge: createUnreadBadge(userState, 0, runtimeEnv),
+    deliveryPosture: createMessageDeliveryPosture(userState, runtimeEnv, {
+      threads: threadList.items,
+    }),
   };
 }
 
@@ -791,6 +853,10 @@ export function getMessageThread(
     detailActions,
     unreadBadge: createUnreadBadge(userState, 0, runtimeEnv),
     threadList: listMessageThreads(userState, { page: 1, pageSize: 20 }, runtimeEnv),
+    deliveryPosture: createMessageDeliveryPosture(userState, runtimeEnv, {
+      threads: [messageThread],
+      messages: messageItems,
+    }),
     changed,
   };
 }
@@ -919,6 +985,9 @@ export function createMessageThread(
     detailActions: createMessageThreadActions(thread, []),
     unreadBadge: createUnreadBadge(userState, 0, runtimeEnv),
     threadList: listMessageThreads(userState, { page: 1, pageSize: 20 }, runtimeEnv),
+    deliveryPosture: createMessageDeliveryPosture(userState, runtimeEnv, {
+      threads: [thread],
+    }),
   };
 }
 
@@ -1076,6 +1145,10 @@ export function sendThreadMessage(
     detailActions: createMessageThreadActions(messageThread, getThreadMessages(userState, input.threadId, runtimeEnv)),
     unreadBadge: createUnreadBadge(userState, 0, runtimeEnv),
     threadList: listMessageThreads(userState, { page: 1, pageSize: 20 }, runtimeEnv),
+    deliveryPosture: createMessageDeliveryPosture(userState, runtimeEnv, {
+      threads: [messageThread],
+      messages: [nextMessageItem],
+    }),
   };
 }
 
@@ -1135,6 +1208,10 @@ export function retryThreadMessage(
     detailActions: createMessageThreadActions(messageThread, getThreadMessages(userState, input.threadId, runtimeEnv)),
     unreadBadge: createUnreadBadge(userState, 0, runtimeEnv),
     threadList: listMessageThreads(userState, { page: 1, pageSize: 20 }, runtimeEnv),
+    deliveryPosture: createMessageDeliveryPosture(userState, runtimeEnv, {
+      threads: [messageThread],
+      messages: [messageItem],
+    }),
   };
 }
 

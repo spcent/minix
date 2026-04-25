@@ -67,6 +67,7 @@ function cloneState(state: MessagesState): MessagesState {
     ...(state.messageThread ? { messageThread: structuredClone(state.messageThread) } : {}),
     messageItems: state.messageItems.map((item) => structuredClone(item)),
     ...(state.detailActions ? { detailActions: { ...state.detailActions } } : {}),
+    ...(state.deliveryPosture ? { deliveryPosture: structuredClone(state.deliveryPosture) } : {}),
     searchFilters: state.searchFilters.map((group) => structuredClone(group)),
     query: { ...state.query },
     composerText: state.composerText,
@@ -235,6 +236,7 @@ export function createMessagesController(options: CreateMessagesControllerOption
       messageThread: response.messageThread,
       messageItems: response.messageItems,
       detailActions: response.detailActions,
+      deliveryPosture: response.deliveryPosture ?? store.getState().deliveryPosture,
       unreadBadge: response.unreadBadge,
       reservedThreads: threads,
       selectedThreadId: response.messageThread.threadId,
@@ -275,6 +277,7 @@ export function createMessagesController(options: CreateMessagesControllerOption
       filters: response.notificationList.filters,
       groups: response.notificationList.groups,
       unreadBadge: response.unreadBadge,
+      deliveryPosture: response.deliveryPosture ?? current.deliveryPosture,
       reservedThreads: threads,
       selectedThreadId,
       messageThread:
@@ -377,6 +380,7 @@ export function createMessagesController(options: CreateMessagesControllerOption
       reservedThreads: result.value.threadList.items,
       selectedThreadId: nextSelectedThreadId,
       unreadBadge: result.value.unreadBadge,
+      deliveryPosture: result.value.deliveryPosture ?? current.deliveryPosture,
     });
 
     return result;
@@ -644,6 +648,7 @@ export function createMessagesController(options: CreateMessagesControllerOption
       } else {
         store.setState({
           unreadBadge: result.value.unreadBadge,
+          deliveryPosture: result.value.deliveryPosture ?? store.getState().deliveryPosture,
           reservedThreads: result.value.threadList?.items ?? store.getState().reservedThreads,
         });
       }
@@ -659,6 +664,7 @@ export function createMessagesController(options: CreateMessagesControllerOption
       store.setState({
         reservedThreads: result.value.threadList.items,
         unreadBadge: result.value.unreadBadge,
+        deliveryPosture: result.value.deliveryPosture ?? store.getState().deliveryPosture,
         selectedThreadId: result.value.messageThread.threadId,
         composerText: "",
       });

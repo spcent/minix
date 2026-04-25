@@ -1,6 +1,7 @@
 import type {
   DetailStatus,
   MessageBodyItem,
+  MessageDeliveryPosture,
   MessageThreadActions,
   MessageThread,
   NotificationFilterGroup,
@@ -22,6 +23,7 @@ export type MessagesState = Omit<ListPageState<NotificationItem>, "filters"> & {
   messageThread: MessageThread | undefined;
   messageItems: MessageBodyItem[];
   detailActions: MessageThreadActions | undefined;
+  deliveryPosture: MessageDeliveryPosture | undefined;
   composerText: string;
   activeType: NotificationType | "all";
   activeGroupKey: string;
@@ -65,6 +67,7 @@ export function createDefaultMessagesState(
     messageThread: undefined,
     messageItems: [],
     detailActions: undefined,
+    deliveryPosture: undefined,
     composerText: "",
     activeType: "all",
     activeGroupKey: "all",

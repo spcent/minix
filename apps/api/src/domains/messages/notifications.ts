@@ -13,7 +13,7 @@ import type {
 import type { UserState } from "../../types";
 import type { NotificationChannelProviderRuntimeEnv } from "../settings/state";
 import { cloneTouchpoints, DEFAULT_MESSAGE_TOUCHPOINTS } from "./touchpoints";
-import { deriveThreadState, listMessageThreads } from "./threads";
+import { createMessageDeliveryPosture, deriveThreadState, listMessageThreads } from "./threads";
 
 interface NotificationSeed {
   id: string;
@@ -372,6 +372,9 @@ export function listNotifications(
     unreadBadge: getUnreadBadge(userState, runtimeEnv),
     reservedThreads,
     threadList,
+    deliveryPosture: createMessageDeliveryPosture(userState, runtimeEnv, {
+      threads: threadList.items,
+    }),
   };
 }
 

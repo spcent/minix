@@ -87,9 +87,20 @@ Improve station notifications, message threads, unread badges, and touchpoint ev
 
 ## Acceptance
 
-- [ ] provider delivery posture and polling status are explicit
-- [ ] unread and read-receipt behavior remains consistent across list and detail flows
-- [ ] message touchpoints remain the shared delivery abstraction
-- [ ] no realtime behavior is documented unless implemented and verified
-- [ ] release docs updated when provider acceptance changes
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] provider delivery posture and polling status are explicit
+- [x] unread and read-receipt behavior remains consistent across list and detail flows
+- [x] message touchpoints remain the shared delivery abstraction
+- [x] no realtime behavior is documented unless implemented and verified
+- [x] release docs updated when provider acceptance changes
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added additive `MessageDeliveryPosture` output with provider mode, polling interval, realtime posture, receipt history, retry counts, and support/consultation summaries.
+- Threaded delivery posture through notification list, thread list, thread detail, create, send, retry, and sync responses.
+- Stored delivery posture in the shared messages controller state without adding a second messages store.
+- Kept realtime explicitly unprovisioned and polling-only in the contract summary.
+
+## Verification Notes
+
+- Ran `pnpm verify:feature messages`.

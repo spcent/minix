@@ -203,6 +203,22 @@ export interface MessageSyncState {
   lastSyncedAt?: string;
 }
 
+export interface MessageDeliveryPosture {
+  providerMode: MessageTouchpointProviderMode;
+  syncMode: MessageSyncMode;
+  realtimeProvisioned: boolean;
+  pollingIntervalMs: number;
+  pollingAcceptanceSummary: string;
+  providerSummary: string;
+  receiptHistorySummary: string;
+  retrySummary: string;
+  failedReceiptCount: number;
+  retryableReceiptCount: number;
+  touchpointChannels: MessageTouchpointChannel[];
+  supportLoopSummary?: string;
+  consultationSummary?: string;
+}
+
 export interface MessageThread {
   threadId: string;
   type: MessageThreadType;
@@ -285,6 +301,7 @@ export interface NotificationListResponse {
   unreadBadge: UnreadBadge;
   reservedThreads: MessageThread[];
   threadList?: MessageThreadList;
+  deliveryPosture?: MessageDeliveryPosture;
 }
 
 export interface MessageThreadResponse {
@@ -293,12 +310,14 @@ export interface MessageThreadResponse {
   detailActions: MessageThreadActions;
   unreadBadge: UnreadBadge;
   threadList?: MessageThreadList;
+  deliveryPosture?: MessageDeliveryPosture;
   changed?: boolean;
 }
 
 export interface MessageThreadListResponse {
   threadList: MessageThreadList;
   unreadBadge: UnreadBadge;
+  deliveryPosture?: MessageDeliveryPosture;
 }
 
 export interface MarkNotificationsReadRequest {
@@ -341,6 +360,7 @@ export interface SendMessageResponse {
   detailActions: MessageThreadActions;
   unreadBadge: UnreadBadge;
   threadList?: MessageThreadList;
+  deliveryPosture?: MessageDeliveryPosture;
 }
 
 export interface RetryMessageRequest {
@@ -365,6 +385,7 @@ export interface CreateMessageThreadResponse {
   detailActions: MessageThreadActions;
   unreadBadge: UnreadBadge;
   threadList: MessageThreadList;
+  deliveryPosture?: MessageDeliveryPosture;
 }
 
 export interface MarkThreadReadRequest {

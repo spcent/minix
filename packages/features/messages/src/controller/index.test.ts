@@ -7,6 +7,7 @@ import {
   type CreateMessageThreadResponse,
   type MarkNotificationsReadResponse,
   type MessageBodyItem,
+  type MessageDeliveryPosture,
   type MessageThread,
   type MessageThreadListResponse,
   type MessageThreadResponse,
@@ -122,6 +123,24 @@ function createOutboundMessage(
   };
 }
 
+function createDeliveryPosture(overrides: Partial<MessageDeliveryPosture> = {}): MessageDeliveryPosture {
+  return {
+    providerMode: "sample",
+    syncMode: "polling",
+    realtimeProvisioned: false,
+    pollingIntervalMs: 3000,
+    pollingAcceptanceSummary: "Polling-only delivery acceptance runs every 3 seconds; realtime transport is not provisioned.",
+    providerSummary: "Message touchpoints remain in explicit sample provider posture, with in-app delivery as durable fallback.",
+    receiptHistorySummary: "1 provider receipt(s) tracked across notification and thread touchpoints.",
+    retrySummary: "No retryable delivery receipts are pending.",
+    failedReceiptCount: 0,
+    retryableReceiptCount: 0,
+    touchpointChannels: ["in_app", "subscription_message", "sms", "email", "push"],
+    supportLoopSummary: "Product Support is now handling this case in the shared support thread.",
+    ...overrides,
+  };
+}
+
 function createThreadResponse(unreadCount: number, sentMessageBody?: string, changed = true): MessageThreadResponse {
   const messageThread = createThread(unreadCount, sentMessageBody ?? "Reply");
   return {
@@ -149,6 +168,7 @@ function createThreadResponse(unreadCount: number, sentMessageBody?: string, cha
       selectedThreadId: messageThread.threadId,
       ...(messageThread.syncState ? { syncState: messageThread.syncState } : {}),
     },
+    deliveryPosture: createDeliveryPosture(),
     changed,
   };
 }
@@ -213,6 +233,7 @@ function createNotificationListResponse(): NotificationListResponse {
       selectedThreadId: thread.threadId,
       ...(thread.syncState ? { syncState: thread.syncState } : {}),
     },
+    deliveryPosture: createDeliveryPosture(),
   };
 }
 
@@ -305,6 +326,7 @@ function createKernelStub() {
               threadUnread: threadUnreadCount,
               breakdown: [{ key: "system", label: "System", count: 1 }],
             },
+            deliveryPosture: createDeliveryPosture(),
           };
           return ok(response as T);
         }
@@ -372,6 +394,13 @@ function createKernelStub() {
               hasMore: false,
               selectedThreadId: "thread-1",
             },
+            deliveryPosture: createDeliveryPosture({
+              retrySummary: lastDeliveryStatus === "failed"
+                ? "1 receipt(s) are retryable; failed messages stay visible until polling or retry resolves them."
+                : "No retryable delivery receipts are pending.",
+              failedReceiptCount: lastDeliveryStatus === "failed" ? 1 : 0,
+              retryableReceiptCount: lastDeliveryStatus === "failed" ? 1 : 0,
+            }),
           };
           return ok(response as T);
         }
@@ -403,6 +432,9 @@ function createKernelStub() {
               hasMore: false,
               selectedThreadId: "thread-1",
             },
+            deliveryPosture: createDeliveryPosture({
+              retrySummary: "No retryable delivery receipts are pending.",
+            }),
           };
           return ok(response as T);
         }
@@ -446,6 +478,7 @@ function createKernelStub() {
               hasMore: false,
               selectedThreadId: "thread-created",
             },
+            deliveryPosture: createDeliveryPosture(),
           };
           return ok(response as T);
         }
@@ -571,6 +604,8 @@ test("messages controller loads notifications with unread badge state", async ()
   assert.equal(controller.store.getState().detailData?.threadId, "thread-1");
   assert.equal(controller.store.getState().messageItems.length, 1);
   assert.equal(controller.store.getState().messageThread?.threadId, "thread-1");
+  assert.equal(controller.store.getState().deliveryPosture?.syncMode, "polling");
+  assert.equal(controller.store.getState().deliveryPosture?.realtimeProvisioned, false);
 });
 
 test("messages controller appends the next page and keeps the current list", async () => {
@@ -703,6 +738,10 @@ test("messages controller can send an outbound message into the selected thread"
     controller.store.getState().messageThread?.supportProgress?.supportLoopSummary,
     "Product Support is now handling this case in the shared support thread.",
   );
+  assert.match(
+    controller.store.getState().deliveryPosture?.pollingAcceptanceSummary ?? "",
+    /Polling-only delivery acceptance/,
+  );
 });
 
 test("messages controller retries a failed outbound message", async () => {
@@ -719,6 +758,7 @@ test("messages controller retries a failed outbound message", async () => {
   assert.equal(controller.store.getState().messageItems.at(-1)?.deliveryStatus, "pending");
   assert.equal(controller.store.getState().messageItems.at(-1)?.attemptCount, 2);
   assert.equal(controller.store.getState().detailActions?.canRetryFailed, false);
+  assert.equal(controller.store.getState().deliveryPosture?.retryableReceiptCount, 0);
 });
 
 test("messages controller can sync a thread and promote delivery state", async () => {
