@@ -124,6 +124,7 @@ pnpm gen:shells
 ## 参考文档
 
 - [README.md](./README.md)
+- [docs/README.md](./docs/README.md)
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - [docs/architecture/README.md](./docs/architecture/README.md)
 - [docs/modules/README.md](./docs/modules/README.md)

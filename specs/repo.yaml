@@ -5,8 +5,8 @@ workspace:
     - apps/*
     - packages/*
     - packages/features/*
-  runtime_scope: v0.1
-  release_target: v1.0
+  runtime_scope: v1.0.0-official-samples
+  release_target: v1.0.0
   official_v1_samples:
     - apps/host-h5
     - apps/host-wechat
@@ -42,8 +42,8 @@ package_shapes:
     - apps/novel-wechat
     - apps/novel-h5
   host_apps_notes:
-    - "`host-*` and `novel-*` are both frozen as official `v1.0` sample apps."
-    - "`runtime_scope` continues to describe the narrow proof path currently used by shared host validation."
+    - "`host-*` and `novel-*` are both frozen as official `v1.0.0` sample apps."
+    - "`runtime_scope` describes the frozen official sample surface used by shared host validation."
     - richer novel routes remain part of the official sample surface without implying that every capability is shared core surface.
 
 host_wiring:

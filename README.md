@@ -121,6 +121,7 @@ This repository includes release and operator guidance, but real credentials, cl
 
 Use these documents together:
 
+- [`docs/README.md`](docs/README.md)
 - [`docs/BACKEND_CONTRACT.md`](docs/BACKEND_CONTRACT.md)
 - [`docs/DOMAIN_COMPLETENESS_MATRIX.md`](docs/DOMAIN_COMPLETENESS_MATRIX.md)
 - [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md)

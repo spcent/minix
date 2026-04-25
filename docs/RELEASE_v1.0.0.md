@@ -1,5 +1,7 @@
 # MiniX v1.0.0
 
+This is the tracked release-cut record. It does not replace the operator signoff evidence in [`VERIFICATION_LOG.md`](/docs/VERIFICATION_LOG.md); provider rollout, remote API proof, and manual WeChat validation are recorded there when executed.
+
 ## Release Name
 
 - release name: `v1.0.0`
@@ -9,7 +11,7 @@
 
 ## Summary
 
-- This release freezes MiniX as a `v1.0.0` official-sample system across H5, WeChat, and the shared API.
+- This release cut freezes MiniX as a `v1.0.0` official-sample system across H5, WeChat, and the shared API.
 - The core result is not a wider framework surface. It is a clearer, more defensible release boundary with stronger auth, payment, upload, messaging, content, search, account, settings, feedback, operational diagnostics, and release verification.
 
 ## Official Sample Surface

@@ -105,7 +105,7 @@ node scripts/compare-remote-evidence.mjs /path/to/local.json /path/to/preview.js
 
 ## Bundle Evidence Minimum
 
-Record these bundle-level facts before closing `0241` to `0247`:
+Record these bundle-level facts before closing the active release queue:
 
 - auth:
   target env, SMS provider name, OAuth provider name, callback domain, `/ops/diagnostics` auth summary, and manual login or bind proof
@@ -140,7 +140,7 @@ Treat the release queue as one bundle:
 
 - `0241` to `0245` close provider-specific rollout posture
 - `0246` closes final release execution and signoff
-- `0247` keeps ordering, owners, blockers, and closeout criteria explicit
+- `0247` is already closed and supplies the coordination baseline for ordering, owners, blockers, and closeout criteria
 
 Do not mark the release bundle complete until:
 

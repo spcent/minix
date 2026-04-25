@@ -36,7 +36,7 @@ Before any RC or production promotion:
 
 ## Active Release Bundle
 
-The current release queue is:
+The current active release queue is:
 
 - `0241` auth provider rollout
 - `0242` message provider rollout and polling acceptance
@@ -44,13 +44,14 @@ The current release queue is:
 - `0244` upload provider rollout and asset-host cutover
 - `0245` share rollout and attribution ops
 - `0246` release execution and signoff
-- `0247` release queue coordination
+
+Coordination card `0247` is already closed and defines the queue shape.
 
 Execution rule:
 
-1. `0247` sets owners, environments, and evidence locations first.
+1. Confirm the `0247` coordination baseline still matches the target environment and evidence location.
 2. `0241` to `0245` may proceed in parallel after that.
-3. `0246` closes only after provider rollout and manual validation evidence are recorded.
+3. `0246` closes only after provider rollout, remote verification, manual WeChat validation, and signoff evidence are recorded.
 
 ## Local Release Gate
 

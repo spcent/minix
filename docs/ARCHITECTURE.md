@@ -83,16 +83,16 @@ MiniX does not force shared source code for:
 
 ### 3.3 Explicit Platform Boundaries
 
-All platform-specific logic must live under `packages/platform-*`.
+Shared business code must not call raw host APIs directly.
 
-Application services and pages must not call raw platform APIs directly.
-
-Forbidden in business/domain code:
+Forbidden in shared packages and business/domain code:
 
 - `wx.*`
 - `tt.*`
 - `my.*`
 - direct `window.*` platform assumptions
+
+Platform adapters own reusable host integration under `packages/platform-*`. Host apps may still contain host-only bootstrap, rendering, and shell code, but shared behavior should move to `packages/features/*` or `packages/core`.
 
 ### 3.4 Protocol First
 
@@ -128,70 +128,22 @@ Repository and module structure must stay stable so that agents can:
 
 ## 4. High-level Layer Model
 
-MiniX is split into 6 layers:
+MiniX uses the package layers that exist in the current workspace:
 
-### Layer 1: Kernel Core
-Pure cross-platform logic:
+1. `packages/contracts`
+   Shared route ids, backend-facing request/response types, and canonical domain output shapes.
+2. `packages/core`
+   Shared ports, runtime orchestration, page protocols, store primitives, error handling, and common runtime types.
+3. `packages/features/*`
+   Platform-agnostic business controllers, state projection, feature manifests, and feature-owned defaults.
+4. `packages/platform-h5` and `packages/platform-wechat`
+   Reusable browser and WeChat adapters that satisfy core ports.
+5. `apps/*`
+   Host bootstrap, manifest source, page registrations, rendering glue, and generated host shell output.
+6. `apps/api`
+   Sample backend app with explicit HTTP, composition, and domain slices.
 
-- error model
-- result model
-- config/env
-- request pipeline
-- session
-- storage abstraction
-- telemetry model
-- page/list/form/settings/profile protocols
-- state container
-
-### Layer 2: Domain Services
-Reusable business services:
-
-- auth flow orchestration
-- user profile service
-- content/lesson/info services
-- feature-specific services
-
-### Layer 3: Adapter Contracts
-Platform capability contracts:
-
-- auth
-- request
-- storage
-- router
-- lifecycle
-- telemetry
-- capability
-- UI
-
-### Layer 4: Platform Implementations
-Concrete implementations for:
-
-- wechat
-- h5
-- future: douyin
-- future: alipay
-
-### Layer 5: Page Protocols
-Reusable page-level model contracts:
-
-- list page
-- detail page
-- form page
-- settings page
-- profile page
-- dashboard page
-
-### Layer 6: Thin UI Layer
-Minimal UI primitives and shells:
-
-- button
-- cell
-- input
-- empty state
-- error state
-- loading state
-- modal/toast wrappers
-- layout shells
+New platform families, UI frameworks, or top-level shared packages are outside the current release line unless a task explicitly records that scope decision.
 
 ---
 

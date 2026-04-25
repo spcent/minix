@@ -79,7 +79,7 @@ Repo-side posture for this queue:
 
 Use this order unless a release owner explicitly decides otherwise:
 
-1. `0247` establishes owners, environments, and evidence locations.
+1. Confirm the closed `0247` coordination baseline still matches the target owners, environments, and evidence locations.
 2. `0241` to `0245` close provider-specific rollout and acceptance in parallel where possible.
 3. `0246` closes only after the provider tracks and manual validation evidence are recorded.
 
