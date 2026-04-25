@@ -1,5 +1,7 @@
 # Feature Controller Snapshot Adoption
 
+Status: done
+
 ## Summary
 
 Adopt the core state snapshot helpers in the media-tools and messages controllers, which are common templates for future workspace and inbox-style product surfaces.
@@ -68,14 +70,20 @@ Reusable feature controllers should use the same snapshot helper vocabulary as c
 
 ## Acceptance
 
-- [ ] media-tools controller clone state uses core snapshot helpers
-- [ ] messages controller clone state uses core snapshot helpers
-- [ ] public controller APIs and state fields remain unchanged
-- [ ] playbook records controller-level snapshot adoption guidance
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] media-tools controller clone state uses core snapshot helpers
+- [x] messages controller clone state uses core snapshot helpers
+- [x] public controller APIs and state fields remain unchanged
+- [x] playbook records controller-level snapshot adoption guidance
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Migrated media-tools controller state cloning to `cloneStateSnapshot` and `cloneStateSnapshotArray`.
+- Migrated messages controller state cloning to the same core snapshot helpers.
+- Kept controller APIs and state field names unchanged.

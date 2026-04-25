@@ -22,7 +22,7 @@ If any step cannot be answered, add the smallest missing contract or shared cont
 
 - Keep domain growth additive to the current API envelopes. The latest matrix already has stable shared outputs such as `session`, `accountSummary`, `preferences`, `notificationList`, `order`, `contentCard`, `searchResults`, `items`, `detailData`, `formValues`, `uploadTask`, `sharePayload`, and `feedbackTicket`.
 - Use `packages/core/src/page-protocols/*` for list, detail, and form behavior. New products should not reimplement loading, pagination, detail status, draft, or submit state locally.
-- Use `packages/core/src/store/snapshot.ts` when shared protocol or controller code needs immutable state snapshots. Prefer this small data-only helper over scattering raw clone calls in reusable factories.
+- Use `packages/core/src/store/snapshot.ts` when shared protocol or controller code needs immutable state snapshots. Prefer this small data-only helper over scattering raw clone calls in reusable factories or workspace/inbox controllers.
 - Keep capability-backed features platform-neutral. Upload and share state belongs in `packages/features/media-tools`; adapter differences stay in `packages/platform-h5` and `packages/platform-wechat`.
 - Normalize provider readiness and degraded behavior in contracts or shared controller state. Live credentials, provider dashboards, and callback evidence remain release/operator artifacts, not tracked source.
 - Reuse `apps/api/src/domains/provider-posture.ts` for API-side provider-mode resolution across auth, messages, upload, and share; keep configured-provider fallbacks, base URL normalization, host extraction, and secret-material posture copy there too.
