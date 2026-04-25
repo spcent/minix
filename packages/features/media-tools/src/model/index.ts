@@ -10,6 +10,7 @@ import type {
   UploadCleanupRecord,
   UploadError,
   UploadGovernance,
+  UploadProviderPosture,
   UploadReference,
   UploadReviewRecord,
   UploadTask,
@@ -45,6 +46,7 @@ export interface MediaToolsState {
   uploadCapabilitySummary: string;
   shareCapabilitySummary: string;
   uploadProviderSummary: string;
+  uploadProviderPosture: UploadProviderPosture | undefined;
   shareProviderSummary: string;
   uploadTask: UploadTask;
   uploadAsset: UploadAsset | undefined;
@@ -247,6 +249,7 @@ export function createDefaultMediaToolsState(
     uploadCapabilitySummary: "Upload capability status is unavailable until the host runtime reports it.",
     shareCapabilitySummary: "Share capability status is unavailable until the host runtime reports it.",
     uploadProviderSummary: createDefaultUploadProviderSummary(),
+    uploadProviderPosture: undefined,
     shareProviderSummary: createDefaultShareProviderSummary(),
     uploadTask: createDefaultUploadTask(),
     uploadAsset: undefined,

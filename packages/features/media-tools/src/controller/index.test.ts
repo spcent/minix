@@ -978,6 +978,15 @@ function createKernelStub() {
               annotationSummary:
                 "Review status: pending. Provider: sample-upload-policy. Sensitive review is pending in the upload pipeline.",
             },
+            providerPosture: {
+              providerMode: "sample",
+              storageProvider: "sample-object-storage",
+              reviewProvider: "sample-upload-policy",
+              assetHost: "https://example.test",
+              secretMaterialTracked: false,
+              postureSummary:
+                "Upload storage and review remain sample-backed through sample-object-storage and sample-upload-policy. Secret material is not tracked in source.",
+            },
             cleanupRecord: {
               retentionStatus: "active",
               referenced: false,
@@ -1250,7 +1259,8 @@ test("media-tools controller stores upload contract output after the primary act
   assert.equal(controller.store.getState().uploadReviewRecord?.annotationSummary?.includes("Review status: pending."), true);
   assert.equal(controller.store.getState().uploadCleanupRecord?.cleanupSummary?.includes("Cleanup is not scheduled"), true);
   assert.equal(controller.store.getState().lastResult?.status, "succeeded");
-  assert.equal(controller.store.getState().uploadProviderSummary.includes("sample-upload-policy"), true);
+  assert.equal(controller.store.getState().uploadProviderPosture?.secretMaterialTracked, false);
+  assert.equal(controller.store.getState().uploadProviderSummary.includes("Secret material is not tracked in source"), true);
 });
 
 test("media-tools controller can cancel and retry the backend-backed upload task", async () => {

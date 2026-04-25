@@ -64,6 +64,7 @@ function cloneState(state: MediaToolsState): MediaToolsState {
     locationCapabilitySnapshot: structuredClone(state.locationCapabilitySnapshot),
     uploadCapabilitySummary: state.uploadCapabilitySummary,
     shareCapabilitySummary: state.shareCapabilitySummary,
+    ...(state.uploadProviderPosture ? { uploadProviderPosture: structuredClone(state.uploadProviderPosture) } : {}),
     ...(state.uploadAsset ? { uploadAsset: structuredClone(state.uploadAsset) } : {}),
     ...(state.uploadReviewRecord ? { uploadReviewRecord: structuredClone(state.uploadReviewRecord) } : {}),
     ...(state.uploadCleanupRecord ? { uploadCleanupRecord: structuredClone(state.uploadCleanupRecord) } : {}),
@@ -87,6 +88,9 @@ function cloneState(state: MediaToolsState): MediaToolsState {
 }
 
 function deriveUploadProviderSummary(response: UploadPipelineResponse): string {
+  if (response.providerPosture) {
+    return response.providerPosture.postureSummary;
+  }
   const provider = response.reviewRecord?.provider;
   const providerMode = response.reviewRecord?.providerMode;
   const storageProvider = response.reviewRecord?.storageProvider;
@@ -335,6 +339,7 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
       loading: false,
       errorText: response.uploadError?.message,
       uploadProviderSummary: deriveUploadProviderSummary(response),
+      uploadProviderPosture: response.providerPosture,
       uploadTask: response.uploadTask,
       uploadAsset: response.uploadAsset,
       uploadReviewRecord: response.reviewRecord,

@@ -173,6 +173,15 @@ export interface UploadReviewRecord {
   annotationSummary?: string;
 }
 
+export interface UploadProviderPosture {
+  providerMode: "sample" | "production";
+  storageProvider: string;
+  reviewProvider: string;
+  assetHost?: string;
+  secretMaterialTracked: false;
+  postureSummary: string;
+}
+
 export interface UploadCleanupRecord {
   retentionStatus: UploadRetentionStatus;
   cleanupScheduledAt?: string;
@@ -269,6 +278,7 @@ export interface UploadPipelineResponse extends UploadSelectionResult {
   receivedChunk?: UploadChunkReceipt;
   reviewRecord?: UploadReviewRecord;
   cleanupRecord?: UploadCleanupRecord;
+  providerPosture?: UploadProviderPosture;
   references?: UploadReference[];
 }
 

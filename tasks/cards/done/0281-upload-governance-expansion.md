@@ -88,11 +88,23 @@ Keep image, audio, video, PDF, avatar, and attachment upload behavior aligned on
 - final verifier handoff:
   - include upload, session, chunk, complete, attach, retry, cancel, asset, thumbnail, review, and cleanup examples
 
+## Implementation Notes
+
+- Added `UploadProviderPosture` to the upload response contract with storage provider, review provider, asset host, provider mode, and explicit secret-material posture.
+- Derived provider posture in the upload API pipeline from existing review/storage metadata and exposed it without adding or tracking secrets.
+- Surfaced provider posture in media-tools state while preserving canonical `uploadTask`, `uploadAsset`, and `uploadError` outputs.
+- Updated `docs/DOMAIN_COMPLETENESS_MATRIX.md` to record the upload provider posture and governance expansion.
+
+## Verification Notes
+
+- Ran `pnpm verify:feature media-tools`.
+- Ran `pnpm test`.
+
 ## Acceptance
 
-- [ ] upload outputs remain `uploadTask`, `uploadAsset`, and `uploadError`
-- [ ] platform-specific behavior stays in platform packages
-- [ ] production provider metadata stays explicit without secrets in source
-- [ ] retention and derived asset behavior is documented
-- [ ] docs updated for provider or governance changes
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] upload outputs remain `uploadTask`, `uploadAsset`, and `uploadError`
+- [x] platform-specific behavior stays in platform packages
+- [x] production provider metadata stays explicit without secrets in source
+- [x] retention and derived asset behavior is documented
+- [x] docs updated for provider or governance changes
+- [x] `pnpm verify` run, or skipped with reason if docs-only

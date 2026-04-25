@@ -2272,6 +2272,14 @@ test("upload endpoints expose production storage and review posture through env-
     transfer?: { fileChecksum: string; checksumAlgorithm: "sha256"; chunks: Array<unknown> };
     uploadAsset?: { url: string; thumbnailUrl?: string; coverImageUrl?: string; metadata?: { variants?: unknown[] } };
     reviewRecord?: { provider: string; providerMode?: string; storageProvider?: string; annotationSummary?: string };
+    providerPosture?: {
+      providerMode: string;
+      storageProvider: string;
+      reviewProvider: string;
+      assetHost?: string;
+      secretMaterialTracked: boolean;
+      postureSummary: string;
+    };
     uploadTask: { taskId: string; governance: { governanceSummary?: string } };
   };
   assert.equal(created.reviewRecord?.provider, "tencent-content-review");
@@ -2282,6 +2290,12 @@ test("upload endpoints expose production storage and review posture through env-
   assert.equal(created.uploadAsset?.thumbnailUrl?.startsWith("https://assets.example.test/uploads/assets/"), true);
   assert.equal(created.uploadAsset?.coverImageUrl, "https://example.test/local/production-cover.png");
   assert.equal((created.uploadAsset?.metadata?.variants?.length ?? 0) >= 2, true);
+  assert.equal(created.providerPosture?.providerMode, "production");
+  assert.equal(created.providerPosture?.storageProvider, "cloudflare-r2");
+  assert.equal(created.providerPosture?.reviewProvider, "tencent-content-review");
+  assert.equal(created.providerPosture?.assetHost, "https://assets.example.test");
+  assert.equal(created.providerPosture?.secretMaterialTracked, false);
+  assert.equal(created.providerPosture?.postureSummary.includes("Secret material is not tracked in source"), true);
 
   for (const chunk of created.transfer?.chunks ?? []) {
     const chunkResponse = await app.request(
@@ -2319,10 +2333,12 @@ test("upload endpoints expose production storage and review posture through env-
     uploadTask: { reviewMessage?: string };
     uploadAsset?: { metadata?: { reviewAnnotations?: string[] } };
     reviewRecord?: { provider: string; providerMode?: string; storageProvider?: string; message?: string; annotationSummary?: string };
+    providerPosture?: { providerMode: string; storageProvider: string; reviewProvider: string };
   };
   assert.equal(completed.reviewRecord?.provider, "tencent-content-review");
   assert.equal(completed.reviewRecord?.providerMode, "production");
   assert.equal(completed.reviewRecord?.storageProvider, "cloudflare-r2");
+  assert.equal(completed.providerPosture?.reviewProvider, "tencent-content-review");
   assert.equal(completed.reviewRecord?.annotationSummary?.includes("tencent-content-review"), true);
   assert.equal(completed.uploadAsset?.metadata?.reviewAnnotations?.includes("Provider: tencent-content-review."), true);
   assert.equal(

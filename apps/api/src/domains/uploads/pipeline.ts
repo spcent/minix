@@ -11,6 +11,7 @@ import type {
   UploadPipelineRequest,
   UploadPipelineResponse,
   UploadPipelineSource,
+  UploadProviderPosture,
   UploadReference,
   UploadReviewRecord,
   UploadRetryRequest,
@@ -265,6 +266,37 @@ function resolveUploadReviewProvider(runtimeEnv?: UploadProviderRuntimeEnv): str
     : "sample-upload-policy";
 }
 
+function resolveAssetHost(record: StoredUploadRecord): string | undefined {
+  const url = record.uploadAsset?.url;
+  if (!url) {
+    return undefined;
+  }
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
+}
+
+function createUploadProviderPosture(record: StoredUploadRecord): UploadProviderPosture {
+  const providerMode = record.reviewRecord?.providerMode ?? "sample";
+  const storageProvider = record.reviewRecord?.storageProvider ?? (providerMode === "production" ? "configured object storage" : "sample-object-storage");
+  const reviewProvider = record.reviewRecord?.provider ?? (providerMode === "production" ? "configured review provider" : "sample-upload-policy");
+  const assetHost = resolveAssetHost(record);
+  const postureSummary =
+    providerMode === "production"
+      ? `Upload storage resolves through ${storageProvider} and review resolves through ${reviewProvider}. Secret material is not tracked in source.`
+      : `Upload storage and review remain sample-backed through ${storageProvider} and ${reviewProvider}. Secret material is not tracked in source.`;
+  return {
+    providerMode,
+    storageProvider,
+    reviewProvider,
+    ...(assetHost ? { assetHost } : {}),
+    secretMaterialTracked: false,
+    postureSummary,
+  };
+}
+
 function resolveUploadAssetBaseUrl(requestUrl: string, runtimeEnv?: UploadProviderRuntimeEnv): string {
   if (!runtimeEnv?.MINIX_UPLOAD_ASSET_BASE_URL) {
     return requestUrl;
@@ -436,6 +468,7 @@ export function createUploadResponse(record: StoredUploadRecord): UploadPipeline
     ...(record.receivedChunk ? { receivedChunk: cloneUploadChunkReceipt(record.receivedChunk) } : {}),
     ...(record.reviewRecord ? { reviewRecord: cloneUploadReviewRecord(record.reviewRecord) } : {}),
     ...(record.cleanupRecord ? { cleanupRecord: cloneUploadCleanupRecord(record.cleanupRecord) } : {}),
+    providerPosture: createUploadProviderPosture(record),
     ...(record.references.length > 0 ? { references: record.references.map(cloneUploadReference) } : {}),
   };
 }
