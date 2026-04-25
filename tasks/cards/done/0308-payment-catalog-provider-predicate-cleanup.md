@@ -1,6 +1,6 @@
 # Payment Catalog Provider Predicate Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -23,7 +23,12 @@ Replace payment catalog direct sample checks with shared provider posture predic
 
 ## Acceptance
 
-- [ ] payment catalog provider-mode branches use shared predicates
-- [ ] payment response envelopes remain unchanged
-- [ ] playbook records payment catalog predicate guidance
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] payment catalog provider-mode branches use shared predicates
+- [x] payment response envelopes remain unchanged
+- [x] playbook records payment catalog predicate guidance
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced payment catalog sample checks with `isSampleProviderMode`.
+- Kept payment callback, reconciliation, and gateway response semantics unchanged.

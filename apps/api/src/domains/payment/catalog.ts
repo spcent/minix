@@ -23,6 +23,7 @@ import {
   MEMBER_RENEWAL_LABELS,
 } from "../../content";
 import type { SessionRecord } from "../../types";
+import { isSampleProviderMode } from "../provider-posture";
 
 export function createMembershipOverview(
   planId?: PurchaseMembershipRequest["planId"],
@@ -286,7 +287,7 @@ export function createPendingCallbackVerification(providerMode: PaymentProviderM
   return {
     status: "pending",
     message:
-      providerMode === "sample"
+      isSampleProviderMode(providerMode)
         ? "The sample gateway callback has not been verified yet."
         : "The gateway callback has not been verified yet.",
   };
@@ -296,7 +297,7 @@ export function createPendingReconciliation(providerMode: PaymentProviderMode = 
   return {
     status: "pending",
     message:
-      providerMode === "sample"
+      isSampleProviderMode(providerMode)
         ? "The sample order has not been reconciled yet."
         : "The order has not been reconciled yet.",
   };
@@ -312,7 +313,7 @@ export function createPaymentGatewayProvider(
   channel: PaymentChannel,
   providerMode: PaymentProviderMode,
 ): PaymentGatewayProvider {
-  if (providerMode === "sample") {
+  if (isSampleProviderMode(providerMode)) {
     return "sample";
   }
 
