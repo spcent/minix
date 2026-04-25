@@ -1,5 +1,7 @@
 # Product Matrix Reuse Playbook
 
+Status: done
+
 ## Summary
 
 Document a reusable product-matrix adoption playbook so new products can map MiniX domains to existing contracts, controllers, manifests, and verification gates without inventing host-local shapes.
@@ -73,13 +75,19 @@ Future product matrices should start from a documented mapping path:
 
 ## Acceptance
 
-- [ ] playbook covers contracts, feature controllers, API domains, host manifests, and verification
-- [ ] recommendations are grounded in current code ownership boundaries
-- [ ] matrix doc links to the playbook
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] playbook covers contracts, feature controllers, API domains, host manifests, and verification
+- [x] recommendations are grounded in current code ownership boundaries
+- [x] matrix doc links to the playbook
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added `docs/PRODUCT_MATRIX_REUSE_PLAYBOOK.md` with a capability-to-owner reuse path, product intake checklist, card grouping guidance, and current audit recommendations.
+- Linked the playbook from `docs/DOMAIN_COMPLETENESS_MATRIX.md`.
+- Skipped `pnpm verify` for this card because the change is docs-only.

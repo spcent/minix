@@ -7,6 +7,7 @@ Use it together with:
 - [`../README.md`](../README.md)
 - [`./BACKEND_CONTRACT.md`](./BACKEND_CONTRACT.md)
 - [`./PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md)
+- [`./PRODUCT_MATRIX_REUSE_PLAYBOOK.md`](./PRODUCT_MATRIX_REUSE_PLAYBOOK.md)
 - [`./RELEASE_RUNBOOK.md`](./RELEASE_RUNBOOK.md)
 
 Status labels:
@@ -60,6 +61,8 @@ This section expands the matrix against the product capability list requested on
 ## Expansion Matrix
 
 The next additive expansion should keep each domain inside its existing owner and output envelope:
+
+Use [`./PRODUCT_MATRIX_REUSE_PLAYBOOK.md`](./PRODUCT_MATRIX_REUSE_PLAYBOOK.md) before opening new product-matrix implementation cards. It defines the preferred capability-to-owner mapping path, code-reuse recommendations, and anti-patterns for reusing these domains in other products.
 
 | Domain | Additive expansion slots | Do not add |
 | --- | --- | --- |
