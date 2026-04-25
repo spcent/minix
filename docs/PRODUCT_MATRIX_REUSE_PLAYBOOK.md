@@ -46,6 +46,7 @@ If any step cannot be answered, add the smallest missing contract or shared cont
 - Message thread API projections should use API-domain snapshot helpers for nested assignment, progress, sync, and context payloads.
 - Use `apps/api/src/domains/snapshot.ts` for API-domain workflow snapshots. Keep it local to the API app instead of importing core helpers into backend-only code.
 - Use `apps/api/src/domains/schema-helpers.ts` for API request schema fragments that repeat across product domains, including pagination, boolean query flags, source context, actor context, route params, and auth redirect targets.
+- Auth API schemas should compose those shared redirect fragments with auth contract constants for login methods, verification purposes, and merge strategies instead of duplicating string lists.
 - Feedback/support API shaping should use the API-domain snapshot helper for tickets, statuses, FAQ catalogs, support entries, and support-thread echoes so service-loop surfaces stay portable.
 - Extend `apps/api/src/domains/*` for business workflow shaping. Keep `apps/api/src/app.ts` as routing assembly and avoid pushing domain rules into host code.
 - Prefer manifest changes and existing scaffolds for new host exposure. Generated registries and WeChat shell output should only change through generation scripts.
