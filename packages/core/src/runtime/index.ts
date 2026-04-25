@@ -1,6 +1,7 @@
 export * from "./app";
 export * from "./auth-redirect";
 export * from "./auth";
+export * from "./bootstrap-env";
 export * from "./capability";
 export * from "./manifest";
 export * from "./request";

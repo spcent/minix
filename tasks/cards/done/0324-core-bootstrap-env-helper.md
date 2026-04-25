@@ -1,6 +1,6 @@
 # Core Bootstrap Env Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -17,7 +17,12 @@ Add shared core runtime helpers for host bootstrap boolean flags, process env re
 
 ## Acceptance
 
-- [ ] bootstrap env parsing helpers are exported through `@minix/core`
-- [ ] helpers do not call host-only APIs outside guarded global access
-- [ ] docs note official host bootstrap reuse
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] bootstrap env parsing helpers are exported through `@minix/core`
+- [x] helpers do not call host-only APIs outside guarded global access
+- [x] docs note official host bootstrap reuse
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added core bootstrap env helpers and focused runtime tests.
+- Exported the helpers through `@minix/core` and documented official host bootstrap reuse.
