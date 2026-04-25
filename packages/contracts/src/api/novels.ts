@@ -1,9 +1,11 @@
 import type { ContentAccess, ContentCard } from "./content";
 import type { SearchFilterGroup, SearchQuery, SearchResults } from "./search";
 
-export type NovelStatus = "serializing" | "completed" | "paused";
+export const NOVEL_STATUSES = ["serializing", "completed", "paused"] as const;
+export type NovelStatus = (typeof NOVEL_STATUSES)[number];
 
-export type NovelSortValue = "recommended" | "updatedAt" | "popular" | "wordCount";
+export const NOVEL_SORT_VALUES = ["recommended", "updatedAt", "popular", "wordCount"] as const;
+export type NovelSortValue = (typeof NOVEL_SORT_VALUES)[number];
 
 export interface NovelTag {
   key: string;
