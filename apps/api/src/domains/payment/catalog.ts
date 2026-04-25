@@ -24,6 +24,7 @@ import {
 } from "../../content";
 import type { SessionRecord } from "../../types";
 import { isSampleProviderMode } from "../provider-posture";
+import { cloneDomainSnapshot } from "../snapshot";
 
 export function createMembershipOverview(
   planId?: PurchaseMembershipRequest["planId"],
@@ -190,17 +191,11 @@ const MEMBERSHIP_PLAN_SKU_IDS: Record<PurchaseMembershipRequest["planId"], strin
 };
 
 function clonePaymentProduct(product: PaymentProduct): PaymentProduct {
-  return {
-    ...product,
-    tagLabels: [...product.tagLabels],
-  };
+  return cloneDomainSnapshot(product);
 }
 
 function clonePaymentSku(sku: PaymentSku): PaymentSku {
-  return {
-    ...sku,
-    channelOptions: [...sku.channelOptions],
-  };
+  return cloneDomainSnapshot(sku);
 }
 
 export function createPaymentCatalogResponse(): PaymentCatalogResponse {

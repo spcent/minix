@@ -1,6 +1,6 @@
 # API Payment Catalog Snapshot Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -17,6 +17,11 @@ Adopt API-domain snapshot helpers in payment product and SKU catalog cloning.
 
 ## Acceptance
 
-- [ ] payment catalog product and SKU clones use API snapshot helpers
-- [ ] payment catalog response shape remains unchanged
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] payment catalog product and SKU clones use API snapshot helpers
+- [x] payment catalog response shape remains unchanged
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced payment product and SKU copy helpers with `cloneDomainSnapshot`.
+- Kept payment catalog response shape unchanged.
