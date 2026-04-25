@@ -6,6 +6,14 @@ export function resolveProviderPostureMode(value: string | undefined): ProviderP
   return value === "production" ? "production" : "sample";
 }
 
+export function isProductionProviderMode(providerMode: ProviderPostureMode): boolean {
+  return providerMode === "production";
+}
+
+export function isSampleProviderMode(providerMode: ProviderPostureMode): boolean {
+  return providerMode === "sample";
+}
+
 export function resolveProviderName(input: {
   configuredName?: string | undefined;
   providerMode: ProviderPostureMode;
@@ -16,7 +24,7 @@ export function resolveProviderName(input: {
   if (configuredName) {
     return configuredName;
   }
-  return input.providerMode === "production" ? input.productionFallback : input.sampleFallback;
+  return isProductionProviderMode(input.providerMode) ? input.productionFallback : input.sampleFallback;
 }
 
 export function resolveUrlHost(url: string | undefined): string | undefined {

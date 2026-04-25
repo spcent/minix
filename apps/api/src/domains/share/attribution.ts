@@ -6,12 +6,14 @@ import type {
   SharePrepareRequest,
   SharePrepareResponse,
   ShareProviderPosture,
+  ProviderPostureMode,
   ShareReturnRecognitionRequest,
   ShareReturnRecognitionResponse,
   ShareShortLinkResolveResponse,
 } from "@minix/contracts";
 
 import {
+  isProductionProviderMode,
   normalizeProviderBaseUrl,
   resolveProviderName,
   resolveProviderPostureMode,
@@ -27,7 +29,7 @@ export interface ShareProviderRuntimeEnv {
   MINIX_SHARE_POSTER_BASE_URL?: string;
 }
 
-function resolveShareProviderMode(runtimeEnv?: ShareProviderRuntimeEnv): "sample" | "production" {
+function resolveShareProviderMode(runtimeEnv?: ShareProviderRuntimeEnv): ProviderPostureMode {
   return resolveProviderPostureMode(runtimeEnv?.MINIX_SHARE_PROVIDER_MODE);
 }
 
@@ -91,12 +93,12 @@ function createSharePayloadReadinessSummary(input: {
 
 function createShareChannelReadinessSummary(input: {
   channelKind: SharePrepareRequest["shareChannel"]["kind"];
-  providerMode: "sample" | "production";
+  providerMode: ProviderPostureMode;
   hasShortLink: boolean;
   hasPoster: boolean;
 }): string {
   const providerClause =
-    input.providerMode === "production"
+    isProductionProviderMode(input.providerMode)
       ? "Provider-backed share infrastructure is configured."
       : "Share infrastructure remains sample-backed.";
   const shortLinkClause = input.hasShortLink ? "Short-link delivery is available." : "Short-link delivery is not required.";
@@ -172,7 +174,7 @@ function createShareConversionEvidence(
 }
 
 function createShareProviderPosture(input: {
-  providerMode: "sample" | "production";
+  providerMode: ProviderPostureMode;
   shortLinkProvider: string;
   posterProvider?: string;
   shortLink?: string;
@@ -181,7 +183,7 @@ function createShareProviderPosture(input: {
   const shortLinkHost = resolveUrlHost(input.shortLink);
   const posterHost = resolveUrlHost(input.posterUrl);
   const readinessSummary =
-    input.providerMode === "production"
+    isProductionProviderMode(input.providerMode)
       ? `Share short-link provider ${input.shortLinkProvider} and poster provider ${input.posterProvider ?? "configured poster provider"} are configured. ${SECRET_MATERIAL_NOT_TRACKED_SUMMARY}`
       : `Share short-link and poster generation remain sample-backed through ${input.shortLinkProvider} and ${input.posterProvider ?? "sample-poster-provider"}. ${SECRET_MATERIAL_NOT_TRACKED_SUMMARY}`;
   return {
@@ -196,8 +198,8 @@ function createShareProviderPosture(input: {
 }
 
 function resolveShareProviderPosture(response: {
-  shortLinkRecord?: { provider?: string; providerMode?: "sample" | "production"; shortLink?: string };
-  posterAsset?: { provider: string; providerMode?: "sample" | "production"; url: string };
+  shortLinkRecord?: { provider?: string; providerMode?: ProviderPostureMode; shortLink?: string };
+  posterAsset?: { provider: string; providerMode?: ProviderPostureMode; url: string };
   providerPosture?: ShareProviderPosture;
 }): ShareProviderPosture {
   if (response.providerPosture) {
@@ -213,8 +215,8 @@ function resolveShareProviderPosture(response: {
   });
 }
 
-function createShortLinkReadinessSummary(provider: string, providerMode: "sample" | "production"): string {
-  return providerMode === "production"
+function createShortLinkReadinessSummary(provider: string, providerMode: ProviderPostureMode): string {
+  return isProductionProviderMode(providerMode)
     ? `Short-link delivery is backed by ${provider}.`
     : `Short-link delivery remains sample-backed through ${provider}.`;
 }
@@ -225,8 +227,8 @@ function createShortLinkDiagnosticsSummary(resolvedCount: number, lastResolvedAt
     : `Short-link has resolved ${resolvedCount} time${resolvedCount === 1 ? "" : "s"}.`;
 }
 
-function createPosterReadinessSummary(provider: string, providerMode: "sample" | "production"): string {
-  return providerMode === "production"
+function createPosterReadinessSummary(provider: string, providerMode: ProviderPostureMode): string {
+  return isProductionProviderMode(providerMode)
     ? `Poster generation is backed by ${provider}.`
     : `Poster generation remains sample-backed through ${provider}.`;
 }

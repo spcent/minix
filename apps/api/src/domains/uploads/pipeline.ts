@@ -12,6 +12,7 @@ import type {
   UploadPipelineResponse,
   UploadPipelineSource,
   UploadProviderPosture,
+  ProviderPostureMode,
   UploadReference,
   UploadReviewRecord,
   UploadRetryRequest,
@@ -23,6 +24,7 @@ import type {
 } from "@minix/contracts";
 
 import {
+  isProductionProviderMode,
   resolveProviderName,
   resolveProviderPostureMode,
   resolveUrlHost,
@@ -256,7 +258,7 @@ function cloneStoredUploadRecord(record: StoredUploadRecord): StoredUploadRecord
   };
 }
 
-function resolveUploadProviderMode(runtimeEnv?: UploadProviderRuntimeEnv): "sample" | "production" {
+function resolveUploadProviderMode(runtimeEnv?: UploadProviderRuntimeEnv): ProviderPostureMode {
   return resolveProviderPostureMode(runtimeEnv?.MINIX_UPLOAD_PROVIDER_MODE);
 }
 
@@ -282,11 +284,11 @@ function resolveUploadReviewProvider(runtimeEnv?: UploadProviderRuntimeEnv): str
 
 function createUploadProviderPosture(record: StoredUploadRecord): UploadProviderPosture {
   const providerMode = record.reviewRecord?.providerMode ?? "sample";
-  const storageProvider = record.reviewRecord?.storageProvider ?? (providerMode === "production" ? "configured object storage" : "sample-object-storage");
-  const reviewProvider = record.reviewRecord?.provider ?? (providerMode === "production" ? "configured review provider" : "sample-upload-policy");
+  const storageProvider = record.reviewRecord?.storageProvider ?? (isProductionProviderMode(providerMode) ? "configured object storage" : "sample-object-storage");
+  const reviewProvider = record.reviewRecord?.provider ?? (isProductionProviderMode(providerMode) ? "configured review provider" : "sample-upload-policy");
   const assetHost = resolveUrlHost(record.uploadAsset?.url);
   const postureSummary =
-    providerMode === "production"
+    isProductionProviderMode(providerMode)
       ? `Upload storage resolves through ${storageProvider} and review resolves through ${reviewProvider}. ${SECRET_MATERIAL_NOT_TRACKED_SUMMARY}`
       : `Upload storage and review remain sample-backed through ${storageProvider} and ${reviewProvider}. ${SECRET_MATERIAL_NOT_TRACKED_SUMMARY}`;
   return {

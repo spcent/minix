@@ -8,10 +8,11 @@ import type {
   SettingsPreferences,
   SettingsPrivacyOptions,
   SettingsProfileVisibility,
+  ProviderPostureMode,
 } from "@minix/contracts";
 
 import type { ApiBindings, UserState } from "../../types";
-import { resolveProviderPostureMode } from "../provider-posture";
+import { isSampleProviderMode, resolveProviderPostureMode } from "../provider-posture";
 
 const DEFAULT_UPLOAD_CHUNK_SIZE_BYTES = 64 * 1024;
 const REDUCED_UPLOAD_CHUNK_SIZE_BYTES = 16 * 1024;
@@ -33,7 +34,7 @@ export type NotificationChannelProviderRuntimeEnv = Pick<
 interface NotificationChannelProviderConfig {
   providerKey: string;
   providerLabel: string;
-  providerMode: "sample" | "production";
+  providerMode: ProviderPostureMode;
   locale: string;
   fallbackToInApp: boolean;
   defaultEnabled: boolean;
@@ -187,7 +188,7 @@ const PRODUCTION_NOTIFICATION_CHANNEL_PROVIDER_DEFAULTS: Record<
 
 export function resolveMessageTouchpointProviderMode(
   runtimeEnv?: NotificationChannelProviderRuntimeEnv,
-): "sample" | "production" {
+): ProviderPostureMode {
   return resolveProviderPostureMode(runtimeEnv?.MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE);
 }
 
@@ -197,7 +198,7 @@ export function resolveNotificationChannelProviderConfig(
 ): NotificationChannelProviderConfig {
   const providerMode = resolveMessageTouchpointProviderMode(runtimeEnv);
   const sampleConfig = NOTIFICATION_CHANNEL_PROVIDER_CONFIG[channel];
-  if (providerMode === "sample") {
+  if (isSampleProviderMode(providerMode)) {
     return {
       ...sampleConfig,
       providerMode,
@@ -316,7 +317,7 @@ export function resolveSettingsState(
         : unsubscribed
           ? `Unsubscribed from ${channel.replace("_", " ")} delivery.`
           : enabled
-            ? providerConfig.providerMode === "sample"
+            ? isSampleProviderMode(providerConfig.providerMode)
               ? `${providerConfig.providerLabel} is active in sample mode for ${channel.replace("_", " ")} delivery.`
               : `${providerConfig.providerLabel} is active for ${channel.replace("_", " ")} delivery.`
             : `${channel.replace("_", " ")} delivery is paused by user preference.`;

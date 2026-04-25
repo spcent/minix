@@ -6,6 +6,7 @@ import type {
   LoginPlatformKind,
   LoginResponse,
   RefreshTokenResponse,
+  ProviderPostureMode,
 } from "@minix/contracts";
 import type { Hono, MiddlewareHandler } from "hono";
 
@@ -134,11 +135,11 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
     });
   }
 
-  function resolveSmsProviderMode(env: ApiBindings | undefined): "sample" | "production" {
+  function resolveSmsProviderMode(env: ApiBindings | undefined): ProviderPostureMode {
     return resolveProviderPostureMode(env?.MINIX_AUTH_SMS_PROVIDER_MODE);
   }
 
-  function resolveOAuthProviderMode(env: ApiBindings | undefined): "sample" | "production" {
+  function resolveOAuthProviderMode(env: ApiBindings | undefined): ProviderPostureMode {
     return resolveProviderPostureMode(env?.MINIX_AUTH_OAUTH_PROVIDER_MODE);
   }
 

@@ -1,5 +1,7 @@
 # API Provider Mode Type Consistency
 
+Status: done
+
 ## Summary
 
 Normalize API provider-mode typing and common sample/production predicates so provider-backed domains avoid repeated literal unions and ad hoc comparisons.
@@ -71,14 +73,20 @@ Future provider-backed product features should use one API-side provider-mode ty
 
 ## Acceptance
 
-- [ ] provider-mode helper exposes reusable production/sample predicates
-- [ ] auth/settings/upload/share provider-mode functions use `ProviderPostureMode`
-- [ ] response shapes and env names stay unchanged
-- [ ] playbook records provider-mode typing and predicate reuse
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] provider-mode helper exposes reusable production/sample predicates
+- [x] auth/settings/upload/share provider-mode functions use `ProviderPostureMode`
+- [x] response shapes and env names stay unchanged
+- [x] playbook records provider-mode typing and predicate reuse
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added `isProductionProviderMode` and `isSampleProviderMode` to the API provider posture helper.
+- Normalized auth, settings, upload, and share provider-mode helper signatures to `ProviderPostureMode`.
+- Replaced touched ad hoc provider-mode checks with shared predicates without changing env names or response fields.
