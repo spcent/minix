@@ -1,6 +1,6 @@
 # Payment Provider Mode Consistency
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -72,14 +72,20 @@ Payment is a high-reuse product-matrix capability. Payment API code still has se
 
 ## Acceptance
 
-- [ ] payment provider mode annotations reuse shared posture mode where compatible
-- [ ] payment summary branches use shared provider-mode predicates where practical
-- [ ] payment response envelopes remain unchanged
-- [ ] playbook records payment provider posture consistency guidance
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] payment provider mode annotations reuse shared posture mode where compatible
+- [x] payment summary branches use shared provider-mode predicates where practical
+- [x] payment response envelopes remain unchanged
+- [x] playbook records payment provider posture consistency guidance
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced payment-local sample/production helper annotations in order summary builders with `PaymentProviderMode`.
+- Replaced direct sample/production comparisons in owned payment domain files with shared provider posture predicates.
+- Kept payment contracts, gateway behavior, callback verification, and response envelopes unchanged.

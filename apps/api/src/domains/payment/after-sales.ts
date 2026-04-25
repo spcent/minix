@@ -5,6 +5,7 @@ import type {
   OrderDetailResponse,
 } from "@minix/contracts";
 
+import { isSampleProviderMode } from "../provider-posture";
 import type { UserState } from "../../types";
 
 export function attachAfterSalesCase(
@@ -61,7 +62,7 @@ export function createAfterSalesCaseRecord(input: {
     title: input.kind === "refund" ? "Refund request" : "Cancellation request",
     resultLabel:
       input.kind === "refund"
-        ? providerMode === "sample"
+        ? isSampleProviderMode(providerMode)
           ? "Refund completed in sample after-sales flow"
           : "Refund completed in after-sales flow"
         : "Pending order cancelled before settlement",

@@ -9,6 +9,7 @@ import type {
   PaymentCallbackVerification,
   PaymentCommercePosture,
   PaymentIntent,
+  PaymentProviderMode,
   PaymentReconciliation,
   PaymentReconciliationLedgerEntry,
   PaymentResult,
@@ -18,6 +19,7 @@ import type {
 } from "@minix/contracts";
 
 import { deriveReturnTarget } from "../content/novels";
+import { isProductionProviderMode, isSampleProviderMode } from "../provider-posture";
 import type { SessionRecord, UserState } from "../../types";
 import {
   createGatewayExecution,
@@ -68,28 +70,28 @@ function createPaymentIntentCapabilitySummary(input: {
 }
 
 function createPaymentIntentExecutionSummary(input: {
-  providerMode: "sample" | "production";
+  providerMode: PaymentProviderMode;
   pending: boolean;
   channel: Order["channel"];
 }) {
   const channelLabel = input.channel.replace("_", " ");
   if (input.pending) {
-    return input.providerMode === "sample"
+    return isSampleProviderMode(input.providerMode)
       ? `The sample ${channelLabel} execution is waiting for callback confirmation and later reconciliation.`
       : `${channelLabel} execution is waiting for verified callback confirmation and later reconciliation.`;
   }
-  return input.providerMode === "sample"
+  return isSampleProviderMode(input.providerMode)
     ? `The sample ${channelLabel} execution completed, but callback verification and reconciliation still provide the continuity checkpoints.`
     : `${channelLabel} execution completed, and callback verification plus reconciliation remain the continuity checkpoints.`;
 }
 
 function createPaymentResultContinuitySummary(input: {
   status: PaymentResult["status"];
-  providerMode: "sample" | "production";
+  providerMode: PaymentProviderMode;
 }) {
   switch (input.status) {
     case "pending":
-      return input.providerMode === "sample"
+      return isSampleProviderMode(input.providerMode)
         ? "The order is held in pending continuity until the sample callback and reconciliation steps finish."
         : "The order is held in pending continuity until verified callback and reconciliation steps finish.";
     case "success":
@@ -122,15 +124,15 @@ export function createPaymentCommercePosture(detail: OrderDetailResponse): Payme
   return {
     provider,
     providerMode,
-    merchantReady: providerMode === "production",
-    callbackVerificationRequired: providerMode === "production",
+    merchantReady: isProductionProviderMode(providerMode),
+    callbackVerificationRequired: isProductionProviderMode(providerMode),
     secretsManagedExternally: true,
     gatewaySummary:
-      providerMode === "production"
+      isProductionProviderMode(providerMode)
         ? `${provider} gateway metadata is present; merchant credentials remain external to tracked source.`
         : "Sample gateway metadata is present; no live merchant credentials are stored in tracked source.",
     callbackSummary:
-      providerMode === "production"
+      isProductionProviderMode(providerMode)
         ? `Production callbacks require signature verification. Current callback state: ${detail.callbackVerification.status}.`
         : `Sample callbacks still expose verification evidence. Current callback state: ${detail.callbackVerification.status}.`,
     reconciliationSummary:
@@ -158,11 +160,11 @@ export function withPaymentCommercePosture<T extends OrderDetailResponse>(detail
 
 function createCallbackDiagnosticsSummary(input: {
   status: PaymentCallbackVerification["status"];
-  providerMode: "sample" | "production";
+  providerMode: PaymentProviderMode;
 }) {
   switch (input.status) {
     case "pending":
-      return input.providerMode === "sample"
+      return isSampleProviderMode(input.providerMode)
         ? "Callback verification is still waiting on the sample gateway payload."
         : "Callback verification is still waiting on the production gateway payload.";
     case "verified":
@@ -176,14 +178,14 @@ function createCallbackDiagnosticsSummary(input: {
 
 function createCallbackOperatorActionSummary(input: {
   status: PaymentCallbackVerification["status"];
-  providerMode: "sample" | "production";
+  providerMode: PaymentProviderMode;
 }) {
   if (input.status === "rejected") {
-    return input.providerMode === "sample"
+    return isSampleProviderMode(input.providerMode)
       ? "Inspect the sample callback payload and replay posture before retrying reconciliation."
       : "Inspect webhook secret, merchant callback payload, and replay posture before retrying reconciliation.";
   }
-  return input.providerMode === "sample"
+  return isSampleProviderMode(input.providerMode)
     ? "Operators can still inspect callback and reconciliation evidence even while the gateway remains in explicit sample mode."
     : "Operators can inspect callback and reconciliation evidence without changing the shared commerce envelope.";
 }
@@ -206,18 +208,18 @@ function createReconciliationDiagnosticsSummary(input: {
 }
 
 function createInitialPaymentMessage(input: {
-  providerMode: "sample" | "production";
+  providerMode: PaymentProviderMode;
   pending: boolean;
   duplicateProtected: boolean;
   title?: string;
 }): string {
   if (input.pending) {
     if (input.title) {
-      return input.providerMode === "sample"
+      return isSampleProviderMode(input.providerMode)
         ? `${input.title} is pending gateway confirmation in the sample payment domain.`
         : `${input.title} is pending gateway confirmation.`;
     }
-    return input.providerMode === "sample"
+    return isSampleProviderMode(input.providerMode)
       ? "Payment is pending gateway confirmation in the sample payment domain."
       : "Payment is pending gateway confirmation.";
   }
@@ -229,12 +231,12 @@ function createInitialPaymentMessage(input: {
   }
 
   if (input.title) {
-    return input.providerMode === "sample"
+    return isSampleProviderMode(input.providerMode)
       ? `${input.title} completed in the sample payment domain.`
       : `${input.title} completed and is awaiting callback verification.`;
   }
 
-  return input.providerMode === "sample"
+  return isSampleProviderMode(input.providerMode)
     ? "Payment completed in the sample payment domain."
     : "Payment completed and is awaiting callback verification.";
 }

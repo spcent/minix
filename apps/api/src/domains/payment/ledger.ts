@@ -16,6 +16,7 @@ import {
   appendUserAssetLedgerEntry,
   createAssetLedgerEntry,
 } from "../account/assets";
+import { isSampleProviderMode } from "../provider-posture";
 import { cloneDomainSnapshot } from "../snapshot";
 import type { UserState } from "../../types";
 import { createLedgerId, createPaymentLedgerEntry } from "./catalog";
@@ -369,7 +370,7 @@ export function verifyPaymentCallback(input: {
 } {
   const providerMode = input.detail.paymentIntent.gatewayReference?.providerMode ?? "sample";
   const callbackReference = input.payload.callbackReference ?? `cb_${input.payload.orderId}`;
-  if (providerMode === "sample") {
+  if (isSampleProviderMode(providerMode)) {
     return {
       ok: input.payload.verified !== false,
       callbackReference,
@@ -524,7 +525,7 @@ export function applyOrderRefund(
     next.paymentResult.paid = false;
     next.paymentResult.callbackVerified = true;
     next.paymentResult.message =
-      providerMode === "sample"
+      isSampleProviderMode(providerMode)
         ? reason
           ? `Refund completed in the sample payment domain. Reason: ${reason}.`
           : "Refund completed in the sample payment domain."
@@ -626,10 +627,10 @@ export function applyPaymentCallback(
   next.callbackVerification = {
     status: verified ? "verified" : "rejected",
     message: verified
-      ? providerMode === "sample"
+      ? isSampleProviderMode(providerMode)
         ? "Sample callback verification succeeded."
         : "Production callback verification succeeded."
-      : providerMode === "sample"
+      : isSampleProviderMode(providerMode)
         ? "Sample callback verification rejected the callback payload."
         : "Production callback verification rejected the callback payload.",
     ...(verified ? { verifiedAt: processedAt } : {}),
@@ -638,10 +639,10 @@ export function applyPaymentCallback(
       ? "Callback verification completed and the shared order detail can now be trusted as the gateway source of truth."
       : "Callback verification rejected the payload, so operator follow-up should inspect signature, replay, or merchant configuration.",
     operatorActionSummary: verified
-      ? providerMode === "sample"
+      ? isSampleProviderMode(providerMode)
         ? "Operators can still inspect callback and reconciliation evidence even while the gateway remains in explicit sample mode."
         : "Operators can inspect callback and reconciliation evidence without changing the shared commerce envelope."
-      : providerMode === "sample"
+      : isSampleProviderMode(providerMode)
         ? "Inspect the sample callback payload and replay posture before retrying reconciliation."
         : "Inspect webhook secret, merchant callback payload, and replay posture before retrying reconciliation.",
   };
