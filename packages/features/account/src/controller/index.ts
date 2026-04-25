@@ -1315,7 +1315,7 @@ export function createAccountController(options: CreateAccountControllerOptions)
       dirty: options.dirty ?? current.dirty,
       operationFormOpen: options.operationFormOpen ?? current.operationFormOpen,
       values,
-      formValues: structuredClone(values),
+      formValues: cloneStateSnapshot(values),
       workflow,
       fieldErrors: [],
       validationErrors: [],
@@ -1386,8 +1386,8 @@ export function createAccountController(options: CreateAccountControllerOptions)
         phase: "idle",
       });
       store.setState({
-        initialValues: structuredClone(values),
-        initialFormValues: structuredClone(values),
+        initialValues: cloneStateSnapshot(values),
+        initialFormValues: cloneStateSnapshot(values),
       });
       return;
     }
@@ -1401,8 +1401,8 @@ export function createAccountController(options: CreateAccountControllerOptions)
         phase: "idle",
       });
       store.setState({
-        initialValues: structuredClone(values),
-        initialFormValues: structuredClone(values),
+        initialValues: cloneStateSnapshot(values),
+        initialFormValues: cloneStateSnapshot(values),
       });
       return;
     }
@@ -1531,9 +1531,9 @@ export function createAccountController(options: CreateAccountControllerOptions)
         ready: true,
         errorText: undefined,
         values: profileSeedValues,
-        formValues: structuredClone(profileSeedValues),
-        initialValues: structuredClone(profileSeedValues),
-        initialFormValues: structuredClone(profileSeedValues),
+        formValues: cloneStateSnapshot(profileSeedValues),
+        initialValues: cloneStateSnapshot(profileSeedValues),
+        initialFormValues: cloneStateSnapshot(profileSeedValues),
         workflow: createAccountWorkflow(profileSeedValues),
       });
       await loadOperationDraft(remoteProfile.value);
@@ -1682,7 +1682,7 @@ export function createAccountController(options: CreateAccountControllerOptions)
 
       const snapshot: AccountDraftSnapshot = {
         savedAt: Date.now(),
-        values: structuredClone(store.getState().values),
+        values: cloneStateSnapshot(store.getState().values),
         ...(store.getState().workflow.currentStepKey ? { currentStepKey: store.getState().workflow.currentStepKey } : {}),
       };
       const submissionKey = createFormSubmissionKey("account-operation", "draft", snapshot.values);
@@ -1748,8 +1748,8 @@ export function createAccountController(options: CreateAccountControllerOptions)
         phase: "idle",
       });
       store.setState({
-        initialValues: structuredClone(nextValues),
-        initialFormValues: structuredClone(nextValues),
+        initialValues: cloneStateSnapshot(nextValues),
+        initialFormValues: cloneStateSnapshot(nextValues),
         transitionFeedback: "Account operation draft discarded.",
       });
       return ok(undefined);
@@ -1828,8 +1828,8 @@ export function createAccountController(options: CreateAccountControllerOptions)
         phase: "submitted",
       });
       store.setState({
-        initialValues: structuredClone(resetValues),
-        initialFormValues: structuredClone(resetValues),
+        initialValues: cloneStateSnapshot(resetValues),
+        initialFormValues: cloneStateSnapshot(resetValues),
         lastSubmission: {
           submittedAt,
           value: result.value,

@@ -34,6 +34,7 @@ If any step cannot be answered, add the smallest missing contract or shared cont
 - Ops provider readiness should also resolve modes through the shared provider posture helper, because it is the release-facing aggregate of auth, message, upload, share, and payment provider posture.
 - Message touchpoints and support-thread delivery summaries should use the same provider posture predicates as ops readiness so notification, feedback, and customer-service flows stay aligned.
 - Feature packages must not import API-domain provider helpers. When a host-facing feature only consumes contract provider modes, keep any local predicate narrow and document the boundary rather than crossing into `apps/api`.
+- Account and profile operation controllers should snapshot form values through core helpers, matching form page protocol behavior for drafts, resets, and submitted state.
 - Use `apps/api/src/domains/snapshot.ts` for API-domain workflow snapshots. Keep it local to the API app instead of importing core helpers into backend-only code.
 - Feedback/support API shaping should use the API-domain snapshot helper for tickets, statuses, FAQ catalogs, support entries, and support-thread echoes so service-loop surfaces stay portable.
 - Extend `apps/api/src/domains/*` for business workflow shaping. Keep `apps/api/src/app.ts` as routing assembly and avoid pushing domain rules into host code.

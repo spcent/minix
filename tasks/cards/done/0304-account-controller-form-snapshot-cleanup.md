@@ -1,6 +1,6 @@
 # Account Controller Form Snapshot Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -23,7 +23,12 @@ Replace remaining account controller form `structuredClone` calls with core snap
 
 ## Acceptance
 
-- [ ] account controller form snapshots use core helpers
-- [ ] public state shape remains unchanged
-- [ ] playbook records account form snapshot guidance
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] account controller form snapshots use core helpers
+- [x] public state shape remains unchanged
+- [x] playbook records account form snapshot guidance
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced account operation form, initial, draft, and reset value clones with `cloneStateSnapshot`.
+- Kept account operation workflow and public state shape unchanged.
