@@ -1,6 +1,6 @@
 # Host H5 Mock Auth Helper Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -17,6 +17,10 @@ Adopt core mock auth header helper in the Host H5 mock adapter.
 
 ## Acceptance
 
-- [ ] Host H5 mock adapter removes duplicated Bearer token string construction
-- [ ] mock auth behavior remains unchanged
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] Host H5 mock adapter removes duplicated Bearer token string construction
+- [x] mock auth behavior remains unchanged
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Reused the shared mock Bearer authorization matcher in the Host H5 mock adapter.

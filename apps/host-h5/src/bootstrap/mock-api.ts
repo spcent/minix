@@ -3,6 +3,7 @@ import {
   createError,
   createJsonMockResponse,
   fail,
+  matchesMockBearerAuthorizationHeader,
   ok,
   resolveMockRequestPath,
   type RequestAdapter,
@@ -67,6 +68,8 @@ const DEMO_ITEMS: HostMockItem[] = [
   },
 ];
 
+const ACCESS_TOKEN = "mock-h5-access-token";
+
 function listItems(query?: RequestOptions["query"]) {
   const page = coerceMockQueryNumber(query?.page, 1);
   const pageSize = coerceMockQueryNumber(query?.pageSize, 2);
@@ -90,7 +93,7 @@ export function createHostH5MockApiAdapter(): RequestAdapter {
         return ok(
           createJsonMockResponse(200, {
             userId: "host-h5-user",
-            accessToken: "mock-h5-access-token",
+            accessToken: ACCESS_TOKEN,
             expiresAt: Date.now() + 60 * 60 * 1000,
             profile: {
               nickname: "Mia",
@@ -101,7 +104,7 @@ export function createHostH5MockApiAdapter(): RequestAdapter {
 
       if (pathname === "/items") {
         const authHeader = options.headers?.Authorization;
-        if (authHeader !== "Bearer mock-h5-access-token") {
+        if (!matchesMockBearerAuthorizationHeader(authHeader, ACCESS_TOKEN)) {
           return ok(
             createJsonMockResponse(401, {
               code: "UNAUTHORIZED",
