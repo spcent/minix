@@ -7,7 +7,11 @@ import type {
   PaymentOperationResult,
   PaymentProviderMode,
   PaymentResult,
+  PaymentScenario,
 } from "./payment";
+
+export const MEMBERSHIP_PLAN_IDS = ["monthly", "quarterly", "annual"] as const;
+export type MembershipPlanId = (typeof MEMBERSHIP_PLAN_IDS)[number];
 
 export interface MembershipBenefit {
   key: string;
@@ -27,10 +31,10 @@ export interface MembershipOverview {
 }
 
 export interface PurchaseMembershipRequest {
-  planId: "monthly" | "quarterly" | "annual";
+  planId: MembershipPlanId;
   channel?: PaymentChannel;
   providerMode?: PaymentProviderMode;
-  paymentScenario?: "instant_success" | "pending";
+  paymentScenario?: PaymentScenario;
   idempotencyKey?: string;
   source?: string;
   novelId?: string;

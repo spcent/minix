@@ -1,6 +1,6 @@
 # Payment Request Constant Foundation
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -17,6 +17,10 @@ Add contract constants for membership plan ids, payment scenarios, and payment c
 
 ## Acceptance
 
-- [ ] payment request-only string unions have exported constants
-- [ ] existing payment contract types remain compatible
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] payment request-only string unions have exported constants
+- [x] existing payment contract types remain compatible
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added membership plan, payment scenario, and callback outcome constants/types.

@@ -24,6 +24,8 @@ export type PaymentIntentStatus = (typeof PAYMENT_INTENT_STATUSES)[number];
 
 export const PAYMENT_RESULT_STATUSES = ["pending", "success", "failure", "cancelled", "refunded"] as const;
 export type PaymentResultStatus = (typeof PAYMENT_RESULT_STATUSES)[number];
+export const PAYMENT_CALLBACK_OUTCOMES = ["success", "failure", "cancelled"] as const;
+export type PaymentCallbackOutcome = (typeof PAYMENT_CALLBACK_OUTCOMES)[number];
 
 export const PAYMENT_CLIENT_ACTIONS = ["none", "h5_redirect", "wechat_sdk"] as const;
 export type PaymentClientAction = (typeof PAYMENT_CLIENT_ACTIONS)[number];
@@ -42,6 +44,8 @@ export type PaymentProviderMode = (typeof PAYMENT_PROVIDER_MODES)[number];
 
 export const PAYMENT_GATEWAY_PROVIDERS = ["sample", "wechat_pay", "h5_gateway"] as const;
 export type PaymentGatewayProvider = (typeof PAYMENT_GATEWAY_PROVIDERS)[number];
+export const PAYMENT_SCENARIOS = ["instant_success", "pending"] as const;
+export type PaymentScenario = (typeof PAYMENT_SCENARIOS)[number];
 
 export const PAYMENT_LEDGER_ENTRY_KINDS = ["payment", "refund", "callback", "operation", "reconciliation"] as const;
 export type PaymentLedgerEntryKind = (typeof PAYMENT_LEDGER_ENTRY_KINDS)[number];
@@ -128,7 +132,7 @@ export interface PaymentLedgerEntry {
 export interface PaymentCallbackLedgerEntry {
   callbackReference: string;
   orderId: string;
-  outcome: Extract<PaymentResultStatus, "success" | "failure" | "cancelled">;
+  outcome: PaymentCallbackOutcome;
   verificationStatus: PaymentCallbackVerificationStatus;
   nonce?: string;
   timestamp?: number;
