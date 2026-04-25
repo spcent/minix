@@ -6,6 +6,8 @@ import type {
   DetailStatus,
 } from "@minix/contracts";
 
+import { cloneOptionalStateSnapshot, cloneStateSnapshotArray } from "../store/snapshot";
+
 export type DetailPageState<TData = unknown> = Omit<ContractDetailPageState<TData>, "errorCode"> & {
   title: string;
   subtitle: string | undefined;
@@ -88,6 +90,7 @@ export function createDetailStatus(
 export function createDetailPageState<TData = unknown>(
   options: CreateDetailPageStateOptions<TData>,
 ): DetailPageState<TData> {
+  const detailData = cloneOptionalStateSnapshot(options.data);
   return {
     title: options.title,
     subtitle: options.subtitle,
@@ -95,7 +98,7 @@ export function createDetailPageState<TData = unknown>(
     loading: false,
     errorCode: undefined,
     errorText: undefined,
-    detailData: options.data,
+    detailData,
     detailStatus: createDetailStatus(options.data !== undefined ? "ready" : "idle", {
       ...(options.entryContext !== undefined ? { entryContext: options.entryContext } : {}),
       ...(options.entryEvidence ? { entryEvidence: options.entryEvidence } : {}),
@@ -103,10 +106,10 @@ export function createDetailPageState<TData = unknown>(
       ...(options.recoveredFromLink ? { recoveredFromLink: true } : {}),
       ...(options.requestedDetailId ? { requestedDetailId: options.requestedDetailId } : {}),
     }),
-    detailActions: options.actions ? options.actions.map((action) => ({ ...action })) : [],
-    detailAttachments: options.attachments?.map((attachment) => structuredClone(attachment)) ?? [],
-    detailComments: options.comments?.map((comment) => structuredClone(comment)) ?? [],
-    ...(options.data !== undefined ? { data: options.data } : {}),
+    detailActions: cloneStateSnapshotArray(options.actions ?? []),
+    detailAttachments: cloneStateSnapshotArray(options.attachments ?? []),
+    detailComments: cloneStateSnapshotArray(options.comments ?? []),
+    ...(detailData !== undefined ? { data: detailData } : {}),
   };
 }
 

@@ -12,6 +12,8 @@ import type {
   SearchResults,
 } from "@minix/contracts";
 
+import { cloneOptionalStateSnapshot, cloneStateSnapshotArray } from "../store/snapshot";
+
 export interface ListPageState<TItem> {
   title: string;
   subtitle: string | undefined;
@@ -79,7 +81,7 @@ export interface CreateDefaultListPageStateOptions<TItem> {
 }
 
 function cloneItems<TItem>(items: TItem[]): TItem[] {
-  return items.map((item) => ({ ...(item as object) }) as TItem);
+  return cloneStateSnapshotArray(items);
 }
 
 export interface CreateListStatusOptions {
@@ -140,7 +142,7 @@ export function createListPageState<TItem>(options: CreateListPageStateOptions<T
       ...(options.nextCursor !== undefined ? { nextCursor: options.nextCursor } : {}),
       ...(options.total !== undefined ? { total: options.total } : {}),
     },
-    filters: options.searchFilters?.map((group) => structuredClone(group)) ?? [],
+    filters: cloneStateSnapshotArray(options.searchFilters ?? []),
     selection: {
       ...(firstItemId !== undefined ? { selectedItemId: firstItemId } : {}),
       selectedItemIds: [...(options.selectedItemIds ?? (firstItemId ? [firstItemId] : []))],
@@ -159,9 +161,9 @@ export function createListPageState<TItem>(options: CreateListPageStateOptions<T
     hasMore: options.hasMore ?? false,
     nextCursor: options.nextCursor,
     total: options.total,
-    searchQuery: options.searchQuery ? structuredClone(options.searchQuery) : undefined,
-    searchFilters: options.searchFilters?.map((group) => structuredClone(group)) ?? [],
-    searchResults: options.searchResults ? structuredClone(options.searchResults) : undefined,
+    searchQuery: cloneOptionalStateSnapshot(options.searchQuery),
+    searchFilters: cloneStateSnapshotArray(options.searchFilters ?? []),
+    searchResults: cloneOptionalStateSnapshot(options.searchResults),
     render: {
       variant: options.render?.variant ?? "feed",
       ...(options.render?.density ? { density: options.render.density } : {}),
@@ -169,8 +171,8 @@ export function createListPageState<TItem>(options: CreateListPageStateOptions<T
       stickyHeaderEnabled: options.render?.stickyHeaderEnabled ?? options.stickyHeaderEnabled ?? false,
       supportsIncrementalAppend: options.render?.supportsIncrementalAppend ?? true,
     },
-    savedFilters: options.savedFilters?.map((filter) => structuredClone(filter)) ?? [],
-    batchActions: options.batchActions?.map((action) => ({ ...action })) ?? [],
+    savedFilters: cloneStateSnapshotArray(options.savedFilters ?? []),
+    batchActions: cloneStateSnapshotArray(options.batchActions ?? []),
     query: {
       page: query.page ?? 1,
       pageSize: query.pageSize ?? options.pageSize,

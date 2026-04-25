@@ -14,6 +14,8 @@ import type {
   FormWorkflowState,
 } from "@minix/contracts";
 
+import { cloneStateSnapshot, cloneStateSnapshotArray } from "../store/snapshot";
+
 export interface FormPageState<TValues extends Record<string, unknown>, TResult = unknown> {
   title: string;
   subtitle: string | undefined;
@@ -54,7 +56,7 @@ export interface CreateDefaultFormPageStateOptions<TValues extends Record<string
 }
 
 function cloneValues<TValues extends Record<string, unknown>>(values: TValues): TValues {
-  return structuredClone(values);
+  return cloneStateSnapshot(values);
 }
 
 function normalizeComparableValue(value: unknown): unknown {
@@ -144,13 +146,13 @@ export function createFormWorkflowState<TValues extends Record<string, unknown>>
     dynamicFieldKeys,
     conditionalFieldKeys,
     uploadFieldKeys,
-    ...(input.asyncValidation ? { asyncValidation: structuredClone(input.asyncValidation) } : {}),
-    ...(input.approvalNodes && input.approvalNodes.length > 0 ? { approvalNodes: structuredClone(input.approvalNodes) } : {}),
+    ...(input.asyncValidation ? { asyncValidation: cloneStateSnapshot(input.asyncValidation) } : {}),
+    ...(input.approvalNodes && input.approvalNodes.length > 0 ? { approvalNodes: cloneStateSnapshotArray(input.approvalNodes) } : {}),
     ...(input.approvalTemplates && input.approvalTemplates.length > 0
-      ? { approvalTemplates: structuredClone(input.approvalTemplates) }
+      ? { approvalTemplates: cloneStateSnapshotArray(input.approvalTemplates) }
       : {}),
-    ...(input.draft ? { draft: structuredClone(input.draft) } : {}),
-    ...(input.draftPolicy ? { draftPolicy: structuredClone(input.draftPolicy) } : {}),
+    ...(input.draft ? { draft: cloneStateSnapshot(input.draft) } : {}),
+    ...(input.draftPolicy ? { draftPolicy: cloneStateSnapshot(input.draftPolicy) } : {}),
   };
 }
 
@@ -232,8 +234,8 @@ export function createFormPageState<TValues extends Record<string, unknown>, TRe
   const values = cloneValues(options.values);
   const initialValues = cloneValues(options.values);
   const schema: FormSchema = {
-    fields: options.schema?.fields ? structuredClone(options.schema.fields) : [],
-    steps: options.schema?.steps ? structuredClone(options.schema.steps) : [],
+    fields: cloneStateSnapshotArray(options.schema?.fields ?? []),
+    steps: cloneStateSnapshotArray(options.schema?.steps ?? []),
   };
   return {
     title: options.title,

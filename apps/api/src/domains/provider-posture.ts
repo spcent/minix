@@ -7,7 +7,7 @@ export function resolveProviderPostureMode(value: string | undefined): ProviderP
 }
 
 export function resolveProviderName(input: {
-  configuredName?: string;
+  configuredName?: string | undefined;
   providerMode: ProviderPostureMode;
   productionFallback: string;
   sampleFallback: string;

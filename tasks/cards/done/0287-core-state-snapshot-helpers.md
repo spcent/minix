@@ -1,5 +1,7 @@
 # Core State Snapshot Helpers
 
+Status: done
+
 ## Summary
 
 Add small core snapshot helpers for deep-cloning state values, optional values, and arrays, then adopt them in shared page protocols.
@@ -73,15 +75,21 @@ Future product-matrix controllers should have a standard state snapshot vocabula
 
 ## Acceptance
 
-- [ ] snapshot helper covers value, optional value, and array cloning
-- [ ] page protocols use the helper for clone-heavy state fields
-- [ ] helper tests prove clone isolation
-- [ ] public page protocol field names and defaults remain unchanged
-- [ ] playbook records the helper as the core-side state snapshot reuse point
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] snapshot helper covers value, optional value, and array cloning
+- [x] page protocols use the helper for clone-heavy state fields
+- [x] helper tests prove clone isolation
+- [x] public page protocol field names and defaults remain unchanged
+- [x] playbook records the helper as the core-side state snapshot reuse point
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added `cloneStateSnapshot`, `cloneOptionalStateSnapshot`, and `cloneStateSnapshotArray` under `packages/core/src/store/snapshot.ts`.
+- Adopted the helpers in shared list, detail, and form page protocol factories.
+- Added focused tests proving value, optional, and array snapshot behavior.
