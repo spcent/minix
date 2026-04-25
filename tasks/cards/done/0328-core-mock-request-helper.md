@@ -1,6 +1,6 @@
 # Core Mock Request Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -17,7 +17,12 @@ Add shared core runtime helpers for mock JSON responses, request path resolution
 
 ## Acceptance
 
-- [ ] mock request helpers are exported through `@minix/core`
-- [ ] helpers stay data-only and platform-neutral
-- [ ] docs note official mock adapter reuse
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] mock request helpers are exported through `@minix/core`
+- [x] helpers stay data-only and platform-neutral
+- [x] docs note official mock adapter reuse
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added core mock request helpers and focused runtime tests.
+- Exported the helpers through `@minix/core` and documented official mock adapter reuse.

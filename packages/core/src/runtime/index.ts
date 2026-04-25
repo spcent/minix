@@ -4,6 +4,7 @@ export * from "./auth";
 export * from "./bootstrap-env";
 export * from "./capability";
 export * from "./manifest";
+export * from "./mock-request";
 export * from "./request";
 export * from "./router";
 export * from "./search";
