@@ -1,5 +1,7 @@
 # Lightweight Feature Snapshot Adoption
 
+Status: done
+
 ## Summary
 
 Adopt core snapshot helpers in settings, catalog, and items initial-state clone paths.
@@ -70,15 +72,22 @@ Lightweight reusable features should follow the same snapshot helper style as pa
 
 ## Acceptance
 
-- [ ] settings clone path uses core snapshot helpers
-- [ ] catalog clone path uses core snapshot helpers
-- [ ] items clone path uses core snapshot helpers
-- [ ] public feature APIs and state fields remain unchanged
-- [ ] playbook records lightweight feature snapshot guidance
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] settings clone path uses core snapshot helpers
+- [x] catalog clone path uses core snapshot helpers
+- [x] items clone path uses core snapshot helpers
+- [x] public feature APIs and state fields remain unchanged
+- [x] playbook records lightweight feature snapshot guidance
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Migrated settings model cloning to `cloneStateSnapshot` and `cloneStateSnapshotArray`.
+- Migrated catalog initial-state cloning to the same core snapshot helpers.
+- Migrated items initial-model cloning to the same core snapshot helpers.
+- Kept public feature APIs and state field names unchanged.

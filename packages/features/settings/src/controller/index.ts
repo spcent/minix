@@ -1,4 +1,6 @@
 import {
+  cloneStateSnapshot,
+  cloneStateSnapshotArray,
   ok,
   createStore,
   createAuthRedirectParams,
@@ -224,18 +226,15 @@ function cloneModel(model: SettingsPageModel): SettingsPageModel {
   return {
     ...model,
     ...(model.subtitle ? { subtitle: model.subtitle } : {}),
-    ...(model.preferences ? { preferences: structuredClone(model.preferences) } : {}),
-    ...(model.featureToggles ? { featureToggles: structuredClone(model.featureToggles) } : {}),
-    ...(model.privacyOptions ? { privacyOptions: structuredClone(model.privacyOptions) } : {}),
-    ...(model.effectivePolicy ? { effectivePolicy: structuredClone(model.effectivePolicy) } : {}),
-    ...(model.policySummary ? { policySummary: { ...model.policySummary } } : {}),
-    ...(model.notificationChannels ? { notificationChannels: structuredClone(model.notificationChannels) } : {}),
-    ...(model.notificationPresets ? { notificationPresets: structuredClone(model.notificationPresets) } : {}),
+    ...(model.preferences ? { preferences: cloneStateSnapshot(model.preferences) } : {}),
+    ...(model.featureToggles ? { featureToggles: cloneStateSnapshot(model.featureToggles) } : {}),
+    ...(model.privacyOptions ? { privacyOptions: cloneStateSnapshot(model.privacyOptions) } : {}),
+    ...(model.effectivePolicy ? { effectivePolicy: cloneStateSnapshot(model.effectivePolicy) } : {}),
+    ...(model.policySummary ? { policySummary: cloneStateSnapshot(model.policySummary) } : {}),
+    ...(model.notificationChannels ? { notificationChannels: cloneStateSnapshot(model.notificationChannels) } : {}),
+    ...(model.notificationPresets ? { notificationPresets: cloneStateSnapshot(model.notificationPresets) } : {}),
     ...(model.lockedSettingKeys ? { lockedSettingKeys: [...model.lockedSettingKeys] } : {}),
-    sections: model.sections.map((section) => ({
-      ...section,
-      items: section.items.map((item) => ({ ...item })),
-    })),
+    sections: cloneStateSnapshotArray(model.sections),
   };
 }
 

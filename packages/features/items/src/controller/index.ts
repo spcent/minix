@@ -1,4 +1,13 @@
-import { createAuthRedirectParams, createListStatus, ok, createStore, type AppKernel, type Result } from "@minix/core";
+import {
+  cloneStateSnapshot,
+  cloneStateSnapshotArray,
+  createAuthRedirectParams,
+  createListStatus,
+  ok,
+  createStore,
+  type AppKernel,
+  type Result,
+} from "@minix/core";
 import {
   type ItemsListItem,
   type AppRouteId,
@@ -25,16 +34,16 @@ export interface CreateItemsControllerOptions<TItem extends ItemsListItem> {
 function cloneInitialModel(initialModel: ItemsPageModel): ItemsPageModel {
   return {
     ...initialModel,
-    items: [...initialModel.items],
-    query: { ...initialModel.query },
-    pagination: { ...initialModel.pagination },
+    items: cloneStateSnapshotArray(initialModel.items),
+    query: cloneStateSnapshot(initialModel.query),
+    pagination: cloneStateSnapshot(initialModel.pagination),
     selection: {
       ...initialModel.selection,
       selectedItemIds: [...initialModel.selection.selectedItemIds],
     },
-    status: { ...initialModel.status },
-    filters: initialModel.filters.map((group) => structuredClone(group)),
-    searchFilters: initialModel.searchFilters.map((group) => structuredClone(group)),
+    status: cloneStateSnapshot(initialModel.status),
+    filters: cloneStateSnapshotArray(initialModel.filters),
+    searchFilters: cloneStateSnapshotArray(initialModel.searchFilters),
     completedItemIds: [...initialModel.completedItemIds],
     selectedItemId: initialModel.selectedItemId,
   };

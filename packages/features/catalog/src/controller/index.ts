@@ -1,4 +1,6 @@
 import {
+  cloneStateSnapshot,
+  cloneStateSnapshotArray,
   createAuthRedirectParams,
   ok,
   createStore,
@@ -39,16 +41,16 @@ const DEFAULT_SEARCH_HISTORY_STORAGE_KEY = "catalog.search-history";
 function cloneInitialState(initialState: CatalogState): CatalogState {
   return {
     ...initialState,
-    items: [...initialState.items],
-    ...(initialState.searchQuery ? { searchQuery: structuredClone(initialState.searchQuery) } : {}),
-    searchFilters: initialState.searchFilters.map((group) => structuredClone(group)),
-    ...(initialState.searchResults ? { searchResults: structuredClone(initialState.searchResults) } : {}),
-    query: { ...initialState.query },
+    items: cloneStateSnapshotArray(initialState.items),
+    ...(initialState.searchQuery ? { searchQuery: cloneStateSnapshot(initialState.searchQuery) } : {}),
+    searchFilters: cloneStateSnapshotArray(initialState.searchFilters),
+    ...(initialState.searchResults ? { searchResults: cloneStateSnapshot(initialState.searchResults) } : {}),
+    query: cloneStateSnapshot(initialState.query),
     categories: [...initialState.categories],
     statusOptions: [...initialState.statusOptions],
     recentSearches: [...initialState.recentSearches],
     hotKeywords: [...initialState.hotKeywords],
-    milestoneHistory: [...initialState.milestoneHistory],
+    milestoneHistory: cloneStateSnapshotArray(initialState.milestoneHistory),
   };
 }
 
