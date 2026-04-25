@@ -13,6 +13,14 @@ export function createJsonMockResponse<T>(status: number, data: T): ResponseData
   };
 }
 
+export function createMockBearerAuthorizationHeader(accessToken: string): string {
+  return `Bearer ${accessToken}`;
+}
+
+export function matchesMockBearerAuthorizationHeader(authHeader: string | undefined, accessToken: string): boolean {
+  return authHeader === createMockBearerAuthorizationHeader(accessToken);
+}
+
 export function resolveMockRequestPath(url: string): string {
   try {
     return new URL(url).pathname;

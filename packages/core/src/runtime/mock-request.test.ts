@@ -5,6 +5,8 @@ import {
   coerceMockQueryNumber,
   coerceMockQueryString,
   createJsonMockResponse,
+  createMockBearerAuthorizationHeader,
+  matchesMockBearerAuthorizationHeader,
   resolveMockRequestPath,
 } from "./mock-request";
 
@@ -22,6 +24,13 @@ test("createJsonMockResponse returns the canonical mock response envelope", () =
 test("resolveMockRequestPath keeps absolute and relative mock paths stable", () => {
   assert.equal(resolveMockRequestPath("https://mock.minix.local/items?page=1"), "/items");
   assert.equal(resolveMockRequestPath("/items"), "/items");
+});
+
+test("mock bearer auth helpers build and match authorization headers", () => {
+  assert.equal(createMockBearerAuthorizationHeader("mock-token"), "Bearer mock-token");
+  assert.equal(matchesMockBearerAuthorizationHeader("Bearer mock-token", "mock-token"), true);
+  assert.equal(matchesMockBearerAuthorizationHeader("Bearer other-token", "mock-token"), false);
+  assert.equal(matchesMockBearerAuthorizationHeader(undefined, "mock-token"), false);
 });
 
 test("mock query coercion helpers normalize query values", () => {

@@ -1,6 +1,6 @@
 # Core Mock Auth Header Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -17,7 +17,11 @@ Add core mock request helpers for Bearer authorization header construction and m
 
 ## Acceptance
 
-- [ ] mock auth header helper builds Bearer headers
-- [ ] mock auth header helper matches Bearer headers
-- [ ] helpers remain platform-neutral
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] mock auth header helper builds Bearer headers
+- [x] mock auth header helper matches Bearer headers
+- [x] helpers remain platform-neutral
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added platform-neutral mock Bearer authorization helpers and unit coverage.
