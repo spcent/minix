@@ -735,6 +735,11 @@ export function createFeedController(options: CreateFeedControllerOptions) {
       selectedItemId: nextItem.id,
       selection: createSelection(nextItem.id),
       contentTransitionFeedback: response.transitionMessage,
+      contentGovernanceSummary:
+        response.governanceSummary ??
+        response.contentDetail.governanceSummary ??
+        response.contentCard.governanceSummary ??
+        state.contentGovernanceSummary,
     });
   }
 
@@ -1456,6 +1461,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
           schema: nextDerived.schema,
           workflow: nextDerived.workflow,
         },
+        contentGovernanceSummary: result.value.governanceSummary ?? store.getState().contentGovernanceSummary,
       });
       return result;
     },

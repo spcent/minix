@@ -8,6 +8,7 @@ import type {
   ContentDetail,
   ContentDetailResponse,
   ContentDisplay,
+  ContentGovernanceSummary,
   ContentLifecycle,
   ContentLifecycleAction,
   ContentLifecycleMutationRequest,
@@ -512,6 +513,35 @@ function createManagedContentModerationSummary(entry: ManagedContentEntry): stri
   return "Moderation posture remains in draft and can be promoted through the shared review workflow.";
 }
 
+function createManagedContentGovernanceSummary(
+  entry: ManagedContentEntry,
+  attachments: ContentAttachmentReference[],
+  access?: ContentAccess,
+): ContentGovernanceSummary {
+  const queueLabel = entry.reviewRecord.queueLabel ?? "Draft workspace";
+  return {
+    reviewQueueSummary:
+      entry.reviewRecord.status === "queued"
+        ? `${queueLabel} is tracking this item for reviewer action.`
+        : `${queueLabel} records the latest review state: ${entry.reviewRecord.status}.`,
+    lifecycleSummary: `Lifecycle state is ${entry.lifecycle.state}; available actions are ${entry.lifecycle.availableActions.join(", ") || "none"}.`,
+    attachmentGovernanceSummary:
+      attachments.length > 0
+        ? `${attachments.length} attachment reference(s) reuse upload ownership and derived asset summaries.`
+        : "No attachment references are bound to this content item.",
+    laneGovernanceSummary:
+      entry.lifecycle.state === "published"
+        ? "Editorial lane governance keeps published content in shared recommendation lanes."
+        : "Lifecycle lane governance keeps non-published content inside authorized workflows.",
+    auditSummary: `${entry.auditHistory.length} authoring audit event(s) are attached to this content item.`,
+    accessSummary:
+      access?.summaryLabel ??
+      (entry.visibility === "public"
+        ? "Visible to everyone."
+        : "Visibility is governed by the shared content access contract."),
+  };
+}
+
 export function createManagedContentCard(
   contentId: string,
   userState?: UserState,
@@ -526,6 +556,8 @@ export function createManagedContentCard(
   const attachments = resolveManagedContentAttachments(entry, userState);
   const moderationSummary = createManagedContentModerationSummary(entry);
   const attachmentSummary = createManagedContentAttachmentSummary(attachments);
+  const access = createManagedContentAccess(contentId, userState, actorRole);
+  const governanceSummary = createManagedContentGovernanceSummary(entry, attachments, access);
 
   return {
     contentId,
@@ -551,6 +583,7 @@ export function createManagedContentCard(
       : {}),
     moderationSummary,
     ...(attachmentSummary ? { attachmentSummary } : {}),
+    governanceSummary,
   };
 }
 
@@ -621,6 +654,8 @@ function createManagedContentDetail(
   const attachments = resolveManagedContentAttachments(entry, userState);
   const moderationSummary = createManagedContentModerationSummary(entry);
   const attachmentSummary = createManagedContentAttachmentSummary(attachments);
+  const access = createManagedContentAccess(contentId, userState, actorRole);
+  const governanceSummary = createManagedContentGovernanceSummary(entry, attachments, access);
 
   return {
     ...card,
@@ -636,6 +671,7 @@ function createManagedContentDetail(
     ...(permissions.canViewAuditHistory ? { auditHistory: cloneManagedContentAuditHistory(entry.auditHistory) } : {}),
     moderationSummary,
     ...(attachmentSummary ? { attachmentSummary } : {}),
+    governanceSummary,
   };
 }
 
@@ -653,6 +689,7 @@ export function getManagedContentDetail(
   return {
     contentDetail,
     contentAccess,
+    ...(contentDetail.governanceSummary ? { governanceSummary: contentDetail.governanceSummary } : {}),
   };
 }
 
@@ -696,8 +733,19 @@ export function listManagedContentReviewQueue(
   userState: UserState,
   input: ListContentReviewQueueRequest = {},
 ): ContentReviewQueueResponse {
+  const entries = Object.values(userState.managedContentById ?? createDefaultManagedContentEntries());
+  const queuedCount = entries.filter((entry) => entry.reviewRecord.status === "queued").length;
+  const attachmentCount = entries.reduce((total, entry) => total + entry.attachments.length, 0);
   return {
     reviewQueue: createManagedContentQueue(userState, input),
+    governanceSummary: {
+      reviewQueueSummary: `${queuedCount} content item(s) are currently queued for editorial review.`,
+      lifecycleSummary: "Review queue output stays normalized across draft, under-review, and rejected lifecycle states.",
+      attachmentGovernanceSummary: `${attachmentCount} attachment reference(s) are visible through content review metadata.`,
+      laneGovernanceSummary: "Editorial and lifecycle lanes remain inside the shared content domain.",
+      auditSummary: "Authoring audit history remains attached to each managed content detail.",
+      accessSummary: "Review queue visibility is limited to authorized content roles.",
+    },
   };
 }
 
@@ -724,6 +772,7 @@ function createManagedContentResponse(
       contentCard,
       contentDetail,
       contentAccess,
+      ...(contentDetail.governanceSummary ? { governanceSummary: contentDetail.governanceSummary } : {}),
       transitionMessage,
     },
   };

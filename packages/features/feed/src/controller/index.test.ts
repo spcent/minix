@@ -80,6 +80,14 @@ function createKernelStub() {
               hasMore: false,
               selectedContentId: "story-1",
             },
+            governanceSummary: {
+              reviewQueueSummary: "1 content item(s) are currently queued for editorial review.",
+              lifecycleSummary: "Review queue output stays normalized across draft, under-review, and rejected lifecycle states.",
+              attachmentGovernanceSummary: "2 attachment reference(s) are visible through content review metadata.",
+              laneGovernanceSummary: "Editorial and lifecycle lanes remain inside the shared content domain.",
+              auditSummary: "Authoring audit history remains attached to each managed content detail.",
+              accessSummary: "Review queue visibility is limited to authorized content roles.",
+            },
           } as T);
         }
 
@@ -1058,5 +1066,6 @@ test("feed controller can load the content review queue", async () => {
   assert.equal(controller.store.getState().reviewQueue[0]?.contentId, "story-1");
   assert.equal(controller.store.getState().reviewQueue[0]?.moderationSummary?.includes("queued"), true);
   assert.equal(controller.store.getState().selectedReviewContentId, "story-1");
+  assert.match(controller.store.getState().contentGovernanceSummary?.attachmentGovernanceSummary ?? "", /2 attachment/);
   assert.equal(controller.store.getState().contentDraftForm.workflow.approvalNodes?.[1]?.assigneeLabel, "Reviewer Mina");
 });

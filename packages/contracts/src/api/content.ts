@@ -145,6 +145,15 @@ export interface ContentAuditEntry {
   message: string;
 }
 
+export interface ContentGovernanceSummary {
+  reviewQueueSummary: string;
+  lifecycleSummary: string;
+  attachmentGovernanceSummary: string;
+  laneGovernanceSummary: string;
+  auditSummary: string;
+  accessSummary: string;
+}
+
 export interface ContentAuthoringData {
   title: string;
   subtitle?: string;
@@ -170,6 +179,7 @@ export interface ContentCard {
   reviewRecord?: ContentReviewRecord;
   moderationSummary?: string;
   attachmentSummary?: string;
+  governanceSummary?: ContentGovernanceSummary;
 }
 
 export interface ContentDetail {
@@ -191,11 +201,13 @@ export interface ContentDetail {
   auditHistory?: ContentAuditEntry[];
   moderationSummary?: string;
   attachmentSummary?: string;
+  governanceSummary?: ContentGovernanceSummary;
 }
 
 export interface ContentDetailResponse {
   contentDetail: ContentDetail;
   contentAccess: ContentAccess;
+  governanceSummary?: ContentGovernanceSummary;
 }
 
 export interface ContentReviewQueueItem {
@@ -224,6 +236,7 @@ export interface ContentReviewQueue {
 
 export interface ContentReviewQueueResponse {
   reviewQueue: ContentReviewQueue;
+  governanceSummary?: ContentGovernanceSummary;
 }
 
 export interface GetContentDetailRequest {
@@ -251,6 +264,7 @@ export interface SaveContentDraftResponse {
   contentCard: ContentCard;
   contentDetail: ContentDetail;
   contentAccess: ContentAccess;
+  governanceSummary?: ContentGovernanceSummary;
   transitionMessage: string;
 }
 
@@ -266,6 +280,7 @@ export interface ContentLifecycleMutationResponse {
   contentCard: ContentCard;
   contentDetail: ContentDetail;
   contentAccess: ContentAccess;
+  governanceSummary?: ContentGovernanceSummary;
   transitionMessage: string;
 }
 

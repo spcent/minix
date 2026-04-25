@@ -91,9 +91,20 @@ Keep articles, courses, consultation services, tool configs, posts, events, and 
 
 ## Acceptance
 
-- [ ] content expansion remains discover/feed/content-centered
-- [ ] lifecycle and review outputs remain normalized
-- [ ] access control keeps public, login, member, and purchased visibility semantics
-- [ ] attachment governance reuses upload/content references
-- [ ] docs updated for lifecycle or moderation behavior changes
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] content expansion remains discover/feed/content-centered
+- [x] lifecycle and review outputs remain normalized
+- [x] access control keeps public, login, member, and purchased visibility semantics
+- [x] attachment governance reuses upload/content references
+- [x] docs updated for lifecycle or moderation behavior changes
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added additive `ContentGovernanceSummary` output for review queue, lifecycle, attachment governance, recommendation lane, audit, and access summaries.
+- Threaded governance summaries through managed content cards, details, review queue responses, draft save, and lifecycle mutation responses.
+- Stored governance summary in the feed controller state after content mutations and review queue loading.
+- Kept content authoring, moderation, and attachment references inside the existing discover/feed/content stack.
+
+## Verification Notes
+
+- Ran `pnpm verify:feature feed`.

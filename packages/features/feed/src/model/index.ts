@@ -1,5 +1,6 @@
 import type {
   ContentActorRole,
+  ContentGovernanceSummary,
   ContentModel,
   ContentReviewQueueItem,
   ContentVisibility,
@@ -42,6 +43,7 @@ export type FeedState = ListPageState<FeedItem> & {
   surface: "feed" | "search";
   featuredReason: string | undefined;
   contentTransitionFeedback: string | undefined;
+  contentGovernanceSummary: ContentGovernanceSummary | undefined;
   contentDraftForm: FormPageState<ContentDraftFormValues, SaveContentDraftResponse>;
   reviewQueue: ContentReviewQueueItem[];
   selectedReviewContentId: string | undefined;
@@ -105,6 +107,7 @@ export function createFeedState(options: CreateFeedStateOptions): FeedState {
     surface: options.surface ?? "feed",
     featuredReason: undefined,
     contentTransitionFeedback: undefined,
+    contentGovernanceSummary: undefined,
     contentDraftForm: createDefaultFormPageState<ContentDraftFormValues, SaveContentDraftResponse>({
       title: "Content Draft",
       subtitle: "Authoring workflow for managed content.",
