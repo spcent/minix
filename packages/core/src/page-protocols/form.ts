@@ -1,5 +1,8 @@
 import type {
   FormApprovalNode,
+  FormApprovalTemplate,
+  FormAsyncValidationSummary,
+  FormDraftPolicy,
   FormDraftState,
   FormFieldCondition,
   FormFieldDefinition,
@@ -114,7 +117,10 @@ export function createFormWorkflowState<TValues extends Record<string, unknown>>
   currentStepKey?: string;
   approvalState?: FormWorkflowState["approvalState"];
   approvalNodes?: FormApprovalNode[];
+  approvalTemplates?: FormApprovalTemplate[];
   draft?: FormDraftState;
+  draftPolicy?: FormDraftPolicy;
+  asyncValidation?: FormAsyncValidationSummary;
 }): FormWorkflowState {
   const fields = input.schema?.fields ?? [];
   const steps = input.schema?.steps ?? [];
@@ -122,6 +128,9 @@ export function createFormWorkflowState<TValues extends Record<string, unknown>>
   const visibleFieldKeys = resolveVisibleFormFieldKeys(input.values, fields);
   const dynamicFieldKeys = fields.filter((field) => field.dynamic).map((field) => field.key);
   const conditionalFieldKeys = fields.filter((field) => (field.conditions?.length ?? 0) > 0).map((field) => field.key);
+  const uploadFieldKeys = fields
+    .filter((field) => field.type === "upload_reference" || Boolean(field.uploadRole) || Boolean(field.uploadWorkflow))
+    .map((field) => field.key);
   const currentStepKey =
     input.currentStepKey && stepKeys.includes(input.currentStepKey)
       ? input.currentStepKey
@@ -134,8 +143,14 @@ export function createFormWorkflowState<TValues extends Record<string, unknown>>
     visibleFieldKeys,
     dynamicFieldKeys,
     conditionalFieldKeys,
+    uploadFieldKeys,
+    ...(input.asyncValidation ? { asyncValidation: structuredClone(input.asyncValidation) } : {}),
     ...(input.approvalNodes && input.approvalNodes.length > 0 ? { approvalNodes: structuredClone(input.approvalNodes) } : {}),
+    ...(input.approvalTemplates && input.approvalTemplates.length > 0
+      ? { approvalTemplates: structuredClone(input.approvalTemplates) }
+      : {}),
     ...(input.draft ? { draft: structuredClone(input.draft) } : {}),
+    ...(input.draftPolicy ? { draftPolicy: structuredClone(input.draftPolicy) } : {}),
   };
 }
 
@@ -154,6 +169,7 @@ export function beginFormSubmit<TResult = unknown>(
     submissionKey: string;
   },
 ): { blocked: boolean; submitState: FormSubmitState<TResult> } {
+  const now = Date.now();
   if (
     submitState.duplicateProtected &&
     (submitState.submissionKey === input.submissionKey || submitState.lastCompletedKey === input.submissionKey)
@@ -164,15 +180,21 @@ export function beginFormSubmit<TResult = unknown>(
         ...submitState,
         mode: input.mode,
         duplicateBlocked: true,
+        duplicateEvidence: {
+          mode: input.mode,
+          submissionKey: input.submissionKey,
+          blockedAt: now,
+        },
         submissionKey: input.submissionKey,
       },
     };
   }
 
+  const { duplicateEvidence: _duplicateEvidence, ...submitStateWithoutEvidence } = submitState;
   return {
     blocked: false,
     submitState: {
-      ...submitState,
+      ...submitStateWithoutEvidence,
       phase: input.mode === "draft" ? "draft_saving" : "submitting",
       mode: input.mode,
       duplicateBlocked: false,
@@ -192,8 +214,9 @@ export function finalizeFormSubmit<TResult = unknown>(
     phase?: FormSubmitState<TResult>["phase"];
   },
 ): FormSubmitState<TResult> {
+  const { duplicateEvidence: _duplicateEvidence, ...submitStateWithoutEvidence } = submitState;
   return {
-    ...submitState,
+    ...submitStateWithoutEvidence,
     phase: input.phase ?? (input.mode === "draft" ? "idle" : "submitted"),
     mode: input.mode,
     duplicateBlocked: false,

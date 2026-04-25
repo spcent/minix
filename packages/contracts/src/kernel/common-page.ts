@@ -202,6 +202,14 @@ export interface FormFieldOption {
   description?: string;
 }
 
+export interface FormUploadFieldWorkflow {
+  uploadRole: string;
+  acceptedFileTypes?: string[];
+  maxAssets?: number;
+  required?: boolean;
+  reviewRequired?: boolean;
+}
+
 export type FormConditionOperator = "eq" | "neq" | "in" | "truthy" | "falsy";
 
 export interface FormFieldCondition {
@@ -222,6 +230,8 @@ export interface FormFieldDefinition {
   options?: FormFieldOption[];
   conditions?: FormFieldCondition[];
   uploadRole?: string;
+  uploadWorkflow?: FormUploadFieldWorkflow;
+  asyncValidationKey?: string;
   richTextToolbar?: "basic" | "placeholder";
 }
 
@@ -255,6 +265,13 @@ export interface FormDraftState {
   lastSavedAt?: number;
 }
 
+export interface FormDraftPolicy {
+  recoveryKey: string;
+  autoSave?: boolean;
+  retentionSeconds?: number;
+  restorePrompt?: string;
+}
+
 export interface FormSubmissionResult<TResult = unknown> {
   submittedAt?: number;
   value?: TResult;
@@ -265,17 +282,38 @@ export type FormSubmitMode = "draft" | "submit";
 
 export type FormSubmitPhase = "idle" | "draft_saving" | "submitting" | "submitted" | "failed";
 
+export interface FormDuplicateSubmitEvidence {
+  mode: FormSubmitMode;
+  submissionKey: string;
+  blockedAt?: number;
+}
+
 export interface FormSubmitState<TResult = unknown> {
   phase: FormSubmitPhase;
   mode?: FormSubmitMode;
   duplicateProtected: boolean;
   duplicateBlocked?: boolean;
+  duplicateEvidence?: FormDuplicateSubmitEvidence;
   draftCapable: boolean;
   draftSavedAt?: number;
   submittedAt?: number;
   submissionKey?: string;
   lastCompletedKey?: string;
   result?: TResult;
+}
+
+export interface FormAsyncValidationSummary {
+  pendingFieldKeys: string[];
+  validatedFieldKeys?: string[];
+  failedFieldKeys?: string[];
+  lastValidatedAt?: number;
+}
+
+export interface FormApprovalTemplate {
+  templateKey: string;
+  label: string;
+  nodeKeys: string[];
+  description?: string;
 }
 
 export interface FormWorkflowState {
@@ -285,6 +323,10 @@ export interface FormWorkflowState {
   visibleFieldKeys: string[];
   dynamicFieldKeys: string[];
   conditionalFieldKeys: string[];
+  uploadFieldKeys: string[];
+  asyncValidation?: FormAsyncValidationSummary;
   approvalNodes?: FormApprovalNode[];
+  approvalTemplates?: FormApprovalTemplate[];
   draft?: FormDraftState;
+  draftPolicy?: FormDraftPolicy;
 }

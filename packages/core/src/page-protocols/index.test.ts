@@ -105,6 +105,7 @@ test("default page protocol factories provide stable baseline state", () => {
   assert.deepEqual(form.formValues, { email: "" });
   assert.equal(form.validationErrors.length, 0);
   assert.equal(form.submitState.phase, "idle");
+  assert.equal(form.workflow.uploadFieldKeys.length, 0);
   assert.equal(profile.title, "Profile");
   assert.equal(profile.selectedActionKey, "open-settings");
   assert.equal(profile.sections[0]?.key, "session");
@@ -177,6 +178,17 @@ test("form helpers derive conditional visibility and centralize duplicate submit
         { key: "type", label: "Type", type: "single_select" },
         { key: "title", label: "Title", type: "text" },
         {
+          key: "cover",
+          label: "Cover",
+          type: "upload_reference",
+          uploadWorkflow: {
+            uploadRole: "content-cover",
+            acceptedFileTypes: ["image"],
+            maxAssets: 1,
+            reviewRequired: true,
+          },
+        },
+        {
           key: "publishAt",
           label: "Publish date",
           type: "date",
@@ -185,6 +197,22 @@ test("form helpers derive conditional visibility and centralize duplicate submit
       ],
       steps: [{ key: "basics", label: "Basics" }],
     },
+    draftPolicy: {
+      recoveryKey: "@minix/test/form-draft",
+      autoSave: true,
+      retentionSeconds: 86400,
+    },
+    asyncValidation: {
+      pendingFieldKeys: ["title"],
+      validatedFieldKeys: ["type"],
+    },
+    approvalTemplates: [
+      {
+        templateKey: "editorial",
+        label: "Editorial review",
+        nodeKeys: ["review"],
+      },
+    ],
   });
   const submissionKey = createFormSubmissionKey("form-test", "submit", values);
   const firstSubmit = beginFormSubmit(
@@ -208,10 +236,15 @@ test("form helpers derive conditional visibility and centralize duplicate submit
     submissionKey,
   });
 
-  assert.deepEqual(workflow.visibleFieldKeys, ["type", "title", "publishAt"]);
+  assert.deepEqual(workflow.visibleFieldKeys, ["type", "title", "cover", "publishAt"]);
+  assert.deepEqual(workflow.uploadFieldKeys, ["cover"]);
+  assert.equal(workflow.draftPolicy?.autoSave, true);
+  assert.equal(workflow.asyncValidation?.pendingFieldKeys[0], "title");
+  assert.equal(workflow.approvalTemplates?.[0]?.templateKey, "editorial");
   assert.equal(firstSubmit.blocked, false);
   assert.equal(blockedSubmit.blocked, true);
   assert.equal(blockedSubmit.submitState.duplicateBlocked, true);
+  assert.equal(blockedSubmit.submitState.duplicateEvidence?.submissionKey, submissionKey);
 });
 
 test("list and detail status helpers expose route recovery and edge-state metadata", () => {

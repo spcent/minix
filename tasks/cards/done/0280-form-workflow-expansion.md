@@ -87,11 +87,22 @@ Keep registration completion, consultation, feedback, content publishing, and ac
 - final verifier handoff:
   - include draft, submit, duplicate-blocked, validation-error, dynamic-field, and approval examples
 
+## Implementation Notes
+
+- Added upload field workflow descriptors, draft policy, approval templates, async validation summaries, and duplicate-submit evidence to the shared form contract.
+- Extended `createFormWorkflowState` to derive upload-backed field keys from schema definitions while keeping dynamic and conditional fields schema-driven.
+- Kept duplicate submit handling inside `FormSubmitState`, including evidence for blocked submissions.
+- Updated `docs/DOMAIN_COMPLETENESS_MATRIX.md` to record the expanded form workflow posture.
+
+## Verification Notes
+
+- Ran `pnpm verify`.
+
 ## Acceptance
 
-- [ ] form outputs remain `formValues`, `validationErrors`, and `submitState`
-- [ ] duplicate protection uses `FormSubmitState`
-- [ ] upload-backed fields reuse upload references instead of local wrappers
-- [ ] dynamic and conditional fields remain schema-driven
-- [ ] docs updated for workflow changes
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] form outputs remain `formValues`, `validationErrors`, and `submitState`
+- [x] duplicate protection uses `FormSubmitState`
+- [x] upload-backed fields reuse upload references instead of local wrappers
+- [x] dynamic and conditional fields remain schema-driven
+- [x] docs updated for workflow changes
+- [x] `pnpm verify` run, or skipped with reason if docs-only
