@@ -485,16 +485,16 @@ function createSettingsSections(response: SettingsResponse): SettingsSection[] {
 }
 
 function mergeSectionItems(baseItems: SettingsItem[], nextItems: SettingsItem[]): SettingsItem[] {
-  const merged = [...baseItems.map((item) => ({ ...item }))];
+  const merged = cloneStateSnapshotArray(baseItems);
 
   for (const nextItem of nextItems) {
     const existingIndex = merged.findIndex((item) => item.key === nextItem.key);
     if (existingIndex === -1) {
-      merged.push({ ...nextItem });
+      merged.push(cloneStateSnapshot(nextItem));
       continue;
     }
 
-    merged[existingIndex] = { ...merged[existingIndex], ...nextItem };
+    merged[existingIndex] = cloneStateSnapshot({ ...merged[existingIndex], ...nextItem });
   }
 
   return merged;
@@ -576,19 +576,19 @@ function applyDisplayPreferences(
     ...section,
     items: section.items.map((item) => {
       if (item.key === "theme") {
-        return { ...item, value: formatTheme(preferences.theme) };
+        return cloneStateSnapshot({ ...item, value: formatTheme(preferences.theme) });
       }
 
       if (item.key === "mode") {
-        return { ...item, value: formatMode(preferences.mode) };
+        return cloneStateSnapshot({ ...item, value: formatMode(preferences.mode) });
       }
 
       if (item.key === "font-scale") {
-        return { ...item, value: formatFontScale(preferences.fontScale) };
+        return cloneStateSnapshot({ ...item, value: formatFontScale(preferences.fontScale) });
       }
 
       if (item.key === "night-mode-default") {
-        return { ...item, value: formatNightModeDefault(preferences.nightModeDefault) };
+        return cloneStateSnapshot({ ...item, value: formatNightModeDefault(preferences.nightModeDefault) });
       }
 
       return item;
@@ -608,23 +608,23 @@ function applyReadingCenterPreferences(
     ...section,
     items: section.items.map((item) => {
       if (item.key === "resume") {
-        return { ...item, value: formatResumeMode(preferences.resume) };
+        return cloneStateSnapshot({ ...item, value: formatResumeMode(preferences.resume) });
       }
 
       if (item.key === "shelf-order") {
-        return { ...item, value: formatShelfOrder(preferences.shelfOrder) };
+        return cloneStateSnapshot({ ...item, value: formatShelfOrder(preferences.shelfOrder) });
       }
 
       if (item.key === "digest") {
-        return { ...item, value: formatDigestMode(preferences.digest) };
+        return cloneStateSnapshot({ ...item, value: formatDigestMode(preferences.digest) });
       }
 
       if (item.key === "sync") {
-        return { ...item, value: formatSyncMode(preferences.sync) };
+        return cloneStateSnapshot({ ...item, value: formatSyncMode(preferences.sync) });
       }
 
       if (item.key === "reminders") {
-        return { ...item, value: formatReminderMode(preferences.reminders) };
+        return cloneStateSnapshot({ ...item, value: formatReminderMode(preferences.reminders) });
       }
 
       return item;

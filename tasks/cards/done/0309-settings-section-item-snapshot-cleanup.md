@@ -1,6 +1,6 @@
 # Settings Section Item Snapshot Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -17,6 +17,11 @@ Replace remaining settings section item shallow-copy helpers with core snapshot 
 
 ## Acceptance
 
-- [ ] settings section merge/update snapshots use core helpers
-- [ ] public state shape remains unchanged
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] settings section merge/update snapshots use core helpers
+- [x] public state shape remains unchanged
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced settings section merge and preference update shallow copies with core snapshot helpers.
+- Kept settings model shape unchanged.

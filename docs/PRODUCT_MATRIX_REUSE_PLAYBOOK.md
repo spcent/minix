@@ -39,6 +39,7 @@ If any step cannot be answered, add the smallest missing contract or shared cont
 - Media-tools should keep provider-mode inference inside feature-local helpers; upload/share adapter and API posture logic remain outside the feature package.
 - Upload API review messaging should use the shared provider posture predicates instead of direct mode string checks.
 - Payment catalog helpers should also use provider posture predicates for sample gateway callback, reconciliation, and provider selection branches.
+- Settings section item merge/update paths should use core snapshot helpers when composing reusable settings surfaces.
 - Use `apps/api/src/domains/snapshot.ts` for API-domain workflow snapshots. Keep it local to the API app instead of importing core helpers into backend-only code.
 - Feedback/support API shaping should use the API-domain snapshot helper for tickets, statuses, FAQ catalogs, support entries, and support-thread echoes so service-loop surfaces stay portable.
 - Extend `apps/api/src/domains/*` for business workflow shaping. Keep `apps/api/src/app.ts` as routing assembly and avoid pushing domain rules into host code.
