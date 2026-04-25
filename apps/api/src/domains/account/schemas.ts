@@ -1,4 +1,10 @@
-import { USER_ASSET_LEDGER_SUBJECTS, USER_RELATION_ACTION_KINDS, USER_RELATION_LIST_KINDS } from "@minix/contracts";
+import {
+  ACCOUNT_CANCELLATION_ACTIONS,
+  ACCOUNT_CANCELLATION_REASONS,
+  USER_ASSET_LEDGER_SUBJECTS,
+  USER_RELATION_ACTION_KINDS,
+  USER_RELATION_LIST_KINDS,
+} from "@minix/contracts";
 import { z } from "zod";
 
 import { apiPageSizeMax100QuerySchema, apiPageSizeMax50QuerySchema, apiPaginationQueryShape } from "../schema-helpers";
@@ -35,10 +41,10 @@ export const accountProviderRevokeSchema = z.object({
 });
 
 export const accountCancellationSchema = z.object({
-  action: z.enum(["request", "revoke"]).optional(),
+  action: z.enum(ACCOUNT_CANCELLATION_ACTIONS).optional(),
   verificationCode: z.string().min(1).optional(),
   riskConfirmed: z.boolean().optional(),
-  reason: z.enum(["privacy", "switching", "other"]).optional(),
+  reason: z.enum(ACCOUNT_CANCELLATION_REASONS).optional(),
   details: z.string().min(1).max(240).optional(),
 });
 
