@@ -95,6 +95,15 @@ export interface SearchZeroResultGuidance {
   suggestedKeyword?: string;
 }
 
+export interface SearchQualitySummary {
+  rankingSummary: string;
+  synonymSummary: string;
+  correctionSummary: string;
+  recentSearchSummary: string;
+  routeWritebackSummary: string;
+  zeroResultSummary: string;
+}
+
 export interface SearchResults<TItem> {
   items: TItem[];
   total: number;
@@ -116,4 +125,5 @@ export interface SearchResults<TItem> {
   grouping?: SearchGroupingSummary;
   persistence?: SearchPersistenceSummary;
   zeroResultGuidance?: SearchZeroResultGuidance;
+  qualitySummary?: SearchQualitySummary;
 }

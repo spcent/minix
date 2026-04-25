@@ -88,9 +88,20 @@ Improve global, content, user, and domain search while preserving canonical `sea
 
 ## Acceptance
 
-- [ ] search expansion keeps `searchQuery`, `searchFilters`, and `searchResults` canonical
-- [ ] recent-search persistence remains bounded and recoverable
-- [ ] route writeback is explicit and testable
-- [ ] ranking behavior is documented when user-visible
-- [ ] docs updated for search workflow changes
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] search expansion keeps `searchQuery`, `searchFilters`, and `searchResults` canonical
+- [x] recent-search persistence remains bounded and recoverable
+- [x] route writeback is explicit and testable
+- [x] ranking behavior is documented when user-visible
+- [x] docs updated for search workflow changes
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added additive `SearchQualitySummary` under `searchResults` for ranking, synonym, correction, recent-search, route writeback, and zero-result summaries.
+- Populated quality summaries from the shared content search builder without changing canonical `searchQuery`, `searchFilters`, or `searchResults`.
+- Stored search quality summary in feed state after initial load, search submit, refresh, and pagination.
+- Covered recent-search pruning/writeback and correction recovery in feed controller tests.
+
+## Verification Notes
+
+- Ran `pnpm verify:feature feed`.

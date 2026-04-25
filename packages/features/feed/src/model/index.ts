@@ -9,6 +9,7 @@ import type {
   SaveContentDraftResponse,
   SearchDomain,
   SearchMode,
+  SearchQualitySummary,
 } from "@minix/contracts";
 import { createDefaultFormPageState, createDefaultListPageState, type FormPageState, type ListPageState } from "@minix/core";
 
@@ -44,6 +45,7 @@ export type FeedState = ListPageState<FeedItem> & {
   featuredReason: string | undefined;
   contentTransitionFeedback: string | undefined;
   contentGovernanceSummary: ContentGovernanceSummary | undefined;
+  searchQualitySummary: SearchQualitySummary | undefined;
   contentDraftForm: FormPageState<ContentDraftFormValues, SaveContentDraftResponse>;
   reviewQueue: ContentReviewQueueItem[];
   selectedReviewContentId: string | undefined;
@@ -108,6 +110,7 @@ export function createFeedState(options: CreateFeedStateOptions): FeedState {
     featuredReason: undefined,
     contentTransitionFeedback: undefined,
     contentGovernanceSummary: undefined,
+    searchQualitySummary: undefined,
     contentDraftForm: createDefaultFormPageState<ContentDraftFormValues, SaveContentDraftResponse>({
       title: "Content Draft",
       subtitle: "Authoring workflow for managed content.",

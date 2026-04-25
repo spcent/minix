@@ -725,6 +725,8 @@ test("feed controller submits keyword searches and persists recent keywords", as
   assert.deepEqual(storageValues.get("feed.recent-keywords"), ["advisory"]);
   assert.equal(controller.store.getState().searchResults?.persistence?.routeWriteback, true);
   assert.equal(controller.store.getState().searchResults?.persistence?.recentKeywordCount, 1);
+  assert.match(controller.store.getState().searchQualitySummary?.recentSearchSummary ?? "", /1 recent keyword/);
+  assert.match(controller.store.getState().searchQualitySummary?.routeWritebackSummary ?? "", /keyword/);
 });
 
 test("feed controller can switch into the shared user-search scope and persist route params", async () => {
@@ -776,6 +778,7 @@ test("feed controller restores route params and can apply sort plus typo recover
   assert.equal(controller.store.getState().searchResults?.correctionKeyword, "travel");
   assert.equal(controller.store.getState().searchResults?.zeroResultGuidance?.state, "corrected");
   assert.equal(controller.store.getState().searchResults?.persistence?.reloadRecovery, "route");
+  assert.match(controller.store.getState().searchQualitySummary?.correctionSummary ?? "", /travel/);
 
   await controller.applyCorrectionTerm();
 

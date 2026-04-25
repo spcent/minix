@@ -319,6 +319,7 @@ function cloneState(state: FeedState): FeedState {
     searchQuery: state.searchQuery ? structuredClone(state.searchQuery) : undefined,
     searchFilters: state.searchFilters.map((group) => structuredClone(group)),
     searchResults: state.searchResults ? structuredClone(state.searchResults) : undefined,
+    searchQualitySummary: state.searchQualitySummary ? { ...state.searchQualitySummary } : undefined,
     query: { ...state.query },
     recentKeywords: [...state.recentKeywords],
     selectedReviewContentId: state.selectedReviewContentId,
@@ -379,6 +380,23 @@ function createSearchResults(
           : reloadRecovery === "storage"
             ? "Recent discover keywords were restored from shared storage for quick reuse."
             : "Discover filters stay route-addressable and recent keywords start empty until the first search.",
+    },
+    qualitySummary: {
+      ...(nextSearchResults.qualitySummary ?? {
+        rankingSummary: nextSearchResults.ranking?.label ?? "Results ranked by recommendation relevance.",
+        synonymSummary: "Suggestion terms and hot keywords act as the bounded synonym dictionary.",
+        correctionSummary: nextSearchResults.correctionKeyword
+          ? `Correction dictionary suggested "${nextSearchResults.correctionKeyword}".`
+          : "No correction term was required for the current query.",
+        recentSearchSummary: "Recent search persistence is bounded before storage writeback.",
+        routeWritebackSummary: "Route-addressable filters remain encoded in search query and filter metadata.",
+        zeroResultSummary: nextSearchResults.zeroResultGuidance?.label ?? "Search quality signals are active.",
+      }),
+      recentSearchSummary: `${recentKeywords.length} recent keyword(s) are available after bounded pruning.`,
+      routeWritebackSummary:
+        routeKeys.length > 0
+          ? `Route writeback tracks ${routeKeys.join(", ")}.`
+          : "No route writeback keys are active for the default search state.",
     },
   };
 }
@@ -819,6 +837,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         searchQuery: structuredClone(result.value.searchQuery),
         searchFilters: result.value.searchFilters.map((group) => structuredClone(group)),
         searchResults: nextSearchResults,
+        searchQualitySummary: nextSearchResults.qualitySummary,
         selectedItemId,
         selection: createSelection(selectedItemId),
         status: createListStatus(loadState, {
@@ -908,6 +927,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         searchQuery: structuredClone(result.value.searchQuery),
         searchFilters: result.value.searchFilters.map((group) => structuredClone(group)),
         searchResults: nextSearchResults,
+        searchQualitySummary: nextSearchResults.qualitySummary,
         selectedItemId,
         selection: createSelection(selectedItemId),
         status: createListStatus(loadState, {
@@ -981,6 +1001,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
           ...nextSearchResults,
           items: nextItems,
         },
+        searchQualitySummary: nextSearchResults.qualitySummary,
         selectedItemId,
         selection: createSelection(selectedItemId),
         status: createListStatus(loadState, {

@@ -396,6 +396,17 @@ export function createFeedSearchResults(
     ...(options.resultGroups ? { resultGroups: options.resultGroups } : {}),
     ...(options.grouping ? { grouping: options.grouping } : {}),
     ...(options.zeroResultGuidance ? { zeroResultGuidance: options.zeroResultGuidance } : {}),
+    qualitySummary: {
+      rankingSummary: createSearchRankingSummary(activeSortKey).label,
+      synonymSummary:
+        "Suggestion terms and hot keywords act as the bounded synonym dictionary for the shared discover surface.",
+      correctionSummary: options.correctionKeyword
+        ? `Correction dictionary suggested "${options.correctionKeyword}".`
+        : "No correction term was required for the current query.",
+      recentSearchSummary: "Recent search persistence is bounded by the feed controller before storage writeback.",
+      routeWritebackSummary: "Route-addressable filters remain encoded in search query and filter metadata.",
+      zeroResultSummary: options.zeroResultGuidance?.label ?? "Search quality signals are active for the current discover scope.",
+    },
   };
 }
 
