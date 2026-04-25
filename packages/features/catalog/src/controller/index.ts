@@ -104,7 +104,7 @@ function createSearchResults(
   recentSearches: string[],
   fallbackEmptyText: string,
 ): SearchResults<NovelCard> {
-  const nextSearchResults = structuredClone(response.searchResults);
+  const nextSearchResults = cloneStateSnapshot(response.searchResults);
   return {
     ...nextSearchResults,
     recentKeywords: recentSearches,
@@ -366,8 +366,8 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
       refreshing: false,
       items: nextItems,
       hasMore: nextSearchResults.hasMore,
-      searchQuery: structuredClone(result.value.searchQuery),
-      searchFilters: result.value.searchFilters.map((group) => structuredClone(group)),
+      searchQuery: cloneStateSnapshot(result.value.searchQuery),
+      searchFilters: cloneStateSnapshotArray(result.value.searchFilters),
       searchResults: {
         ...nextSearchResults,
         items: nextItems,

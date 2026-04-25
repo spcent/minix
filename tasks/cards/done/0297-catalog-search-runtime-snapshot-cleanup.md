@@ -1,6 +1,6 @@
 # Catalog Search Runtime Snapshot Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -70,14 +70,20 @@ Catalog/search is a common product-matrix entry point. Runtime projections shoul
 
 ## Acceptance
 
-- [ ] catalog `createSearchResults` uses snapshot helpers
-- [ ] catalog `requestPage` query and filters use snapshot helpers
-- [ ] public feature APIs and state fields remain unchanged
-- [ ] playbook records runtime projection snapshot guidance
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] catalog `createSearchResults` uses snapshot helpers
+- [x] catalog `requestPage` query and filters use snapshot helpers
+- [x] public feature APIs and state fields remain unchanged
+- [x] playbook records runtime projection snapshot guidance
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced catalog search result cloning with `cloneStateSnapshot`.
+- Replaced runtime search query and filter projection cloning with core snapshot helpers.
+- Kept catalog route sync, pagination, and state fields unchanged.
