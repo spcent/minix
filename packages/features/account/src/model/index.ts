@@ -13,7 +13,7 @@ import type {
   UserRelationTarget,
   UserStatus,
 } from "@minix/contracts";
-import { createDefaultFormPageState, type FormPageState } from "@minix/core";
+import { cloneStateSnapshotArray, createDefaultFormPageState, type FormPageState } from "@minix/core";
 
 export interface AccountSummaryStat {
   key: string;
@@ -107,21 +107,6 @@ export interface CreateDefaultAccountStateOptions {
   subtitle?: string;
 }
 
-function cloneStats(stats: AccountSummaryStat[]): AccountSummaryStat[] {
-  return stats.map((stat) => ({ ...stat }));
-}
-
-function cloneSections(sections: AccountSection[]): AccountSection[] {
-  return sections.map((section) => ({
-    ...section,
-    items: section.items.map((item) => ({ ...item })),
-  }));
-}
-
-function cloneActions(actions: AccountAction[]): AccountAction[] {
-  return actions.map((action) => ({ ...action }));
-}
-
 export function createDefaultAccountOperationValues(
   values: Partial<AccountOperationFormValues> = {},
 ): AccountOperationFormValues {
@@ -166,9 +151,9 @@ export function createAccountState(options: CreateAccountStateOptions): AccountS
     activeRelationListKind: undefined,
     relationKeyword: "",
     assetLedgerEntries: [],
-    stats: cloneStats(options.stats ?? []),
-    sections: cloneSections(options.sections ?? []),
-    actions: cloneActions(
+    stats: cloneStateSnapshotArray(options.stats ?? []),
+    sections: cloneStateSnapshotArray(options.sections ?? []),
+    actions: cloneStateSnapshotArray(
       options.actions ?? [
         {
           key: "copy-user-id",

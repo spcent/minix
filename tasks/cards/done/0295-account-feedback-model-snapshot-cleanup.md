@@ -1,6 +1,6 @@
 # Account Feedback Model Snapshot Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -72,15 +72,21 @@ Account and feedback are reusable product-matrix anchors for identity, service, 
 
 ## Acceptance
 
-- [ ] account model factory clone path uses core snapshot helpers
-- [ ] feedback value defaults use core snapshot helpers
-- [ ] feedback bootstrap projection uses core snapshot helpers
-- [ ] public feature APIs and state fields remain unchanged
-- [ ] playbook records model factory snapshot guidance
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] account model factory clone path uses core snapshot helpers
+- [x] feedback value defaults use core snapshot helpers
+- [x] feedback bootstrap projection uses core snapshot helpers
+- [x] public feature APIs and state fields remain unchanged
+- [x] playbook records model factory snapshot guidance
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced account model manual clone helpers with `cloneStateSnapshotArray`.
+- Replaced feedback default asset and bootstrap projection cloning with core snapshot helpers.
+- Kept account and feedback state shapes unchanged.

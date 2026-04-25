@@ -14,7 +14,12 @@ import type {
   FeedbackType,
   UploadAsset,
 } from "@minix/contracts";
-import { createDefaultFormPageState, type FormPageState } from "@minix/core";
+import {
+  cloneOptionalStateSnapshot,
+  cloneStateSnapshotArray,
+  createDefaultFormPageState,
+  type FormPageState,
+} from "@minix/core";
 
 export interface FeedbackValues extends Record<string, unknown> {
   type: FeedbackType;
@@ -80,8 +85,8 @@ export function createDefaultFeedbackValues(values: Partial<FeedbackValues> = {}
     platform: values.platform ?? "h5",
     appVersion: values.appVersion ?? "1.0.0",
     deviceSummary: values.deviceSummary,
-    screenshotAssets: values.screenshotAssets ? structuredClone(values.screenshotAssets) : [],
-    attachmentAssets: values.attachmentAssets ? structuredClone(values.attachmentAssets) : [],
+    screenshotAssets: cloneStateSnapshotArray(values.screenshotAssets ?? []),
+    attachmentAssets: cloneStateSnapshotArray(values.attachmentAssets ?? []),
   };
 }
 
@@ -119,22 +124,20 @@ export function applyFeedbackBootstrap(
 ): FeedbackState {
   return {
     ...state,
-    categories: bootstrap.feedbackCategories.map((category) => structuredClone(category)),
-    latestTicket: bootstrap.latestTicket ? structuredClone(bootstrap.latestTicket) : undefined,
-    latestStatus: bootstrap.latestStatus ? structuredClone(bootstrap.latestStatus) : undefined,
-    latestCategory: bootstrap.latestCategory ? structuredClone(bootstrap.latestCategory) : undefined,
-    ticketList: bootstrap.ticketList ? structuredClone(bootstrap.ticketList) : undefined,
+    categories: cloneStateSnapshotArray(bootstrap.feedbackCategories),
+    latestTicket: cloneOptionalStateSnapshot(bootstrap.latestTicket),
+    latestStatus: cloneOptionalStateSnapshot(bootstrap.latestStatus),
+    latestCategory: cloneOptionalStateSnapshot(bootstrap.latestCategory),
+    ticketList: cloneOptionalStateSnapshot(bootstrap.ticketList),
     selectedTicketId: bootstrap.ticketList?.selectedTicketId ?? bootstrap.latestTicket?.ticketId,
-    recommendedFaqEntries: bootstrap.recommendedFaqEntries
-      ? bootstrap.recommendedFaqEntries.map((entry) => structuredClone(entry))
-      : [],
-    faqCatalog: bootstrap.faqCatalog ? bootstrap.faqCatalog.map((entry) => structuredClone(entry)) : [],
-    supportEntries: bootstrap.supportEntries ? bootstrap.supportEntries.map((entry) => structuredClone(entry)) : [],
-    supportEntry: bootstrap.supportEntry ? structuredClone(bootstrap.supportEntry) : undefined,
-    revisitAction: bootstrap.latestStatus?.revisitAction ? structuredClone(bootstrap.latestStatus.revisitAction) : undefined,
-    queueDashboards: bootstrap.queueDashboards ? bootstrap.queueDashboards.map((dashboard) => structuredClone(dashboard)) : [],
-    slaRules: bootstrap.slaRules ? bootstrap.slaRules.map((rule) => structuredClone(rule)) : [],
-    handlingReport: bootstrap.latestStatus?.handlingReport ? structuredClone(bootstrap.latestStatus.handlingReport) : undefined,
+    recommendedFaqEntries: cloneStateSnapshotArray(bootstrap.recommendedFaqEntries ?? []),
+    faqCatalog: cloneStateSnapshotArray(bootstrap.faqCatalog ?? []),
+    supportEntries: cloneStateSnapshotArray(bootstrap.supportEntries ?? []),
+    supportEntry: cloneOptionalStateSnapshot(bootstrap.supportEntry),
+    revisitAction: cloneOptionalStateSnapshot(bootstrap.latestStatus?.revisitAction),
+    queueDashboards: cloneStateSnapshotArray(bootstrap.queueDashboards ?? []),
+    slaRules: cloneStateSnapshotArray(bootstrap.slaRules ?? []),
+    handlingReport: cloneOptionalStateSnapshot(bootstrap.latestStatus?.handlingReport),
     serviceLoopSummary: bootstrap.serviceLoopSummary,
     serviceHint:
       bootstrap.supportEntry?.label ??
