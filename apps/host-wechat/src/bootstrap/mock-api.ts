@@ -1,4 +1,13 @@
-import { createError, fail, ok, type RequestAdapter, type RequestOptions, type ResponseData } from "@minix/core";
+import {
+  coerceMockQueryNumber,
+  createError,
+  createJsonMockResponse,
+  fail,
+  ok,
+  resolveMockRequestPath,
+  type RequestAdapter,
+  type RequestOptions,
+} from "@minix/core";
 
 interface HostMockItem {
   id: string;
@@ -58,41 +67,9 @@ const HOST_ITEMS: HostMockItem[] = [
   },
 ];
 
-function buildResponse<T>(status: number, data: T): ResponseData<T> {
-  return {
-    status,
-    headers: {
-      "content-type": "application/json",
-      "x-minix-mock": "true",
-    },
-    data,
-  };
-}
-
-function resolvePath(url: string): string {
-  try {
-    return new URL(url).pathname;
-  } catch {
-    return url;
-  }
-}
-
-function toNumber(value: string | number | boolean | undefined, fallback: number): number {
-  if (typeof value === "number") {
-    return value;
-  }
-
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
-  }
-
-  return fallback;
-}
-
 function listItems(query?: RequestOptions["query"]) {
-  const page = toNumber(query?.page, 1);
-  const pageSize = toNumber(query?.pageSize, 2);
+  const page = coerceMockQueryNumber(query?.page, 1);
+  const pageSize = coerceMockQueryNumber(query?.pageSize, 2);
   const start = (page - 1) * pageSize;
   const items = HOST_ITEMS.slice(start, start + pageSize);
 
@@ -107,7 +84,7 @@ function listItems(query?: RequestOptions["query"]) {
 export function createHostWechatMockApiAdapter(): RequestAdapter {
   return {
     async request<T = unknown>(options: RequestOptions) {
-      const pathname = resolvePath(options.url);
+      const pathname = resolveMockRequestPath(options.url);
 
       if (pathname === "/auth/login") {
         const body = (options.body ?? {}) as {
@@ -124,7 +101,7 @@ export function createHostWechatMockApiAdapter(): RequestAdapter {
         }
 
         return ok(
-          buildResponse(200, {
+          createJsonMockResponse(200, {
             userId: "host-user",
             accessToken: "mock-access-token",
             refreshToken: "mock-refresh-token",
@@ -141,14 +118,14 @@ export function createHostWechatMockApiAdapter(): RequestAdapter {
         const authHeader = options.headers?.Authorization;
         if (authHeader !== "Bearer mock-access-token") {
           return ok(
-            buildResponse(401, {
+            createJsonMockResponse(401, {
               code: "UNAUTHORIZED",
               message: "Your learning session expired. Please sign in again.",
             } as T),
           );
         }
 
-        return ok(buildResponse(200, listItems(options.query) as T));
+        return ok(createJsonMockResponse(200, listItems(options.query) as T));
       }
 
       return fail(
