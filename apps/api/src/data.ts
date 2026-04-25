@@ -212,6 +212,7 @@ import { listUserRelations } from "./domains/account/relations";
 import { createDefaultManagedContentEntries } from "./domains/content/managed-content";
 import { createMembershipOverview } from "./domains/payment/catalog";
 import { resolveSettingsState } from "./domains/settings/state";
+import { cloneDomainSnapshot } from "./domains/snapshot";
 import type {
   SessionRecord,
   StoredMessageThreadRecord,
@@ -225,7 +226,7 @@ export { CHAPTER_CONTENT, CHAPTER_LISTS, DEFAULT_MEMBERSHIP_OVERVIEW, NOVELS } f
 export function createDefaultUserState(): UserState {
   return {
     bookshelfNovelIds: new Set(DEFAULT_BOOKSHELF_NOVEL_IDS),
-    progressByNovelId: structuredClone(DEFAULT_PROGRESS_BY_NOVEL_ID),
+    progressByNovelId: cloneDomainSnapshot(DEFAULT_PROGRESS_BY_NOVEL_ID),
     notificationReadAtById: {},
     threadReadAtById: {},
     threadMessagesByThreadId: {},

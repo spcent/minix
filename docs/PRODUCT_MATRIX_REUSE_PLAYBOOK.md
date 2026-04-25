@@ -45,6 +45,7 @@ If any step cannot be answered, add the smallest missing contract or shared cont
 - Payment catalog product and SKU copies should use API-domain snapshot helpers so product matrices can add nested catalog metadata without revisiting clone code.
 - Message thread API projections should use API-domain snapshot helpers for nested assignment, progress, sync, and context payloads.
 - Use `apps/api/src/domains/snapshot.ts` for API-domain workflow snapshots. Keep it local to the API app instead of importing core helpers into backend-only code.
+- API seed/default-state factories should follow the same API snapshot helper convention when copying nested sample state into mutable runtime state.
 - Use `apps/api/src/domains/schema-helpers.ts` for API request schema fragments that repeat across product domains, including pagination, boolean query flags, source context, actor context, route params, and auth redirect targets.
 - Auth API schemas should compose those shared redirect fragments with auth contract constants for login methods, verification purposes, and merge strategies instead of duplicating string lists.
 - Share API schemas should reuse the same redirect/context fragments plus share contract constants for scenarios, channels, and attribution outcomes so growth loops stay portable across products.
