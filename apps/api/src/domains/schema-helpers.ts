@@ -6,6 +6,13 @@ export const apiPaginationQueryShape = {
   pageSize: z.coerce.number().int().positive().optional(),
 } as const;
 
+export function createApiPageSizeQuerySchema(max: number) {
+  return z.coerce.number().int().positive().max(max).optional();
+}
+
+export const apiPageSizeMax50QuerySchema = createApiPageSizeQuerySchema(50);
+export const apiPageSizeMax100QuerySchema = createApiPageSizeQuerySchema(100);
+
 export const apiQueryBooleanSchema = z.enum(["true", "false"]).transform((value) => value === "true");
 
 export const apiRouteParamsSchema = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]));
