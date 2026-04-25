@@ -5,6 +5,7 @@ import type {
   AccountSummary,
   IdentityWorkflowSummary,
   SecurityCenter,
+  UserAccountWorkspaceSummary,
   UserAssetLedgerEntry,
   UserRelationList,
   UserRelationListKind,
@@ -75,6 +76,7 @@ export type AccountState = FormPageState<AccountOperationFormValues, unknown> & 
   userStatus?: UserStatus;
   identityWorkflows?: IdentityWorkflowSummary;
   securityCenter?: SecurityCenter;
+  accountWorkspaceSummary?: UserAccountWorkspaceSummary;
   accountOperations?: AccountOperation[];
   operationRecords?: AccountOperationRecord[];
   assetLedgerEntries: UserAssetLedgerEntry[];

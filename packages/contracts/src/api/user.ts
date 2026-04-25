@@ -249,12 +249,22 @@ export interface SecurityCenter {
   };
 }
 
+export interface UserAccountWorkspaceSummary {
+  profileCompletenessPercent: number;
+  profileCompletenessLabel: string;
+  relationSearchSummary: string;
+  assetHistoryFilterSummary: string;
+  cancellationReviewSummary: string;
+  nextBestActionLabel: string;
+}
+
 export interface CurrentUserResponse {
   userProfile: UserProfile;
   accountSummary: AccountSummary;
   userStatus: UserStatus;
   identityWorkflows: IdentityWorkflowSummary;
   securityCenter: SecurityCenter;
+  accountWorkspaceSummary: UserAccountWorkspaceSummary;
   accountOperations: AccountOperation[];
   operationRecords: AccountOperationRecord[];
   relationTargets: UserRelationTarget[];
@@ -268,6 +278,7 @@ export interface ListUserAssetHistoryRequest {
 
 export interface UserAssetHistoryResponse {
   accountSummary: AccountSummary;
+  accountWorkspaceSummary?: UserAccountWorkspaceSummary;
   ledgerEntries: UserAssetLedgerEntry[];
   pagination: ListPagination;
 }
@@ -314,6 +325,7 @@ export interface AccountOperationResponse {
   accountSummary: AccountSummary;
   userStatus: UserStatus;
   securityCenter: SecurityCenter;
+  accountWorkspaceSummary?: UserAccountWorkspaceSummary;
   accountOperations: AccountOperation[];
   operationRecords: AccountOperationRecord[];
   operationRecord?: AccountOperationRecord;
@@ -333,6 +345,7 @@ export interface UserRelationMutationRequest {
 export interface UserRelationMutationResponse {
   accountSummary: AccountSummary;
   userStatus: UserStatus;
+  accountWorkspaceSummary?: UserAccountWorkspaceSummary;
   relationTargets: UserRelationTarget[];
   relationList?: UserRelationList;
   transitionMessage: string;
@@ -348,5 +361,6 @@ export interface ListUserRelationsRequest {
 export interface UserRelationListResponse {
   accountSummary: AccountSummary;
   userStatus: UserStatus;
+  accountWorkspaceSummary?: UserAccountWorkspaceSummary;
   relationList: UserRelationList;
 }

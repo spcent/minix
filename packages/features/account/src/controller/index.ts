@@ -120,6 +120,7 @@ function cloneState(state: AccountState): AccountState {
       ? { operationRecords: state.operationRecords.map((record) => ({ ...record })) }
       : {}),
     ...(state.securityCenter ? { securityCenter: structuredClone(state.securityCenter) } : {}),
+    ...(state.accountWorkspaceSummary ? { accountWorkspaceSummary: { ...state.accountWorkspaceSummary } } : {}),
     assetLedgerEntries: state.assetLedgerEntries.map((entry) => ({
       ...entry,
       ...(entry.entitlement ? { entitlement: { ...entry.entitlement } } : {}),
@@ -297,6 +298,41 @@ function formatDelimitedList(values: string[] | undefined, fallback = "None"): s
   return values.join(", ");
 }
 
+function createFallbackWorkspaceSummary(response: CurrentUserResponse): CurrentUserResponse["accountWorkspaceSummary"] {
+  const profileFields = [
+    response.userProfile.nickname,
+    response.userProfile.avatarUrl,
+    response.userProfile.region,
+    response.userProfile.bio,
+    response.userProfile.tags && response.userProfile.tags.length > 0 ? "tags" : undefined,
+  ];
+  const completedProfileFields = profileFields.filter(Boolean).length;
+  const profileCompletenessPercent = Math.round((completedProfileFields / profileFields.length) * 100);
+  const relationTotal =
+    response.accountSummary.relations.followingCount
+    + response.accountSummary.relations.followerCount
+    + response.accountSummary.relations.friendCount
+    + response.accountSummary.relations.blockedCount;
+
+  return {
+    profileCompletenessPercent,
+    profileCompletenessLabel: `${profileCompletenessPercent}% profile fields are ready for account detail projection.`,
+    relationSearchSummary:
+      relationTotal > 0
+        ? `${relationTotal} relationship records can be searched across following, followers, friends, blocked users, and remarks.`
+        : "No relationship records are available for search yet.",
+    assetHistoryFilterSummary: "Asset history can be filtered by points, level, membership, entitlement, or balance.",
+    cancellationReviewSummary: response.userStatus.cancellationSummary ?? "No cancellation request is currently pending.",
+    nextBestActionLabel: response.identityWorkflows.canUpgradeGuest
+      ? "Upgrade guest account"
+      : response.identityWorkflows.canBindPhone
+        ? "Bind phone"
+        : response.identityWorkflows.mergePending
+          ? "Resolve account merge"
+          : "Review account profile",
+  };
+}
+
 function createRemoteStats(response: CurrentUserResponse): AccountSummaryStat[] {
   return [
     {
@@ -334,6 +370,7 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
     deviceIdentities: [],
     auditEvents: [],
   };
+  const accountWorkspaceSummary = response.accountWorkspaceSummary ?? createFallbackWorkspaceSummary(response);
   const sections: AccountSection[] = [
     {
       key: "identity",
@@ -700,6 +737,38 @@ function createRemoteSections(response: CurrentUserResponse): AccountSection[] {
     });
   }
 
+  sections.push({
+    key: "account-workspace-summary",
+    title: "Account workspace summary",
+    items: [
+      {
+        key: "profile-completeness",
+        label: "Profile completeness",
+        value: accountWorkspaceSummary.profileCompletenessLabel,
+      },
+      {
+        key: "relation-search",
+        label: "Relation search",
+        value: accountWorkspaceSummary.relationSearchSummary,
+      },
+      {
+        key: "asset-history-filters",
+        label: "Asset history filters",
+        value: accountWorkspaceSummary.assetHistoryFilterSummary,
+      },
+      {
+        key: "cancellation-review",
+        label: "Cancellation review",
+        value: accountWorkspaceSummary.cancellationReviewSummary,
+      },
+      {
+        key: "next-best-action",
+        label: "Next action",
+        value: accountWorkspaceSummary.nextBestActionLabel,
+      },
+    ],
+  });
+
   return sections;
 }
 
@@ -826,6 +895,7 @@ function mergeRemoteProfile(baseState: AccountState, profile: CurrentUserRespons
     deviceIdentities: [],
     auditEvents: [],
   };
+  const accountWorkspaceSummary = profile.accountWorkspaceSummary ?? createFallbackWorkspaceSummary(profile);
   const remoteSections = createRemoteSections(profile);
   const assetLedgerSection = createAssetLedgerSection(baseState.assetLedgerEntries);
   const relationListSection = createRelationListSection(baseState.relationList);
@@ -860,6 +930,7 @@ function mergeRemoteProfile(baseState: AccountState, profile: CurrentUserRespons
     userStatus: profile.userStatus,
     identityWorkflows: profile.identityWorkflows,
     securityCenter,
+    accountWorkspaceSummary,
     accountOperations: profile.accountOperations,
     operationRecords: profile.operationRecords,
     relationTargets: profile.relationTargets,
@@ -1386,6 +1457,9 @@ export function createAccountController(options: CreateAccountControllerOptions)
     const assetLedgerSection = createAssetLedgerSection(result.value.ledgerEntries);
     store.setState({
       accountSummary: result.value.accountSummary,
+      ...(result.value.accountWorkspaceSummary
+        ? { accountWorkspaceSummary: result.value.accountWorkspaceSummary }
+        : {}),
       assetLedgerEntries: result.value.ledgerEntries,
       sections: assetLedgerSection ? upsertSection(store.getState().sections, assetLedgerSection) : store.getState().sections,
     });
@@ -2045,6 +2119,9 @@ export function createAccountController(options: CreateAccountControllerOptions)
       store.setState({
         accountSummary: result.value.accountSummary,
         userStatus: result.value.userStatus,
+        ...(result.value.accountWorkspaceSummary
+          ? { accountWorkspaceSummary: result.value.accountWorkspaceSummary }
+          : {}),
         relationList: result.value.relationList,
         activeRelationListKind: result.value.relationList.kind,
         relationKeyword: result.value.relationList.keyword ?? "",
@@ -2093,6 +2170,9 @@ export function createAccountController(options: CreateAccountControllerOptions)
       store.setState({
         accountSummary: result.value.accountSummary,
         userStatus: result.value.userStatus,
+        ...(result.value.accountWorkspaceSummary
+          ? { accountWorkspaceSummary: result.value.accountWorkspaceSummary }
+          : {}),
         relationTargets: result.value.relationTargets,
         ...(result.value.relationList ? { relationList: result.value.relationList } : {}),
         ...(result.value.relationList ? { activeRelationListKind: result.value.relationList.kind } : {}),

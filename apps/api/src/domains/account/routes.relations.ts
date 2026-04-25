@@ -30,6 +30,7 @@ export function registerAccountRelationsRoutes(options: RegisterAccountRoutesOpt
     const response: UserRelationListResponse = {
       accountSummary: current.accountSummary,
       userStatus: current.userStatus,
+      accountWorkspaceSummary: current.accountWorkspaceSummary,
       relationList: listUserRelations(userState, current.userStatus.availability, {
         kind: query.kind,
         ...(query.page ? { page: query.page } : {}),
@@ -107,6 +108,7 @@ export function registerAccountRelationsRoutes(options: RegisterAccountRoutesOpt
     const response: UserRelationMutationResponse = {
       accountSummary: next.accountSummary,
       userStatus: next.userStatus,
+      accountWorkspaceSummary: next.accountWorkspaceSummary,
       relationTargets: next.relationTargets,
       ...(payload.listKind
         ? {

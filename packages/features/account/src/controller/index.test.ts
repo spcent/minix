@@ -54,6 +54,25 @@ function createSecurityCenter(
   };
 }
 
+function createWorkspaceSummary(
+  overrides: Partial<CurrentUserResponse["accountWorkspaceSummary"]> = {},
+): CurrentUserResponse["accountWorkspaceSummary"] {
+  return {
+    profileCompletenessPercent: overrides.profileCompletenessPercent ?? 100,
+    profileCompletenessLabel:
+      overrides.profileCompletenessLabel ?? "100% profile fields are ready for account detail projection.",
+    relationSearchSummary:
+      overrides.relationSearchSummary ??
+      "47 relationship records can be searched across following, followers, friends, blocked users, and remarks.",
+    assetHistoryFilterSummary:
+      overrides.assetHistoryFilterSummary ??
+      "Asset history can be filtered by points, level, membership, entitlement, or balance.",
+    cancellationReviewSummary:
+      overrides.cancellationReviewSummary ?? "No cancellation request is currently pending.",
+    nextBestActionLabel: overrides.nextBestActionLabel ?? "Review relationship workspace",
+  };
+}
+
 function createKernelStub() {
   const routeCalls: Array<{ routeId: string; params?: Record<string, string | number | boolean> }> = [];
   const clipboardWrites: string[] = [];
@@ -84,6 +103,7 @@ function createKernelStub() {
       blacklisted: false,
       guest: false,
     },
+    accountWorkspaceSummary: createWorkspaceSummary(),
     relationList: {
       kind: "following" as const,
       items: [
@@ -119,6 +139,9 @@ function createKernelStub() {
   };
   let assetHistoryResponse: UserAssetHistoryResponse = {
     accountSummary: relationListResponse.accountSummary,
+    accountWorkspaceSummary: createWorkspaceSummary({
+      assetHistoryFilterSummary: "Asset history is filtered to balance.",
+    }),
     ledgerEntries: [
       {
         ledgerId: "asset_ledger_balance_seed",
@@ -261,6 +284,7 @@ function createKernelStub() {
         },
       ],
     }),
+    accountWorkspaceSummary: createWorkspaceSummary(),
     accountOperations: [
       {
         kind: "edit_profile",
@@ -468,6 +492,7 @@ function createKernelStub() {
               ...(payload.accountSummary ? { accountSummary: payload.accountSummary } : {}),
               ...(payload.userStatus ? { userStatus: payload.userStatus } : {}),
               ...(payload.securityCenter ? { securityCenter: payload.securityCenter } : {}),
+              ...(payload.accountWorkspaceSummary ? { accountWorkspaceSummary: payload.accountWorkspaceSummary } : {}),
               ...(payload.accountOperations ? { accountOperations: payload.accountOperations } : {}),
               ...(payload.operationRecords ? { operationRecords: payload.operationRecords } : {}),
               ...(payload.relationTargets ? { relationTargets: payload.relationTargets } : {}),
@@ -609,6 +634,13 @@ test("account controller loads session-backed account details and remote profile
   assert.equal(controller.store.getState().assetLedgerEntries.length, 2);
   assert.equal(controller.store.getState().sections.some((section) => section.key === "asset-ledger"), true);
   assert.equal(controller.store.getState().sections.some((section) => section.key === "security-center"), true);
+  assert.equal(controller.store.getState().accountWorkspaceSummary?.profileCompletenessPercent, 100);
+  assert.equal(
+    controller.store.getState().sections.find((section) => section.key === "account-workspace-summary")?.items.some(
+      (item) => item.key === "next-best-action" && item.value === "Review relationship workspace",
+    ),
+    true,
+  );
   assert.equal(
     controller.store.getState().sections.find((section) => section.key === "assets")?.items.some(
       (item) => item.key === "asset-history-summary" && item.value.includes("ledger entries"),
@@ -785,6 +817,12 @@ test("account controller surfaces identity workflow actions from the normalized 
       mergePending: false,
     },
     securityCenter: createSecurityCenter(),
+    accountWorkspaceSummary: createWorkspaceSummary({
+      profileCompletenessPercent: 40,
+      profileCompletenessLabel: "40% profile fields are ready for account detail projection.",
+      relationSearchSummary: "No relationship records are available for search yet.",
+      nextBestActionLabel: "Upgrade guest account",
+    }),
     accountOperations: [],
     operationRecords: [],
     relationTargets: [],
@@ -1246,6 +1284,7 @@ test("account controller can load a paginated relation list and keep mutation re
   assert.equal(controller.store.getState().relationList?.items[0]?.targetUserId, "practice_buddy");
   assert.equal(controller.store.getState().activeRelationListKind, "following");
   assert.equal(controller.store.getState().relationKeyword, "Practice");
+  assert.match(controller.store.getState().accountWorkspaceSummary?.relationSearchSummary ?? "", /relationship records/i);
   assert.equal(
     controller.store.getState().sections.find((section) => section.key === "relation-list-following")?.items[0]?.value,
     "1 following relationship records available in the shared account workspace.",

@@ -1,6 +1,7 @@
 import type {
   CurrentUserResponse,
   ListUserAssetHistoryRequest,
+  UserAccountWorkspaceSummary,
   UserAssetHistoryResponse,
 } from "@minix/contracts";
 
@@ -25,6 +26,61 @@ import {
   resolveUserAvailability,
 } from "./operations";
 import { createPrimaryRelationTargets, ensureRelationRecords } from "./relations";
+
+function createAccountWorkspaceSummary(input: {
+  userProfile: CurrentUserResponse["userProfile"];
+  accountSummary: CurrentUserResponse["accountSummary"];
+  userStatus: CurrentUserResponse["userStatus"];
+  identityWorkflows: CurrentUserResponse["identityWorkflows"];
+  relationTargetCount: number;
+  selectedAssetSubject?: ListUserAssetHistoryRequest["subject"];
+}): UserAccountWorkspaceSummary {
+  const profileFields = [
+    input.userProfile.nickname,
+    input.userProfile.avatarUrl,
+    input.userProfile.region,
+    input.userProfile.bio,
+    input.userProfile.tags && input.userProfile.tags.length > 0 ? "tags" : undefined,
+  ];
+  const completedProfileFields = profileFields.filter(Boolean).length;
+  const profileCompletenessPercent = Math.round((completedProfileFields / profileFields.length) * 100);
+  const relationTotal =
+    input.accountSummary.relations.followingCount
+    + input.accountSummary.relations.followerCount
+    + input.accountSummary.relations.friendCount
+    + input.accountSummary.relations.blockedCount;
+  const selectedAssetSubject = input.selectedAssetSubject && input.selectedAssetSubject !== "all"
+    ? input.selectedAssetSubject
+    : undefined;
+
+  return {
+    profileCompletenessPercent,
+    profileCompletenessLabel: `${profileCompletenessPercent}% profile fields are ready for account detail projection.`,
+    relationSearchSummary:
+      relationTotal > 0
+        ? `${relationTotal} relationship records can be searched across following, followers, friends, blocked users, and remarks.`
+        : "No relationship records are available for search yet.",
+    assetHistoryFilterSummary: selectedAssetSubject
+      ? `Asset history is filtered to ${selectedAssetSubject}.`
+      : "Asset history can be filtered by points, level, membership, entitlement, or balance.",
+    cancellationReviewSummary:
+      input.userStatus.cancellationSummary ??
+      (input.userStatus.cancellationInProgress
+        ? "Cancellation is pending review."
+        : "No cancellation request is currently pending."),
+    nextBestActionLabel: input.identityWorkflows.canUpgradeGuest
+      ? "Upgrade guest account"
+      : input.identityWorkflows.canBindPhone
+        ? "Bind phone"
+        : input.identityWorkflows.mergePending
+          ? "Resolve account merge"
+          : input.userStatus.cancellationInProgress
+            ? "Review cancellation"
+            : input.relationTargetCount > 0
+              ? "Review relationship workspace"
+              : "Review account profile",
+  };
+}
 
 export function createCurrentUserResponse(
   session: SessionRecord,
@@ -78,8 +134,7 @@ export function createCurrentUserResponse(
   const cancellationSummary = userState.pendingCancellation
     ? `Cancellation is in the cooling-off window until ${userState.pendingCancellation.effectiveAt}.`
     : "No cancellation request is currently pending.";
-
-  return {
+  const response: CurrentUserResponse = {
     userProfile: {
       nickname: displayNickname,
       ...(avatarUrl ? { avatarUrl } : {}),
@@ -154,10 +209,26 @@ export function createCurrentUserResponse(
       ...(userState.lastIdentityWorkflow ? { lastWorkflow: userState.lastIdentityWorkflow } : {}),
     },
     securityCenter: createSecurityCenter(userState),
+    accountWorkspaceSummary: {
+      profileCompletenessPercent: 0,
+      profileCompletenessLabel: "",
+      relationSearchSummary: "",
+      assetHistoryFilterSummary: "",
+      cancellationReviewSummary: "",
+      nextBestActionLabel: "",
+    },
     accountOperations: createAccountOperations(session, userState, availability),
     operationRecords: userState.operationRecords,
     relationTargets,
   };
+  response.accountWorkspaceSummary = createAccountWorkspaceSummary({
+    userProfile: response.userProfile,
+    accountSummary: response.accountSummary,
+    userStatus: response.userStatus,
+    identityWorkflows: response.identityWorkflows,
+    relationTargetCount: response.relationTargets.length,
+  });
+  return response;
 }
 
 export function createAccountOperationResponse(
@@ -173,6 +244,7 @@ export function createAccountOperationResponse(
     accountSummary: next.accountSummary,
     userStatus: next.userStatus,
     securityCenter: next.securityCenter,
+    accountWorkspaceSummary: next.accountWorkspaceSummary,
     accountOperations: next.accountOperations,
     operationRecords: next.operationRecords,
     ...(operationRecord ? { operationRecord } : {}),
@@ -189,6 +261,14 @@ export function listUserAssetHistory(
   const history = listUserAssetLedgerEntries(userState, request);
   return {
     accountSummary: current.accountSummary,
+    accountWorkspaceSummary: createAccountWorkspaceSummary({
+      userProfile: current.userProfile,
+      accountSummary: current.accountSummary,
+      userStatus: current.userStatus,
+      identityWorkflows: current.identityWorkflows,
+      relationTargetCount: current.relationTargets.length,
+      ...(request.subject ? { selectedAssetSubject: request.subject } : {}),
+    }),
     ledgerEntries: history.ledgerEntries,
     pagination: history.pagination,
   };

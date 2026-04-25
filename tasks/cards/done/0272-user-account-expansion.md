@@ -87,9 +87,20 @@ Add user-detail projection, relation search, entitlement-history filtering, and 
 
 ## Acceptance
 
-- [ ] account expansion keeps `userProfile`, `accountSummary`, and `userStatus` as canonical outputs
-- [ ] relation and asset history behavior stays in account domain ownership
-- [ ] no separate user stack is introduced
-- [ ] official host entry points remain manifest-driven
-- [ ] docs updated when workflow or accepted exceptions change
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] account expansion keeps `userProfile`, `accountSummary`, and `userStatus` as canonical outputs
+- [x] relation and asset history behavior stays in account domain ownership
+- [x] no separate user stack is introduced
+- [x] official host entry points remain manifest-driven
+- [x] docs updated when workflow or accepted exceptions change
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added additive `UserAccountWorkspaceSummary` to the user contract and account API responses.
+- Projected profile completeness, relation search posture, asset-history filter posture, cancellation review posture, and next-best-action copy through the account domain.
+- Updated account controller state to retain and render the summary while preserving compatibility with older test stubs.
+- Added controller assertions for workspace summary projection and relation-list continuity.
+
+## Verification Notes
+
+- `pnpm verify:feature account`
