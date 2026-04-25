@@ -1,7 +1,7 @@
 import { USER_ASSET_LEDGER_SUBJECTS, USER_RELATION_ACTION_KINDS, USER_RELATION_LIST_KINDS } from "@minix/contracts";
 import { z } from "zod";
 
-import { apiPaginationQueryShape } from "../schema-helpers";
+import { apiPageSizeMax100QuerySchema, apiPageSizeMax50QuerySchema, apiPaginationQueryShape } from "../schema-helpers";
 
 const USER_ASSET_LEDGER_SUBJECT_FILTERS = ["all", ...USER_ASSET_LEDGER_SUBJECTS] as const;
 
@@ -48,19 +48,19 @@ export const relationActionSchema = z.object({
   remarkName: z.string().min(1).max(32).optional(),
   listKind: z.enum(USER_RELATION_LIST_KINDS).optional(),
   page: apiPaginationQueryShape.page,
-  pageSize: z.coerce.number().int().positive().max(50).optional(),
+  pageSize: apiPageSizeMax50QuerySchema,
   keyword: z.string().min(1).max(50).optional(),
 });
 
 export const relationListQuerySchema = z.object({
   kind: z.enum(USER_RELATION_LIST_KINDS),
   page: apiPaginationQueryShape.page,
-  pageSize: z.coerce.number().int().positive().max(50).optional(),
+  pageSize: apiPageSizeMax50QuerySchema,
   keyword: z.string().min(1).max(50).optional(),
 });
 
 export const assetHistoryQuerySchema = z.object({
   page: apiPaginationQueryShape.page,
-  pageSize: z.coerce.number().int().positive().max(100).optional(),
+  pageSize: apiPageSizeMax100QuerySchema,
   subject: z.enum(USER_ASSET_LEDGER_SUBJECT_FILTERS).optional(),
 });
