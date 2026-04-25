@@ -117,6 +117,12 @@ export type AccountOperationKind = (typeof ACCOUNT_OPERATION_KINDS)[number];
 export const ACCOUNT_OPERATION_RECORD_STATUSES = ["completed", "blocked", "pending", "revoked"] as const;
 export type AccountOperationRecordStatus = (typeof ACCOUNT_OPERATION_RECORD_STATUSES)[number];
 
+export const ACCOUNT_CANCELLATION_ACTIONS = ["request", "revoke"] as const;
+export type AccountCancellationAction = (typeof ACCOUNT_CANCELLATION_ACTIONS)[number];
+
+export const ACCOUNT_CANCELLATION_REASONS = ["privacy", "switching", "other"] as const;
+export type AccountCancellationReason = (typeof ACCOUNT_CANCELLATION_REASONS)[number];
+
 export interface AccountOperationRiskPrompt extends AuthSecurityPrompt {}
 
 export interface AccountOperationCooldown {
@@ -312,11 +318,11 @@ export interface AccountProviderRevokeRequest {
 }
 
 export interface AccountCancellationRequest {
-  action?: "request" | "revoke";
+  action?: AccountCancellationAction;
   confirm: true;
   verificationCode?: string;
   riskConfirmed?: boolean;
-  reason?: "privacy" | "switching" | "other";
+  reason?: AccountCancellationReason;
   details?: string;
 }
 
