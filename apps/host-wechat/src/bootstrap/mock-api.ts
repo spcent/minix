@@ -3,6 +3,7 @@ import {
   createError,
   createJsonMockResponse,
   fail,
+  matchesMockBearerAuthorizationHeader,
   ok,
   resolveMockRequestPath,
   type RequestAdapter,
@@ -67,6 +68,8 @@ const HOST_ITEMS: HostMockItem[] = [
   },
 ];
 
+const ACCESS_TOKEN = "mock-access-token";
+
 function listItems(query?: RequestOptions["query"]) {
   const page = coerceMockQueryNumber(query?.page, 1);
   const pageSize = coerceMockQueryNumber(query?.pageSize, 2);
@@ -103,7 +106,7 @@ export function createHostWechatMockApiAdapter(): RequestAdapter {
         return ok(
           createJsonMockResponse(200, {
             userId: "host-user",
-            accessToken: "mock-access-token",
+            accessToken: ACCESS_TOKEN,
             refreshToken: "mock-refresh-token",
             expiresAt: Date.now() + 60 * 60 * 1000,
             profile: {
@@ -116,7 +119,7 @@ export function createHostWechatMockApiAdapter(): RequestAdapter {
 
       if (pathname === "/items") {
         const authHeader = options.headers?.Authorization;
-        if (authHeader !== "Bearer mock-access-token") {
+        if (!matchesMockBearerAuthorizationHeader(authHeader, ACCESS_TOKEN)) {
           return ok(
             createJsonMockResponse(401, {
               code: "UNAUTHORIZED",
