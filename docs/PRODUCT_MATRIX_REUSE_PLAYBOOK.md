@@ -32,6 +32,7 @@ If any step cannot be answered, add the smallest missing contract or shared cont
 - Reuse `apps/api/src/domains/provider-posture.ts` for API-side `ProviderPostureMode` resolution and sample/production predicates across auth, messages, upload, and share; keep configured-provider fallbacks, base URL normalization, host extraction, and secret-material posture copy there too.
 - Payment-specific provider modes should still branch through the same provider posture predicates when they are equivalent to sample/production posture; this keeps commerce summaries aligned with upload, share, auth, and message provider readiness.
 - Ops provider readiness should also resolve modes through the shared provider posture helper, because it is the release-facing aggregate of auth, message, upload, share, and payment provider posture.
+- Message touchpoints and support-thread delivery summaries should use the same provider posture predicates as ops readiness so notification, feedback, and customer-service flows stay aligned.
 - Use `apps/api/src/domains/snapshot.ts` for API-domain workflow snapshots. Keep it local to the API app instead of importing core helpers into backend-only code.
 - Feedback/support API shaping should use the API-domain snapshot helper for tickets, statuses, FAQ catalogs, support entries, and support-thread echoes so service-loop surfaces stay portable.
 - Extend `apps/api/src/domains/*` for business workflow shaping. Keep `apps/api/src/app.ts` as routing assembly and avoid pushing domain rules into host code.

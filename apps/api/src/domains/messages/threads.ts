@@ -28,6 +28,7 @@ import type {
 } from "@minix/contracts";
 
 import type { StoredMessageThreadRecord, UserState } from "../../types";
+import { isProductionProviderMode, isSampleProviderMode, resolveProviderPostureMode } from "../provider-posture";
 import type { NotificationChannelProviderRuntimeEnv } from "../settings/state";
 import { cloneTouchpoints, DEFAULT_MESSAGE_TOUCHPOINTS, cloneMessageTouchpointsForItem } from "./touchpoints";
 
@@ -69,7 +70,7 @@ export function createSupportOperatorActionSummary(input: {
   providerMode?: NotificationChannelProviderRuntimeEnv["MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE"];
   queueLabel?: string;
 }) {
-  return input.providerMode === "production"
+  return isProductionProviderMode(resolveProviderPostureMode(input.providerMode))
     ? `${input.queueLabel ?? "General Support"} can rotate assignments, templates, and delivery providers without changing the polling-only transport contract.`
     : `${input.queueLabel ?? "General Support"} can reassign the queue or update template posture while external delivery remains in explicit sample mode.`;
 }
@@ -416,7 +417,7 @@ function createThreadSyncState(
   lastSyncedAt?: string,
   runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ) {
-  const production = runtimeEnv?.MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE === "production";
+  const production = isProductionProviderMode(resolveProviderPostureMode(runtimeEnv?.MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE));
   return {
     mode: "polling" as const,
     modeLabel: "Polling-only sync",
@@ -439,7 +440,7 @@ export function createMessageDeliveryPosture(
     messages?: MessageBodyItem[];
   } = {},
 ): MessageDeliveryPosture {
-  const providerMode = runtimeEnv?.MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE === "production" ? "production" : "sample";
+  const providerMode = resolveProviderPostureMode(runtimeEnv?.MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE);
   const records = getAllThreadRecords(userState);
   const threads = input.threads ?? records.map((record) => record.thread);
   const storedMessages = records.flatMap((record) => record.messages);
@@ -463,7 +464,7 @@ export function createMessageDeliveryPosture(
     pollingIntervalMs: MESSAGE_POLL_INTERVAL_MS,
     pollingAcceptanceSummary: `Polling-only delivery acceptance runs every ${Math.round(MESSAGE_POLL_INTERVAL_MS / 1000)} seconds; realtime transport is not provisioned.`,
     providerSummary:
-      providerMode === "production"
+      isProductionProviderMode(providerMode)
         ? "Message touchpoints use production provider posture where configured, with in-app delivery as durable fallback."
         : "Message touchpoints remain in explicit sample provider posture, with in-app delivery as durable fallback.",
     receiptHistorySummary:
@@ -596,7 +597,7 @@ function getThreadMessages(
             ...touchpoint,
             delivered: true,
             statusLabel:
-              touchpoint.providerMode === "sample"
+              isSampleProviderMode(touchpoint.providerMode ?? "sample")
                 ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample delivery finalized after polling-only sync.`
                 : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} delivered through ${touchpoint.channel.replace("_", " ")}.`,
             receipt: {
@@ -1039,7 +1040,7 @@ export function sendThreadMessage(
       ...touchpoint,
       delivered: false,
       statusLabel:
-        touchpoint.providerMode === "sample"
+        isSampleProviderMode(touchpoint.providerMode ?? "sample")
           ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample dispatch accepted; polling-only sync will finalize the receipt.`
           : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} accepted the dispatch; polling-only sync will finalize the receipt.`,
       receipt: sentReceipt,
@@ -1085,7 +1086,7 @@ export function sendThreadMessage(
       ? {
           failureCode: "DELIVERY_FAILED",
           failureMessage:
-            dispatchTouchpoints.some((touchpoint) => touchpoint.providerMode === "production")
+            dispatchTouchpoints.some((touchpoint) => isProductionProviderMode(touchpoint.providerMode ?? "sample"))
               ? "Provider delivery failed; retry and polling-only sync can advance the receipt."
               : "Sample delivery intentionally failed; retry and polling-only sync can advance the receipt.",
         }
@@ -1180,7 +1181,7 @@ export function retryThreadMessage(
       ...touchpoint,
       delivered: false,
       statusLabel:
-        touchpoint.providerMode === "sample"
+        isSampleProviderMode(touchpoint.providerMode ?? "sample")
           ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample retry queued; polling-only sync will finalize the next receipt.`
           : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} retry queued; polling-only sync will finalize the next receipt.`,
       deliverySummary: `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} accepted the ${touchpoint.channel.replace("_", " ")} retry and polling will finalize the next receipt.`,

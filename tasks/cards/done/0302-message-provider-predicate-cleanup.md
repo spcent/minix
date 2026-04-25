@@ -1,6 +1,6 @@
 # Message Provider Predicate Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -40,9 +40,15 @@ Message touchpoints are reused by notifications, support, and feedback. Their sa
 
 ## Acceptance
 
-- [ ] message touchpoint provider-mode branches use shared predicates where practical
-- [ ] message thread provider-mode branches use shared predicates where practical
-- [ ] message response envelopes remain unchanged
-- [ ] playbook records message provider predicate guidance
-- [ ] change is local and reversible
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] message touchpoint provider-mode branches use shared predicates where practical
+- [x] message thread provider-mode branches use shared predicates where practical
+- [x] message response envelopes remain unchanged
+- [x] playbook records message provider predicate guidance
+- [x] change is local and reversible
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced direct message touchpoint sample checks with shared provider posture predicates.
+- Replaced direct message thread sample/production checks with shared provider posture predicates and resolver.
+- Kept polling-only delivery, receipts, and response envelopes unchanged.

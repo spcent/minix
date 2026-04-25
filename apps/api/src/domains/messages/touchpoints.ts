@@ -13,6 +13,7 @@ import {
   resolveSettingsState,
   type NotificationChannelProviderRuntimeEnv,
 } from "../settings/state";
+import { isSampleProviderMode } from "../provider-posture";
 import type { StoredNotificationTouchpointRecord, UserState } from "../../types";
 
 function createTouchpointTemplateKey(scope: string, channel: MessageTouchpointChannel) {
@@ -31,7 +32,7 @@ function createTemplateOperatorActionSummary(
 ) {
   return channel === "in_app"
     ? "The in-app inbox template ships with the shared contract and does not require operator rollout."
-    : providerMode === "sample"
+    : isSampleProviderMode(providerMode)
       ? `Operators can promote the shared ${channel.replace("_", " ")} template from sample posture to a production provider without changing host logic.`
       : `Operators can rotate ${channel.replace("_", " ")} provider bindings while keeping the shared template key stable.`;
 }
@@ -122,7 +123,7 @@ function createBaseTouchpoint(
       executable: true,
       enabled: true,
       delivered: true,
-      statusLabel: mode === "sample" ? "Visible in the in-app inbox as the durable fallback lane." : "Visible in the in-app inbox.",
+      statusLabel: isSampleProviderMode(mode) ? "Visible in the in-app inbox as the durable fallback lane." : "Visible in the in-app inbox.",
       providerKey: "station_inbox",
       providerLabel: "Station Inbox",
       providerMode: mode,
@@ -156,11 +157,11 @@ function createBaseTouchpoint(
     executable: true,
     enabled: provider.defaultEnabled,
     statusLabel:
-      mode === "sample"
+      isSampleProviderMode(mode)
         ? `${provider.providerLabel} is running in explicit sample mode for ${channel.replace("_", " ")} delivery.`
         : `${provider.providerLabel} is available for ${channel.replace("_", " ")} delivery.`,
     deliverySummary:
-      mode === "sample"
+      isSampleProviderMode(mode)
         ? `${provider.providerLabel} exposes a sample ${channel.replace("_", " ")} delivery lane until operators wire a production provider.`
         : `${provider.providerLabel} is ready for ${channel.replace("_", " ")} delivery through the shared template.`,
     fallbackSummary: createFallbackSummary(channel, provider.defaultEnabled),
@@ -359,10 +360,10 @@ function createDispatchTouchpoint(
     delivered: preferredStatus === "delivered",
     statusLabel:
       preferredStatus === "failed"
-        ? providerMode === "sample"
+        ? isSampleProviderMode(providerMode)
           ? `${providerLabel} sample delivery is temporarily unavailable.`
           : `${providerLabel} is temporarily unavailable.`
-        : providerMode === "sample"
+        : isSampleProviderMode(providerMode)
           ? `${providerLabel} sample delivery completed through ${touchpoint.channel.replace("_", " ")}.`
           : `${providerLabel} delivered through ${touchpoint.channel.replace("_", " ")}.`,
     fallbackSummary: createFallbackSummary(touchpoint.channel, true),
@@ -385,7 +386,7 @@ function createDispatchTouchpoint(
       ...(preferredStatus === "failed"
         ? {
             failureMessage:
-              providerMode === "sample"
+              isSampleProviderMode(providerMode)
                 ? `${providerLabel} sample delivery is unavailable.`
                 : `${providerLabel} is unavailable.`,
           }
