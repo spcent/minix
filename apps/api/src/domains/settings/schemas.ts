@@ -1,3 +1,4 @@
+import { SETTINGS_NETWORK_STRATEGIES, SETTINGS_NOTIFICATION_CHANNELS, SETTINGS_PROFILE_VISIBILITIES } from "@minix/contracts";
 import { z } from "zod";
 
 export const settingsUpdateSchema = z.object({
@@ -6,7 +7,7 @@ export const settingsUpdateSchema = z.object({
       notificationsEnabled: z.boolean().optional(),
       device: z
         .object({
-          networkStrategy: z.enum(["balanced", "wifi-first", "data-saver"]).optional(),
+          networkStrategy: z.enum(SETTINGS_NETWORK_STRATEGIES).optional(),
           autoplay: z.boolean().optional(),
           weakNetworkMode: z.boolean().optional(),
         })
@@ -29,7 +30,7 @@ export const settingsUpdateSchema = z.object({
   notificationChannels: z
     .array(
       z.object({
-        channel: z.enum(["subscription_message", "sms", "email", "push"]),
+        channel: z.enum(SETTINGS_NOTIFICATION_CHANNELS),
         enabled: z.boolean().optional(),
         unsubscribed: z.boolean().optional(),
       }),
@@ -37,7 +38,7 @@ export const settingsUpdateSchema = z.object({
     .optional(),
   privacyOptions: z
     .object({
-      profileVisibility: z.enum(["signed_in_only", "followers_only", "public"]).optional(),
+      profileVisibility: z.enum(SETTINGS_PROFILE_VISIBILITIES).optional(),
       personalizedRecommendations: z.boolean().optional(),
       searchHistoryEnabled: z.boolean().optional(),
       analyticsEnabled: z.boolean().optional(),
