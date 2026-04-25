@@ -298,11 +298,13 @@ export type OperationalDomainKey =
   | "audit_events";
 
 export type OperationalMigrationStatus = "completed" | "skipped";
-export type OperationalJobKind =
-  | "upload_cleanup"
-  | "payment_reconciliation"
-  | "notification_retry"
-  | "cancellation_expiry";
+export const OPERATIONAL_JOB_KINDS = [
+  "upload_cleanup",
+  "payment_reconciliation",
+  "notification_retry",
+  "cancellation_expiry",
+] as const;
+export type OperationalJobKind = (typeof OPERATIONAL_JOB_KINDS)[number];
 export type OperationalJobStatus = "queued" | "running" | "completed" | "failed" | "skipped";
 export type OperationalMonitoringLevel = "info" | "warn" | "error";
 export type OperationalAuditCategory = "job" | "migration" | "governance";
