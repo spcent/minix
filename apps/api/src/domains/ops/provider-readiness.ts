@@ -1,9 +1,12 @@
+import type { ProviderPostureMode } from "@minix/contracts";
+
 import type { ApiBindings } from "../../types";
+import { isProductionProviderMode, isSampleProviderMode, resolveProviderPostureMode } from "../provider-posture";
 
 export type ProviderReadinessStatus = "sample" | "ready" | "review" | "blocked";
 
 export interface ProviderReadinessEntry {
-  mode?: "sample" | "production";
+  mode?: ProviderPostureMode;
   status: ProviderReadinessStatus;
   detail: string;
 }
@@ -75,11 +78,11 @@ export function createProviderReadinessSummary(input: {
   authOAuthProviderConfigured: boolean;
 }): ProviderReadinessSummary {
   const { env } = input;
-  const smsMode = env?.MINIX_AUTH_SMS_PROVIDER_MODE === "production" ? "production" : "sample";
-  const oauthMode = env?.MINIX_AUTH_OAUTH_PROVIDER_MODE === "production" ? "production" : "sample";
-  const messageMode = env?.MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE === "production" ? "production" : "sample";
-  const uploadMode = env?.MINIX_UPLOAD_PROVIDER_MODE === "production" ? "production" : "sample";
-  const shareMode = env?.MINIX_SHARE_PROVIDER_MODE === "production" ? "production" : "sample";
+  const smsMode = resolveProviderPostureMode(env?.MINIX_AUTH_SMS_PROVIDER_MODE);
+  const oauthMode = resolveProviderPostureMode(env?.MINIX_AUTH_OAUTH_PROVIDER_MODE);
+  const messageMode = resolveProviderPostureMode(env?.MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE);
+  const uploadMode = resolveProviderPostureMode(env?.MINIX_UPLOAD_PROVIDER_MODE);
+  const shareMode = resolveProviderPostureMode(env?.MINIX_SHARE_PROVIDER_MODE);
 
   const messageExplicitConfigs = [
     hasConfiguredString(env?.MINIX_MESSAGE_SUBSCRIPTION_PROVIDER_KEY) ||
@@ -91,7 +94,7 @@ export function createProviderReadinessSummary(input: {
     hasConfiguredString(env?.MINIX_MESSAGE_PUSH_PROVIDER_KEY) ||
       hasConfiguredString(env?.MINIX_MESSAGE_PUSH_PROVIDER_LABEL),
   ].filter(Boolean).length;
-  const messageDefaultedProductionChannels = messageMode === "production" ? 4 - messageExplicitConfigs : 0;
+  const messageDefaultedProductionChannels = isProductionProviderMode(messageMode) ? 4 - messageExplicitConfigs : 0;
 
   const webhookSecretConfigured = hasConfiguredString(env?.MINIX_PAYMENT_WEBHOOK_SECRET);
   const uploadStorageProviderConfigured = hasConfiguredString(env?.MINIX_UPLOAD_STORAGE_PROVIDER);
@@ -107,13 +110,13 @@ export function createProviderReadinessSummary(input: {
       sms: {
         mode: smsMode,
         status:
-          smsMode === "sample"
+          isSampleProviderMode(smsMode)
             ? "sample"
             : input.authSmsProviderConfigured
               ? "ready"
               : "blocked",
         detail:
-          smsMode === "sample"
+          isSampleProviderMode(smsMode)
             ? "SMS verification remains in sample mode."
             : input.authSmsProviderConfigured
               ? "SMS production mode is enabled and a delivery adapter is wired."
@@ -123,13 +126,13 @@ export function createProviderReadinessSummary(input: {
       oauth: {
         mode: oauthMode,
         status:
-          oauthMode === "sample"
+          isSampleProviderMode(oauthMode)
             ? "sample"
             : input.authOAuthProviderConfigured
               ? "ready"
               : "blocked",
         detail:
-          oauthMode === "sample"
+          isSampleProviderMode(oauthMode)
             ? "OAuth authorization and callback validation remain in sample mode."
             : input.authOAuthProviderConfigured
               ? "OAuth production mode is enabled and a provider adapter is wired."
@@ -141,13 +144,13 @@ export function createProviderReadinessSummary(input: {
       touchpoints: {
         mode: messageMode,
         status:
-          messageMode === "sample"
+          isSampleProviderMode(messageMode)
             ? "sample"
             : messageDefaultedProductionChannels === 0
               ? "ready"
               : "review",
         detail:
-          messageMode === "sample"
+          isSampleProviderMode(messageMode)
             ? "Message touchpoints remain in sample mode."
             : messageDefaultedProductionChannels === 0
               ? "Message touchpoints run in production mode with explicit provider configuration for all channels."
@@ -169,13 +172,13 @@ export function createProviderReadinessSummary(input: {
       pipeline: {
         mode: uploadMode,
         status:
-          uploadMode === "sample"
+          isSampleProviderMode(uploadMode)
             ? "sample"
             : uploadStorageProviderConfigured && uploadReviewProviderConfigured && uploadAssetBaseUrlConfigured
               ? "ready"
               : "review",
         detail:
-          uploadMode === "sample"
+          isSampleProviderMode(uploadMode)
             ? "Upload review and storage remain in sample mode."
             : uploadStorageProviderConfigured && uploadReviewProviderConfigured && uploadAssetBaseUrlConfigured
               ? "Upload production mode has explicit storage, review, and asset-host configuration."
@@ -189,7 +192,7 @@ export function createProviderReadinessSummary(input: {
       distribution: {
         mode: shareMode,
         status:
-          shareMode === "sample"
+          isSampleProviderMode(shareMode)
             ? "sample"
             : shareShortLinkProviderConfigured &&
                 sharePosterProviderConfigured &&
@@ -198,7 +201,7 @@ export function createProviderReadinessSummary(input: {
               ? "ready"
               : "review",
         detail:
-          shareMode === "sample"
+          isSampleProviderMode(shareMode)
             ? "Share short-link and poster generation remain in sample mode."
             : shareShortLinkProviderConfigured &&
                 sharePosterProviderConfigured &&

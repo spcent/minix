@@ -1,6 +1,6 @@
 # Ops Provider Readiness Mode Helper Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -39,9 +39,15 @@ Operational readiness is the release-facing view of provider posture. It should 
 
 ## Acceptance
 
-- [ ] ops readiness mode resolution uses shared helper
-- [ ] ops readiness branches use shared predicates where practical
-- [ ] readiness response shape remains unchanged
-- [ ] playbook records ops readiness posture guidance
-- [ ] change is local and reversible
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] ops readiness mode resolution uses shared helper
+- [x] ops readiness branches use shared predicates where practical
+- [x] readiness response shape remains unchanged
+- [x] playbook records ops readiness posture guidance
+- [x] change is local and reversible
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced local provider mode env ternaries with `resolveProviderPostureMode`.
+- Replaced readiness sample/production branches with shared provider posture predicates.
+- Kept readiness statuses, details, and evidence pack shape unchanged.
