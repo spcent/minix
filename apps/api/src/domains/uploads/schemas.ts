@@ -1,5 +1,6 @@
 import {
   UPLOAD_CHECKSUM_ALGORITHMS,
+  UPLOAD_DERIVED_ASSET_VARIANT_KINDS,
   UPLOAD_FILE_TYPES,
   UPLOAD_REFERENCE_OWNER_TYPES,
   UPLOAD_RETENTION_STATUSES,
@@ -41,7 +42,7 @@ const uploadLifecycleSchema = z.object({
 });
 
 const uploadDerivedAssetVariantSchema = z.object({
-  kind: z.enum(["original", "thumbnail", "cover", "preview"]),
+  kind: z.enum(UPLOAD_DERIVED_ASSET_VARIANT_KINDS),
   url: z.string().min(1),
   label: z.string().min(1),
   width: z.number().int().positive().optional(),

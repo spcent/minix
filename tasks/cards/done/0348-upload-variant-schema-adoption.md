@@ -1,6 +1,6 @@
 # Upload Variant Schema Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -17,6 +17,10 @@ Adopt upload derived asset variant constants in upload schemas.
 
 ## Acceptance
 
-- [ ] upload derived asset variant schema reuses contract constants
-- [ ] upload route behavior remains unchanged
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] upload derived asset variant schema reuses contract constants
+- [x] upload route behavior remains unchanged
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Reused `UPLOAD_DERIVED_ASSET_VARIANT_KINDS` in upload asset schema validation.
