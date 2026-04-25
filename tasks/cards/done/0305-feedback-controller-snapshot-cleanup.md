@@ -1,6 +1,6 @@
 # Feedback Controller Snapshot Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -23,8 +23,14 @@ Replace remaining feedback controller clone calls with core snapshot helpers.
 
 ## Acceptance
 
-- [ ] feedback controller response projections use core snapshot helpers
-- [ ] feedback controller form/draft snapshots use core snapshot helpers
-- [ ] public state shape remains unchanged
-- [ ] playbook records feedback controller snapshot guidance
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] feedback controller response projections use core snapshot helpers
+- [x] feedback controller form/draft snapshots use core snapshot helpers
+- [x] public state shape remains unchanged
+- [x] playbook records feedback controller snapshot guidance
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced feedback controller raw clone calls with `cloneStateSnapshot` and `cloneStateSnapshotArray`.
+- Covered FAQ projections, ticket detail patches, ticket lists, support entries, draft values, and submission result snapshots.
+- Kept feedback workflow behavior and public state shape unchanged.

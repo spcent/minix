@@ -276,19 +276,19 @@ function buildDeviceSummary(value: unknown): string | undefined {
 
 function resolveFaqEntries(category: FeedbackCategory | undefined, state: FeedbackState): FeedbackFaqEntry[] {
   if (state.latestStatus?.faqEntries && state.latestStatus.faqEntries.length > 0) {
-    return state.latestStatus.faqEntries.map((entry) => structuredClone(entry));
+    return cloneStateSnapshotArray(state.latestStatus.faqEntries);
   }
 
   if (state.recommendedFaqEntries.length > 0) {
-    return state.recommendedFaqEntries.map((entry) => structuredClone(entry));
+    return cloneStateSnapshotArray(state.recommendedFaqEntries);
   }
 
   if (category?.faqEntries && category.faqEntries.length > 0) {
-    return category.faqEntries.map((entry) => structuredClone(entry));
+    return cloneStateSnapshotArray(category.faqEntries);
   }
 
   if (category?.faqEntry) {
-    return [structuredClone(category.faqEntry)];
+    return [cloneStateSnapshot(category.faqEntry)];
   }
 
   return [];
@@ -314,8 +314,8 @@ function createTicketListUpdate(
     revisitRequired: detail.feedbackStatus.revisitRequired,
     ...(detail.feedbackStatus.queueKey ? { queueKey: detail.feedbackStatus.queueKey } : {}),
     ...(detail.feedbackStatus.queueLabel ? { queueLabel: detail.feedbackStatus.queueLabel } : {}),
-    ...(detail.feedbackStatus.assignee ? { assignee: structuredClone(detail.feedbackStatus.assignee) } : {}),
-    ...(detail.feedbackStatus.sla ? { sla: structuredClone(detail.feedbackStatus.sla) } : {}),
+    ...(detail.feedbackStatus.assignee ? { assignee: cloneStateSnapshot(detail.feedbackStatus.assignee) } : {}),
+    ...(detail.feedbackStatus.sla ? { sla: cloneStateSnapshot(detail.feedbackStatus.sla) } : {}),
     ...(detail.feedbackTicket.supportThreadId ? { supportThreadId: detail.feedbackTicket.supportThreadId } : {}),
     lastUpdatedAt: detail.feedbackTicket.updatedAt,
   };
@@ -323,11 +323,11 @@ function createTicketListUpdate(
   const existingIndex = currentList.items.findIndex((item) => item.ticketId === summary.ticketId);
   const items =
     existingIndex >= 0
-      ? currentList.items.map((item, index) => (index === existingIndex ? summary : structuredClone(item)))
-      : [summary, ...currentList.items.map((item) => structuredClone(item))];
+      ? currentList.items.map((item, index) => (index === existingIndex ? summary : cloneStateSnapshot(item)))
+      : [summary, ...cloneStateSnapshotArray(currentList.items)];
 
   return {
-    ...structuredClone(currentList),
+    ...cloneStateSnapshot(currentList),
     items,
     total: existingIndex >= 0 ? currentList.total : currentList.total + 1,
     selectedTicketId: summary.ticketId,
@@ -339,23 +339,27 @@ function createDetailStatePatch(
   detail: FeedbackTicketDetailResponse,
 ): Partial<FeedbackState> {
   return {
-    latestTicket: structuredClone(detail.feedbackTicket),
-    latestStatus: structuredClone(detail.feedbackStatus),
-    latestCategory: structuredClone(detail.feedbackCategory),
+    latestTicket: cloneStateSnapshot(detail.feedbackTicket),
+    latestStatus: cloneStateSnapshot(detail.feedbackStatus),
+    latestCategory: cloneStateSnapshot(detail.feedbackCategory),
     selectedTicketId: detail.feedbackTicket.ticketId,
     ticketList: createTicketListUpdate(currentState.ticketList, detail),
     recommendedFaqEntries:
-      detail.feedbackStatus.faqEntries?.map((entry) => structuredClone(entry)) ??
-      (detail.feedbackCategory.faqEntries?.map((entry) => structuredClone(entry)) ??
-        (detail.feedbackCategory.faqEntry ? [structuredClone(detail.feedbackCategory.faqEntry)] : [])),
+      detail.feedbackStatus.faqEntries
+        ? cloneStateSnapshotArray(detail.feedbackStatus.faqEntries)
+        : detail.feedbackCategory.faqEntries
+          ? cloneStateSnapshotArray(detail.feedbackCategory.faqEntries)
+          : detail.feedbackCategory.faqEntry
+            ? [cloneStateSnapshot(detail.feedbackCategory.faqEntry)]
+            : [],
     supportEntry:
       detail.feedbackStatus.supportEntry
-        ? structuredClone(detail.feedbackStatus.supportEntry)
+        ? cloneStateSnapshot(detail.feedbackStatus.supportEntry)
         : detail.feedbackCategory.supportEntry
-          ? structuredClone(detail.feedbackCategory.supportEntry)
+          ? cloneStateSnapshot(detail.feedbackCategory.supportEntry)
           : undefined,
-    revisitAction: detail.feedbackStatus.revisitAction ? structuredClone(detail.feedbackStatus.revisitAction) : undefined,
-    handlingReport: detail.feedbackStatus.handlingReport ? structuredClone(detail.feedbackStatus.handlingReport) : undefined,
+    revisitAction: detail.feedbackStatus.revisitAction ? cloneStateSnapshot(detail.feedbackStatus.revisitAction) : undefined,
+    handlingReport: detail.feedbackStatus.handlingReport ? cloneStateSnapshot(detail.feedbackStatus.handlingReport) : undefined,
     serviceLoopSummary:
       detail.feedbackStatus.supportLoopSummary ?? detail.feedbackStatus.nextStepLabel ?? detail.feedbackStatus.progressLabel,
     serviceHint:
@@ -440,7 +444,7 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
     store.setState({
       dirty: options.dirty ?? current.dirty,
       values,
-      formValues: structuredClone(values),
+      formValues: cloneStateSnapshot(values),
       schema,
       workflow,
       fieldErrors: [],
@@ -542,7 +546,7 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         type: category.type,
       },
       recommendedFaqEntries: resolveFaqEntries(category, currentState),
-      supportEntry: category.supportEntry ? structuredClone(category.supportEntry) : currentState.supportEntry,
+      supportEntry: category.supportEntry ? cloneStateSnapshot(category.supportEntry) : currentState.supportEntry,
       serviceLoopSummary:
         currentState.latestStatus?.progressLabel ??
         category.description ??
@@ -758,7 +762,7 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         draftSnapshot?.values !== undefined
           ? {
               ...nextState.values,
-              ...structuredClone(draftSnapshot.values),
+              ...cloneStateSnapshot(draftSnapshot.values),
             }
           : nextState.values;
       const { schema, workflow } = createFeedbackWorkflow(
@@ -787,9 +791,9 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         errorText: undefined,
         dirty: Boolean(draftSnapshot),
         values: restoredValues,
-        formValues: structuredClone(restoredValues),
-        initialValues: structuredClone(nextState.values),
-        initialFormValues: structuredClone(nextState.values),
+        formValues: cloneStateSnapshot(restoredValues),
+        initialValues: cloneStateSnapshot(nextState.values),
+        initialFormValues: cloneStateSnapshot(nextState.values),
         schema,
         workflow,
         submitState: {
@@ -845,11 +849,11 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
       store.setState({
         dirty: true,
         values: nextValues,
-        formValues: structuredClone(nextValues),
+        formValues: cloneStateSnapshot(nextValues),
         schema: nextDerived.schema,
         workflow: nextDerived.workflow,
         recommendedFaqEntries: resolveFaqEntries(category, store.getState()),
-        supportEntry: category.supportEntry ? structuredClone(category.supportEntry) : store.getState().supportEntry,
+        supportEntry: category.supportEntry ? cloneStateSnapshot(category.supportEntry) : store.getState().supportEntry,
         serviceLoopSummary: category.description ?? store.getState().serviceLoopSummary,
         serviceHint: category.supportEntry?.label ?? category.customerServiceEntryLabel,
       });
@@ -874,13 +878,13 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
       store.setState({
         dirty: true,
         values: nextValues,
-        formValues: structuredClone(nextValues),
+        formValues: cloneStateSnapshot(nextValues),
         schema: nextDerived.schema,
         workflow: nextDerived.workflow,
         ...(category
           ? {
               recommendedFaqEntries: resolveFaqEntries(category, store.getState()),
-              supportEntry: category.supportEntry ? structuredClone(category.supportEntry) : store.getState().supportEntry,
+              supportEntry: category.supportEntry ? cloneStateSnapshot(category.supportEntry) : store.getState().supportEntry,
               serviceLoopSummary: category.description ?? store.getState().serviceLoopSummary,
               serviceHint: category.supportEntry?.label ?? category.customerServiceEntryLabel,
             }
@@ -965,7 +969,7 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
 
       const snapshot: FeedbackDraftSnapshot = {
         savedAt: Date.now(),
-        values: structuredClone(store.getState().values),
+        values: cloneStateSnapshot(store.getState().values),
         ...(store.getState().workflow.currentStepKey ? { currentStepKey: store.getState().workflow.currentStepKey } : {}),
       };
       const submissionKey = createFormSubmissionKey("feedback-form", "draft", snapshot.values);
@@ -1107,13 +1111,13 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         workflow: nextDerived.workflow,
         lastSubmission: {
           submittedAt,
-          value: structuredClone(result.value),
+          value: cloneStateSnapshot(result.value),
         },
         submitState: finalizeFormSubmit(store.getState().submitState, {
           mode: "submit",
           submissionKey,
           submittedAt,
-          result: structuredClone(result.value),
+          result: cloneStateSnapshot(result.value),
         }),
       });
 
@@ -1162,12 +1166,12 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
       }
 
       store.setState({
-        ticketList: structuredClone(result.value.ticketList),
+        ticketList: cloneStateSnapshot(result.value.ticketList),
         selectedTicketId: result.value.ticketList.selectedTicketId ?? result.value.ticketList.items[0]?.ticketId,
-        faqCatalog: result.value.faqCatalog.map((entry) => structuredClone(entry)),
-        supportEntries: result.value.supportEntries.map((entry) => structuredClone(entry)),
-        queueDashboards: result.value.queueDashboards ? result.value.queueDashboards.map((dashboard) => structuredClone(dashboard)) : [],
-        slaRules: result.value.slaRules ? result.value.slaRules.map((rule) => structuredClone(rule)) : [],
+        faqCatalog: cloneStateSnapshotArray(result.value.faqCatalog),
+        supportEntries: cloneStateSnapshotArray(result.value.supportEntries),
+        queueDashboards: cloneStateSnapshotArray(result.value.queueDashboards ?? []),
+        slaRules: cloneStateSnapshotArray(result.value.slaRules ?? []),
       });
       return result;
     },
@@ -1259,7 +1263,7 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
           phase: "submitted",
           mode: "submit",
           submittedAt: Date.now(),
-          result: structuredClone(result.value),
+          result: cloneStateSnapshot(result.value),
         },
       });
 
@@ -1290,7 +1294,7 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
       store.setState({
         submitting: false,
         ...createDetailStatePatch(store.getState(), result.value),
-        ticketList: structuredClone(result.value.ticketList),
+        ticketList: cloneStateSnapshot(result.value.ticketList),
         schema: nextDerived.schema,
         workflow: nextDerived.workflow,
         submitState: {
@@ -1298,7 +1302,7 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
           phase: "submitted",
           mode: "submit",
           submittedAt: Date.now(),
-          result: structuredClone(result.value),
+          result: cloneStateSnapshot(result.value),
         },
       });
       return ok(result.value);
