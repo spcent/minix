@@ -125,6 +125,15 @@ function createKernelStub() {
           "Developer controls follow debug-environment preferences and shared experiment governance.",
       },
     },
+    policySummary: {
+      presetSummary: "Balanced delivery",
+      lockedSettingsSummary: "No shared settings are locked by environment policy.",
+      channelDefaultSummary: "Notification channel defaults use sample providers with in-app fallback.",
+      privacySummary:
+        "Privacy visibility resolves from profile visibility, recommendation consent, and analytics consent inside the shared settings workspace.",
+      deviceSummary: "Weak-network mode is inactive and standard upload behavior applies.",
+      developerSummary: "Developer controls follow debug-environment preferences and shared experiment governance.",
+    },
     notificationChannels: [
       {
         channel: "subscription_message",
@@ -429,6 +438,17 @@ function createKernelStub() {
               policySourceSummary:
                 "Developer controls follow debug-environment preferences and shared experiment governance.",
             },
+          },
+          policySummary: {
+            presetSummary: presetLabel,
+            lockedSettingsSummary: settingsResponse.policySummary.lockedSettingsSummary,
+            channelDefaultSummary: settingsResponse.policySummary.channelDefaultSummary,
+            privacySummary:
+              "Privacy visibility resolves from profile visibility, recommendation consent, and analytics consent inside the shared settings workspace.",
+            deviceSummary: nextWeakNetworkMode
+              ? "Weak-network mode is active and reduces upload chunk size plus autoplay behavior."
+              : "Weak-network mode is inactive and standard upload behavior applies.",
+            developerSummary: "Developer controls follow debug-environment preferences and shared experiment governance.",
           },
           notificationPresets: [
             {
@@ -794,6 +814,20 @@ test("settings controller refreshes an expired session before hydrating preferen
   assert.equal(displaySection?.items[0]?.value, "Night contrast for late sessions");
   assert.equal(displaySection?.items[1]?.value, "Page mode for focused chapter reading");
   assert.equal(controller.store.getState().preferences?.language, "zh-CN");
+  assert.equal(controller.store.getState().policySummary?.presetSummary, "Balanced delivery");
+  assert.equal(
+    controller
+      .store
+      .getState()
+      .sections
+      .find((section) => section.key === "policy-summary")
+      ?.items.some(
+        (item) =>
+          item.key === "policy-summary-channel-defaults" &&
+          item.value === "Notification channel defaults use sample providers with in-app fallback.",
+      ),
+    true,
+  );
   assert.deepEqual(controller.store.getState().lockedSettingKeys, []);
   assert.ok(controller.store.getState().sections.some((section) => section.key === "common-preferences"));
   assert.equal(
@@ -1027,6 +1061,8 @@ test("settings controller can exercise device privacy and debug operations beyon
   assert.equal(controller.store.getState().effectivePolicy?.device.uploadChunkSizeBytes, 8192);
   assert.equal(controller.store.getState().effectivePolicy?.developer.logsEnabled, false);
   assert.equal(controller.store.getState().effectivePolicy?.developer.experimentsEnabled, false);
+  assert.equal(controller.store.getState().policySummary?.presetSummary, "Notifications paused");
+  assert.match(controller.store.getState().policySummary?.deviceSummary ?? "", /Weak-network mode is active/i);
   assert.equal(controller.store.getState().preferences?.developerOptions.logsEnabled, false);
   assert.equal(controller.store.getState().preferences?.developerOptions.experimentsEnabled, false);
   assert.equal(controller.store.getState().featureToggles?.experimentsEnabled, false);
@@ -1148,6 +1184,16 @@ test("settings controller surfaces locked shared settings and developer lock sum
         policySourceSummary: "Developer controls are locked by environment policy.",
       },
     },
+    policySummary: {
+      presetSummary: "Balanced delivery",
+      lockedSettingsSummary:
+        "Locked by environment policy: preferences.developerOptions.logsEnabled, preferences.developerOptions.experimentsEnabled, featureToggles.experimentsEnabled.",
+      channelDefaultSummary: "Notification channel defaults use sample providers with in-app fallback.",
+      privacySummary:
+        "Privacy visibility resolves from profile visibility, recommendation consent, and analytics consent inside the shared settings workspace.",
+      deviceSummary: "Weak-network mode is inactive and standard upload behavior applies.",
+      developerSummary: "Developer controls are locked by environment policy.",
+    },
     notificationChannels: [
       {
         channel: "push",
@@ -1220,6 +1266,12 @@ test("settings controller surfaces locked shared settings and developer lock sum
   assert.equal(
     controller.store.getState().sections.find((section) => section.key === "effective-policy")?.items.some(
       (item) => item.key === "developer-policy-source" && item.value === "Developer controls are locked by environment policy.",
+    ),
+    true,
+  );
+  assert.equal(
+    controller.store.getState().sections.find((section) => section.key === "policy-summary")?.items.some(
+      (item) => item.key === "policy-summary-developer" && item.value === "Developer controls are locked by environment policy.",
     ),
     true,
   );

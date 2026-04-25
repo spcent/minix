@@ -4,6 +4,7 @@ import type {
   SettingsNotificationChannel,
   SettingsNotificationChannelPreference,
   SettingsNotificationPreset,
+  SettingsPolicySummary,
   SettingsPreferences,
   SettingsPrivacyOptions,
   SettingsProfileVisibility,
@@ -238,6 +239,7 @@ export function resolveSettingsState(
   featureToggles: SettingsFeatureToggles;
   privacyOptions: SettingsPrivacyOptions;
   effectivePolicy: SettingsEffectivePolicy;
+  policySummary: SettingsPolicySummary;
   notificationChannels: SettingsNotificationChannelPreference[];
   notificationPresets: SettingsNotificationPreset[];
   lockedSettingKeys: string[];
@@ -419,6 +421,20 @@ export function resolveSettingsState(
     deployEnv === "production"
       ? "Production hides editable diagnostics and experiment switches."
       : "Debug hosts may expose diagnostics and experiment switches through the shared settings workspace.";
+  const policySummary: SettingsPolicySummary = {
+    presetSummary: notificationPresetLabel,
+    lockedSettingsSummary:
+      lockedSettingKeys.length > 0
+        ? `${lockedSettingKeys.length} settings are locked by environment policy.`
+        : "No shared settings are locked by environment policy.",
+    channelDefaultSummary:
+      resolveMessageTouchpointProviderMode(runtimeEnv) === "production"
+        ? "Notification channel defaults resolve from production provider configuration."
+        : "Notification channel defaults use sample providers with in-app fallback.",
+    privacySummary: privacyPolicySourceSummary,
+    deviceSummary: weakNetworkSummary,
+    developerSummary: developerPolicySourceSummary,
+  };
 
   return {
     preferences,
@@ -471,6 +487,7 @@ export function resolveSettingsState(
           : {}),
       },
     },
+    policySummary,
     notificationChannels,
     notificationPresets,
     lockedSettingKeys,

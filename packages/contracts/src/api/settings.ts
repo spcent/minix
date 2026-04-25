@@ -139,11 +139,21 @@ export interface SettingsEffectivePolicy {
   developer: SettingsDeveloperPolicy;
 }
 
+export interface SettingsPolicySummary {
+  presetSummary: string;
+  lockedSettingsSummary: string;
+  channelDefaultSummary: string;
+  privacySummary: string;
+  deviceSummary: string;
+  developerSummary: string;
+}
+
 export interface SettingsResponse {
   preferences: SettingsPreferences;
   featureToggles: SettingsFeatureToggles;
   privacyOptions: SettingsPrivacyOptions;
   effectivePolicy: SettingsEffectivePolicy;
+  policySummary: SettingsPolicySummary;
   notificationChannels?: SettingsNotificationChannelPreference[];
   notificationPresets?: SettingsNotificationPreset[];
   lockedSettingKeys: string[];

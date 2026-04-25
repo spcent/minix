@@ -381,6 +381,7 @@ export function createSettingsResponse(
     featureToggles: settingsState.featureToggles,
     privacyOptions: settingsState.privacyOptions,
     effectivePolicy: settingsState.effectivePolicy,
+    policySummary: settingsState.policySummary,
     notificationChannels: settingsState.notificationChannels,
     notificationPresets: settingsState.notificationPresets,
     lockedSettingKeys: settingsState.lockedSettingKeys,

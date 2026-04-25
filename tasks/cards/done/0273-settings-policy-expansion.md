@@ -85,9 +85,20 @@ Keep user-visible settings, feature toggles, privacy options, and effective poli
 
 ## Acceptance
 
-- [ ] settings expansion flows through `SettingsResponse`
-- [ ] locked-setting posture is environment-aware and documented
-- [ ] notification and privacy options remain shared across official hosts
-- [ ] no feature introduces caller-local preference wrappers
-- [ ] docs updated for policy and workflow changes
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] settings expansion flows through `SettingsResponse`
+- [x] locked-setting posture is environment-aware and documented
+- [x] notification and privacy options remain shared across official hosts
+- [x] no feature introduces caller-local preference wrappers
+- [x] docs updated for policy and workflow changes
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added `SettingsPolicySummary` as an additive settings contract output covering preset, locked setting, channel default, privacy, device, and developer posture summaries.
+- Threaded `policySummary` through API settings state, `createSettingsResponse`, the shared settings page model, and the settings controller projection.
+- Rendered policy summary as a first-class settings section while keeping controller fallback behavior for older settings responses.
+- Covered debug and production policy states in settings controller tests.
+
+## Verification Notes
+
+- Ran `pnpm verify:feature settings`.

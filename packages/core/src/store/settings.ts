@@ -3,6 +3,7 @@ import type {
   SettingsFeatureToggles,
   SettingsNotificationChannelPreference,
   SettingsNotificationPreset,
+  SettingsPolicySummary,
   SettingsPreferences,
   SettingsPrivacyOptions,
 } from "@minix/contracts";
@@ -29,6 +30,7 @@ export interface SettingsPageModel {
   featureToggles?: SettingsFeatureToggles;
   privacyOptions?: SettingsPrivacyOptions;
   effectivePolicy?: SettingsEffectivePolicy;
+  policySummary?: SettingsPolicySummary;
   notificationChannels?: SettingsNotificationChannelPreference[];
   notificationPresets?: SettingsNotificationPreset[];
   lockedSettingKeys?: string[];

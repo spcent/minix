@@ -228,6 +228,7 @@ function cloneModel(model: SettingsPageModel): SettingsPageModel {
     ...(model.featureToggles ? { featureToggles: structuredClone(model.featureToggles) } : {}),
     ...(model.privacyOptions ? { privacyOptions: structuredClone(model.privacyOptions) } : {}),
     ...(model.effectivePolicy ? { effectivePolicy: structuredClone(model.effectivePolicy) } : {}),
+    ...(model.policySummary ? { policySummary: { ...model.policySummary } } : {}),
     ...(model.notificationChannels ? { notificationChannels: structuredClone(model.notificationChannels) } : {}),
     ...(model.notificationPresets ? { notificationPresets: structuredClone(model.notificationPresets) } : {}),
     ...(model.lockedSettingKeys ? { lockedSettingKeys: [...model.lockedSettingKeys] } : {}),
@@ -274,6 +275,17 @@ function updateSectionItemValue(
 }
 
 function createSettingsSections(response: SettingsResponse): SettingsSection[] {
+  const policySummary = response.policySummary ?? {
+    presetSummary: response.effectivePolicy.notification.presetLabel ?? "Not classified",
+    lockedSettingsSummary: formatLockedSettingSummary(response),
+    channelDefaultSummary: formatNotificationChannelSummary(
+      response.notificationChannels,
+      response.preferences.notificationsEnabled,
+    ),
+    privacySummary: response.effectivePolicy.privacy.policySourceSummary ?? "Privacy policy resolves from shared settings.",
+    deviceSummary: response.effectivePolicy.device.weakNetworkSummary ?? "Device policy resolves from shared settings.",
+    developerSummary: response.effectivePolicy.developer.policySourceSummary ?? "Developer policy resolves from shared settings.",
+  };
   return [
     {
       key: "settings-summary",
@@ -301,6 +313,18 @@ function createSettingsSections(response: SettingsResponse): SettingsSection[] {
             response.effectivePolicy.notification.policySourceSummary ??
             "Shared policy summary",
         ),
+      ],
+    },
+    {
+      key: "policy-summary",
+      title: "Policy summary",
+      items: [
+        createTextItem("policy-summary-preset", "Preset", policySummary.presetSummary),
+        createTextItem("policy-summary-locked", "Locked settings", policySummary.lockedSettingsSummary),
+        createTextItem("policy-summary-channel-defaults", "Channel defaults", policySummary.channelDefaultSummary),
+        createTextItem("policy-summary-privacy", "Privacy", policySummary.privacySummary),
+        createTextItem("policy-summary-device", "Device", policySummary.deviceSummary),
+        createTextItem("policy-summary-developer", "Developer", policySummary.developerSummary),
       ],
     },
     {
@@ -526,6 +550,17 @@ function applyRemoteSettings(model: SettingsPageModel, response: SettingsRespons
     featureToggles: response.featureToggles,
     privacyOptions: response.privacyOptions,
     effectivePolicy: response.effectivePolicy,
+    policySummary: response.policySummary ?? {
+      presetSummary: response.effectivePolicy.notification.presetLabel ?? "Not classified",
+      lockedSettingsSummary: formatLockedSettingSummary(response),
+      channelDefaultSummary: formatNotificationChannelSummary(
+        response.notificationChannels,
+        response.preferences.notificationsEnabled,
+      ),
+      privacySummary: response.effectivePolicy.privacy.policySourceSummary ?? "Privacy policy resolves from shared settings.",
+      deviceSummary: response.effectivePolicy.device.weakNetworkSummary ?? "Device policy resolves from shared settings.",
+      developerSummary: response.effectivePolicy.developer.policySourceSummary ?? "Developer policy resolves from shared settings.",
+    },
     ...(response.notificationChannels ? { notificationChannels: response.notificationChannels } : {}),
     ...(response.notificationPresets ? { notificationPresets: response.notificationPresets } : {}),
     lockedSettingKeys: [...response.lockedSettingKeys],
