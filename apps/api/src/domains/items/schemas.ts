@@ -1,6 +1,7 @@
 import { z } from "zod";
 
+import { apiPaginationQueryShape } from "../schema-helpers";
+
 export const itemsQuerySchema = z.object({
-  page: z.coerce.number().int().positive().optional(),
-  pageSize: z.coerce.number().int().positive().optional(),
+  ...apiPaginationQueryShape,
 });

@@ -1,6 +1,6 @@
 # Items Pagination Schema Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -17,6 +17,10 @@ Adopt shared API pagination query shape in the items domain schema.
 
 ## Acceptance
 
-- [ ] items query schema reuses API pagination helper
-- [ ] items route behavior remains unchanged
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] items query schema reuses API pagination helper
+- [x] items route behavior remains unchanged
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced local items pagination fields with `apiPaginationQueryShape`.
