@@ -1,15 +1,9 @@
-import type { SharePrepareRequest } from "@minix/contracts";
+import { SHARE_CHANNEL_KINDS, SHARE_RETURN_OUTCOMES, SHARE_SCENARIOS, type SharePrepareRequest } from "@minix/contracts";
 import { z } from "zod";
 
-export const shareRedirectTargetSchema = z.object({
-  routeId: z.string().min(1).optional(),
-  path: z.string().min(1).optional(),
-  params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-  source: z.string().min(1).optional(),
-  label: z.string().min(1).optional(),
-  reason: z.enum(["auth-required", "session-expired", "force-relogin"]).optional(),
-  forceReauth: z.boolean().optional(),
-});
+import { apiActorContextSchema, apiAuthRedirectTargetSchema, apiRouteParamsSchema, apiSourceContextSchema } from "../schema-helpers";
+
+export const shareRedirectTargetSchema = apiAuthRedirectTargetSchema;
 
 export const shareLandingTargetSchema = z.object({
   routeId: z.string().min(1).optional(),
@@ -17,13 +11,13 @@ export const shareLandingTargetSchema = z.object({
   url: z.string().min(1).optional(),
   shortLink: z.string().min(1).optional(),
   shortCode: z.string().min(1).optional(),
-  params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  params: apiRouteParamsSchema.optional(),
   channelMarker: z.string().min(1).optional(),
   authRedirect: shareRedirectTargetSchema.optional(),
 });
 
 export const sharePayloadSchema = z.object({
-  scenario: z.enum(["page", "content", "invite", "poster"]),
+  scenario: z.enum(SHARE_SCENARIOS),
   title: z.string().min(1),
   summary: z.string().min(1).optional(),
   coverUrl: z.string().min(1).optional(),
@@ -36,20 +30,13 @@ export const sharePayloadSchema = z.object({
   contentId: z.string().min(1).optional(),
   inviteCode: z.string().min(1).optional(),
   shareToken: z.string().min(1).optional(),
-  sourceContext: z
-    .object({
-      pagePath: z.string().min(1).optional(),
-      routeId: z.string().min(1).optional(),
-      label: z.string().min(1).optional(),
-      params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-    })
-    .optional(),
+  sourceContext: apiSourceContextSchema.optional(),
   landingTarget: shareLandingTargetSchema.optional(),
   returnTarget: shareRedirectTargetSchema.optional(),
 });
 
 export const shareChannelSchema = z.object({
-  kind: z.enum(["wechat_session", "wechat_moments", "copy_link", "poster_image", "short_link"]),
+  kind: z.enum(SHARE_CHANNEL_KINDS),
   label: z.string().min(1),
   executable: z.boolean(),
   channelMarker: z.string().min(1).optional(),
@@ -58,14 +45,7 @@ export const shareChannelSchema = z.object({
 export const shareAttributionSchema = z.object({
   attributionId: z.string().min(1).optional(),
   channelMarker: z.string().min(1).optional(),
-  actorContext: z
-    .object({
-      userId: z.string().min(1).optional(),
-      platform: z.string().min(1).optional(),
-      appVersion: z.string().min(1).optional(),
-      deviceSummary: z.string().min(1).optional(),
-    })
-    .optional(),
+  actorContext: apiActorContextSchema.optional(),
   inviteBindingEnabled: z.boolean(),
   returnFlowRecognized: z.boolean(),
   shareCount: z.number().int().nonnegative(),
@@ -91,7 +71,7 @@ export const sharePrepareSchema = z.object({
 
 export const shareReturnRecognitionSchema = z.object({
   attributionId: z.string().min(1),
-  outcome: z.enum(["click", "return", "conversion"]),
+  outcome: z.enum(SHARE_RETURN_OUTCOMES),
   recognizedPath: z.string().min(1).optional(),
   recognizedUserId: z.string().min(1).optional(),
 });
