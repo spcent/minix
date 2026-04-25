@@ -1,7 +1,10 @@
 import type {
   ListPagination,
+  ListBatchActionDescriptor,
   ListPageLoadState,
   ListPageQuery,
+  ListRenderMetadata,
+  ListSavedFilter,
   ListSelectionState,
   ListStatus,
   SearchFilterGroup,
@@ -30,6 +33,9 @@ export interface ListPageState<TItem> {
   searchQuery: SearchQuery | undefined;
   searchFilters: SearchFilterGroup[];
   searchResults: SearchResults<TItem> | undefined;
+  render: ListRenderMetadata;
+  savedFilters: ListSavedFilter[];
+  batchActions: ListBatchActionDescriptor[];
   query: ListPageQuery & {
     page: number;
     pageSize: number;
@@ -50,6 +56,9 @@ export interface CreateListPageStateOptions<TItem> {
   selectedItemIds?: string[];
   batchSelectable?: boolean;
   stickyHeaderEnabled?: boolean;
+  render?: ListRenderMetadata;
+  savedFilters?: ListSavedFilter[];
+  batchActions?: ListBatchActionDescriptor[];
   searchQuery?: SearchQuery;
   searchFilters?: SearchFilterGroup[];
   searchResults?: SearchResults<TItem>;
@@ -153,6 +162,15 @@ export function createListPageState<TItem>(options: CreateListPageStateOptions<T
     searchQuery: options.searchQuery ? structuredClone(options.searchQuery) : undefined,
     searchFilters: options.searchFilters?.map((group) => structuredClone(group)) ?? [],
     searchResults: options.searchResults ? structuredClone(options.searchResults) : undefined,
+    render: {
+      variant: options.render?.variant ?? "feed",
+      ...(options.render?.density ? { density: options.render.density } : {}),
+      ...(options.render?.groupBy ? { groupBy: options.render.groupBy } : {}),
+      stickyHeaderEnabled: options.render?.stickyHeaderEnabled ?? options.stickyHeaderEnabled ?? false,
+      supportsIncrementalAppend: options.render?.supportsIncrementalAppend ?? true,
+    },
+    savedFilters: options.savedFilters?.map((filter) => structuredClone(filter)) ?? [],
+    batchActions: options.batchActions?.map((action) => ({ ...action })) ?? [],
     query: {
       page: query.page ?? 1,
       pageSize: query.pageSize ?? options.pageSize,

@@ -44,6 +44,31 @@ export interface ListSelectionState {
   batchSelectable: boolean;
 }
 
+export type ListRenderVariant = "feed" | "table" | "card" | "grid" | "grouped";
+
+export interface ListRenderMetadata {
+  variant: ListRenderVariant;
+  density?: "compact" | "comfortable" | "spacious";
+  groupBy?: string;
+  stickyHeaderEnabled?: boolean;
+  supportsIncrementalAppend?: boolean;
+}
+
+export interface ListSavedFilter {
+  key: string;
+  label: string;
+  filterKeys: string[];
+  restored?: boolean;
+}
+
+export interface ListBatchActionDescriptor {
+  key: string;
+  label: string;
+  enabled: boolean;
+  destructive?: boolean;
+  requiresSelection?: boolean;
+}
+
 export interface ListStatus {
   loadState: ListPageLoadState;
   firstLoaded: boolean;

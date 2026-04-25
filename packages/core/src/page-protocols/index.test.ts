@@ -37,7 +37,45 @@ test("createListPageState normalizes pagination and selection defaults", () => {
   assert.equal(state.pagination.page, 1);
   assert.equal(state.pagination.pageSize, 12);
   assert.equal(state.selection.selectedItemIds[0], "story-1");
+  assert.equal(state.render.variant, "feed");
+  assert.equal(state.render.supportsIncrementalAppend, true);
   assert.equal(state.status.loadState, "idle");
+});
+
+test("createListPageState carries render metadata saved filters and batch actions", () => {
+  const state = createListPageState({
+    title: "Orders",
+    pageSize: 20,
+    emptyText: "No orders",
+    render: {
+      variant: "table",
+      density: "compact",
+      stickyHeaderEnabled: true,
+      supportsIncrementalAppend: false,
+    },
+    savedFilters: [
+      {
+        key: "paid",
+        label: "Paid orders",
+        filterKeys: ["status"],
+        restored: true,
+      },
+    ],
+    batchActions: [
+      {
+        key: "mark-read",
+        label: "Mark read",
+        enabled: true,
+        requiresSelection: true,
+      },
+    ],
+  });
+
+  assert.equal(state.render.variant, "table");
+  assert.equal(state.render.stickyHeaderEnabled, true);
+  assert.equal(state.render.supportsIncrementalAppend, false);
+  assert.equal(state.savedFilters[0]?.restored, true);
+  assert.equal(state.batchActions[0]?.requiresSelection, true);
 });
 
 test("default page protocol factories provide stable baseline state", () => {

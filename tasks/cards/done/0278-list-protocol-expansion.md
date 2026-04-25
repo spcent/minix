@@ -83,11 +83,22 @@ Keep feed, order, message, content, and account lists aligned on `items`, `pagin
 - final verifier handoff:
   - include examples for first load, refresh, append, retry, empty, partial, skeleton, filter, sort, and selection states
 
+## Implementation Notes
+
+- Added additive list render metadata, saved-filter descriptors, and batch-action descriptors to `packages/contracts/src/kernel/common-page.ts`.
+- Extended `createListPageState` to default feed render metadata and preserve empty saved-filter and batch-action arrays while keeping canonical `items`, `pagination`, `filters`, and `selectedItemId` outputs unchanged.
+- Covered the protocol defaults and explicit table/saved-filter/batch-action state in core page-protocol tests.
+- Updated `docs/DOMAIN_COMPLETENESS_MATRIX.md` to record the expanded list posture.
+
+## Verification Notes
+
+- Ran `pnpm verify`.
+
 ## Acceptance
 
-- [ ] list outputs remain `items`, `pagination`, `filters`, and `selectedItemId`
-- [ ] no adopter introduces a custom pagination shape
-- [ ] saved-filter and batch-action behavior is protocol-aligned
-- [ ] host rendering remains separate from shared state
-- [ ] docs updated for protocol changes
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] list outputs remain `items`, `pagination`, `filters`, and `selectedItemId`
+- [x] no adopter introduces a custom pagination shape
+- [x] saved-filter and batch-action behavior is protocol-aligned
+- [x] host rendering remains separate from shared state
+- [x] docs updated for protocol changes
+- [x] `pnpm verify` run, or skipped with reason if docs-only
