@@ -25,7 +25,7 @@ import type {
 
 import { HOST_ITEMS } from "../../content";
 import { bindUploadAssetsToOwner, resolveUploadAssetForUser } from "../uploads/pipeline";
-import { cloneDomainSnapshot } from "../snapshot";
+import { cloneDomainSnapshot, cloneDomainSnapshotArray } from "../snapshot";
 import type { UserState } from "../../types";
 
 function createManagedContentAuditEntry(input: {
@@ -359,28 +359,11 @@ function resolveManagedContentEntry(contentId: string, userState?: UserState): M
 }
 
 function cloneManagedContentReviewRecord(reviewRecord: ContentReviewRecord): ContentReviewRecord {
-  return {
-    reviewId: reviewRecord.reviewId,
-    status: reviewRecord.status,
-    ...(reviewRecord.queueLabel ? { queueLabel: reviewRecord.queueLabel } : {}),
-    ...(reviewRecord.reviewerLabel ? { reviewerLabel: reviewRecord.reviewerLabel } : {}),
-    ...(reviewRecord.submittedAt ? { submittedAt: reviewRecord.submittedAt } : {}),
-    ...(reviewRecord.assignedAt ? { assignedAt: reviewRecord.assignedAt } : {}),
-    ...(reviewRecord.decidedAt ? { decidedAt: reviewRecord.decidedAt } : {}),
-    ...(reviewRecord.message ? { message: reviewRecord.message } : {}),
-    ...(reviewRecord.moderationSummary ? { moderationSummary: reviewRecord.moderationSummary } : {}),
-  };
+  return cloneDomainSnapshot(reviewRecord);
 }
 
 function cloneManagedContentAuditHistory(auditHistory: ContentAuditEntry[]): ContentAuditEntry[] {
-  return auditHistory.map((entry) => ({
-    auditId: entry.auditId,
-    action: entry.action,
-    actorRole: entry.actorRole,
-    actorLabel: entry.actorLabel,
-    createdAt: entry.createdAt,
-    message: entry.message,
-  }));
+  return cloneDomainSnapshotArray(auditHistory);
 }
 
 function cloneManagedContentAuthoring(authoring: ContentAuthoringData): ContentAuthoringData {
@@ -390,8 +373,8 @@ function cloneManagedContentAuthoring(authoring: ContentAuthoringData): ContentA
     summary: authoring.summary,
     ...(authoring.bodyPreview ? { bodyPreview: authoring.bodyPreview } : {}),
     visibility: authoring.visibility,
-    category: { ...authoring.category },
-    tags: authoring.tags.map((tag) => ({ ...tag })),
+    category: cloneDomainSnapshot(authoring.category),
+    tags: cloneDomainSnapshotArray(authoring.tags),
     ...(authoring.coverAssetId ? { coverAssetId: authoring.coverAssetId } : {}),
     attachmentAssetIds: [...authoring.attachmentAssetIds],
   };
@@ -455,8 +438,8 @@ function createManagedContentDisplay(contentId: string, userState?: UserState): 
       key: entry.categoryKey,
       label: entry.categoryLabel,
     },
-    tags: entry.tags.map((tag) => ({ ...tag })),
-    topics: entry.tags.map((tag) => ({ ...tag })),
+    tags: cloneDomainSnapshotArray(entry.tags),
+    topics: cloneDomainSnapshotArray(entry.tags),
     recommendationSlot: entry.lifecycle.state === "published" ? "editorial" : "related",
     recommendationSlotLabel: entry.lifecycle.state === "published" ? "Managed Frontlist" : "Lifecycle Queue",
     recommendationSummary:

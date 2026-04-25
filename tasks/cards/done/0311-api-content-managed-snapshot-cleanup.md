@@ -1,6 +1,6 @@
 # API Content Managed Snapshot Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -17,6 +17,11 @@ Adopt API-domain snapshot helpers in managed content authoring and card projecti
 
 ## Acceptance
 
-- [ ] managed content authoring/card projections use API snapshot helpers
-- [ ] content response envelopes remain unchanged
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] managed content authoring/card projections use API snapshot helpers
+- [x] content response envelopes remain unchanged
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced managed content review, audit, authoring, tag, and topic clones with API-domain snapshot helpers.
+- Kept content response envelopes unchanged.
