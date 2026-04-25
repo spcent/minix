@@ -1,6 +1,6 @@
 # Novel H5 Mock Auth Helper Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -17,6 +17,10 @@ Adopt core mock auth header helper in the Novel H5 mock adapter.
 
 ## Acceptance
 
-- [ ] Novel H5 mock adapter removes duplicated Bearer token matching
-- [ ] mock auth behavior remains unchanged
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] Novel H5 mock adapter removes duplicated Bearer token matching
+- [x] mock auth behavior remains unchanged
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Reused the shared mock Bearer authorization matcher in the Novel H5 mock adapter.
