@@ -1,4 +1,12 @@
-import { AUTH_MERGE_STRATEGIES, AUTH_VERIFICATION_PURPOSES, LOGIN_METHODS } from "@minix/contracts";
+import {
+  AUTH_BIND_IDENTITY_WORKFLOW_KINDS,
+  AUTH_IDENTITY_UPGRADE_METHODS,
+  AUTH_MERGE_STRATEGIES,
+  AUTH_OAUTH_PURPOSES,
+  AUTH_VERIFICATION_PURPOSES,
+  LOGIN_METHODS,
+  LOGIN_PLATFORMS,
+} from "@minix/contracts";
 import { z } from "zod";
 
 import { apiAuthRedirectTargetSchema } from "../schema-helpers";
@@ -16,7 +24,7 @@ export const authRiskContextSchema = z
   .optional();
 
 export const loginRequestSchema = z.object({
-  platform: z.enum(["wechat", "h5"]),
+  platform: z.enum(LOGIN_PLATFORMS),
   credential: z.object({
     method: z.enum(LOGIN_METHODS).optional(),
     code: z.string().min(1).optional(),
@@ -37,7 +45,7 @@ export const loginRequestSchema = z.object({
 });
 
 export const refreshTokenRequestSchema = z.object({
-  platform: z.enum(["wechat", "h5"]),
+  platform: z.enum(LOGIN_PLATFORMS),
   refreshToken: z.string().min(1),
 });
 
@@ -58,7 +66,7 @@ export const passwordCredentialSchema = z.object({
 
 export const oauthAuthorizeSchema = z.object({
   provider: z.string().min(1),
-  purpose: z.enum(["login", "bind"]).optional(),
+  purpose: z.enum(AUTH_OAUTH_PURPOSES).optional(),
   redirectTarget: authRedirectTargetSchema.optional(),
   deviceId: z.string().min(1).optional(),
 });
@@ -68,7 +76,7 @@ export const oauthCallbackSchema = z.object({
   state: z.string().min(1),
   providerToken: z.string().min(8),
   providerUserId: z.string().min(1),
-  platform: z.enum(["wechat", "h5"]),
+  platform: z.enum(LOGIN_PLATFORMS),
   redirectTarget: authRedirectTargetSchema.optional(),
 });
 
@@ -83,7 +91,7 @@ export const identityBindOAuthSchema = z.object({
 
 export const identityUpgradeSchema = z.object({
   credential: z.object({
-    method: z.enum(["phone_code", "password"]),
+    method: z.enum(AUTH_IDENTITY_UPGRADE_METHODS),
     phoneNumber: z.string().min(1).optional(),
     verificationCode: z.string().min(1).optional(),
     account: z.string().min(1).optional(),
@@ -103,7 +111,7 @@ export const identityBindPhoneSchema = z.object({
 
 export const identityMergeSchema = z.object({
   targetUserId: z.string().min(1),
-  workflowKind: z.enum(["guest_upgrade", "phone_binding", "oauth_binding"]).optional(),
+  workflowKind: z.enum(AUTH_BIND_IDENTITY_WORKFLOW_KINDS).optional(),
   confirm: z.boolean(),
   redirectTarget: authRedirectTargetSchema.optional(),
 });
