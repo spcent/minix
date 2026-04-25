@@ -1,6 +1,6 @@
 # Subscription Payment Predicate Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -38,8 +38,14 @@ Subscription is the host-facing consumer of payment state. It should describe sa
 
 ## Acceptance
 
-- [ ] subscription payment provider-mode branches use shared predicates
-- [ ] public feature APIs and state fields remain unchanged
-- [ ] playbook records subscription payment posture guidance
-- [ ] change is local and reversible
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] subscription payment provider-mode branches use a narrow predicate aligned with shared posture
+- [x] public feature APIs and state fields remain unchanged
+- [x] playbook records subscription payment posture guidance and API boundary decision
+- [x] change is local and reversible
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added a narrow subscription-local payment provider-mode predicate because feature packages cannot import API-domain provider helpers.
+- Replaced repeated direct sample comparisons in membership purchase continuity summaries.
+- Kept subscription state, purchase flow, and after-sales behavior unchanged.

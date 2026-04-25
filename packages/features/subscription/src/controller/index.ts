@@ -33,6 +33,10 @@ import type {
 } from "@minix/contracts";
 import { createInitialSubscriptionState, type SubscriptionState } from "../model";
 
+function isSamplePaymentProviderMode(providerMode: NonNullable<PurchaseMembershipResponse["paymentIntent"]["gatewayReference"]>["providerMode"]): boolean {
+  return providerMode === "sample";
+}
+
 export interface CreateSubscriptionControllerOptions {
   kernel: AppKernel;
   loginRouteId?: AppRouteId;
@@ -589,6 +593,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
 
       const nextSource = result.value.source ?? current.source;
       const providerMode = result.value.paymentIntent.gatewayReference?.providerMode ?? "sample";
+      const sampleProviderMode = isSamplePaymentProviderMode(providerMode);
       store.setState({
         purchasing: false,
         title: result.value.overview.headline,
@@ -629,15 +634,15 @@ export function createSubscriptionController(options: CreateSubscriptionControll
           callbackVerification: {
             status: "pending",
             message:
-              providerMode === "sample"
+              sampleProviderMode
                 ? "Callback verification is pending until the sample gateway confirms the order."
                 : "Callback verification is pending until the gateway confirms the order.",
             diagnosticsSummary:
-              providerMode === "sample"
+              sampleProviderMode
                 ? "Callback verification is still waiting on the sample gateway payload."
                 : "Callback verification is still waiting on the production gateway payload.",
             operatorActionSummary:
-              providerMode === "sample"
+              sampleProviderMode
                 ? "Operators can still inspect callback and reconciliation evidence even while the gateway remains in explicit sample mode."
                 : "Operators can inspect callback and reconciliation evidence without changing the shared commerce envelope.",
           },
@@ -645,7 +650,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
             status: result.value.paymentResult.status === "success" ? "pending" : "not_required",
             message:
               result.value.paymentResult.status === "success"
-                ? providerMode === "sample"
+                ? sampleProviderMode
                   ? "The sample order still needs reconciliation."
                   : "The order still needs reconciliation."
                 : "Reconciliation is not required for this transaction state.",
