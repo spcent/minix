@@ -8,6 +8,7 @@ import type {
   AuthRateLimitState,
   AuthRiskDecision,
   AuthSecurityAuditEvent,
+  AuthSecurityPosture,
   AuthRedirectReason,
   AuthStatus,
   AuthVerificationPurpose,
@@ -38,6 +39,7 @@ export interface AuthPageState {
   authStatus: AuthStatus | null;
   selectedLoginMethod: LoginMethod;
   loginMethodDescriptors: AuthLoginMethodDescriptor[];
+  securityPosture: AuthSecurityPosture;
   lastLoginMethod: LoginMethod | null;
   noticeMessage: string | null;
   redirectTarget: AuthRedirectTarget;
@@ -105,6 +107,8 @@ export function createAuthLoginMethodDescriptors(platform?: LoginPlatformKind): 
       summary: "Official WeChat hosts use wx.login and exchange the returned platform code through /auth/login.",
       capabilitySummary: "Available only on official WeChat hosts with platform code exchange wired through the shared auth runtime.",
       recoverySummary: "If re-authentication is required, the preserved destination stays on the current login surface until wx.login succeeds again.",
+      riskRuleSummary: "Risk checks use device identity, platform scene, frequency key, and unusual region signals before the session is trusted.",
+      auditScopeSummary: "Records auth, session refresh, and identity-binding events when WeChat credentials are used.",
       operatorOwned: true,
       operatorActionSummary: "Operators own WeChat app credentials, server exchange safety, and callback-domain posture outside tracked source.",
     },
@@ -117,6 +121,8 @@ export function createAuthLoginMethodDescriptors(platform?: LoginPlatformKind): 
       summary: "The official H5 host uses the built-in guest path for the primary Home sign-in action.",
       capabilitySummary: "Built into the shared auth surface. No provider callback or external credential dependency is required.",
       recoverySummary: "Guest entry has no provider callback and stays on the current login surface until a protected route asks for a formal session.",
+      riskRuleSummary: "Guest risk checks still bind the session to device and scene context so later account upgrades keep audit continuity.",
+      auditScopeSummary: "Records auth and identity-upgrade events when a guest session becomes a formal account.",
     },
     {
       method: "phone_code",
@@ -126,6 +132,8 @@ export function createAuthLoginMethodDescriptors(platform?: LoginPlatformKind): 
       summary: "Phone login depends on /auth/verification-code/request. Local and sample deployments use the simulated SMS provider until operator SMS credentials are configured.",
       capabilitySummary: "The shared auth flow is stable, but production delivery readiness depends on the configured SMS adapter and message-template rollout.",
       recoverySummary: "Verification-code issue, retry, and password-recovery handoff stay on the current login or identity page. No separate callback route is required.",
+      riskRuleSummary: "Verification requests are rate limited by scope and device context before login, phone binding, and password recovery continue.",
+      auditScopeSummary: "Records verification, password recovery, auth, identity-upgrade, and identity-binding events for phone flows.",
       operatorOwned: true,
       operatorActionSummary: "Operators own SMS credentials, template approval, frequency controls, and production-rate monitoring.",
     },
@@ -137,6 +145,8 @@ export function createAuthLoginMethodDescriptors(platform?: LoginPlatformKind): 
       summary: "Password login verifies stored hashed credentials. Phone-based password setup and reset still depend on the verification provider.",
       capabilitySummary: "Credential verification is built into the shared auth surface, while password recovery stays coupled to the verification provider.",
       recoverySummary: "Password recovery remains tied to the current login or identity page and reuses the verification provider instead of a dedicated reset host route.",
+      riskRuleSummary: "Failed password attempts update credential protection and rate-limit state before the session can proceed.",
+      auditScopeSummary: "Records auth, password recovery, and session refresh events for password credentials.",
     },
     {
       method: "oauth",
@@ -146,14 +156,50 @@ export function createAuthLoginMethodDescriptors(platform?: LoginPlatformKind): 
       summary: "OAuth state, callback, and account binding flows are implemented. Local and sample deployments use a sample authorization posture until a production provider is injected by the operator.",
       capabilitySummary: "Provider differences stay inside the shared auth envelope through provider mode, provider label, and callback-state handling.",
       recoverySummary: "OAuth authorize and callback return to the current login or bind page. Operators own provider credentials and callback-domain registration outside tracked source.",
+      riskRuleSummary: "OAuth callbacks are checked against state, provider identity, device context, and merge strategy before a session is persisted.",
+      auditScopeSummary: "Records auth, identity-binding, identity-merge, and provider-revocation events for OAuth flows.",
       operatorOwned: true,
       operatorActionSummary: "Operators own provider credentials, callback registration, and any provider-specific review or app-verification steps.",
     },
   ];
 }
 
+export function createAuthSecurityPosture(
+  method: LoginMethod,
+  descriptors: AuthLoginMethodDescriptor[],
+): AuthSecurityPosture {
+  const descriptor =
+    descriptors.find((candidate) => candidate.method === method) ??
+    descriptors.find((candidate) => candidate.defaultOn && candidate.defaultOn.length > 0) ??
+    descriptors[0];
+
+  if (!descriptor) {
+    return {
+      method,
+      providerMode: "builtin",
+      providerModeSummary: "No login provider descriptor is available for this host.",
+      recoverySummary: "Recovery stays on the current login surface until a supported method is selected.",
+      riskRuleSummary: "Risk checks are unavailable until the login method is known.",
+      auditScopeSummary: "No audit scopes are attached before method selection.",
+      operatorOwned: false,
+    };
+  }
+
+  return {
+    method: descriptor.method,
+    providerMode: descriptor.providerMode,
+    providerModeSummary: `${descriptor.label} uses ${descriptor.providerMode} provider posture on this host.`,
+    recoverySummary: descriptor.recoverySummary ?? "Recovery stays on the current login surface.",
+    riskRuleSummary: descriptor.riskRuleSummary ?? "Risk checks use device, scene, and frequency context when available.",
+    auditScopeSummary: descriptor.auditScopeSummary ?? "Auth events are recorded through the shared security audit surface.",
+    operatorOwned: descriptor.operatorOwned ?? false,
+    ...(descriptor.operatorActionSummary ? { operatorActionSummary: descriptor.operatorActionSummary } : {}),
+  };
+}
+
 export function createInitialAuthPageState(platform?: LoginPlatformKind): AuthPageState {
   const selectedLoginMethod = createDefaultLoginMethod(platform);
+  const loginMethodDescriptors = createAuthLoginMethodDescriptors(platform);
 
   return {
     loading: false,
@@ -161,7 +207,8 @@ export function createInitialAuthPageState(platform?: LoginPlatformKind): AuthPa
     authenticated: false,
     authStatus: null,
     selectedLoginMethod,
-    loginMethodDescriptors: createAuthLoginMethodDescriptors(platform),
+    loginMethodDescriptors,
+    securityPosture: createAuthSecurityPosture(selectedLoginMethod, loginMethodDescriptors),
     lastLoginMethod: null,
     noticeMessage: null,
     redirectTarget: null,

@@ -88,9 +88,20 @@ Keep WeChat code, phone verification, password, guest, and reserved OAuth login 
 
 ## Acceptance
 
-- [ ] login expansion remains additive to `AuthSessionPayload`, `AuthIdentity`, and redirect contracts
-- [ ] provider posture remains explicit and operator-owned
-- [ ] no shared package calls host globals directly
-- [ ] auth routes continue to fail closed when production providers are not configured
-- [ ] docs and matrix notes are updated for any accepted exception
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] login expansion remains additive to `AuthSessionPayload`, `AuthIdentity`, and redirect contracts
+- [x] provider posture remains explicit and operator-owned
+- [x] no shared package calls host globals directly
+- [x] auth routes continue to fail closed when production providers are not configured
+- [x] docs and matrix notes are updated for any accepted exception
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added additive `AuthSecurityPosture` and method-level `riskRuleSummary` / `auditScopeSummary` fields so provider, risk, recovery, and audit posture can be rendered without host-local wrappers.
+- Expanded auth security audit scopes with password recovery, session refresh, identity upgrade, identity binding, and identity merge.
+- Updated the auth feature state and controller so switching login methods refreshes the current security posture.
+- Added controller tests for default WeChat posture and method-switch posture changes.
+
+## Verification Notes
+
+- `pnpm verify:feature auth`

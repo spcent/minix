@@ -278,6 +278,30 @@ test("auth controller keeps wechat code as the official entry method on wechat h
     controller.store.getState().loginMethodDescriptors.find((descriptor) => descriptor.method === "phone_code")?.capabilitySummary ?? "",
     /SMS adapter/i,
   );
+  assert.equal(controller.store.getState().securityPosture.method, "wechat_code");
+  assert.equal(controller.store.getState().securityPosture.operatorOwned, true);
+  assert.match(controller.store.getState().securityPosture.riskRuleSummary, /device identity/i);
+  assert.match(controller.store.getState().securityPosture.auditScopeSummary, /session refresh/i);
+});
+
+test("auth controller updates security posture when switching login methods", () => {
+  const { kernel } = createKernelStub();
+  const controller = createAuthController({
+    kernel,
+    successRouteId: "auth.login",
+    stayOnSuccess: true,
+  });
+
+  assert.equal(controller.store.getState().securityPosture.method, "guest");
+  assert.equal(controller.store.getState().securityPosture.providerMode, "builtin");
+
+  controller.setLoginMethod("phone_code");
+
+  assert.equal(controller.store.getState().securityPosture.method, "phone_code");
+  assert.equal(controller.store.getState().securityPosture.providerMode, "sample");
+  assert.equal(controller.store.getState().securityPosture.operatorOwned, true);
+  assert.match(controller.store.getState().securityPosture.recoverySummary, /Verification-code issue/i);
+  assert.match(controller.store.getState().securityPosture.auditScopeSummary, /password recovery/i);
 });
 
 test("auth controller silently refreshes an expired session before routing to the protected destination", async () => {

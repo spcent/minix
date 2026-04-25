@@ -54,6 +54,11 @@ export type AuthCredentialFailureReason = (typeof AUTH_CREDENTIAL_FAILURE_REASON
 export const AUTH_SECURITY_EVENT_SCOPES = [
   "auth",
   "verification",
+  "password_recovery",
+  "session_refresh",
+  "identity_upgrade",
+  "identity_binding",
+  "identity_merge",
   "account",
   "payment",
   "upload",
@@ -177,7 +182,20 @@ export interface AuthLoginMethodDescriptor {
   summary: string;
   capabilitySummary?: string;
   recoverySummary?: string;
+  riskRuleSummary?: string;
+  auditScopeSummary?: string;
   operatorOwned?: boolean;
+  operatorActionSummary?: string;
+}
+
+export interface AuthSecurityPosture {
+  method: LoginMethod;
+  providerMode: AuthProviderMode;
+  providerModeSummary: string;
+  recoverySummary: string;
+  riskRuleSummary: string;
+  auditScopeSummary: string;
+  operatorOwned: boolean;
   operatorActionSummary?: string;
 }
 

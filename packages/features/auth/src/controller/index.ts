@@ -29,6 +29,7 @@ import type {
 
 import {
   createAuthLoginMethodDescriptors,
+  createAuthSecurityPosture,
   createDefaultLoginMethod,
   createInitialAuthPageState,
   type AuthCredentialState,
@@ -207,10 +208,12 @@ export function createAuthController(options: CreateAuthControllerOptions) {
   } = options;
   const baseState = createInitialAuthPageState(kernel.env?.platform);
   const initialMethod = createDefaultLoginMethod(kernel.env?.platform);
+  const loginMethodDescriptors = createAuthLoginMethodDescriptors(kernel.env?.platform);
   const store = createStore({
     ...baseState,
     selectedLoginMethod: initialMethod,
-    loginMethodDescriptors: createAuthLoginMethodDescriptors(kernel.env?.platform),
+    loginMethodDescriptors,
+    securityPosture: createAuthSecurityPosture(initialMethod, loginMethodDescriptors),
     credentials: {
       ...baseState.credentials,
       ...(initialMethod === "guest" ? { anonymousId: createAnonymousId() } : {}),
@@ -449,6 +452,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
     setLoginMethod(method: LoginMethod) {
       store.setState({
         selectedLoginMethod: method,
+        securityPosture: createAuthSecurityPosture(method, store.getState().loginMethodDescriptors),
         fieldErrors: {},
         errorMessage: null,
         ...(method === "guest" && !store.getState().credentials.anonymousId
@@ -851,6 +855,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
     async submitGuestLogin() {
       store.setState({
         selectedLoginMethod: "guest",
+        securityPosture: createAuthSecurityPosture("guest", store.getState().loginMethodDescriptors),
       });
       return submitCredentialLogin("guest");
     },
@@ -858,6 +863,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
     async submitPhoneCodeLogin() {
       store.setState({
         selectedLoginMethod: "phone_code",
+        securityPosture: createAuthSecurityPosture("phone_code", store.getState().loginMethodDescriptors),
       });
       return submitCredentialLogin("phone_code");
     },
@@ -865,6 +871,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
     async submitPasswordLogin() {
       store.setState({
         selectedLoginMethod: "password",
+        securityPosture: createAuthSecurityPosture("password", store.getState().loginMethodDescriptors),
       });
       return submitCredentialLogin("password");
     },
@@ -872,6 +879,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
     async submitOauthLogin() {
       store.setState({
         selectedLoginMethod: "oauth",
+        securityPosture: createAuthSecurityPosture("oauth", store.getState().loginMethodDescriptors),
       });
       return submitCredentialLogin("oauth");
     },
