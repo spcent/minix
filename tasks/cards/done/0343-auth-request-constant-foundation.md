@@ -1,6 +1,6 @@
 # Auth Request Constant Foundation
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -17,6 +17,10 @@ Add auth contract constants for login platforms, OAuth authorize purposes, ident
 
 ## Acceptance
 
-- [ ] remaining auth request string unions have exported constants
-- [ ] existing auth contract types remain compatible
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] remaining auth request string unions have exported constants
+- [x] existing auth contract types remain compatible
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added login platform, OAuth purpose, identity upgrade method, and bind workflow kind constants.
