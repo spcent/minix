@@ -1,10 +1,13 @@
 import {
+  coerceMockQueryNumber,
+  coerceMockQueryString,
   createError,
+  createJsonMockResponse,
   fail,
   ok,
+  resolveMockRequestPath,
   type RequestAdapter,
   type RequestOptions,
-  type ResponseData,
 } from "@minix/core";
 import type {
   BookshelfResponse,
@@ -327,31 +330,6 @@ const CHAPTER_CONTENT: Record<string, ChapterContent> = {
   sword_ch_05: { id: "sword_ch_05", novelId: "novel_sword", title: "Chapter 5 · Under The Watchtower", order: 5, wordCount: 4460, updatedAt: "2026-03-21T08:00:00.000Z", nav: { previousChapterId: "sword_ch_04" }, isFree: true, isTrial: false, requiresMembership: false, isPurchased: true, content: "The tower keeper never asked names.\n\nHe asked who had lied first, which in Lu Shen's experience was another way of asking who would survive the morning.\n\nBelow them, the road lit with torches." },
 };
 
-function buildResponse<T>(status: number, data: T): ResponseData<T> {
-  return {
-    status,
-    headers: { "content-type": "application/json", "x-minix-mock": "true" },
-    data,
-  };
-}
-
-function resolvePath(url: string): string {
-  try { return new URL(url).pathname; } catch { return url; }
-}
-
-function toNumber(value: QueryValue, fallback: number): number {
-  if (typeof value === "number") { return value; }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
-  }
-  return fallback;
-}
-
-function toStringValue(value: QueryValue): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
 function ensureAuthorized(options: RequestOptions) {
   return options.headers?.Authorization === `Bearer ${ACCESS_TOKEN}`;
 }
@@ -385,13 +363,13 @@ function toNovelCard(detail: NovelDetail) {
 }
 
 function listNovels(query?: RequestOptions["query"]): NovelListResponse {
-  const page = toNumber(query?.page, 1);
-  const pageSize = toNumber(query?.pageSize, 6);
-  const categoryKey = toStringValue(query?.categoryKey);
-  const status = toStringValue(query?.status);
-  const keyword = toStringValue(query?.keyword) ?? "";
+  const page = coerceMockQueryNumber(query?.page, 1);
+  const pageSize = coerceMockQueryNumber(query?.pageSize, 6);
+  const categoryKey = coerceMockQueryString(query?.categoryKey);
+  const status = coerceMockQueryString(query?.status);
+  const keyword = coerceMockQueryString(query?.keyword) ?? "";
   const normalizedKeyword = keyword.toLowerCase();
-  const sort = toStringValue(query?.sort) ?? "recommended";
+  const sort = coerceMockQueryString(query?.sort) ?? "recommended";
   const allCards = NOVELS.map(toNovelCard);
   let cards = [...allCards];
 
@@ -477,10 +455,10 @@ export function createNovelWechatMockApiAdapter(): RequestAdapter {
 
   return {
     async request<T = unknown>(options: RequestOptions) {
-      const pathname = resolvePath(options.url);
+      const pathname = resolveMockRequestPath(options.url);
 
       if (pathname === "/auth/login") {
-        return ok(buildResponse(200, {
+        return ok(createJsonMockResponse(200, {
           userId: "novel-wechat-user",
           accessToken: ACCESS_TOKEN,
           expiresAt: Date.now() + 60 * 60 * 1000,
@@ -489,47 +467,47 @@ export function createNovelWechatMockApiAdapter(): RequestAdapter {
       }
 
       if (!ensureAuthorized(options)) {
-        return ok(buildResponse(401, { code: "UNAUTHORIZED", message: "Novel session expired. Please sign in again." } as T));
+        return ok(createJsonMockResponse(401, { code: "UNAUTHORIZED", message: "Novel session expired. Please sign in again." } as T));
       }
 
       if (pathname === "/novels") {
-        return ok(buildResponse(200, listNovels(options.query) as T));
+        return ok(createJsonMockResponse(200, listNovels(options.query) as T));
       }
       if (pathname === "/novels/detail") {
-        const novelId = toStringValue(options.query?.novelId);
+        const novelId = coerceMockQueryString(options.query?.novelId);
         const detail = NOVELS.find((item) => item.id === novelId);
         if (!detail) {
-          return ok(buildResponse(404, { code: "NOT_FOUND" } as T));
+          return ok(createJsonMockResponse(404, { code: "NOT_FOUND" } as T));
         }
-        return ok(buildResponse(200, detail as T));
+        return ok(createJsonMockResponse(200, detail as T));
       }
       if (pathname === "/chapters") {
-        const novelId = toStringValue(options.query?.novelId);
+        const novelId = coerceMockQueryString(options.query?.novelId);
         const response = novelId ? CHAPTER_LISTS[novelId] : undefined;
         if (!response) {
-          return ok(buildResponse(404, { code: "NOT_FOUND" } as T));
+          return ok(createJsonMockResponse(404, { code: "NOT_FOUND" } as T));
         }
-        return ok(buildResponse(200, response as T));
+        return ok(createJsonMockResponse(200, response as T));
       }
       if (pathname === "/chapters/content") {
-        const chapterId = toStringValue(options.query?.chapterId);
+        const chapterId = coerceMockQueryString(options.query?.chapterId);
         const response = chapterId ? CHAPTER_CONTENT[chapterId] : undefined;
         if (!response) {
-          return ok(buildResponse(404, { code: "NOT_FOUND" } as T));
+          return ok(createJsonMockResponse(404, { code: "NOT_FOUND" } as T));
         }
-        return ok(buildResponse(200, response as T));
+        return ok(createJsonMockResponse(200, response as T));
       }
       if (pathname === "/bookshelf") {
-        return ok(buildResponse(200, createBookshelf() as T));
+        return ok(createJsonMockResponse(200, createBookshelf() as T));
       }
       if (pathname === "/membership") {
-        return ok(buildResponse(200, MEMBERSHIP_OVERVIEW as T));
+        return ok(createJsonMockResponse(200, MEMBERSHIP_OVERVIEW as T));
       }
       if (pathname === "/reading-progress" && options.method === "GET") {
-        const novelId = toStringValue(options.query?.novelId);
+        const novelId = coerceMockQueryString(options.query?.novelId);
         const progress = novelId ? progressByNovelId[novelId] ?? null : null;
         const response: LoadReadingProgressResponse = { progress };
-        return ok(buildResponse(200, response as T));
+        return ok(createJsonMockResponse(200, response as T));
       }
       if (pathname === "/reading-progress" && options.method === "POST") {
         const payload = options.body as SaveReadingProgressRequest;
@@ -545,7 +523,7 @@ export function createNovelWechatMockApiAdapter(): RequestAdapter {
           ...(payload.scrollOffset !== undefined ? { scrollOffset: payload.scrollOffset } : {}),
         };
 
-        return ok(buildResponse(200, {
+        return ok(createJsonMockResponse(200, {
           saved: true,
           progress: { ...payload, updatedAt },
         } as T));
