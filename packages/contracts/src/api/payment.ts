@@ -245,6 +245,20 @@ export interface PaymentOperationResult {
   assetLedgerIds?: string[];
 }
 
+export interface PaymentCommercePosture {
+  provider: PaymentGatewayProvider;
+  providerMode: PaymentProviderMode;
+  merchantReady: boolean;
+  callbackVerificationRequired: boolean;
+  secretsManagedExternally: boolean;
+  gatewaySummary: string;
+  callbackSummary: string;
+  reconciliationSummary: string;
+  duplicateProtectionSummary: string;
+  afterSalesSummary: string;
+  ledgerSummary: string;
+}
+
 export interface Entitlement {
   entitlementId: string;
   productType: ProductType;
@@ -299,6 +313,7 @@ export interface OrderDetailResponse {
   callbackLedger?: PaymentCallbackLedgerEntry[];
   reconciliationLedger?: PaymentReconciliationLedgerEntry[];
   operationResult?: PaymentOperationResult;
+  commercePosture?: PaymentCommercePosture;
   entitlement?: Entitlement;
   subscription?: SubscriptionRecord;
   afterSalesCases?: AfterSalesCase[];
@@ -322,6 +337,7 @@ export interface OrderList {
 
 export interface OrderListResponse {
   orderList: OrderList;
+  commercePosture?: PaymentCommercePosture;
 }
 
 export interface PaymentCatalogResponse {
@@ -349,6 +365,7 @@ export interface PurchaseOrderResponse {
   paymentResult: PaymentResult;
   callbackVerification: PaymentCallbackVerification;
   reconciliation: PaymentReconciliation;
+  commercePosture?: PaymentCommercePosture;
   operationResult?: PaymentOperationResult;
   entitlement?: Entitlement;
   subscription?: SubscriptionRecord;

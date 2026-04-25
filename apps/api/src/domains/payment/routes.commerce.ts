@@ -24,6 +24,7 @@ import {
   createMembershipPurchaseResponse,
   createProductOrderDetail,
   listOrders,
+  withPaymentCommercePosture,
 } from "./orders";
 import type { RegisterPaymentRoutesOptions } from "./route-options";
 import {
@@ -111,6 +112,7 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
               duplicateProtected: true,
               message,
             },
+            ...(existingOrder.commercePosture ? { commercePosture: existingOrder.commercePosture } : {}),
             callbackVerification: existingOrder.callbackVerification,
             reconciliation: existingOrder.reconciliation,
             ...(existingOrder.paymentLedger
@@ -133,11 +135,11 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
     }
 
     const duplicateProtected = Boolean(userState.latestPaidOrderId);
-    const orderDetail = createMembershipOrderDetail(
+    const orderDetail = withPaymentCommercePosture(createMembershipOrderDetail(
       session,
       purchasePayload,
       duplicateProtected,
-    );
+    ));
     const assetLedgerIds = appendPaymentAssetLedgerEntries({
       userState,
       detail: orderDetail,
@@ -219,6 +221,7 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
         sku: existingOrder.sku,
         paymentIntent: existingOrder.paymentIntent,
         paymentResult: existingOrder.paymentResult,
+        ...(existingOrder.commercePosture ? { commercePosture: existingOrder.commercePosture } : {}),
         callbackVerification: existingOrder.callbackVerification,
         reconciliation: existingOrder.reconciliation,
         ...(existingOrder.operationResult
@@ -230,11 +233,12 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
     }
 
     const duplicateProtected = Boolean(userState.latestPaidOrderId);
-    const orderDetail = createProductOrderDetail(
+    const createdOrderDetail = createProductOrderDetail(
       session,
       purchasePayload,
       duplicateProtected,
     );
+    const orderDetail = createdOrderDetail ? withPaymentCommercePosture(createdOrderDetail) : null;
     if (!orderDetail?.product || !orderDetail.sku) {
       return jsonError("BAD_REQUEST", "Unknown SKU.", 400, traceId);
     }
@@ -268,6 +272,7 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
       paymentResult: orderDetail.paymentResult,
       callbackVerification: orderDetail.callbackVerification,
       reconciliation: orderDetail.reconciliation,
+      commercePosture: orderDetail.commercePosture,
       ...(orderDetail.operationResult ? { operationResult: orderDetail.operationResult } : {}),
       ...(orderDetail.entitlement ? { entitlement: orderDetail.entitlement } : {}),
       ...(orderDetail.subscription ? { subscription: orderDetail.subscription } : {}),
@@ -332,9 +337,9 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
         processedAt,
       }),
     };
-    userState.ordersById[orderId] = nextOrder;
+    userState.ordersById[orderId] = withPaymentCommercePosture(nextOrder);
     await store.saveUserState(session.userId, userState);
-    return c.json(nextOrder satisfies OrderDetailResponse);
+    return c.json(userState.ordersById[orderId]! satisfies OrderDetailResponse);
   });
 
   app.post("/subscriptions/renew", async (c) => {
@@ -349,7 +354,7 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
     if (!existing?.sku) {
       return jsonError("NOT_FOUND", "Subscription not found.", 404, traceId);
     }
-    const renewalDetail = createProductOrderDetail(
+    const createdRenewalDetail = createProductOrderDetail(
       session,
       {
         skuId: payload.skuId ?? existing.sku.skuId,
@@ -361,6 +366,7 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
       },
       Boolean(userState.latestPaidOrderId),
     );
+    const renewalDetail = createdRenewalDetail ? withPaymentCommercePosture(createdRenewalDetail) : null;
     if (!renewalDetail?.subscription) {
       return jsonError("BAD_REQUEST", "Subscription renewal failed.", 400, traceId);
     }
@@ -393,6 +399,7 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
       paymentResult: renewalDetail.paymentResult,
       callbackVerification: renewalDetail.callbackVerification,
       reconciliation: renewalDetail.reconciliation,
+      commercePosture: renewalDetail.commercePosture,
       ...(renewalDetail.operationResult
         ? { operationResult: renewalDetail.operationResult }
         : {}),

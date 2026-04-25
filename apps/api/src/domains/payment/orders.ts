@@ -7,6 +7,7 @@ import type {
   OrderListResponse,
   OrderSummary,
   PaymentCallbackVerification,
+  PaymentCommercePosture,
   PaymentIntent,
   PaymentReconciliation,
   PaymentReconciliationLedgerEntry,
@@ -108,6 +109,51 @@ function createDuplicateProtectionSummary(duplicateProtected: boolean) {
   return duplicateProtected
     ? "Duplicate-payment protection prevented a second charge and returned the stored order state."
     : "No duplicate-payment guard was triggered for this commerce attempt.";
+}
+
+export function createPaymentCommercePosture(detail: OrderDetailResponse): PaymentCommercePosture {
+  const gatewayReference = detail.paymentIntent.gatewayReference;
+  const provider = gatewayReference?.provider ?? detail.paymentIntent.gatewayRequest?.provider ?? "sample";
+  const providerMode = gatewayReference?.providerMode ?? detail.paymentIntent.gatewayRequest?.providerMode ?? "sample";
+  const paymentLedgerCount = detail.paymentLedger?.length ?? 0;
+  const operationLedgerCount = detail.operationLedger?.length ?? 0;
+  const callbackLedgerCount = detail.callbackLedger?.length ?? 0;
+  const reconciliationLedgerCount = detail.reconciliationLedger?.length ?? 0;
+  return {
+    provider,
+    providerMode,
+    merchantReady: providerMode === "production",
+    callbackVerificationRequired: providerMode === "production",
+    secretsManagedExternally: true,
+    gatewaySummary:
+      providerMode === "production"
+        ? `${provider} gateway metadata is present; merchant credentials remain external to tracked source.`
+        : "Sample gateway metadata is present; no live merchant credentials are stored in tracked source.",
+    callbackSummary:
+      providerMode === "production"
+        ? `Production callbacks require signature verification. Current callback state: ${detail.callbackVerification.status}.`
+        : `Sample callbacks still expose verification evidence. Current callback state: ${detail.callbackVerification.status}.`,
+    reconciliationSummary:
+      detail.reconciliation.ledgerAuditSummary ??
+      detail.reconciliation.diagnosticsSummary ??
+      detail.reconciliation.message,
+    duplicateProtectionSummary:
+      detail.paymentResult.duplicateProtectionSummary ??
+      detail.order.idempotencySummary ??
+      createDuplicateProtectionSummary(detail.order.duplicateProtected),
+    afterSalesSummary:
+      detail.afterSalesCases && detail.afterSalesCases.length > 0
+        ? `${detail.afterSalesCases.length} after-sales case(s) stay attached to this canonical order.`
+        : "No after-sales case is attached to this order yet.",
+    ledgerSummary: `${paymentLedgerCount} payment, ${operationLedgerCount} operation, ${callbackLedgerCount} callback, and ${reconciliationLedgerCount} reconciliation ledger entries are attached.`,
+  };
+}
+
+export function withPaymentCommercePosture<T extends OrderDetailResponse>(detail: T): T & { commercePosture: PaymentCommercePosture } {
+  return {
+    ...detail,
+    commercePosture: createPaymentCommercePosture(detail),
+  };
 }
 
 function createCallbackDiagnosticsSummary(input: {
@@ -576,6 +622,7 @@ export function createMembershipPurchaseResponse(
     order: detail.order,
     paymentIntent: detail.paymentIntent,
     paymentResult: detail.paymentResult,
+    commercePosture: detail.commercePosture ?? createPaymentCommercePosture(detail),
     ...(detail.operationResult ? { operationResult: detail.operationResult } : {}),
     entitlement: detail.entitlement,
     returnTarget: deriveReturnTarget(payload.source),
@@ -624,5 +671,8 @@ export function listOrders(
     hasMore: start + pageSize < filtered.length,
     ...(items[0]?.orderId ? { selectedOrderId: items[0].orderId } : {}),
   };
-  return { orderList };
+  return {
+    orderList,
+    ...(filtered[0] ? { commercePosture: createPaymentCommercePosture(filtered[0]) } : {}),
+  };
 }

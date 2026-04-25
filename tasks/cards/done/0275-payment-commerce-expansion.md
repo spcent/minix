@@ -87,9 +87,20 @@ Make orders, payment intents, results, entitlements, subscriptions, refunds, and
 
 ## Acceptance
 
-- [ ] commerce expansion keeps existing payment envelopes canonical
-- [ ] callback verification remains required for production mode
-- [ ] merchant secrets stay outside tracked source
-- [ ] order continuity and duplicate protection remain visible
-- [ ] docs updated for provider or workflow changes
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] commerce expansion keeps existing payment envelopes canonical
+- [x] callback verification remains required for production mode
+- [x] merchant secrets stay outside tracked source
+- [x] order continuity and duplicate protection remain visible
+- [x] docs updated for provider or workflow changes
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added additive `PaymentCommercePosture` output for provider mode, merchant readiness, callback verification requirements, external secret posture, duplicate protection, after-sales, and ledger summaries.
+- Threaded commerce posture through order list, order detail, purchase, renewal, callback, reconciliation, cancellation, and refund paths without adding new payment route families.
+- Stored commerce posture in subscription state and included it in payment diagnostics.
+- Kept production callback verification explicit while leaving merchant credentials outside tracked source.
+
+## Verification Notes
+
+- Ran `pnpm verify:feature subscription`.

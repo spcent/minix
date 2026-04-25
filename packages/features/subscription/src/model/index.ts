@@ -12,6 +12,7 @@ import type {
   PaymentProduct,
   PaymentSku,
   PaymentCallbackVerification,
+  PaymentCommercePosture,
   PaymentIntent,
   PaymentReconciliation,
   PaymentResult,
@@ -44,6 +45,7 @@ export interface SubscriptionState {
   paymentResult: PaymentResult | undefined;
   callbackVerification: PaymentCallbackVerification | undefined;
   reconciliation: PaymentReconciliation | undefined;
+  commercePosture: PaymentCommercePosture | undefined;
   paymentContinuitySummary: string | undefined;
   paymentDiagnosticsSummary: string | undefined;
   afterSalesContinuitySummary: string | undefined;
@@ -127,6 +129,7 @@ export function createInitialSubscriptionState(options: CreateSubscriptionStateO
     paymentResult: undefined,
     callbackVerification: undefined,
     reconciliation: undefined,
+    commercePosture: undefined,
     paymentContinuitySummary: undefined,
     paymentDiagnosticsSummary: undefined,
     afterSalesContinuitySummary: undefined,

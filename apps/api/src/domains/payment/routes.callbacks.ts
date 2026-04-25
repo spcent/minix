@@ -19,6 +19,7 @@ import {
   resolveMembershipPlanIdFromOrder,
   verifyPaymentCallback,
 } from "./ledger";
+import { withPaymentCommercePosture } from "./orders";
 import type { RegisterPaymentRoutesOptions } from "./route-options";
 import { orderIdQuerySchema, orderOperationSchema, paymentCallbackSchema } from "./schemas";
 
@@ -41,10 +42,10 @@ export function registerPaymentCallbackRoutes(options: RegisterPaymentRoutesOpti
       ...orderDetail.paymentResult,
       polledAt: new Date().toISOString(),
     } satisfies PaymentResult;
-    userState.ordersById[query.orderId] = {
+    userState.ordersById[query.orderId] = withPaymentCommercePosture({
       ...orderDetail,
       paymentResult: nextResult,
-    };
+    });
     await store.saveUserState(session.userId, userState);
     return c.json(nextResult);
   });
@@ -106,7 +107,7 @@ export function registerPaymentCallbackRoutes(options: RegisterPaymentRoutesOpti
         message: verification.message,
         receivedAt,
       });
-      userState.ordersById[payload.orderId] = rejected;
+      userState.ordersById[payload.orderId] = withPaymentCommercePosture(rejected);
       const operationalState = cloneOperationalState(await store.getOperationalState());
       appendOperationalMonitoringEvent(operationalState, {
         level: "warn",
@@ -191,7 +192,7 @@ export function registerPaymentCallbackRoutes(options: RegisterPaymentRoutesOpti
       message: verification.message,
       receivedAt: new Date(now).toISOString(),
     });
-    userState.ordersById[payload.orderId] = nextOrder;
+    userState.ordersById[payload.orderId] = withPaymentCommercePosture(nextOrder);
     if (nextOrder.order.status === "paid" && nextOrder.entitlement && "overview" in nextOrder.entitlement) {
       userState.membershipPlanId = resolveMembershipPlanIdFromOrder(nextOrder) ?? "quarterly";
       userState.latestPaidOrderId = payload.orderId;
@@ -205,7 +206,7 @@ export function registerPaymentCallbackRoutes(options: RegisterPaymentRoutesOpti
       });
     }
     await store.saveUserState(session.userId, userState);
-    return c.json(nextOrder satisfies OrderDetailResponse);
+    return c.json(userState.ordersById[payload.orderId]! satisfies OrderDetailResponse);
   });
 
   app.post("/payments/reconcile", async (c) => {
@@ -221,8 +222,8 @@ export function registerPaymentCallbackRoutes(options: RegisterPaymentRoutesOpti
     }
 
     const nextOrder = applyPaymentReconciliation(existing);
-    userState.ordersById[payload.orderId] = nextOrder;
+    userState.ordersById[payload.orderId] = withPaymentCommercePosture(nextOrder);
     await store.saveUserState(session.userId, userState);
-    return c.json(nextOrder satisfies OrderDetailResponse);
+    return c.json(userState.ordersById[payload.orderId]! satisfies OrderDetailResponse);
   });
 }

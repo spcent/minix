@@ -209,6 +209,8 @@ export function createSubscriptionController(options: CreateSubscriptionControll
     const diagnosticsParts = [
       detail.paymentIntent.capabilitySummary,
       detail.paymentIntent.executionSummary,
+      detail.commercePosture?.gatewaySummary,
+      detail.commercePosture?.callbackSummary,
       detail.callbackVerification.diagnosticsSummary,
       detail.reconciliation.diagnosticsSummary,
       detail.reconciliation.ledgerAuditSummary,
@@ -220,6 +222,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
       paymentResult: detail.paymentResult,
       callbackVerification: detail.callbackVerification,
       reconciliation: detail.reconciliation,
+      commercePosture: detail.commercePosture,
       paymentContinuitySummary,
       paymentDiagnosticsSummary: diagnosticsParts.length > 0 ? diagnosticsParts.join(" ") : undefined,
       afterSalesContinuitySummary: detail.afterSalesCases?.[0]?.continuitySummary,
@@ -264,6 +267,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
           ? currentSelectedOrderId
           : input.orderList.orderList.items[0]?.orderId;
       nextState.orderList = input.orderList.orderList;
+      nextState.commercePosture = input.orderList.commercePosture ?? store.getState().commercePosture;
       nextState.orderListStatus = createListStatus(
         input.orderList.orderList.items.length > 0 ? "ready" : "empty",
         {
@@ -530,6 +534,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         paymentResult: undefined,
         callbackVerification: undefined,
         reconciliation: undefined,
+        commercePosture: undefined,
         entitlement: undefined,
         paymentExecutionDetail: undefined,
         transactionMessage: undefined,
@@ -619,6 +624,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
           order: result.value.order,
           paymentIntent: result.value.paymentIntent,
           paymentResult: result.value.paymentResult,
+          ...(result.value.commercePosture ? { commercePosture: result.value.commercePosture } : {}),
           ...(result.value.operationResult ? { operationResult: result.value.operationResult } : {}),
           callbackVerification: {
             status: "pending",

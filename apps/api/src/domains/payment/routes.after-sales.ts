@@ -23,6 +23,7 @@ import {
   orderIdQuerySchema,
   orderOperationSchema,
 } from "./schemas";
+import { withPaymentCommercePosture } from "./orders";
 
 export function registerPaymentAfterSalesRoutes(options: RegisterPaymentRoutesOptions) {
   const { app, resolveStore } = options;
@@ -57,7 +58,7 @@ export function registerPaymentAfterSalesRoutes(options: RegisterPaymentRoutesOp
       return jsonError("NOT_FOUND", "Order not found.", 404, traceId);
     }
 
-    return c.json(orderDetail satisfies OrderDetailResponse);
+    return c.json(withPaymentCommercePosture(orderDetail) satisfies OrderDetailResponse);
   });
 
   app.post("/orders/cancel", async (c) => {
@@ -89,13 +90,13 @@ export function registerPaymentAfterSalesRoutes(options: RegisterPaymentRoutesOp
         processedAt: nextOrder.operationResult?.processedAt ?? nextOrder.order.updatedAt,
       });
       userState.afterSalesById[caseItem.caseId] = caseItem;
-      userState.ordersById[payload.orderId] = attachAfterSalesCase(nextOrder, caseItem);
+      userState.ordersById[payload.orderId] = withPaymentCommercePosture(attachAfterSalesCase(nextOrder, caseItem));
       await store.saveUserState(session.userId, userState);
       return c.json(userState.ordersById[payload.orderId]! satisfies OrderDetailResponse);
     }
-    userState.ordersById[payload.orderId] = nextOrder;
+    userState.ordersById[payload.orderId] = withPaymentCommercePosture(nextOrder);
     await store.saveUserState(session.userId, userState);
-    return c.json(nextOrder satisfies OrderDetailResponse);
+    return c.json(userState.ordersById[payload.orderId]! satisfies OrderDetailResponse);
   });
 
   app.post("/orders/refund", async (c) => {
@@ -127,7 +128,7 @@ export function registerPaymentAfterSalesRoutes(options: RegisterPaymentRoutesOp
         processedAt: nextOrder.operationResult?.processedAt ?? nextOrder.order.updatedAt,
       });
       userState.afterSalesById[caseItem.caseId] = caseItem;
-      userState.ordersById[payload.orderId] = attachAfterSalesCase(nextOrder, caseItem);
+      userState.ordersById[payload.orderId] = withPaymentCommercePosture(attachAfterSalesCase(nextOrder, caseItem));
       if (
         nextOrder.order.status === "refunded" &&
         userState.latestPaidOrderId === payload.orderId
@@ -138,8 +139,8 @@ export function registerPaymentAfterSalesRoutes(options: RegisterPaymentRoutesOp
       await store.saveUserState(session.userId, userState);
       return c.json(userState.ordersById[payload.orderId]! satisfies OrderDetailResponse);
     }
-    userState.ordersById[payload.orderId] = nextOrder;
+    userState.ordersById[payload.orderId] = withPaymentCommercePosture(nextOrder);
     await store.saveUserState(session.userId, userState);
-    return c.json(nextOrder satisfies OrderDetailResponse);
+    return c.json(userState.ordersById[payload.orderId]! satisfies OrderDetailResponse);
   });
 }

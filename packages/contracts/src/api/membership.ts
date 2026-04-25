@@ -2,6 +2,7 @@ import type {
   Entitlement,
   Order,
   PaymentChannel,
+  PaymentCommercePosture,
   PaymentIntent,
   PaymentOperationResult,
   PaymentProviderMode,
@@ -47,6 +48,7 @@ export interface PurchaseMembershipResponse {
   order: Order;
   paymentIntent: PaymentIntent;
   paymentResult: PaymentResult;
+  commercePosture?: PaymentCommercePosture;
   operationResult?: PaymentOperationResult;
   entitlement: MembershipEntitlement;
   source?: string;

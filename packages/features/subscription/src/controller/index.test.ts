@@ -457,6 +457,19 @@ test("subscription controller can purchase membership and continue back to the b
           "The payment result is successful, but shared commerce continuity still depends on callback verification and reconciliation staying aligned.",
         duplicateProtectionSummary: "No duplicate-payment guard was triggered for this commerce attempt.",
       },
+      commercePosture: {
+        provider: "sample",
+        providerMode: "sample",
+        merchantReady: false,
+        callbackVerificationRequired: false,
+        secretsManagedExternally: true,
+        gatewaySummary: "Sample gateway metadata is present; no live merchant credentials are stored in tracked source.",
+        callbackSummary: "Sample callbacks still expose verification evidence. Current callback state: pending.",
+        reconciliationSummary: "Callback and reconciliation ledgers will keep the append-only audit trail for this order.",
+        duplicateProtectionSummary: "No duplicate-payment guard was triggered for this commerce attempt.",
+        afterSalesSummary: "No after-sales case is attached to this order yet.",
+        ledgerSummary: "1 payment, 1 operation, 0 callback, and 1 reconciliation ledger entries are attached.",
+      },
       operationResult: {
         operation: "verify_callback",
         applied: true,
@@ -535,6 +548,8 @@ test("subscription controller can purchase membership and continue back to the b
     "The payment result is successful, but shared commerce continuity still depends on callback verification and reconciliation staying aligned.",
   );
   assert.match(controller.store.getState().paymentDiagnosticsSummary ?? "", /H5 payment can continue through redirect-based execution/);
+  assert.equal(controller.store.getState().commercePosture?.secretsManagedExternally, true);
+  assert.match(controller.store.getState().paymentDiagnosticsSummary ?? "", /no live merchant credentials/);
   assert.equal(
     controller.store.getState().purchaseSuccessMessage,
     "Membership unlocked. Return to the blocked chapter with your reading position intact.",
