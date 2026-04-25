@@ -1,6 +1,6 @@
 # WeChat Env Helper Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -17,6 +17,10 @@ Adopt shared core bootstrap env helpers in both WeChat bootstrap env loaders.
 
 ## Acceptance
 
-- [ ] both WeChat env loaders remove local boolean parsing duplicates
-- [ ] existing override and process env behavior stays unchanged
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] both WeChat env loaders remove local boolean parsing duplicates
+- [x] existing override and process env behavior stays unchanged
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced local Host WeChat and Novel WeChat env parsing helpers with exported core bootstrap helpers.
