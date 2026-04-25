@@ -2,7 +2,7 @@ import type { Hono, MiddlewareHandler } from "hono";
 import { z } from "zod";
 
 import { parseJsonBody, parseQuery } from "../../http/parsing";
-import type { ApiBindings, ApiStore } from "../../types";
+import { OPERATIONAL_JOB_KINDS, type ApiBindings, type ApiStore, type OperationalJobKind } from "../../types";
 import {
   createProviderReadinessEnvironmentSummary,
   createProviderReadinessEvidencePack,
@@ -22,7 +22,7 @@ const opsDiagnosticsQuerySchema = z.object({
 });
 
 const opsRunJobsRequestSchema = z.object({
-  kind: z.enum(["upload_cleanup", "payment_reconciliation", "notification_retry", "cancellation_expiry"]).optional(),
+  kind: z.enum(OPERATIONAL_JOB_KINDS).optional(),
   limit: z.coerce.number().int().positive().max(50).optional(),
 });
 
@@ -36,7 +36,7 @@ export interface RegisterOpsRoutesOptions {
     store: ApiStore,
     input: {
       userId: string;
-      kind?: "upload_cleanup" | "payment_reconciliation" | "notification_retry" | "cancellation_expiry";
+      kind?: OperationalJobKind;
       limit?: number;
     },
   ) => Promise<{
