@@ -1,8 +1,11 @@
 import {
+  MEMBERSHIP_PLAN_IDS,
+  PAYMENT_CALLBACK_OUTCOMES,
   ORDER_STATUSES,
   PAYMENT_CHANNELS,
   PAYMENT_GATEWAY_PROVIDERS,
   PAYMENT_PROVIDER_MODES,
+  PAYMENT_SCENARIOS,
   PRODUCT_TYPES,
 } from "@minix/contracts";
 import { z } from "zod";
@@ -10,10 +13,10 @@ import { z } from "zod";
 import { apiPaginationQueryShape } from "../schema-helpers";
 
 export const purchaseMembershipSchema = z.object({
-  planId: z.enum(["monthly", "quarterly", "annual"]),
+  planId: z.enum(MEMBERSHIP_PLAN_IDS),
   channel: z.enum(PAYMENT_CHANNELS).optional(),
   providerMode: z.enum(PAYMENT_PROVIDER_MODES).optional(),
-  paymentScenario: z.enum(["instant_success", "pending"]).optional(),
+  paymentScenario: z.enum(PAYMENT_SCENARIOS).optional(),
   idempotencyKey: z.string().min(1).optional(),
   source: z.string().min(1).optional(),
   novelId: z.string().min(1).optional(),
@@ -27,7 +30,7 @@ export const orderOperationSchema = z.object({
 
 export const paymentCallbackSchema = z.object({
   orderId: z.string().min(1),
-  outcome: z.enum(["success", "failure", "cancelled"]),
+  outcome: z.enum(PAYMENT_CALLBACK_OUTCOMES),
   verified: z.boolean().optional(),
   callbackReference: z.string().min(1).optional(),
   provider: z.enum(PAYMENT_GATEWAY_PROVIDERS).optional(),
@@ -51,7 +54,7 @@ export const purchaseOrderSchema = z.object({
   skuId: z.string().min(1),
   channel: z.enum(PAYMENT_CHANNELS).optional(),
   providerMode: z.enum(PAYMENT_PROVIDER_MODES).optional(),
-  paymentScenario: z.enum(["instant_success", "pending"]).optional(),
+  paymentScenario: z.enum(PAYMENT_SCENARIOS).optional(),
   idempotencyKey: z.string().min(1).optional(),
   source: z.string().min(1).optional(),
   novelId: z.string().min(1).optional(),
