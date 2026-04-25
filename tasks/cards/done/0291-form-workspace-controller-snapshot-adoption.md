@@ -1,5 +1,7 @@
 # Form Workspace Controller Snapshot Adoption
 
+Status: done
+
 ## Summary
 
 Adopt core state snapshot helpers in account, feed, and feedback controller clone-state paths, which are the primary reusable form/workspace patterns for future product matrices.
@@ -70,15 +72,22 @@ Complex form and workspace controllers should use the same snapshot helper vocab
 
 ## Acceptance
 
-- [ ] account controller clone-state path uses core snapshot helpers
-- [ ] feed controller clone-state path uses core snapshot helpers
-- [ ] feedback controller clone-state path uses core snapshot helpers
-- [ ] public controller APIs and state fields remain unchanged
-- [ ] playbook records form/workspace controller snapshot guidance
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] account controller clone-state path uses core snapshot helpers
+- [x] feed controller clone-state path uses core snapshot helpers
+- [x] feedback controller clone-state path uses core snapshot helpers
+- [x] public controller APIs and state fields remain unchanged
+- [x] playbook records form/workspace controller snapshot guidance
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Migrated account controller `cloneState` to `cloneStateSnapshot` and `cloneStateSnapshotArray`.
+- Migrated feed controller `cloneState` to the same snapshot helpers.
+- Migrated feedback controller `cloneState` to the same snapshot helpers.
+- Kept controller APIs and state field names unchanged.

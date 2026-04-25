@@ -1,5 +1,7 @@
 import {
   beginFormSubmit,
+  cloneStateSnapshot,
+  cloneStateSnapshotArray,
   createAuthRedirectParams,
   createFormSubmissionKey,
   createListStatus,
@@ -273,16 +275,16 @@ function createContentDraftRequest(values: ContentDraftFormValues): SaveContentD
 function cloneState(state: FeedState): FeedState {
   return {
     ...state,
-    items: state.items.map((item) => ({ ...item })),
+    items: cloneStateSnapshotArray(state.items),
     contentDraftForm: {
       ...state.contentDraftForm,
-      formValues: structuredClone(state.contentDraftForm.formValues),
-      initialFormValues: structuredClone(state.contentDraftForm.initialFormValues),
-      validationErrors: state.contentDraftForm.validationErrors.map((error) => ({ ...error })),
-      submitState: { ...state.contentDraftForm.submitState },
+      formValues: cloneStateSnapshot(state.contentDraftForm.formValues),
+      initialFormValues: cloneStateSnapshot(state.contentDraftForm.initialFormValues),
+      validationErrors: cloneStateSnapshotArray(state.contentDraftForm.validationErrors),
+      submitState: cloneStateSnapshot(state.contentDraftForm.submitState),
       schema: {
-        fields: state.contentDraftForm.schema.fields.map((field) => structuredClone(field)),
-        steps: state.contentDraftForm.schema.steps.map((step) => structuredClone(step)),
+        fields: cloneStateSnapshotArray(state.contentDraftForm.schema.fields),
+        steps: cloneStateSnapshotArray(state.contentDraftForm.schema.steps),
       },
       workflow: {
         ...state.contentDraftForm.workflow,
@@ -292,35 +294,35 @@ function cloneState(state: FeedState): FeedState {
         conditionalFieldKeys: [...state.contentDraftForm.workflow.conditionalFieldKeys],
         ...(state.contentDraftForm.workflow.approvalNodes
           ? {
-              approvalNodes: state.contentDraftForm.workflow.approvalNodes.map((node) => structuredClone(node)),
+              approvalNodes: cloneStateSnapshotArray(state.contentDraftForm.workflow.approvalNodes),
             }
           : {}),
         ...(state.contentDraftForm.workflow.draft
-          ? { draft: structuredClone(state.contentDraftForm.workflow.draft) }
+          ? { draft: cloneStateSnapshot(state.contentDraftForm.workflow.draft) }
           : {}),
       },
-      values: structuredClone(state.contentDraftForm.values),
-      initialValues: structuredClone(state.contentDraftForm.initialValues),
-      fieldErrors: state.contentDraftForm.fieldErrors.map((error) => ({ ...error })),
+      values: cloneStateSnapshot(state.contentDraftForm.values),
+      initialValues: cloneStateSnapshot(state.contentDraftForm.initialValues),
+      fieldErrors: cloneStateSnapshotArray(state.contentDraftForm.fieldErrors),
       ...(state.contentDraftForm.lastSubmission
-        ? { lastSubmission: structuredClone(state.contentDraftForm.lastSubmission) }
+        ? { lastSubmission: cloneStateSnapshot(state.contentDraftForm.lastSubmission) }
         : {}),
     },
-    reviewQueue: state.reviewQueue.map((item) => structuredClone(item)),
+    reviewQueue: cloneStateSnapshotArray(state.reviewQueue),
     surface: state.surface,
-    tags: state.tags.map((tag) => ({ ...tag })),
-    pagination: { ...state.pagination },
-    filters: state.filters.map((group) => structuredClone(group)),
+    tags: cloneStateSnapshotArray(state.tags),
+    pagination: cloneStateSnapshot(state.pagination),
+    filters: cloneStateSnapshotArray(state.filters),
     selection: {
       ...state.selection,
       selectedItemIds: [...state.selection.selectedItemIds],
     },
-    status: { ...state.status },
-    searchQuery: state.searchQuery ? structuredClone(state.searchQuery) : undefined,
-    searchFilters: state.searchFilters.map((group) => structuredClone(group)),
-    searchResults: state.searchResults ? structuredClone(state.searchResults) : undefined,
-    searchQualitySummary: state.searchQualitySummary ? { ...state.searchQualitySummary } : undefined,
-    query: { ...state.query },
+    status: cloneStateSnapshot(state.status),
+    searchQuery: state.searchQuery ? cloneStateSnapshot(state.searchQuery) : undefined,
+    searchFilters: cloneStateSnapshotArray(state.searchFilters),
+    searchResults: state.searchResults ? cloneStateSnapshot(state.searchResults) : undefined,
+    searchQualitySummary: state.searchQualitySummary ? cloneStateSnapshot(state.searchQualitySummary) : undefined,
+    query: cloneStateSnapshot(state.query),
     recentKeywords: [...state.recentKeywords],
     selectedReviewContentId: state.selectedReviewContentId,
   };

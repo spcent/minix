@@ -3,6 +3,8 @@ import {
   createFormSubmissionKey,
   createFormWorkflowState,
   createAuthRedirectParams,
+  cloneStateSnapshot,
+  cloneStateSnapshotArray,
   createStore,
   finalizeFormSubmit,
   ok,
@@ -84,13 +86,13 @@ function hasActiveSession(session: UserSession | null | undefined): session is U
 function cloneState(state: AccountState): AccountState {
   return {
     ...state,
-    formValues: structuredClone(state.formValues),
-    initialFormValues: structuredClone(state.initialFormValues),
-    validationErrors: state.validationErrors.map((error) => ({ ...error })),
-    submitState: { ...state.submitState },
+    formValues: cloneStateSnapshot(state.formValues),
+    initialFormValues: cloneStateSnapshot(state.initialFormValues),
+    validationErrors: cloneStateSnapshotArray(state.validationErrors),
+    submitState: cloneStateSnapshot(state.submitState),
     schema: {
-      fields: state.schema.fields.map((field) => structuredClone(field)),
-      steps: state.schema.steps.map((step) => structuredClone(step)),
+      fields: cloneStateSnapshotArray(state.schema.fields),
+      steps: cloneStateSnapshotArray(state.schema.steps),
     },
     workflow: {
       ...state.workflow,
@@ -99,39 +101,30 @@ function cloneState(state: AccountState): AccountState {
       dynamicFieldKeys: [...state.workflow.dynamicFieldKeys],
       conditionalFieldKeys: [...state.workflow.conditionalFieldKeys],
       ...(state.workflow.approvalNodes
-        ? { approvalNodes: state.workflow.approvalNodes.map((node) => structuredClone(node)) }
+        ? { approvalNodes: cloneStateSnapshotArray(state.workflow.approvalNodes) }
         : {}),
-      ...(state.workflow.draft ? { draft: structuredClone(state.workflow.draft) } : {}),
+      ...(state.workflow.draft ? { draft: cloneStateSnapshot(state.workflow.draft) } : {}),
     },
-    values: structuredClone(state.values),
-    initialValues: structuredClone(state.initialValues),
-    fieldErrors: state.fieldErrors.map((error) => ({ ...error })),
-    ...(state.lastSubmission ? { lastSubmission: structuredClone(state.lastSubmission) } : {}),
-    stats: state.stats.map((stat) => ({ ...stat })),
-    sections: state.sections.map((section) => ({
-      ...section,
-      items: section.items.map((item) => ({ ...item })),
-    })),
-    actions: state.actions.map((action) => ({ ...action })),
+    values: cloneStateSnapshot(state.values),
+    initialValues: cloneStateSnapshot(state.initialValues),
+    fieldErrors: cloneStateSnapshotArray(state.fieldErrors),
+    ...(state.lastSubmission ? { lastSubmission: cloneStateSnapshot(state.lastSubmission) } : {}),
+    stats: cloneStateSnapshotArray(state.stats),
+    sections: cloneStateSnapshotArray(state.sections),
+    actions: cloneStateSnapshotArray(state.actions),
     ...(state.accountOperations
-      ? { accountOperations: state.accountOperations.map((operation) => ({ ...operation })) }
+      ? { accountOperations: cloneStateSnapshotArray(state.accountOperations) }
       : {}),
     ...(state.operationRecords
-      ? { operationRecords: state.operationRecords.map((record) => ({ ...record })) }
+      ? { operationRecords: cloneStateSnapshotArray(state.operationRecords) }
       : {}),
-    ...(state.securityCenter ? { securityCenter: structuredClone(state.securityCenter) } : {}),
-    ...(state.accountWorkspaceSummary ? { accountWorkspaceSummary: { ...state.accountWorkspaceSummary } } : {}),
-    assetLedgerEntries: state.assetLedgerEntries.map((entry) => ({
-      ...entry,
-      ...(entry.entitlement ? { entitlement: { ...entry.entitlement } } : {}),
-    })),
-    ...(state.relationList ? { relationList: structuredClone(state.relationList) } : {}),
+    ...(state.securityCenter ? { securityCenter: cloneStateSnapshot(state.securityCenter) } : {}),
+    ...(state.accountWorkspaceSummary ? { accountWorkspaceSummary: cloneStateSnapshot(state.accountWorkspaceSummary) } : {}),
+    assetLedgerEntries: cloneStateSnapshotArray(state.assetLedgerEntries),
+    ...(state.relationList ? { relationList: cloneStateSnapshot(state.relationList) } : {}),
     ...(state.relationTargets
       ? {
-          relationTargets: state.relationTargets.map((target) => ({
-            ...target,
-            actions: target.actions.map((action) => ({ ...action })),
-          })),
+          relationTargets: cloneStateSnapshotArray(state.relationTargets),
         }
       : {}),
   };
