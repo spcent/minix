@@ -1,6 +1,6 @@
 # Media Tools Provider Mode Boundary Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -23,8 +23,14 @@ Clarify media-tools provider-mode checks without crossing feature/API package bo
 
 ## Acceptance
 
-- [ ] media-tools provider-mode checks are centralized in narrow local helpers
-- [ ] feature package does not import API provider helpers
-- [ ] public state shape remains unchanged
-- [ ] playbook records media-tools boundary guidance
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] media-tools provider-mode checks are centralized in narrow local helpers
+- [x] feature package does not import API provider helpers
+- [x] public state shape remains unchanged
+- [x] playbook records media-tools boundary guidance
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added feature-local provider-mode predicate and inference helpers.
+- Replaced scattered upload/share provider-mode string checks in media-tools summaries.
+- Kept upload/share state shape and capability behavior unchanged.

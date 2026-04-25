@@ -36,6 +36,7 @@ If any step cannot be answered, add the smallest missing contract or shared cont
 - Feature packages must not import API-domain provider helpers. When a host-facing feature only consumes contract provider modes, keep any local predicate narrow and document the boundary rather than crossing into `apps/api`.
 - Account and profile operation controllers should snapshot form values through core helpers, matching form page protocol behavior for drafts, resets, and submitted state.
 - Feedback controllers should use the same core snapshot helpers for ticket projections, FAQ/support lists, draft values, and submission results.
+- Media-tools should keep provider-mode inference inside feature-local helpers; upload/share adapter and API posture logic remain outside the feature package.
 - Use `apps/api/src/domains/snapshot.ts` for API-domain workflow snapshots. Keep it local to the API app instead of importing core helpers into backend-only code.
 - Feedback/support API shaping should use the API-domain snapshot helper for tickets, statuses, FAQ catalogs, support entries, and support-thread echoes so service-loop surfaces stay portable.
 - Extend `apps/api/src/domains/*` for business workflow shaping. Keep `apps/api/src/app.ts` as routing assembly and avoid pushing domain rules into host code.

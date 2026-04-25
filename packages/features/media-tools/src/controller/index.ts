@@ -107,9 +107,23 @@ function deriveUploadProviderSummary(response: UploadPipelineResponse): string {
     return createDefaultUploadProviderSummary();
   }
 
-  return providerMode === "production"
+  return isProductionProviderMode(providerMode)
     ? `Upload review is backed by ${provider}, and asset storage resolves through ${storageProvider ?? "configured object storage"} for this workspace.`
     : `Upload review and storage posture remains sample-backed through ${provider} and ${storageProvider ?? "sample-object-storage"} for this workspace.`;
+}
+
+function isProductionProviderMode(providerMode: "sample" | "production" | undefined): boolean {
+  return providerMode === "production";
+}
+
+function inferProviderMode(provider: string | undefined): "sample" | "production" | undefined {
+  if (provider === "provider") {
+    return "production";
+  }
+  if (provider === "sample") {
+    return "sample";
+  }
+  return undefined;
 }
 
 function deriveUploadOwnershipSummary(response: UploadPipelineResponse): string {
@@ -152,14 +166,10 @@ function deriveShareProviderSummary(
   const shortLinkRecord = response.shortLinkRecord ?? response.attributionReport.shortLinkRecord;
   const posterAsset = response.posterAsset ?? response.attributionReport.posterAsset;
   const shortLinkProvider = shortLinkRecord?.provider;
-  const shortLinkProviderMode =
-    shortLinkRecord?.providerMode ??
-    (shortLinkProvider === "provider" ? "production" : shortLinkProvider === "sample" ? "sample" : undefined);
+  const shortLinkProviderMode = shortLinkRecord?.providerMode ?? inferProviderMode(shortLinkProvider);
   const posterProvider = posterAsset?.provider;
-  const posterProviderMode =
-    posterAsset?.providerMode ??
-    (posterProvider === "provider" ? "production" : posterProvider === "sample" ? "sample" : undefined);
-  if (posterProviderMode === "production" || shortLinkProviderMode === "production") {
+  const posterProviderMode = posterAsset?.providerMode ?? inferProviderMode(posterProvider);
+  if (isProductionProviderMode(posterProviderMode) || isProductionProviderMode(shortLinkProviderMode)) {
     return `Share short-link attribution is backed by ${shortLinkProvider ?? "configured short-link provider"}, and poster generation resolves through ${posterProvider ?? "configured poster provider"} in this workspace.`;
   }
 
