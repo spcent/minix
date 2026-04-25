@@ -1,6 +1,6 @@
 # Feed Search Runtime Snapshot Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -41,10 +41,16 @@ Feed/search is a reusable cross-domain product entry. It should follow the same 
 
 ## Acceptance
 
-- [ ] feed model tags use core snapshot helpers
-- [ ] feed runtime search projections use core snapshot helpers
-- [ ] feed content draft value snapshots use core snapshot helpers where practical
-- [ ] public feature APIs and state fields remain unchanged
-- [ ] playbook records feed/search snapshot guidance
-- [ ] change is local and reversible
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] feed model tags use core snapshot helpers
+- [x] feed runtime search projections use core snapshot helpers
+- [x] feed content draft value snapshots use core snapshot helpers where practical
+- [x] public feature APIs and state fields remain unchanged
+- [x] playbook records feed/search snapshot guidance
+- [x] change is local and reversible
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced feed model tag cloning with `cloneStateSnapshotArray`.
+- Replaced feed search result, query, filter, tag, and item projection cloning with core snapshot helpers.
+- Replaced content draft snapshot and submission result cloning with `cloneStateSnapshot` where practical.

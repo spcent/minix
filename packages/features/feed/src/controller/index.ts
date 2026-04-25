@@ -354,7 +354,7 @@ function createSearchResults(
     activeTag?: string | undefined;
   } = {},
 ): SearchResults<FeedItem> {
-  const nextSearchResults = structuredClone(response.searchResults);
+  const nextSearchResults = cloneStateSnapshot(response.searchResults);
   const routeKeys = [
     ...(response.searchQuery.keyword ? ["keyword"] : []),
     ...(response.searchQuery.mode !== "global" ? ["mode"] : []),
@@ -498,7 +498,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         ...currentForm,
         dirty: options.dirty ?? currentForm.dirty,
         values,
-        formValues: structuredClone(values),
+        formValues: cloneStateSnapshot(values),
         schema: nextDerived.schema,
         workflow: nextDerived.workflow,
         fieldErrors: [],
@@ -806,7 +806,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         routeWritebackEnabled: Boolean(feedRouteId),
         ...(store.getState().activeTag ? { activeTag: store.getState().activeTag } : {}),
       });
-      const nextItems = nextSearchResults.items.map((item) => ({ ...item }));
+      const nextItems = cloneStateSnapshotArray(nextSearchResults.items);
       const selectedItemId = deriveSelectedItemId(nextItems, store.getState().selectedItemId);
       const loadState = nextItems.length > 0 ? "ready" : "empty";
       const contentDraftValues = contentDraftSnapshot.ok && contentDraftSnapshot.value?.values
@@ -835,9 +835,9 @@ export function createFeedController(options: CreateFeedControllerOptions) {
           hasMore: nextSearchResults.hasMore,
           total: nextSearchResults.total,
         },
-        filters: result.value.searchFilters.map((group) => structuredClone(group)),
-        searchQuery: structuredClone(result.value.searchQuery),
-        searchFilters: result.value.searchFilters.map((group) => structuredClone(group)),
+        filters: cloneStateSnapshotArray(result.value.searchFilters),
+        searchQuery: cloneStateSnapshot(result.value.searchQuery),
+        searchFilters: cloneStateSnapshotArray(result.value.searchFilters),
         searchResults: nextSearchResults,
         searchQualitySummary: nextSearchResults.qualitySummary,
         selectedItemId,
@@ -848,18 +848,18 @@ export function createFeedController(options: CreateFeedControllerOptions) {
           ...(store.getState().status.restoredQueryKeys ? { restoredQueryKeys: store.getState().status.restoredQueryKeys } : {}),
           ...(selectedItemId ? { restoredSelectionId: selectedItemId } : {}),
         }),
-        tags: result.value.tags?.map((tag) => ({ ...tag })) ?? store.getState().tags,
+        tags: result.value.tags ? cloneStateSnapshotArray(result.value.tags) : store.getState().tags,
         featuredReason: nextSearchResults.featuredReason ?? result.value.featuredReason ?? deriveFeaturedReason(nextItems, store.getState().featuredReason),
         recentKeywords: nextSearchResults.recentKeywords,
         contentDraftForm: {
           ...store.getState().contentDraftForm,
           dirty: Boolean(contentDraftSnapshot.ok && contentDraftSnapshot.value),
           values: contentDraftValues,
-          formValues: structuredClone(contentDraftValues),
+          formValues: cloneStateSnapshot(contentDraftValues),
           ...(contentDraftSnapshot.ok && contentDraftSnapshot.value?.savedAt !== undefined
             ? {
-                initialValues: structuredClone(createDefaultContentDraftFormValues()),
-                initialFormValues: structuredClone(createDefaultContentDraftFormValues()),
+                initialValues: cloneStateSnapshot(createDefaultContentDraftFormValues()),
+                initialFormValues: cloneStateSnapshot(createDefaultContentDraftFormValues()),
               }
             : {}),
           schema: nextContentDraft.schema,
@@ -905,7 +905,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         return handleFeedFailure(result);
       }
 
-      const nextItems = result.value.items.map((item) => ({ ...item }));
+      const nextItems = cloneStateSnapshotArray(result.value.items);
       const selectedItemId = deriveSelectedItemId(nextItems, store.getState().selectedItemId);
       const nextSearchResults = createSearchResults(result.value, store.getState().recentKeywords, store.getState().emptyText, {
         restoredFromRoute: store.getState().status.restoredFromRoute,
@@ -925,9 +925,9 @@ export function createFeedController(options: CreateFeedControllerOptions) {
           hasMore: result.value.hasMore,
           total: nextSearchResults.total,
         },
-        filters: result.value.searchFilters.map((group) => structuredClone(group)),
-        searchQuery: structuredClone(result.value.searchQuery),
-        searchFilters: result.value.searchFilters.map((group) => structuredClone(group)),
+        filters: cloneStateSnapshotArray(result.value.searchFilters),
+        searchQuery: cloneStateSnapshot(result.value.searchQuery),
+        searchFilters: cloneStateSnapshotArray(result.value.searchFilters),
         searchResults: nextSearchResults,
         searchQualitySummary: nextSearchResults.qualitySummary,
         selectedItemId,
@@ -938,7 +938,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
           ...(store.getState().status.restoredQueryKeys ? { restoredQueryKeys: store.getState().status.restoredQueryKeys } : {}),
           ...(selectedItemId ? { restoredSelectionId: selectedItemId } : {}),
         }),
-        tags: result.value.tags?.map((tag) => ({ ...tag })) ?? store.getState().tags,
+        tags: result.value.tags ? cloneStateSnapshotArray(result.value.tags) : store.getState().tags,
         featuredReason: result.value.featuredReason ?? deriveFeaturedReason(nextItems, store.getState().featuredReason),
         query: {
           ...store.getState().query,
@@ -982,7 +982,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         routeWritebackEnabled: Boolean(feedRouteId),
         ...(current.activeTag ? { activeTag: current.activeTag } : {}),
       });
-      const nextItems = [...current.items, ...nextSearchResults.items.map((item) => ({ ...item }))];
+      const nextItems = [...current.items, ...cloneStateSnapshotArray(nextSearchResults.items)];
       const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
       const loadState = nextItems.length > 0 ? "ready" : "empty";
       store.setState({
@@ -996,9 +996,9 @@ export function createFeedController(options: CreateFeedControllerOptions) {
           hasMore: nextSearchResults.hasMore,
           total: nextSearchResults.total,
         },
-        filters: result.value.searchFilters.map((group) => structuredClone(group)),
-        searchQuery: structuredClone(result.value.searchQuery),
-        searchFilters: result.value.searchFilters.map((group) => structuredClone(group)),
+        filters: cloneStateSnapshotArray(result.value.searchFilters),
+        searchQuery: cloneStateSnapshot(result.value.searchQuery),
+        searchFilters: cloneStateSnapshotArray(result.value.searchFilters),
         searchResults: {
           ...nextSearchResults,
           items: nextItems,
@@ -1012,7 +1012,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
           ...(current.status.restoredQueryKeys ? { restoredQueryKeys: current.status.restoredQueryKeys } : {}),
           ...(selectedItemId ? { restoredSelectionId: selectedItemId } : {}),
         }),
-        tags: result.value.tags?.map((tag) => ({ ...tag })) ?? current.tags,
+        tags: result.value.tags ? cloneStateSnapshotArray(result.value.tags) : current.tags,
         featuredReason: nextSearchResults.featuredReason ?? result.value.featuredReason ?? deriveFeaturedReason(nextItems, current.featuredReason),
         recentKeywords: nextSearchResults.recentKeywords,
         query: {
@@ -1267,7 +1267,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
 
       const snapshot = {
         savedAt: Date.now(),
-        values: structuredClone(store.getState().contentDraftForm.values),
+        values: cloneStateSnapshot(store.getState().contentDraftForm.values),
         ...(store.getState().contentDraftForm.workflow.currentStepKey
           ? { currentStepKey: store.getState().contentDraftForm.workflow.currentStepKey }
           : {}),
@@ -1433,13 +1433,13 @@ export function createFeedController(options: CreateFeedControllerOptions) {
           ...store.getState().contentDraftForm,
           lastSubmission: {
             submittedAt: Date.now(),
-            value: structuredClone(result.value),
+            value: cloneStateSnapshot(result.value),
           },
           submitState: finalizeFormSubmit(store.getState().contentDraftForm.submitState, {
             mode: "submit",
             submissionKey,
             submittedAt: Date.now(),
-            result: structuredClone(result.value),
+            result: cloneStateSnapshot(result.value),
           }),
         },
       });

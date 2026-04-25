@@ -11,7 +11,13 @@ import type {
   SearchMode,
   SearchQualitySummary,
 } from "@minix/contracts";
-import { createDefaultFormPageState, createDefaultListPageState, type FormPageState, type ListPageState } from "@minix/core";
+import {
+  cloneStateSnapshotArray,
+  createDefaultFormPageState,
+  createDefaultListPageState,
+  type FormPageState,
+  type ListPageState,
+} from "@minix/core";
 
 export interface FeedQuery {
   page: number;
@@ -72,10 +78,6 @@ export interface CreateDefaultFeedStateOptions {
   emptyText?: string;
 }
 
-function cloneTags(tags: FeedTag[]): FeedTag[] {
-  return tags.map((tag) => ({ ...tag }));
-}
-
 export function createDefaultContentDraftFormValues(
   values: Partial<ContentDraftFormValues> = {},
 ): ContentDraftFormValues {
@@ -118,7 +120,7 @@ export function createFeedState(options: CreateFeedStateOptions): FeedState {
     }),
     reviewQueue: [],
     selectedReviewContentId: undefined,
-    tags: cloneTags(options.tags ?? []),
+    tags: cloneStateSnapshotArray(options.tags ?? []),
     activeTag: undefined,
     query: {
       page: 1,

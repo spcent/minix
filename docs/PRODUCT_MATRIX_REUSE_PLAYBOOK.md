@@ -26,6 +26,7 @@ If any step cannot be answered, add the smallest missing contract or shared cont
 - Use the same snapshot helper in reusable feature model factories when defaults accept arrays, nested descriptors, uploaded assets, or backend bootstrap projections.
 - For content products, apply the same helper to reading workspace initial state: shelves, chapters, detail data, and milestone history should not mix shallow array copies with deep object snapshots.
 - Keep list/search runtime projections on the same snapshot convention as initial state so copied catalog-style controllers do not reintroduce local clone idioms in request handlers.
+- Feed/search controllers should share the same list projection and draft snapshot convention as catalog, including backend search results, search filters, tags, and saved content draft values.
 - Keep capability-backed features platform-neutral. Upload and share state belongs in `packages/features/media-tools`; adapter differences stay in `packages/platform-h5` and `packages/platform-wechat`.
 - Normalize provider readiness and degraded behavior in contracts or shared controller state. Live credentials, provider dashboards, and callback evidence remain release/operator artifacts, not tracked source.
 - Reuse `apps/api/src/domains/provider-posture.ts` for API-side `ProviderPostureMode` resolution and sample/production predicates across auth, messages, upload, and share; keep configured-provider fallbacks, base URL normalization, host extraction, and secret-material posture copy there too.
