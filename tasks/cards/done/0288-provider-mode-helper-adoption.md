@@ -1,5 +1,7 @@
 # Provider Mode Helper Adoption
 
+Status: done
+
 ## Summary
 
 Extend the API provider posture helper beyond upload/share so auth and message touchpoint provider-mode entry points use the same sample/production resolver.
@@ -67,14 +69,20 @@ Provider-backed domains should avoid hand-written `env === "production" ? "produ
 
 ## Acceptance
 
-- [ ] auth SMS/OAuth provider modes use the shared API helper
-- [ ] message touchpoint provider mode uses the shared API helper
-- [ ] env names and response shapes stay unchanged
-- [ ] playbook explains the provider-mode helper as a cross-domain rule
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] auth SMS/OAuth provider modes use the shared API helper
+- [x] message touchpoint provider mode uses the shared API helper
+- [x] env names and response shapes stay unchanged
+- [x] playbook explains the provider-mode helper as a cross-domain rule
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Migrated auth SMS/OAuth provider-mode normalization to `resolveProviderPostureMode`.
+- Migrated message touchpoint provider-mode normalization to `resolveProviderPostureMode`.
+- Kept all env variable names and response fields unchanged.

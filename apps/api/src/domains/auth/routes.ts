@@ -12,6 +12,7 @@ import type { Hono, MiddlewareHandler } from "hono";
 import { jsonError } from "../../http/response";
 import { parseJsonBody } from "../../http/parsing";
 import { resolveBearerToken } from "../../http/auth";
+import { resolveProviderPostureMode } from "../provider-posture";
 import type { AuthOAuthProvider, AuthSmsDeliveryProvider } from "./provider";
 import type { ApiBindings, ApiStore, SessionRecord, UserState } from "../../types";
 import {
@@ -134,11 +135,11 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
   }
 
   function resolveSmsProviderMode(env: ApiBindings | undefined): "sample" | "production" {
-    return env?.MINIX_AUTH_SMS_PROVIDER_MODE === "production" ? "production" : "sample";
+    return resolveProviderPostureMode(env?.MINIX_AUTH_SMS_PROVIDER_MODE);
   }
 
   function resolveOAuthProviderMode(env: ApiBindings | undefined): "sample" | "production" {
-    return env?.MINIX_AUTH_OAUTH_PROVIDER_MODE === "production" ? "production" : "sample";
+    return resolveProviderPostureMode(env?.MINIX_AUTH_OAUTH_PROVIDER_MODE);
   }
 
   function createOAuthProviderFailureResponse(

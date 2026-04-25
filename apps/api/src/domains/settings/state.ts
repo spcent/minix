@@ -11,6 +11,7 @@ import type {
 } from "@minix/contracts";
 
 import type { ApiBindings, UserState } from "../../types";
+import { resolveProviderPostureMode } from "../provider-posture";
 
 const DEFAULT_UPLOAD_CHUNK_SIZE_BYTES = 64 * 1024;
 const REDUCED_UPLOAD_CHUNK_SIZE_BYTES = 16 * 1024;
@@ -187,7 +188,7 @@ const PRODUCTION_NOTIFICATION_CHANNEL_PROVIDER_DEFAULTS: Record<
 export function resolveMessageTouchpointProviderMode(
   runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): "sample" | "production" {
-  return runtimeEnv?.MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE === "production" ? "production" : "sample";
+  return resolveProviderPostureMode(runtimeEnv?.MINIX_MESSAGE_TOUCHPOINT_PROVIDER_MODE);
 }
 
 export function resolveNotificationChannelProviderConfig(
