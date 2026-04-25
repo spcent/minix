@@ -8,6 +8,7 @@ import type {
   OperationalState,
   UserState,
 } from "../../types";
+import { cloneDomainSnapshot } from "../snapshot";
 
 const OPERATIONAL_STATE_SCHEMA_VERSION = 1;
 
@@ -55,7 +56,7 @@ export function createDefaultOperationalState(): OperationalState {
 }
 
 export function cloneOperationalState(state: OperationalState): OperationalState {
-  return structuredClone(state);
+  return cloneDomainSnapshot(state);
 }
 
 export function appendOperationalMonitoringEvent(

@@ -1,5 +1,7 @@
 # API Domain Snapshot Helper Adoption
 
+Status: done
+
 ## Summary
 
 Add a small API-domain snapshot helper and adopt it in representative backend workflow state clones.
@@ -71,14 +73,20 @@ API domains should have the same lightweight snapshot vocabulary as shared featu
 
 ## Acceptance
 
-- [ ] API domain snapshot helper exists and stays dependency-local
-- [ ] ops/content/payment/share representative clones use the helper
-- [ ] API response shapes remain unchanged
-- [ ] playbook records API snapshot helper guidance
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] API domain snapshot helper exists and stays dependency-local
+- [x] ops/content/payment/share representative clones use the helper
+- [x] API response shapes remain unchanged
+- [x] playbook records API snapshot helper guidance
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added `apps/api/src/domains/snapshot.ts` with API-local snapshot helpers.
+- Migrated representative ops, content lifecycle, payment callback/ledger, and share attribution clones to the helper.
+- Kept API response shapes unchanged.

@@ -16,11 +16,12 @@ import {
   appendUserAssetLedgerEntry,
   createAssetLedgerEntry,
 } from "../account/assets";
+import { cloneDomainSnapshot } from "../snapshot";
 import type { UserState } from "../../types";
 import { createLedgerId, createPaymentLedgerEntry } from "./catalog";
 
 function cloneOrderDetail(detail: OrderDetailResponse): OrderDetailResponse {
-  return structuredClone(detail);
+  return cloneDomainSnapshot(detail);
 }
 
 export function createPaymentWebhookSignature(input: {

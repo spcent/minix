@@ -19,6 +19,7 @@ import {
   resolveMembershipPlanIdFromOrder,
   verifyPaymentCallback,
 } from "./ledger";
+import { cloneDomainSnapshot } from "../snapshot";
 import { withPaymentCommercePosture } from "./orders";
 import type { RegisterPaymentRoutesOptions } from "./route-options";
 import { orderIdQuerySchema, orderOperationSchema, paymentCallbackSchema } from "./schemas";
@@ -82,7 +83,7 @@ export function registerPaymentCallbackRoutes(options: RegisterPaymentRoutesOpti
       now,
     });
     if (!verification.ok) {
-      const rejected = structuredClone(existing);
+      const rejected = cloneDomainSnapshot(existing);
       const receivedAt = new Date(now).toISOString();
       rejected.callbackVerification = {
         status: "rejected",

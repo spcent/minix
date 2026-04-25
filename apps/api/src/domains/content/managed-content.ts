@@ -25,6 +25,7 @@ import type {
 
 import { HOST_ITEMS } from "../../content";
 import { bindUploadAssetsToOwner, resolveUploadAssetForUser } from "../uploads/pipeline";
+import { cloneDomainSnapshot } from "../snapshot";
 import type { UserState } from "../../types";
 
 function createManagedContentAuditEntry(input: {
@@ -915,7 +916,7 @@ export function applyManagedContentLifecycle(
 
   const actorRole = resolveManagedContentActorRole(input.actorRole);
   const permissions = createManagedContentPermissions(current, actorRole);
-  const next = structuredClone(current);
+  const next = cloneDomainSnapshot(current);
   const now = new Date().toISOString();
 
   switch (input.action) {

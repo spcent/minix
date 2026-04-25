@@ -20,6 +20,7 @@ import {
   resolveUrlHost,
   SECRET_MATERIAL_NOT_TRACKED_SUMMARY,
 } from "../provider-posture";
+import { cloneDomainSnapshot } from "../snapshot";
 
 export interface ShareProviderRuntimeEnv {
   MINIX_SHARE_PROVIDER_MODE?: string;
@@ -377,7 +378,7 @@ export function recognizeShareReturn(
   request: ShareReturnRecognitionRequest,
   now = new Date().toISOString(),
 ): ShareReturnRecognitionResponse {
-  const next = structuredClone(existing);
+  const next = cloneDomainSnapshot(existing);
   next.shareAttribution.returnFlowRecognized = request.outcome === "return" || request.outcome === "conversion";
   if (request.outcome === "click") {
     next.shareAttribution.clickCount += 1;
@@ -467,7 +468,7 @@ export function resolveShareShortLink(
   existing: SharePrepareResponse,
   now = new Date().toISOString(),
 ): ShareShortLinkResolveResponse {
-  const next = structuredClone(existing);
+  const next = cloneDomainSnapshot(existing);
   const existingShortLinkRecord = next.shortLinkRecord ?? next.attributionReport.shortLinkRecord;
   if (next.shortLinkRecord) {
     next.shortLinkRecord.resolvedCount += 1;
@@ -559,7 +560,7 @@ export function resolveShareShortLink(
 }
 
 export function createShareAttributionReport(existing: SharePrepareResponse): ShareAttributionReportResponse {
-  const next = structuredClone(existing);
+  const next = cloneDomainSnapshot(existing);
   next.sharePayload.readinessSummary = createSharePayloadReadinessSummary({
     scenario: next.sharePayload.scenario,
     channelKind: next.shareChannel.kind,
