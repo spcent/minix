@@ -1,5 +1,7 @@
 # API Provider Posture Runtime Helpers
 
+Status: done
+
 ## Summary
 
 Consolidate repeated API provider-mode, provider-name, base-url, host, and secret-material posture helpers so provider-backed domains can reuse one runtime vocabulary.
@@ -72,15 +74,21 @@ Upload, share, and future provider-backed product capabilities should resolve sa
 
 ## Acceptance
 
-- [ ] upload/share provider-mode resolution uses shared API helper vocabulary
-- [ ] provider names still honor configured env values before defaults
-- [ ] provider posture summaries still state that secret material is not tracked in source
-- [ ] response shapes remain backwards compatible
-- [ ] playbook records the helper as the API-side provider posture reuse point
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] upload/share provider-mode resolution uses shared API helper vocabulary
+- [x] provider names still honor configured env values before defaults
+- [x] provider posture summaries still state that secret material is not tracked in source
+- [x] response shapes remain backwards compatible
+- [x] playbook records the helper as the API-side provider posture reuse point
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added `apps/api/src/domains/provider-posture.ts` as the API-side provider posture helper.
+- Migrated upload/share provider-mode resolution, configured-provider fallback, URL host extraction, base URL normalization, and secret-material summary copy to the shared helper.
+- Kept all upload/share response fields and env variable names unchanged.

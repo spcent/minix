@@ -11,6 +11,14 @@ import type {
   ShareShortLinkResolveResponse,
 } from "@minix/contracts";
 
+import {
+  normalizeProviderBaseUrl,
+  resolveProviderName,
+  resolveProviderPostureMode,
+  resolveUrlHost,
+  SECRET_MATERIAL_NOT_TRACKED_SUMMARY,
+} from "../provider-posture";
+
 export interface ShareProviderRuntimeEnv {
   MINIX_SHARE_PROVIDER_MODE?: string;
   MINIX_SHARE_SHORT_LINK_PROVIDER?: string;
@@ -20,29 +28,27 @@ export interface ShareProviderRuntimeEnv {
 }
 
 function resolveShareProviderMode(runtimeEnv?: ShareProviderRuntimeEnv): "sample" | "production" {
-  return runtimeEnv?.MINIX_SHARE_PROVIDER_MODE === "production" ? "production" : "sample";
+  return resolveProviderPostureMode(runtimeEnv?.MINIX_SHARE_PROVIDER_MODE);
 }
 
 function resolveShareShortLinkProvider(runtimeEnv?: ShareProviderRuntimeEnv): string {
-  const provider = runtimeEnv?.MINIX_SHARE_SHORT_LINK_PROVIDER?.trim();
-  if (provider) {
-    return provider;
-  }
-
-  return resolveShareProviderMode(runtimeEnv) === "production" ? "configured-short-link-provider" : "sample-short-link";
+  const providerMode = resolveShareProviderMode(runtimeEnv);
+  return resolveProviderName({
+    configuredName: runtimeEnv?.MINIX_SHARE_SHORT_LINK_PROVIDER,
+    providerMode,
+    productionFallback: "configured-short-link-provider",
+    sampleFallback: "sample-short-link",
+  });
 }
 
 function resolveSharePosterProvider(runtimeEnv?: ShareProviderRuntimeEnv): string {
-  const provider = runtimeEnv?.MINIX_SHARE_POSTER_PROVIDER?.trim();
-  if (provider) {
-    return provider;
-  }
-
-  return resolveShareProviderMode(runtimeEnv) === "production" ? "configured-poster-provider" : "sample-poster-provider";
-}
-
-function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  const providerMode = resolveShareProviderMode(runtimeEnv);
+  return resolveProviderName({
+    configuredName: runtimeEnv?.MINIX_SHARE_POSTER_PROVIDER,
+    providerMode,
+    productionFallback: "configured-poster-provider",
+    sampleFallback: "sample-poster-provider",
+  });
 }
 
 const buildShareShortLinkUrl = (
@@ -52,7 +58,7 @@ const buildShareShortLinkUrl = (
 ): string => {
   const configuredBaseUrl = runtimeEnv?.MINIX_SHARE_SHORT_LINK_BASE_URL?.trim();
   if (configuredBaseUrl) {
-    return new URL(shortCode, normalizeBaseUrl(configuredBaseUrl)).toString();
+    return new URL(shortCode, normalizeProviderBaseUrl(configuredBaseUrl)).toString();
   }
 
   return new URL(`/share/resolve?shortCode=${shortCode}`, requestUrl).toString();
@@ -65,7 +71,7 @@ function resolveSharePosterAssetUrl(
 ): string {
   const configuredBaseUrl = runtimeEnv?.MINIX_SHARE_POSTER_BASE_URL?.trim();
   if (configuredBaseUrl) {
-    return new URL(`${shortCode}.svg`, normalizeBaseUrl(configuredBaseUrl)).toString();
+    return new URL(`${shortCode}.svg`, normalizeProviderBaseUrl(configuredBaseUrl)).toString();
   }
 
   return new URL(`/share-posters/${shortCode}.svg`, requestUrl).toString();
@@ -131,17 +137,6 @@ function createInviteBindingSummary(inviteBindingEnabled: boolean, inviteBoundUs
   return "Invite binding is active and waiting for a recognized conversion user.";
 }
 
-function resolveUrlHost(url: string | undefined): string | undefined {
-  if (!url) {
-    return undefined;
-  }
-  try {
-    return new URL(url).origin;
-  } catch {
-    return undefined;
-  }
-}
-
 function createShareCampaignRule(input: {
   campaign?: string;
   channelMarker?: string;
@@ -187,8 +182,8 @@ function createShareProviderPosture(input: {
   const posterHost = resolveUrlHost(input.posterUrl);
   const readinessSummary =
     input.providerMode === "production"
-      ? `Share short-link provider ${input.shortLinkProvider} and poster provider ${input.posterProvider ?? "configured poster provider"} are configured. Secret material is not tracked in source.`
-      : `Share short-link and poster generation remain sample-backed through ${input.shortLinkProvider} and ${input.posterProvider ?? "sample-poster-provider"}. Secret material is not tracked in source.`;
+      ? `Share short-link provider ${input.shortLinkProvider} and poster provider ${input.posterProvider ?? "configured poster provider"} are configured. ${SECRET_MATERIAL_NOT_TRACKED_SUMMARY}`
+      : `Share short-link and poster generation remain sample-backed through ${input.shortLinkProvider} and ${input.posterProvider ?? "sample-poster-provider"}. ${SECRET_MATERIAL_NOT_TRACKED_SUMMARY}`;
   return {
     providerMode: input.providerMode,
     shortLinkProvider: input.shortLinkProvider,

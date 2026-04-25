@@ -24,6 +24,7 @@ If any step cannot be answered, add the smallest missing contract or shared cont
 - Use `packages/core/src/page-protocols/*` for list, detail, and form behavior. New products should not reimplement loading, pagination, detail status, draft, or submit state locally.
 - Keep capability-backed features platform-neutral. Upload and share state belongs in `packages/features/media-tools`; adapter differences stay in `packages/platform-h5` and `packages/platform-wechat`.
 - Normalize provider readiness and degraded behavior in contracts or shared controller state. Live credentials, provider dashboards, and callback evidence remain release/operator artifacts, not tracked source.
+- Reuse `apps/api/src/domains/provider-posture.ts` for API-side provider-mode resolution, configured-provider fallbacks, base URL normalization, host extraction, and secret-material posture copy.
 - Extend `apps/api/src/domains/*` for business workflow shaping. Keep `apps/api/src/app.ts` as routing assembly and avoid pushing domain rules into host code.
 - Prefer manifest changes and existing scaffolds for new host exposure. Generated registries and WeChat shell output should only change through generation scripts.
 

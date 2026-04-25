@@ -22,6 +22,12 @@ import type {
   UploadTransferPayload,
 } from "@minix/contracts";
 
+import {
+  resolveProviderName,
+  resolveProviderPostureMode,
+  resolveUrlHost,
+  SECRET_MATERIAL_NOT_TRACKED_SUMMARY,
+} from "../provider-posture";
 import type { ApiBindings, StoredUploadRecord, UserState } from "../../types";
 
 const DEFAULT_UPLOAD_CHUNK_SIZE_BYTES = 64 * 1024;
@@ -251,42 +257,38 @@ function cloneStoredUploadRecord(record: StoredUploadRecord): StoredUploadRecord
 }
 
 function resolveUploadProviderMode(runtimeEnv?: UploadProviderRuntimeEnv): "sample" | "production" {
-  return runtimeEnv?.MINIX_UPLOAD_PROVIDER_MODE === "production" ? "production" : "sample";
+  return resolveProviderPostureMode(runtimeEnv?.MINIX_UPLOAD_PROVIDER_MODE);
 }
 
 function resolveUploadStorageProvider(runtimeEnv?: UploadProviderRuntimeEnv): string {
-  return resolveUploadProviderMode(runtimeEnv) === "production"
-    ? runtimeEnv?.MINIX_UPLOAD_STORAGE_PROVIDER || "object-storage-provider"
-    : "sample-object-storage";
+  const providerMode = resolveUploadProviderMode(runtimeEnv);
+  return resolveProviderName({
+    configuredName: runtimeEnv?.MINIX_UPLOAD_STORAGE_PROVIDER,
+    providerMode,
+    productionFallback: "object-storage-provider",
+    sampleFallback: "sample-object-storage",
+  });
 }
 
 function resolveUploadReviewProvider(runtimeEnv?: UploadProviderRuntimeEnv): string {
-  return resolveUploadProviderMode(runtimeEnv) === "production"
-    ? runtimeEnv?.MINIX_UPLOAD_REVIEW_PROVIDER || "content-review-provider"
-    : "sample-upload-policy";
-}
-
-function resolveAssetHost(record: StoredUploadRecord): string | undefined {
-  const url = record.uploadAsset?.url;
-  if (!url) {
-    return undefined;
-  }
-  try {
-    return new URL(url).origin;
-  } catch {
-    return undefined;
-  }
+  const providerMode = resolveUploadProviderMode(runtimeEnv);
+  return resolveProviderName({
+    configuredName: runtimeEnv?.MINIX_UPLOAD_REVIEW_PROVIDER,
+    providerMode,
+    productionFallback: "content-review-provider",
+    sampleFallback: "sample-upload-policy",
+  });
 }
 
 function createUploadProviderPosture(record: StoredUploadRecord): UploadProviderPosture {
   const providerMode = record.reviewRecord?.providerMode ?? "sample";
   const storageProvider = record.reviewRecord?.storageProvider ?? (providerMode === "production" ? "configured object storage" : "sample-object-storage");
   const reviewProvider = record.reviewRecord?.provider ?? (providerMode === "production" ? "configured review provider" : "sample-upload-policy");
-  const assetHost = resolveAssetHost(record);
+  const assetHost = resolveUrlHost(record.uploadAsset?.url);
   const postureSummary =
     providerMode === "production"
-      ? `Upload storage resolves through ${storageProvider} and review resolves through ${reviewProvider}. Secret material is not tracked in source.`
-      : `Upload storage and review remain sample-backed through ${storageProvider} and ${reviewProvider}. Secret material is not tracked in source.`;
+      ? `Upload storage resolves through ${storageProvider} and review resolves through ${reviewProvider}. ${SECRET_MATERIAL_NOT_TRACKED_SUMMARY}`
+      : `Upload storage and review remain sample-backed through ${storageProvider} and ${reviewProvider}. ${SECRET_MATERIAL_NOT_TRACKED_SUMMARY}`;
   return {
     providerMode,
     storageProvider,
