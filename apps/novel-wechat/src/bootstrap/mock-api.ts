@@ -4,6 +4,7 @@ import {
   createError,
   createJsonMockResponse,
   fail,
+  matchesMockBearerAuthorizationHeader,
   ok,
   resolveMockRequestPath,
   type RequestAdapter,
@@ -331,7 +332,7 @@ const CHAPTER_CONTENT: Record<string, ChapterContent> = {
 };
 
 function ensureAuthorized(options: RequestOptions) {
-  return options.headers?.Authorization === `Bearer ${ACCESS_TOKEN}`;
+  return matchesMockBearerAuthorizationHeader(options.headers?.Authorization, ACCESS_TOKEN);
 }
 
 function toNovelCard(detail: NovelDetail) {
