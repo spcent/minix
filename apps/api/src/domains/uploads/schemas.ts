@@ -1,5 +1,18 @@
-import type { UploadAsset, UploadPipelineRequest } from "@minix/contracts";
+import {
+  UPLOAD_CHECKSUM_ALGORITHMS,
+  UPLOAD_FILE_TYPES,
+  UPLOAD_REFERENCE_OWNER_TYPES,
+  UPLOAD_RETENTION_STATUSES,
+  UPLOAD_REVIEW_STATUSES,
+  UPLOAD_SCENARIOS,
+  UPLOAD_STAGES,
+  UPLOAD_TRANSFER_MODES,
+  type UploadAsset,
+  type UploadPipelineRequest,
+} from "@minix/contracts";
 import { z } from "zod";
+
+import { apiActorContextSchema, apiSourceContextSchema } from "../schema-helpers";
 
 const uploadProgressSchema = z.object({
   completedBytes: z.number().int().nonnegative(),
@@ -9,7 +22,7 @@ const uploadProgressSchema = z.object({
 
 const uploadGovernanceSchema = z.object({
   maxSizeBytes: z.number().int().positive(),
-  acceptedFileTypes: z.array(z.enum(["image", "audio", "video", "pdf", "avatar", "attachment"])),
+  acceptedFileTypes: z.array(z.enum(UPLOAD_FILE_TYPES)),
   sensitiveReviewRequired: z.boolean(),
   expiresInDays: z.number().int().positive().optional(),
   governanceSummary: z.string().min(1).optional(),
@@ -17,7 +30,7 @@ const uploadGovernanceSchema = z.object({
 
 const uploadLifecycleSchema = z.object({
   backendBacked: z.boolean(),
-  retentionStatus: z.enum(["active", "scheduled_cleanup", "expired"]),
+  retentionStatus: z.enum(UPLOAD_RETENTION_STATUSES),
   retryCount: z.number().int().nonnegative(),
   canRetry: z.boolean(),
   canCancel: z.boolean(),
@@ -39,7 +52,7 @@ const uploadDerivedAssetVariantSchema = z.object({
 
 export const uploadAssetSchema = z.object({
   assetId: z.string().min(1),
-  fileType: z.enum(["image", "audio", "video", "pdf", "avatar", "attachment"]),
+  fileType: z.enum(UPLOAD_FILE_TYPES),
   fileName: z.string().min(1),
   url: z.string().min(1),
   thumbnailUrl: z.string().min(1).optional(),
@@ -48,7 +61,7 @@ export const uploadAssetSchema = z.object({
     sizeBytes: z.number().int().nonnegative(),
     mimeType: z.string().min(1).optional(),
     checksum: z.string().min(1).optional(),
-    checksumAlgorithm: z.enum(["sha256"]).optional(),
+    checksumAlgorithm: z.enum(UPLOAD_CHECKSUM_ALGORITHMS).optional(),
     width: z.number().int().positive().optional(),
     height: z.number().int().positive().optional(),
     durationSeconds: z.number().positive().optional(),
@@ -62,15 +75,15 @@ export const uploadAssetSchema = z.object({
 
 const uploadTaskSchema = z.object({
   taskId: z.string().min(1),
-  scenario: z.enum(["content", "avatar", "attachment"]),
-  fileType: z.enum(["image", "audio", "video", "pdf", "avatar", "attachment"]),
-  stage: z.enum(["idle", "choosing", "compressing", "chunking_reserved", "uploading", "reviewing", "completed", "failed", "canceled"]),
+  scenario: z.enum(UPLOAD_SCENARIOS),
+  fileType: z.enum(UPLOAD_FILE_TYPES),
+  stage: z.enum(UPLOAD_STAGES),
   fileName: z.string().min(1).optional(),
   progress: uploadProgressSchema,
   uploadedChunkCount: z.number().int().nonnegative().optional(),
   chunkingReserved: z.boolean(),
   governance: uploadGovernanceSchema,
-  reviewStatus: z.enum(["not_required", "pending", "approved", "rejected"]),
+  reviewStatus: z.enum(UPLOAD_REVIEW_STATUSES),
   reviewMessage: z.string().min(1).optional(),
   lifecycle: uploadLifecycleSchema,
   ownershipSummary: z.string().min(1).optional(),
@@ -81,7 +94,7 @@ const uploadErrorSchema = z.object({
   message: z.string().min(1),
   recoverable: z.boolean(),
   retryable: z.boolean(),
-  stage: z.enum(["idle", "choosing", "compressing", "chunking_reserved", "uploading", "reviewing", "completed", "failed", "canceled"]),
+  stage: z.enum(UPLOAD_STAGES),
 });
 
 export const uploadSelectionResultSchema = z.object({
@@ -90,8 +103,8 @@ export const uploadSelectionResultSchema = z.object({
   uploadError: uploadErrorSchema.optional(),
   transfer: z
     .object({
-      mode: z.enum(["single_part", "chunked"]),
-      checksumAlgorithm: z.enum(["sha256"]),
+      mode: z.enum(UPLOAD_TRANSFER_MODES),
+      checksumAlgorithm: z.enum(UPLOAD_CHECKSUM_ALGORITHMS),
       fileChecksum: z.string().min(1),
       totalBytes: z.number().int().nonnegative(),
       chunkSizeBytes: z.number().int().positive(),
@@ -101,7 +114,7 @@ export const uploadSelectionResultSchema = z.object({
           byteOffset: z.number().int().nonnegative(),
           byteLength: z.number().int().nonnegative(),
           checksum: z.string().min(1),
-          checksumAlgorithm: z.enum(["sha256"]),
+          checksumAlgorithm: z.enum(UPLOAD_CHECKSUM_ALGORITHMS),
           dataBase64: z.string().min(1),
         }),
       ),
@@ -110,7 +123,7 @@ export const uploadSelectionResultSchema = z.object({
 });
 
 export const uploadSessionRequestSchema = z.object({
-  scenario: z.enum(["content", "avatar", "attachment"]),
+  scenario: z.enum(UPLOAD_SCENARIOS),
   selection: uploadSelectionResultSchema,
 });
 
@@ -122,7 +135,7 @@ export const uploadChunkRequestSchema = z.object({
     byteOffset: z.number().int().nonnegative(),
     byteLength: z.number().int().nonnegative(),
     checksum: z.string().min(1),
-    checksumAlgorithm: z.enum(["sha256"]),
+    checksumAlgorithm: z.enum(UPLOAD_CHECKSUM_ALGORITHMS),
     dataBase64: z.string().min(1),
   }),
 });
@@ -131,7 +144,7 @@ export const uploadCompleteSchema = z.object({
   taskId: z.string().min(1),
   sessionId: z.string().min(1),
   fileChecksum: z.string().min(1),
-  checksumAlgorithm: z.enum(["sha256"]),
+  checksumAlgorithm: z.enum(UPLOAD_CHECKSUM_ALGORITHMS),
 });
 
 export const uploadAttachSchema = z
@@ -139,25 +152,11 @@ export const uploadAttachSchema = z
     taskId: z.string().min(1).optional(),
     assetId: z.string().min(1).optional(),
     reference: z.object({
-      ownerType: z.enum(["feedback", "content", "avatar"]),
+      ownerType: z.enum(UPLOAD_REFERENCE_OWNER_TYPES),
       ownerId: z.string().min(1),
       role: z.string().min(1),
-      sourceContext: z
-        .object({
-          pagePath: z.string().min(1).optional(),
-          routeId: z.string().min(1).optional(),
-          label: z.string().min(1).optional(),
-          params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-        })
-        .optional(),
-      actorContext: z
-        .object({
-          userId: z.string().min(1).optional(),
-          platform: z.string().min(1).optional(),
-          appVersion: z.string().min(1).optional(),
-          deviceSummary: z.string().min(1).optional(),
-        })
-        .optional(),
+      sourceContext: apiSourceContextSchema.optional(),
+      actorContext: apiActorContextSchema.optional(),
     }),
   })
   .refine((value) => Boolean(value.taskId || value.assetId), {
