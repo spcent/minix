@@ -1,6 +1,6 @@
 # Core Page Protocol Snapshot Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -70,14 +70,20 @@ Core page protocols are reused by every product matrix. Detail and profile proto
 
 ## Acceptance
 
-- [ ] detail status clone path uses snapshot helpers
-- [ ] profile page protocol clone path uses snapshot helpers
-- [ ] public core exports remain unchanged
-- [ ] playbook records core protocol helper consistency if needed
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] detail status clone path uses snapshot helpers
+- [x] profile page protocol clone path uses snapshot helpers
+- [x] public core exports remain unchanged
+- [x] playbook records core protocol helper consistency if needed
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced detail status `structuredClone` calls with core snapshot helpers.
+- Replaced profile protocol manual shallow clone helpers with `cloneStateSnapshotArray`.
+- Kept public core page protocol state shapes unchanged.

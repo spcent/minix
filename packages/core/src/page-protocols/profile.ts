@@ -54,23 +54,8 @@ export interface CreateDefaultProfilePageStateOptions {
   subtitle?: string;
 }
 
-function cloneStats(stats: ProfileSummaryStat[]): ProfileSummaryStat[] {
-  return stats.map((stat) => ({ ...stat }));
-}
-
-function cloneSections(sections: ProfileSection[]): ProfileSection[] {
-  return sections.map((section) => ({
-    ...section,
-    items: section.items.map((item) => ({ ...item })),
-  }));
-}
-
-function cloneActions(actions: ProfileAction[]): ProfileAction[] {
-  return actions.map((action) => ({ ...action }));
-}
-
 export function createProfilePageState(options: CreateProfilePageStateOptions): ProfilePageState {
-  const actions = cloneActions(
+  const actions = cloneStateSnapshotArray(
     options.actions ?? [
       {
         key: "open-settings",
@@ -92,8 +77,8 @@ export function createProfilePageState(options: CreateProfilePageStateOptions): 
     displayName: undefined,
     avatarUrl: undefined,
     selectedActionKey: actions[0]?.key,
-    stats: cloneStats(options.stats ?? []),
-    sections: cloneSections(options.sections ?? []),
+    stats: cloneStateSnapshotArray(options.stats ?? []),
+    sections: cloneStateSnapshotArray(options.sections ?? []),
     actions,
   };
 }
@@ -126,3 +111,4 @@ export function createDefaultProfilePageState(
     ],
   });
 }
+import { cloneStateSnapshotArray } from "../store/snapshot";

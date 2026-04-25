@@ -6,7 +6,7 @@ import type {
   DetailStatus,
 } from "@minix/contracts";
 
-import { cloneOptionalStateSnapshot, cloneStateSnapshotArray } from "../store/snapshot";
+import { cloneOptionalStateSnapshot, cloneStateSnapshot, cloneStateSnapshotArray } from "../store/snapshot";
 
 export type DetailPageState<TData = unknown> = Omit<ContractDetailPageState<TData>, "errorCode"> & {
   title: string;
@@ -82,8 +82,8 @@ export function createDetailStatus(
     unpublished: options.unpublished ?? loadState === "unpublished",
     recoveredFromLink: options.recoveredFromLink ?? false,
     ...(options.requestedDetailId ? { requestedDetailId: options.requestedDetailId } : {}),
-    ...(options.entryEvidence ? { entryEvidence: structuredClone(options.entryEvidence) } : {}),
-    ...(options.recovery ? { recovery: structuredClone(options.recovery) } : {}),
+    ...(options.entryEvidence ? { entryEvidence: cloneStateSnapshot(options.entryEvidence) } : {}),
+    ...(options.recovery ? { recovery: cloneStateSnapshot(options.recovery) } : {}),
   };
 }
 
