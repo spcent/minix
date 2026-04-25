@@ -49,6 +49,7 @@ If any step cannot be answered, add the smallest missing contract or shared cont
 - Auth API schemas should compose those shared redirect fragments with auth contract constants for login methods, verification purposes, and merge strategies instead of duplicating string lists.
 - Share API schemas should reuse the same redirect/context fragments plus share contract constants for scenarios, channels, and attribution outcomes so growth loops stay portable across products.
 - Feedback API schemas should reuse shared pagination/context fragments and feedback contract constants for ticket states, types, and priorities.
+- Message API schemas should reuse pagination, query-boolean, source/actor context fragments, and message contract constants for notification and thread filters.
 - Feedback/support API shaping should use the API-domain snapshot helper for tickets, statuses, FAQ catalogs, support entries, and support-thread echoes so service-loop surfaces stay portable.
 - Extend `apps/api/src/domains/*` for business workflow shaping. Keep `apps/api/src/app.ts` as routing assembly and avoid pushing domain rules into host code.
 - Prefer manifest changes and existing scaffolds for new host exposure. Generated registries and WeChat shell output should only change through generation scripts.

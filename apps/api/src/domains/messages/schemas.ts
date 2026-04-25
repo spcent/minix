@@ -1,15 +1,22 @@
+import {
+  MESSAGE_REPLY_POLICIES,
+  MESSAGE_THREAD_LIST_SORTS,
+  MESSAGE_THREAD_TYPES,
+  NOTIFICATION_TYPES,
+} from "@minix/contracts";
 import { z } from "zod";
 
+import { apiActorContextSchema, apiPaginationQueryShape, apiQueryBooleanSchema, apiSourceContextSchema } from "../schema-helpers";
+
+const NOTIFICATION_TYPE_FILTERS = [...NOTIFICATION_TYPES, "all"] as const;
+const MESSAGE_THREAD_TYPE_FILTERS = [...MESSAGE_THREAD_TYPES, "all"] as const;
+
 export const notificationsQuerySchema = z.object({
-  page: z.coerce.number().int().positive().optional(),
-  pageSize: z.coerce.number().int().positive().optional(),
-  type: z.enum(["system", "business", "campaign", "review", "all"]).optional(),
+  ...apiPaginationQueryShape,
+  type: z.enum(NOTIFICATION_TYPE_FILTERS).optional(),
   groupKey: z.string().min(1).optional(),
   threadId: z.string().min(1).optional(),
-  onlyUnread: z
-    .enum(["true", "false"])
-    .transform((value) => value === "true")
-    .optional(),
+  onlyUnread: apiQueryBooleanSchema.optional(),
 });
 
 export const threadIdQuerySchema = z.object({
@@ -18,14 +25,10 @@ export const threadIdQuerySchema = z.object({
 });
 
 export const messageThreadListQuerySchema = z.object({
-  page: z.coerce.number().int().positive().optional(),
-  pageSize: z.coerce.number().int().positive().optional(),
-  type: z.enum(["private", "consultation", "customer_service", "group", "all"]).optional(),
-  onlyUnread: z
-    .enum(["true", "false"])
-    .transform((value) => value === "true")
-    .optional(),
-  sort: z.enum(["activity", "unread"]).optional(),
+  ...apiPaginationQueryShape,
+  type: z.enum(MESSAGE_THREAD_TYPE_FILTERS).optional(),
+  onlyUnread: apiQueryBooleanSchema.optional(),
+  sort: z.enum(MESSAGE_THREAD_LIST_SORTS).optional(),
   sourceTicketId: z.string().min(1).optional(),
 });
 
@@ -35,27 +38,13 @@ export const sendMessageSchema = z.object({
 });
 
 export const createMessageThreadSchema = z.object({
-  type: z.enum(["private", "consultation", "customer_service", "group"]),
+  type: z.enum(MESSAGE_THREAD_TYPES),
   title: z.string().min(1).optional(),
   participantUserIds: z.array(z.string().min(1)).optional(),
   sourceTicketId: z.string().min(1).optional(),
-  sourceContext: z
-    .object({
-      pagePath: z.string().min(1).optional(),
-      routeId: z.string().min(1).optional(),
-      label: z.string().min(1).optional(),
-      params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-    })
-    .optional(),
-  actorContext: z
-    .object({
-      userId: z.string().min(1).optional(),
-      platform: z.string().min(1).optional(),
-      appVersion: z.string().min(1).optional(),
-      deviceSummary: z.string().min(1).optional(),
-    })
-    .optional(),
-  replyPolicy: z.enum(["open", "members_only", "support_only", "readonly"]).optional(),
+  sourceContext: apiSourceContextSchema.optional(),
+  actorContext: apiActorContextSchema.optional(),
+  replyPolicy: z.enum(MESSAGE_REPLY_POLICIES).optional(),
 });
 
 export const markThreadReadSchema = z.object({
@@ -71,7 +60,7 @@ export const markNotificationsReadSchema = z.object({
   notificationIds: z.array(z.string().min(1)).min(1),
   page: z.number().int().positive().optional(),
   pageSize: z.number().int().positive().optional(),
-  type: z.enum(["system", "business", "campaign", "review", "all"]).optional(),
+  type: z.enum(NOTIFICATION_TYPE_FILTERS).optional(),
   groupKey: z.string().min(1).optional(),
   onlyUnread: z.boolean().optional(),
 });
