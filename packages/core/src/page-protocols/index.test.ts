@@ -98,6 +98,8 @@ test("default page protocol factories provide stable baseline state", () => {
   assert.equal(detail.loading, false);
   assert.equal(detail.detailStatus.entryContext, "unknown");
   assert.equal(detail.detailActions.length, 0);
+  assert.equal(detail.detailAttachments.length, 0);
+  assert.equal(detail.detailComments.length, 0);
   assert.equal(form.title, "Form");
   assert.deepEqual(form.values, { email: "" });
   assert.deepEqual(form.formValues, { email: "" });
@@ -106,6 +108,60 @@ test("default page protocol factories provide stable baseline state", () => {
   assert.equal(profile.title, "Profile");
   assert.equal(profile.selectedActionKey, "open-settings");
   assert.equal(profile.sections[0]?.key, "session");
+});
+
+test("createDefaultDetailPageState carries shared extension descriptors", () => {
+  const detail = createDefaultDetailPageState({
+    title: "Order detail",
+    data: {
+      id: "order-1",
+    },
+    entryContext: "share",
+    entryEvidence: {
+      shareChannel: "wechat_session",
+      traceId: "trace-1",
+    },
+    recovery: {
+      title: "Order unavailable",
+      message: "Refresh the order detail or return to the order list.",
+      actionLabel: "Retry",
+      retryable: true,
+    },
+    actions: [
+      {
+        key: "refund",
+        label: "Refund",
+        enabled: false,
+        disabledReason: "Refund window has closed",
+        placement: "overflow",
+      },
+    ],
+    attachments: [
+      {
+        key: "invoice",
+        label: "Invoice",
+        kind: "pdf",
+        assetId: "asset-invoice",
+        downloadable: true,
+      },
+    ],
+    comments: [
+      {
+        key: "comment-1",
+        authorLabel: "Support",
+        body: "Refund review is in progress.",
+        status: "visible",
+      },
+    ],
+  });
+
+  assert.equal(detail.detailStatus.loadState, "ready");
+  assert.equal(detail.detailStatus.entryContext, "share");
+  assert.equal(detail.detailStatus.entryEvidence?.shareChannel, "wechat_session");
+  assert.equal(detail.detailStatus.recovery?.retryable, true);
+  assert.equal(detail.detailActions[0]?.disabledReason, "Refund window has closed");
+  assert.equal(detail.detailAttachments[0]?.downloadable, true);
+  assert.equal(detail.detailComments[0]?.authorLabel, "Support");
 });
 
 test("form helpers derive conditional visibility and centralize duplicate submit protection", () => {

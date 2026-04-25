@@ -97,6 +97,22 @@ export type DetailLoadState =
   | "unpublished"
   | "error";
 
+export interface DetailEntryEvidence {
+  sourceRouteId?: string;
+  sourceItemId?: string;
+  sourceListKey?: string;
+  shareChannel?: string;
+  deepLink?: string;
+  traceId?: string;
+}
+
+export interface DetailRecoveryDescriptor {
+  title: string;
+  message: string;
+  actionLabel?: string;
+  retryable?: boolean;
+}
+
 export interface DetailStatus {
   loadState: DetailLoadState;
   entryContext: "list" | "share" | "deep_link" | "unknown";
@@ -110,6 +126,8 @@ export interface DetailStatus {
   unpublished: boolean;
   recoveredFromLink: boolean;
   requestedDetailId?: string;
+  entryEvidence?: DetailEntryEvidence;
+  recovery?: DetailRecoveryDescriptor;
 }
 
 export interface DetailAction {
@@ -117,6 +135,32 @@ export interface DetailAction {
   label: string;
   enabled: boolean;
   emphasis?: "primary" | "secondary" | "danger";
+  placement?: "primary" | "secondary" | "overflow" | "inline";
+  requiresConfirmation?: boolean;
+  disabledReason?: string;
+}
+
+export type DetailAttachmentKind = "image" | "audio" | "video" | "pdf" | "link" | "file";
+
+export interface DetailAttachmentDescriptor {
+  key: string;
+  label: string;
+  kind: DetailAttachmentKind;
+  url?: string;
+  thumbnailUrl?: string;
+  assetId?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  downloadable?: boolean;
+}
+
+export interface DetailCommentDescriptor {
+  key: string;
+  authorLabel: string;
+  body: string;
+  createdAt?: string;
+  status?: "visible" | "pending" | "hidden";
+  replyCount?: number;
 }
 
 export interface DetailPageState<TData = unknown> {

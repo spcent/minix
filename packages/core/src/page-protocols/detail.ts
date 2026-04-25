@@ -1,5 +1,7 @@
 import type {
   DetailAction,
+  DetailAttachmentDescriptor,
+  DetailCommentDescriptor,
   DetailPageState as ContractDetailPageState,
   DetailStatus,
 } from "@minix/contracts";
@@ -13,6 +15,8 @@ export type DetailPageState<TData = unknown> = Omit<ContractDetailPageState<TDat
   detailData: TData | undefined;
   detailStatus: DetailStatus;
   detailActions: DetailAction[];
+  detailAttachments: DetailAttachmentDescriptor[];
+  detailComments: DetailCommentDescriptor[];
 };
 
 export interface CreateDetailPageStateOptions<TData = unknown> {
@@ -20,7 +24,11 @@ export interface CreateDetailPageStateOptions<TData = unknown> {
   subtitle?: string;
   data?: TData;
   entryContext?: DetailStatus["entryContext"];
+  entryEvidence?: DetailStatus["entryEvidence"];
+  recovery?: DetailStatus["recovery"];
   actions?: DetailAction[];
+  attachments?: DetailAttachmentDescriptor[];
+  comments?: DetailCommentDescriptor[];
   requestedDetailId?: string;
   recoveredFromLink?: boolean;
 }
@@ -30,7 +38,11 @@ export interface CreateDefaultDetailPageStateOptions<TData = unknown> {
   subtitle?: string;
   data?: TData;
   entryContext?: DetailStatus["entryContext"];
+  entryEvidence?: DetailStatus["entryEvidence"];
+  recovery?: DetailStatus["recovery"];
   actions?: DetailAction[];
+  attachments?: DetailAttachmentDescriptor[];
+  comments?: DetailCommentDescriptor[];
   requestedDetailId?: string;
   recoveredFromLink?: boolean;
 }
@@ -47,6 +59,8 @@ export interface CreateDetailStatusOptions {
   unpublished?: boolean;
   recoveredFromLink?: boolean;
   requestedDetailId?: string;
+  entryEvidence?: DetailStatus["entryEvidence"];
+  recovery?: DetailStatus["recovery"];
 }
 
 export function createDetailStatus(
@@ -66,6 +80,8 @@ export function createDetailStatus(
     unpublished: options.unpublished ?? loadState === "unpublished",
     recoveredFromLink: options.recoveredFromLink ?? false,
     ...(options.requestedDetailId ? { requestedDetailId: options.requestedDetailId } : {}),
+    ...(options.entryEvidence ? { entryEvidence: structuredClone(options.entryEvidence) } : {}),
+    ...(options.recovery ? { recovery: structuredClone(options.recovery) } : {}),
   };
 }
 
@@ -82,10 +98,14 @@ export function createDetailPageState<TData = unknown>(
     detailData: options.data,
     detailStatus: createDetailStatus(options.data !== undefined ? "ready" : "idle", {
       ...(options.entryContext !== undefined ? { entryContext: options.entryContext } : {}),
+      ...(options.entryEvidence ? { entryEvidence: options.entryEvidence } : {}),
+      ...(options.recovery ? { recovery: options.recovery } : {}),
       ...(options.recoveredFromLink ? { recoveredFromLink: true } : {}),
       ...(options.requestedDetailId ? { requestedDetailId: options.requestedDetailId } : {}),
     }),
     detailActions: options.actions ? options.actions.map((action) => ({ ...action })) : [],
+    detailAttachments: options.attachments?.map((attachment) => structuredClone(attachment)) ?? [],
+    detailComments: options.comments?.map((comment) => structuredClone(comment)) ?? [],
     ...(options.data !== undefined ? { data: options.data } : {}),
   };
 }
@@ -98,7 +118,11 @@ export function createDefaultDetailPageState<TData = unknown>(
     ...(options.subtitle !== undefined ? { subtitle: options.subtitle } : {}),
     ...(options.data !== undefined ? { data: options.data } : {}),
     ...(options.entryContext !== undefined ? { entryContext: options.entryContext } : {}),
+    ...(options.entryEvidence ? { entryEvidence: options.entryEvidence } : {}),
+    ...(options.recovery ? { recovery: options.recovery } : {}),
     ...(options.actions ? { actions: options.actions } : {}),
+    ...(options.attachments ? { attachments: options.attachments } : {}),
+    ...(options.comments ? { comments: options.comments } : {}),
     ...(options.requestedDetailId ? { requestedDetailId: options.requestedDetailId } : {}),
     ...(options.recoveredFromLink ? { recoveredFromLink: true } : {}),
   });

@@ -83,11 +83,22 @@ Keep content, order, account, message, consultation, and tool-result details ali
 - final verifier handoff:
   - include examples for ready, refresh, invalidated, deleted, forbidden, offline, unavailable, and deep-link recovery states
 
+## Implementation Notes
+
+- Added shared entry evidence, recovery copy, attachment descriptors, comment descriptors, and richer action metadata to `packages/contracts/src/kernel/common-page.ts`.
+- Extended `createDetailStatus` and `createDefaultDetailPageState` so detail pages can carry recovery, entry evidence, comments, and attachments without replacing `detailData`, `detailStatus`, or `detailActions`.
+- Kept reader and embedded detail exceptions documented in the domain matrix instead of rewriting those surfaces.
+- Updated `docs/DOMAIN_COMPLETENESS_MATRIX.md` to record the expanded detail posture.
+
+## Verification Notes
+
+- Ran `pnpm verify`.
+
 ## Acceptance
 
-- [ ] detail outputs remain `detailData`, `detailStatus`, and `detailActions`
-- [ ] no domain introduces a custom status enum when shared states apply
-- [ ] entry context remains explicit for list, share, and deep-link flows
-- [ ] documented exceptions remain narrow and justified
-- [ ] docs updated for protocol changes
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] detail outputs remain `detailData`, `detailStatus`, and `detailActions`
+- [x] no domain introduces a custom status enum when shared states apply
+- [x] entry context remains explicit for list, share, and deep-link flows
+- [x] documented exceptions remain narrow and justified
+- [x] docs updated for protocol changes
+- [x] `pnpm verify` run, or skipped with reason if docs-only
