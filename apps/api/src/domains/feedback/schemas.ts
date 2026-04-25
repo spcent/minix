@@ -1,15 +1,18 @@
+import { FEEDBACK_PRIORITIES, FEEDBACK_TICKET_STATES, FEEDBACK_TYPES } from "@minix/contracts";
 import { z } from "zod";
 
 import { normalizeUploadAsset, uploadAssetSchema } from "../uploads/schemas";
+import { apiActorContextSchema, apiPaginationQueryShape, apiSourceContextSchema } from "../schema-helpers";
+
+const FEEDBACK_TICKET_STATE_FILTERS = [...FEEDBACK_TICKET_STATES, "all"] as const;
 
 export const feedbackTicketIdQuerySchema = z.object({
   ticketId: z.string().min(1),
 });
 
 export const feedbackTicketListQuerySchema = z.object({
-  page: z.coerce.number().int().positive().optional(),
-  pageSize: z.coerce.number().int().positive().optional(),
-  state: z.enum(["submitted", "triaged", "in_progress", "waiting_user", "resolved", "closed", "all"]).optional(),
+  ...apiPaginationQueryShape,
+  state: z.enum(FEEDBACK_TICKET_STATE_FILTERS).optional(),
   categoryKey: z.string().min(1).optional(),
   keyword: z.string().min(1).optional(),
 });
@@ -22,32 +25,18 @@ const feedbackContextSchema = z.object({
   platform: z.string().min(1),
   appVersion: z.string().min(1),
   deviceSummary: z.string().min(1).optional(),
-  sourceContext: z
-    .object({
-      pagePath: z.string().min(1).optional(),
-      routeId: z.string().min(1).optional(),
-      label: z.string().min(1).optional(),
-      params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-    })
-    .optional(),
-  actorContext: z
-    .object({
-      userId: z.string().min(1).optional(),
-      platform: z.string().min(1).optional(),
-      appVersion: z.string().min(1).optional(),
-      deviceSummary: z.string().min(1).optional(),
-    })
-    .optional(),
+  sourceContext: apiSourceContextSchema.optional(),
+  actorContext: apiActorContextSchema.optional(),
   screenshotAssets: z.array(uploadAssetSchema),
   attachmentAssets: z.array(uploadAssetSchema),
 });
 
 export const submitFeedbackSchema = z.object({
-  type: z.enum(["issue_report", "suggestion", "complaint", "abuse_report", "satisfaction"]),
+  type: z.enum(FEEDBACK_TYPES),
   categoryKey: z.string().min(1),
   title: z.string().min(1),
   description: z.string().min(1),
-  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+  priority: z.enum(FEEDBACK_PRIORITIES).optional(),
   labels: z.array(z.string().min(1)).optional(),
   revisitRequested: z.boolean().optional(),
   satisfactionScore: z.number().min(1).max(5).optional(),
@@ -77,7 +66,7 @@ const feedbackTicketSlaSchema = z.object({
 export const feedbackTicketActionSchema = z.object({
   ticketId: z.string().min(1),
   state: z.enum(["triaged", "in_progress", "waiting_user", "resolved", "closed"]).optional(),
-  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+  priority: z.enum(FEEDBACK_PRIORITIES).optional(),
   labels: z.array(z.string().min(1)).optional(),
   assignee: feedbackTicketAssigneeSchema.optional(),
   queueKey: z.string().min(1).optional(),
