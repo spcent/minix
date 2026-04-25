@@ -921,10 +921,11 @@ export function completeUploadRecord(
   record.source = "backend_complete";
   updateUploadTaskProgress(record.uploadTask, merged.byteLength, merged.byteLength, record.transfer.chunks.length);
   if (rejectedByPolicy) {
+    const productionProviderMode = isProductionProviderMode(resolveUploadProviderMode(runtimeEnv));
     record.uploadTask.stage = "failed";
     record.uploadTask.reviewStatus = "rejected";
     record.uploadTask.reviewMessage =
-      resolveUploadProviderMode(runtimeEnv) === "production"
+      productionProviderMode
         ? "The configured upload review policy rejected this asset during review."
         : "The sample upload policy rejected this asset during review.";
     record.uploadTask.lifecycle = createUploadLifecycle(record.uploadTask, {
@@ -965,7 +966,7 @@ export function completeUploadRecord(
   record.uploadTask.reviewStatus = requiresReview ? "pending" : "approved";
   record.uploadTask.stage = requiresReview ? "reviewing" : "completed";
   record.uploadTask.reviewMessage = requiresReview
-    ? resolveUploadProviderMode(runtimeEnv) === "production"
+    ? isProductionProviderMode(resolveUploadProviderMode(runtimeEnv))
       ? "Sensitive review is pending through the configured upload review provider."
       : "Sensitive review is pending in the upload pipeline."
     : "The asset cleared validation and is ready for downstream business use.";

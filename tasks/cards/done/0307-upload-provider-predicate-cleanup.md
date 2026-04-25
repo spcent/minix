@@ -1,6 +1,6 @@
 # Upload Provider Predicate Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -23,7 +23,12 @@ Replace remaining upload API direct production checks with shared provider postu
 
 ## Acceptance
 
-- [ ] upload provider mode branches use shared predicates
-- [ ] upload response envelopes remain unchanged
-- [ ] playbook records upload provider predicate guidance
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] upload provider mode branches use shared predicates
+- [x] upload response envelopes remain unchanged
+- [x] playbook records upload provider predicate guidance
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced remaining upload review direct production checks with `isProductionProviderMode`.
+- Kept upload pipeline response envelopes and review behavior unchanged.
