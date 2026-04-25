@@ -1,5 +1,6 @@
 import type { AuthRedirectTarget } from "./auth";
 import type { ActorContextSnapshot, SourceContextSnapshot } from "./context";
+import type { ProviderPostureBase, ProviderPostureMode } from "../kernel/capability";
 
 export const SHARE_SCENARIOS = ["page", "content", "invite", "poster"] as const;
 export type ShareScenario = (typeof SHARE_SCENARIOS)[number];
@@ -98,13 +99,11 @@ export interface ShareConversionEvidence {
   evidenceSummary: string;
 }
 
-export interface ShareProviderPosture {
-  providerMode: "sample" | "production";
+export interface ShareProviderPosture extends ProviderPostureBase {
   shortLinkProvider: string;
   posterProvider?: string;
   shortLinkHost?: string;
   posterHost?: string;
-  secretMaterialTracked: false;
   readinessSummary: string;
 }
 
@@ -113,7 +112,7 @@ export interface ShareShortLinkRecord {
   shortCode: string;
   shortLink: string;
   provider?: string;
-  providerMode?: "sample" | "production";
+  providerMode?: ProviderPostureMode;
   landingPath?: string;
   landingUrl: string;
   createdAt: string;
@@ -126,7 +125,7 @@ export interface ShareShortLinkRecord {
 export interface SharePosterAsset {
   assetId: string;
   provider: string;
-  providerMode?: "sample" | "production";
+  providerMode?: ProviderPostureMode;
   url: string;
   thumbnailUrl?: string;
   createdAt: string;

@@ -13,6 +13,18 @@ export type CapabilityKind = (typeof CAPABILITY_KINDS)[number];
 export const CAPABILITY_SUPPORT_MODES = ["native", "degraded", "unavailable"] as const;
 export type CapabilitySupportMode = (typeof CAPABILITY_SUPPORT_MODES)[number];
 
+export const PROVIDER_POSTURE_MODES = ["sample", "production"] as const;
+export type ProviderPostureMode = (typeof PROVIDER_POSTURE_MODES)[number];
+
+export interface SecretMaterialPosture {
+  secretMaterialTracked: false;
+  secretMaterialSummary?: string;
+}
+
+export interface ProviderPostureBase extends SecretMaterialPosture {
+  providerMode: ProviderPostureMode;
+}
+
 export interface CapabilityRequirement {
   capability: CapabilityKind;
   required?: boolean;

@@ -1,5 +1,7 @@
 # Provider Posture Contract Normalization
 
+Status: done
+
 ## Summary
 
 Normalize shared provider posture primitives in contracts so upload, share, and future provider-backed domains reuse the same provider-mode and secret-material vocabulary.
@@ -79,14 +81,21 @@ The reusable base should cover:
 
 ## Acceptance
 
-- [ ] upload and share provider posture use the same provider-mode and secret-material base vocabulary
-- [ ] response field names stay backwards compatible
-- [ ] kernel test covers the shared provider-mode constants
-- [ ] docs identify provider posture normalization as the first reusable primitive from the audit
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] upload and share provider posture use the same provider-mode and secret-material base vocabulary
+- [x] response field names stay backwards compatible
+- [x] kernel test covers the shared provider-mode constants
+- [x] docs identify provider posture normalization as the first reusable primitive from the audit
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added shared `PROVIDER_POSTURE_MODES`, `ProviderPostureMode`, `SecretMaterialPosture`, and `ProviderPostureBase` under contracts kernel capability vocabulary.
+- Updated upload and share provider posture contracts to extend the shared base without renaming response fields.
+- Added kernel test coverage for the provider posture mode constants.
+- Ran `pnpm typecheck` and `pnpm test`; both passed before final full verification.

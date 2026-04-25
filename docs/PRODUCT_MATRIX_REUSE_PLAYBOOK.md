@@ -64,4 +64,4 @@ Avoid splitting every requested bullet into a separate card. Small cards are use
 
 Upload and share now expose similar provider posture fields: provider mode, explicit tracked-source secret posture, provider names, host fields, and readiness summaries. The reusable part should move to contracts kernel vocabulary, while each domain keeps its own provider-specific fields.
 
-Track that implementation in [`../tasks/cards/active/0285-provider-posture-contract-normalization.md`](../tasks/cards/active/0285-provider-posture-contract-normalization.md).
+Track that implementation in [`../tasks/cards/done/0285-provider-posture-contract-normalization.md`](../tasks/cards/done/0285-provider-posture-contract-normalization.md).

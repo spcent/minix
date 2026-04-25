@@ -1,4 +1,5 @@
 import type { ActorContextSnapshot, SourceContextSnapshot } from "./context";
+import type { ProviderPostureBase, ProviderPostureMode } from "../kernel/capability";
 
 export const UPLOAD_FILE_TYPES = ["image", "audio", "video", "pdf", "avatar", "attachment"] as const;
 export type UploadFileType = (typeof UPLOAD_FILE_TYPES)[number];
@@ -165,7 +166,7 @@ export interface UploadSession {
 export interface UploadReviewRecord {
   status: UploadReviewStatus;
   provider: string;
-  providerMode?: "sample" | "production";
+  providerMode?: ProviderPostureMode;
   storageProvider?: string;
   reviewedAt?: string;
   message?: string;
@@ -173,12 +174,10 @@ export interface UploadReviewRecord {
   annotationSummary?: string;
 }
 
-export interface UploadProviderPosture {
-  providerMode: "sample" | "production";
+export interface UploadProviderPosture extends ProviderPostureBase {
   storageProvider: string;
   reviewProvider: string;
   assetHost?: string;
-  secretMaterialTracked: false;
   postureSummary: string;
 }
 
