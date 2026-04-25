@@ -1,4 +1,9 @@
+import { USER_ASSET_LEDGER_SUBJECTS, USER_RELATION_ACTION_KINDS, USER_RELATION_LIST_KINDS } from "@minix/contracts";
 import { z } from "zod";
+
+import { apiPaginationQueryShape } from "../schema-helpers";
+
+const USER_ASSET_LEDGER_SUBJECT_FILTERS = ["all", ...USER_ASSET_LEDGER_SUBJECTS] as const;
 
 export const updateAccountProfileSchema = z.object({
   nickname: z.string().min(1).max(32).optional(),
@@ -39,23 +44,23 @@ export const accountCancellationSchema = z.object({
 
 export const relationActionSchema = z.object({
   targetUserId: z.string().min(1),
-  action: z.enum(["follow", "unfollow", "block", "unblock", "set_remark", "clear_remark"]),
+  action: z.enum(USER_RELATION_ACTION_KINDS),
   remarkName: z.string().min(1).max(32).optional(),
-  listKind: z.enum(["following", "followers", "friends", "blocked", "remarks"]).optional(),
-  page: z.coerce.number().int().positive().optional(),
+  listKind: z.enum(USER_RELATION_LIST_KINDS).optional(),
+  page: apiPaginationQueryShape.page,
   pageSize: z.coerce.number().int().positive().max(50).optional(),
   keyword: z.string().min(1).max(50).optional(),
 });
 
 export const relationListQuerySchema = z.object({
-  kind: z.enum(["following", "followers", "friends", "blocked", "remarks"]),
-  page: z.coerce.number().int().positive().optional(),
+  kind: z.enum(USER_RELATION_LIST_KINDS),
+  page: apiPaginationQueryShape.page,
   pageSize: z.coerce.number().int().positive().max(50).optional(),
   keyword: z.string().min(1).max(50).optional(),
 });
 
 export const assetHistoryQuerySchema = z.object({
-  page: z.coerce.number().int().positive().optional(),
+  page: apiPaginationQueryShape.page,
   pageSize: z.coerce.number().int().positive().max(100).optional(),
-  subject: z.enum(["all", "points", "level", "membership", "entitlement", "balance"]).optional(),
+  subject: z.enum(USER_ASSET_LEDGER_SUBJECT_FILTERS).optional(),
 });

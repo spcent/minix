@@ -54,6 +54,7 @@ If any step cannot be answered, add the smallest missing contract or shared cont
 - Payment API schemas should reuse payment contract constants for order statuses, product types, channels, provider modes, and gateway providers.
 - Content API schemas should reuse content and search contract constants for feed queries, authoring models, publication states, lifecycle actions, visibility, and actor roles.
 - Settings API schemas should reuse settings contract constants for network strategies, notification channels, and profile visibility.
+- Account API schemas should reuse user contract constants for relation actions, relation list kinds, and asset ledger subjects instead of local string lists.
 - Feedback/support API shaping should use the API-domain snapshot helper for tickets, statuses, FAQ catalogs, support entries, and support-thread echoes so service-loop surfaces stay portable.
 - Extend `apps/api/src/domains/*` for business workflow shaping. Keep `apps/api/src/app.ts` as routing assembly and avoid pushing domain rules into host code.
 - Prefer manifest changes and existing scaffolds for new host exposure. Generated registries and WeChat shell output should only change through generation scripts.
