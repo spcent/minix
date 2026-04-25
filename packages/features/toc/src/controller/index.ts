@@ -1,4 +1,5 @@
 import {
+  cloneStateSnapshotArray,
   createAuthRedirectParams,
   ok,
   createStore,
@@ -30,8 +31,8 @@ export interface CreateTocControllerOptions {
 function cloneInitialState(initialState: TocState): TocState {
   return {
     ...initialState,
-    volumes: [...initialState.volumes],
-    readChapterIds: [...initialState.readChapterIds],
+    volumes: cloneStateSnapshotArray(initialState.volumes),
+    readChapterIds: cloneStateSnapshotArray(initialState.readChapterIds),
   };
 }
 

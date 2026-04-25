@@ -1,4 +1,6 @@
 import {
+  cloneStateSnapshot,
+  cloneStateSnapshotArray,
   createAuthRedirectParams,
   createDetailStatus,
   ok,
@@ -39,10 +41,10 @@ export interface CreateNovelDetailControllerOptions {
 function cloneInitialState(initialState: NovelDetailState): NovelDetailState {
   return {
     ...initialState,
-    ...(initialState.detail ? { detail: { ...initialState.detail } } : {}),
-    ...(initialState.detailData ? { detailData: { ...initialState.detailData } } : {}),
-    detailStatus: { ...initialState.detailStatus },
-    detailActions: initialState.detailActions.map((action) => ({ ...action })),
+    ...(initialState.detail ? { detail: cloneStateSnapshot(initialState.detail) } : {}),
+    ...(initialState.detailData ? { detailData: cloneStateSnapshot(initialState.detailData) } : {}),
+    detailStatus: cloneStateSnapshot(initialState.detailStatus),
+    detailActions: cloneStateSnapshotArray(initialState.detailActions),
   };
 }
 

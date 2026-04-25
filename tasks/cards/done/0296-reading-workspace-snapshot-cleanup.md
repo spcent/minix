@@ -1,6 +1,6 @@
 # Reading Workspace Snapshot Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -77,16 +77,23 @@ Reading workflows form a reusable content-product matrix. Their controllers shou
 
 ## Acceptance
 
-- [ ] bookshelf initial-state clone path uses core snapshot helpers
-- [ ] novel-detail initial-state clone path uses core snapshot helpers
-- [ ] reader initial-state clone path uses core snapshot helpers
-- [ ] toc initial-state clone path uses core snapshot helpers
-- [ ] public feature APIs and state fields remain unchanged
-- [ ] playbook records reading workspace snapshot guidance
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] bookshelf initial-state clone path uses core snapshot helpers
+- [x] novel-detail initial-state clone path uses core snapshot helpers
+- [x] reader initial-state clone path uses core snapshot helpers
+- [x] toc initial-state clone path uses core snapshot helpers
+- [x] public feature APIs and state fields remain unchanged
+- [x] playbook records reading workspace snapshot guidance
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Migrated bookshelf initial-state arrays and pinned item to core snapshot helpers.
+- Migrated novel-detail initial detail/status/action cloning to core snapshot helpers.
+- Migrated reader chapter and read-id cloning to core snapshot helpers.
+- Migrated toc volume and read-id cloning to core snapshot helpers.

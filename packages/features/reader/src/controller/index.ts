@@ -1,4 +1,6 @@
 import {
+  cloneStateSnapshot,
+  cloneStateSnapshotArray,
   createAuthRedirectParams,
   ok,
   createStore,
@@ -54,8 +56,8 @@ interface ReaderSessionSnapshot {
 function cloneInitialState(initialState: ReaderState): ReaderState {
   return {
     ...initialState,
-    ...(initialState.chapter ? { chapter: { ...initialState.chapter } } : {}),
-    readChapterIds: [...initialState.readChapterIds],
+    ...(initialState.chapter ? { chapter: cloneStateSnapshot(initialState.chapter) } : {}),
+    readChapterIds: cloneStateSnapshotArray(initialState.readChapterIds),
   };
 }
 

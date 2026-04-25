@@ -1,4 +1,6 @@
 import {
+  cloneStateSnapshot,
+  cloneStateSnapshotArray,
   createAuthRedirectParams,
   ok,
   createStore,
@@ -45,13 +47,13 @@ export interface CreateBookshelfControllerOptions {
 function cloneInitialState(initialState: BookshelfState): BookshelfState {
   return {
     ...initialState,
-    items: [...initialState.items],
-    visibleItems: [...initialState.visibleItems],
-    ...(initialState.pinnedItem ? { pinnedItem: { ...initialState.pinnedItem } } : {}),
-    activeItems: [...initialState.activeItems],
-    updateItems: [...initialState.updateItems],
-    completedItems: [...initialState.completedItems],
-    milestoneHistory: [...initialState.milestoneHistory],
+    items: cloneStateSnapshotArray(initialState.items),
+    visibleItems: cloneStateSnapshotArray(initialState.visibleItems),
+    ...(initialState.pinnedItem ? { pinnedItem: cloneStateSnapshot(initialState.pinnedItem) } : {}),
+    activeItems: cloneStateSnapshotArray(initialState.activeItems),
+    updateItems: cloneStateSnapshotArray(initialState.updateItems),
+    completedItems: cloneStateSnapshotArray(initialState.completedItems),
+    milestoneHistory: cloneStateSnapshotArray(initialState.milestoneHistory),
   };
 }
 
