@@ -14,6 +14,7 @@ import type {
 } from "@minix/contracts";
 
 import type { SessionRecord, UserState } from "../../types";
+import { cloneDomainSnapshot, cloneDomainSnapshotArray } from "../snapshot";
 
 export const ACCOUNT_OPERATION_COOLDOWN_MS = 10 * 60 * 1000;
 export const ACCOUNT_CANCELLATION_COOLING_OFF_MS = 7 * 24 * 60 * 60 * 1000;
@@ -113,13 +114,14 @@ export function resolveAccountSecurityPhoneNumber(
 export function createSecurityCenter(userState: UserState): SecurityCenter {
   const security = userState.authSecurity;
   const deviceIdentities: AuthDeviceIdentity[] = security
-    ? Object.values(security.devicesById ?? {})
-        .slice()
-        .sort((left, right) => right.lastSeenAt.localeCompare(left.lastSeenAt))
-        .map((device) => ({ ...device }))
+    ? cloneDomainSnapshotArray(
+        Object.values(security.devicesById ?? {}).sort((left, right) =>
+          right.lastSeenAt.localeCompare(left.lastSeenAt),
+        ),
+      )
     : [];
   const auditEvents: AuthSecurityAuditEvent[] = security?.auditEvents
-    ? security.auditEvents.map((event) => ({ ...event }))
+    ? cloneDomainSnapshotArray(security.auditEvents)
     : [];
   const latestRateLimit: AuthRateLimitState | undefined = security?.rateLimitStatesByScope
     ? Object.values(security.rateLimitStatesByScope)
@@ -127,7 +129,7 @@ export function createSecurityCenter(userState: UserState): SecurityCenter {
         .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]
     : undefined;
   const latestPrompt: AuthSecurityPrompt | undefined = security?.latestPrompt
-    ? { ...security.latestPrompt }
+    ? cloneDomainSnapshot(security.latestPrompt)
     : undefined;
   const trustedDevices = deviceIdentities.filter((device) => device.trusted).length;
   const provisionalDevices = deviceIdentities.filter((device) => device.trustLabel === "provisional").length;
@@ -137,7 +139,7 @@ export function createSecurityCenter(userState: UserState): SecurityCenter {
   return {
     deviceIdentities,
     auditEvents,
-    ...(latestRateLimit ? { latestRateLimit: { ...latestRateLimit } } : {}),
+    ...(latestRateLimit ? { latestRateLimit: cloneDomainSnapshot(latestRateLimit) } : {}),
     ...(latestPrompt ? { latestPrompt } : {}),
     ...(deviceIdentities.length > 0
       ? {
