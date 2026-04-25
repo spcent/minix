@@ -1,4 +1,9 @@
-import type { RuntimeEnv } from "@minix/core";
+import {
+  parseBootstrapBooleanFlag,
+  readBootstrapLocationParam,
+  readBootstrapProcessEnv,
+  type RuntimeEnv,
+} from "@minix/core";
 
 export interface NovelH5BootstrapEnvOverride {
   apiBaseUrl?: string;
@@ -7,52 +12,6 @@ export interface NovelH5BootstrapEnvOverride {
 
 export const NOVEL_H5_DEFAULT_API_BASE_URL = "http://localhost:3000";
 export const NOVEL_H5_MOCK_API_BASE_URL = "https://mock.minix.local";
-
-function parseBooleanFlag(value: string | boolean | null | undefined): boolean | undefined {
-  if (typeof value === "boolean") {
-    return value;
-  }
-
-  if (!value) {
-    return undefined;
-  }
-
-  switch (value.toLowerCase()) {
-    case "1":
-    case "true":
-    case "yes":
-    case "on":
-      return true;
-    case "0":
-    case "false":
-    case "no":
-    case "off":
-      return false;
-    default:
-      return undefined;
-  }
-}
-
-function readProcessEnv(name: string): string | undefined {
-  if (typeof process === "undefined") {
-    return undefined;
-  }
-
-  return process.env?.[name];
-}
-
-function readLocationParam(name: string): string | undefined {
-  const globals = globalThis as typeof globalThis & {
-    location?: { search?: string };
-  };
-  const search = globals.location?.search;
-  if (!search) {
-    return undefined;
-  }
-
-  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
-  return params.get(name) ?? undefined;
-}
 
 function readOverride(): NovelH5BootstrapEnvOverride | undefined {
   const globals = globalThis as typeof globalThis & {
@@ -66,13 +25,13 @@ export function loadNovelH5Env(): RuntimeEnv {
   const override = readOverride();
   const useMock =
     override?.useMock ??
-    parseBooleanFlag(readProcessEnv("MINIX_USE_MOCK")) ??
-    parseBooleanFlag(readLocationParam("minix_use_mock")) ??
+    parseBootstrapBooleanFlag(readBootstrapProcessEnv("MINIX_USE_MOCK")) ??
+    parseBootstrapBooleanFlag(readBootstrapLocationParam("minix_use_mock")) ??
     false;
   const apiBaseUrl =
     override?.apiBaseUrl ??
-    readProcessEnv("MINIX_API_BASE_URL") ??
-    readLocationParam("minix_api_base_url") ??
+    readBootstrapProcessEnv("MINIX_API_BASE_URL") ??
+    readBootstrapLocationParam("minix_api_base_url") ??
     (useMock ? NOVEL_H5_MOCK_API_BASE_URL : NOVEL_H5_DEFAULT_API_BASE_URL);
 
   return {
