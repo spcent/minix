@@ -79,6 +79,7 @@ function cloneState(state: MediaToolsState): MediaToolsState {
     shareAttribution: structuredClone(state.shareAttribution),
     ...(state.shareShortLinkRecord ? { shareShortLinkRecord: structuredClone(state.shareShortLinkRecord) } : {}),
     ...(state.sharePosterAsset ? { sharePosterAsset: structuredClone(state.sharePosterAsset) } : {}),
+    ...(state.shareProviderPosture ? { shareProviderPosture: structuredClone(state.shareProviderPosture) } : {}),
     shareChannelReadinessSummary: state.shareChannelReadinessSummary,
     shareFallbackSummary: state.shareFallbackSummary,
     shareAttributionDiagnosticsSummary: state.shareAttributionDiagnosticsSummary,
@@ -137,6 +138,9 @@ function deriveShareProviderSummary(
     | ShareShortLinkResolveResponse
     | ShareAttributionReportResponse,
 ): string {
+  if (response.providerPosture) {
+    return response.providerPosture.readinessSummary;
+  }
   const shortLinkRecord = response.shortLinkRecord ?? response.attributionReport.shortLinkRecord;
   const posterAsset = response.posterAsset ?? response.attributionReport.posterAsset;
   const shortLinkProvider = shortLinkRecord?.provider;
@@ -656,6 +660,7 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
             shareAttribution: resolved.value.shareAttribution,
             shareShortLinkRecord: resolved.value.shortLinkRecord,
             sharePosterAsset: resolved.value.posterAsset,
+            shareProviderPosture: resolved.value.providerPosture,
             shareProviderSummary: deriveShareProviderSummary(resolved.value),
             shareChannelReadinessSummary: deriveShareChannelReadinessSummary(resolved.value),
             shareFallbackSummary: deriveShareFallbackSummary(resolved.value),
@@ -692,6 +697,7 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
         shareAttribution: recognized.value.shareAttribution,
         shareShortLinkRecord: recognized.value.shortLinkRecord,
         sharePosterAsset: recognized.value.posterAsset,
+        shareProviderPosture: recognized.value.providerPosture,
         shareProviderSummary: deriveShareProviderSummary(recognized.value),
         shareChannelReadinessSummary: deriveShareChannelReadinessSummary(recognized.value),
         shareFallbackSummary: deriveShareFallbackSummary(recognized.value),
@@ -734,6 +740,7 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
         shareAttribution: result.value.shareAttribution,
         shareShortLinkRecord: result.value.shortLinkRecord,
         sharePosterAsset: result.value.posterAsset,
+        shareProviderPosture: result.value.providerPosture,
         shareProviderSummary: deriveShareProviderSummary(result.value),
         shareChannelReadinessSummary: deriveShareChannelReadinessSummary(result.value),
         shareFallbackSummary: deriveShareFallbackSummary(result.value),

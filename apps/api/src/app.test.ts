@@ -2404,8 +2404,15 @@ test("share endpoints preserve attribution through prepare and return recognitio
     landingTarget: { path?: string; shortLink?: string; shortCode?: string; authRedirect?: { path?: string; source?: string } };
     sharePayload: { shareToken?: string; shortLink?: string; sourceContext?: { pagePath?: string }; readinessSummary?: string };
     shareChannel: { readinessSummary?: string; fallbackSummary?: string };
-    shareAttribution: { attributionId?: string; preparedAt?: string; actorContext?: { userId?: string }; replaySummary?: string };
+    shareAttribution: {
+      attributionId?: string;
+      preparedAt?: string;
+      actorContext?: { userId?: string };
+      replaySummary?: string;
+      campaignRule?: { campaign?: string; channelMarker?: string; ruleSummary?: string };
+    };
     shortLinkRecord?: { shortCode?: string; resolvedCount?: number; readinessSummary?: string };
+    providerPosture?: { providerMode: string; shortLinkProvider: string; secretMaterialTracked: boolean };
     attributionReport?: { shareAttribution?: { returnCount?: number } };
   };
   assert.equal(prepared.landingTarget.path, "/login");
@@ -2421,8 +2428,13 @@ test("share endpoints preserve attribution through prepare and return recognitio
   assert.equal(Boolean(prepared.shareAttribution.preparedAt), true);
   assert.equal(prepared.shareAttribution.actorContext?.userId, session.userId);
   assert.equal(prepared.shareAttribution.replaySummary, "Short-link replay has not been resolved yet.");
+  assert.equal(prepared.shareAttribution.campaignRule?.campaign, "invite");
+  assert.equal(prepared.shareAttribution.campaignRule?.channelMarker, "host-h5-demo");
+  assert.equal(prepared.shareAttribution.campaignRule?.ruleSummary?.includes("recognized conversion returns"), true);
   assert.equal(prepared.shortLinkRecord?.resolvedCount, 0);
   assert.equal(prepared.shortLinkRecord?.readinessSummary?.includes("sample-backed"), true);
+  assert.equal(prepared.providerPosture?.shortLinkProvider, "sample-short-link");
+  assert.equal(prepared.providerPosture?.secretMaterialTracked, false);
   assert.equal(prepared.attributionReport?.shareAttribution?.returnCount, 0);
 
   const resolveResponse = await app.request(
@@ -2455,6 +2467,7 @@ test("share endpoints preserve attribution through prepare and return recognitio
       lastLandingPath?: string;
       recognitionSummary?: string;
       inviteBindingSummary?: string;
+      conversionEvidence?: { outcome?: string; recognizedUserId?: string; conversionCount?: number; evidenceSummary?: string };
     };
     shortLinkRecord?: { diagnosticsSummary?: string };
   };
@@ -2466,6 +2479,9 @@ test("share endpoints preserve attribution through prepare and return recognitio
   assert.equal(recognized.shareAttribution.lastLandingPath, "/login");
   assert.equal(recognized.shareAttribution.recognitionSummary?.includes("1 returned"), true);
   assert.equal(recognized.shareAttribution.inviteBindingSummary?.includes(session.userId), true);
+  assert.equal(recognized.shareAttribution.conversionEvidence?.outcome, "conversion");
+  assert.equal(recognized.shareAttribution.conversionEvidence?.recognizedUserId, session.userId);
+  assert.equal(recognized.shareAttribution.conversionEvidence?.conversionCount, 1);
   assert.equal(recognized.shortLinkRecord?.diagnosticsSummary?.includes("resolved 1 time"), true);
 
   const reportResponse = await app.request(
@@ -2589,9 +2605,25 @@ test("share endpoints expose production short-link and poster posture through en
     shareChannel?: { readinessSummary?: string };
     shortLinkRecord?: { shortLink?: string; provider?: string; providerMode?: string; readinessSummary?: string };
     posterAsset?: { url?: string; provider?: string; providerMode?: string; readinessSummary?: string; fallbackSummary?: string };
+    providerPosture?: {
+      providerMode: string;
+      shortLinkProvider: string;
+      posterProvider?: string;
+      shortLinkHost?: string;
+      posterHost?: string;
+      secretMaterialTracked: boolean;
+      readinessSummary: string;
+    };
   };
   assert.equal(prepared.shortLinkRecord?.provider, "branch-io");
   assert.equal(prepared.shortLinkRecord?.providerMode, "production");
+  assert.equal(prepared.providerPosture?.providerMode, "production");
+  assert.equal(prepared.providerPosture?.shortLinkProvider, "branch-io");
+  assert.equal(prepared.providerPosture?.posterProvider, "canvas-render-service");
+  assert.equal(prepared.providerPosture?.shortLinkHost, "https://mini.example.test");
+  assert.equal(prepared.providerPosture?.posterHost, "https://cdn.example.test");
+  assert.equal(prepared.providerPosture?.secretMaterialTracked, false);
+  assert.equal(prepared.providerPosture?.readinessSummary.includes("Secret material is not tracked in source"), true);
   assert.equal(prepared.shortLinkRecord?.shortLink, "https://mini.example.test/s/12345678");
   assert.equal(prepared.shortLinkRecord?.readinessSummary?.includes("backed by branch-io"), true);
   assert.equal(prepared.sharePayload?.shortLink, "https://mini.example.test/s/12345678");

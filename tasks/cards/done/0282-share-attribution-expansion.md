@@ -86,11 +86,23 @@ Keep page, content, invite, and poster sharing aligned on `sharePayload`, `share
 - final verifier handoff:
   - include prepare, dispatch, resolve, return, report, poster, short-link, invite, and conversion examples
 
+## Implementation Notes
+
+- Added share provider posture, campaign attribution rules, and conversion evidence to the shared share contract.
+- Derived provider posture and campaign/conversion metadata in the share API while keeping landing and return targets inside the existing route-aligned envelopes.
+- Surfaced provider posture in media-tools state without adding host-local attribution wrappers.
+- Updated `docs/DOMAIN_COMPLETENESS_MATRIX.md` to record the expanded share attribution posture.
+
+## Verification Notes
+
+- Ran `pnpm verify:feature media-tools`.
+- Ran `pnpm test`.
+
 ## Acceptance
 
-- [ ] share outputs remain `sharePayload`, `shareChannel`, and `shareAttribution`
-- [ ] landing and return targets stay route-contract aligned
-- [ ] provider readiness is visible without committing secrets
-- [ ] host apps do not recreate attribution wrappers
-- [ ] docs updated for provider or attribution workflow changes
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] share outputs remain `sharePayload`, `shareChannel`, and `shareAttribution`
+- [x] landing and return targets stay route-contract aligned
+- [x] provider readiness is visible without committing secrets
+- [x] host apps do not recreate attribution wrappers
+- [x] docs updated for provider or attribution workflow changes
+- [x] `pnpm verify` run, or skipped with reason if docs-only

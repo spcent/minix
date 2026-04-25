@@ -5,6 +5,7 @@ import type {
   ShareChannel,
   SharePayload,
   SharePosterAsset,
+  ShareProviderPosture,
   ShareShortLinkRecord,
   UploadAsset,
   UploadCleanupRecord,
@@ -48,6 +49,7 @@ export interface MediaToolsState {
   uploadProviderSummary: string;
   uploadProviderPosture: UploadProviderPosture | undefined;
   shareProviderSummary: string;
+  shareProviderPosture: ShareProviderPosture | undefined;
   uploadTask: UploadTask;
   uploadAsset: UploadAsset | undefined;
   uploadReviewRecord: UploadReviewRecord | undefined;
@@ -251,6 +253,7 @@ export function createDefaultMediaToolsState(
     uploadProviderSummary: createDefaultUploadProviderSummary(),
     uploadProviderPosture: undefined,
     shareProviderSummary: createDefaultShareProviderSummary(),
+    shareProviderPosture: undefined,
     uploadTask: createDefaultUploadTask(),
     uploadAsset: undefined,
     uploadReviewRecord: undefined,

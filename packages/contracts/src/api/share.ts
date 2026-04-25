@@ -77,6 +77,35 @@ export interface ShareAttribution {
   recognitionSummary?: string;
   replaySummary?: string;
   inviteBindingSummary?: string;
+  campaignRule?: ShareCampaignAttributionRule;
+  conversionEvidence?: ShareConversionEvidence;
+}
+
+export interface ShareCampaignAttributionRule {
+  campaign?: string;
+  channelMarker?: string;
+  inviteBindingEnabled: boolean;
+  conversionOutcomes: ShareReturnOutcome[];
+  ruleSummary: string;
+}
+
+export interface ShareConversionEvidence {
+  outcome: ShareReturnOutcome;
+  recognizedAt: string;
+  recognizedPath?: string;
+  recognizedUserId?: string;
+  conversionCount: number;
+  evidenceSummary: string;
+}
+
+export interface ShareProviderPosture {
+  providerMode: "sample" | "production";
+  shortLinkProvider: string;
+  posterProvider?: string;
+  shortLinkHost?: string;
+  posterHost?: string;
+  secretMaterialTracked: false;
+  readinessSummary: string;
 }
 
 export interface ShareShortLinkRecord {
@@ -132,6 +161,7 @@ export interface SharePrepareResponse extends ShareDispatchResult {
   landingTarget: ShareLandingTarget;
   shortLinkRecord?: ShareShortLinkRecord;
   posterAsset?: SharePosterAsset;
+  providerPosture?: ShareProviderPosture;
   attributionReport: ShareAttributionReport;
 }
 
@@ -146,6 +176,7 @@ export interface ShareReturnRecognitionResponse extends ShareDispatchResult {
   landingTarget?: ShareLandingTarget;
   shortLinkRecord?: ShareShortLinkRecord;
   posterAsset?: SharePosterAsset;
+  providerPosture?: ShareProviderPosture;
   attributionReport: ShareAttributionReport;
 }
 
@@ -158,6 +189,7 @@ export interface ShareShortLinkResolveResponse extends ShareDispatchResult {
   landingTarget: ShareLandingTarget;
   shortLinkRecord: ShareShortLinkRecord;
   posterAsset?: SharePosterAsset;
+  providerPosture?: ShareProviderPosture;
   attributionReport: ShareAttributionReport;
 }
 
@@ -169,5 +201,6 @@ export interface ShareAttributionReportResponse extends ShareDispatchResult {
   landingTarget?: ShareLandingTarget;
   shortLinkRecord?: ShareShortLinkRecord;
   posterAsset?: SharePosterAsset;
+  providerPosture?: ShareProviderPosture;
   attributionReport: ShareAttributionReport;
 }

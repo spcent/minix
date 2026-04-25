@@ -1,8 +1,11 @@
 import type {
   ShareAttributionReport,
+  ShareCampaignAttributionRule,
+  ShareConversionEvidence,
   ShareAttributionReportResponse,
   SharePrepareRequest,
   SharePrepareResponse,
+  ShareProviderPosture,
   ShareReturnRecognitionRequest,
   ShareReturnRecognitionResponse,
   ShareShortLinkResolveResponse,
@@ -128,6 +131,93 @@ function createInviteBindingSummary(inviteBindingEnabled: boolean, inviteBoundUs
   return "Invite binding is active and waiting for a recognized conversion user.";
 }
 
+function resolveUrlHost(url: string | undefined): string | undefined {
+  if (!url) {
+    return undefined;
+  }
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
+}
+
+function createShareCampaignRule(input: {
+  campaign?: string;
+  channelMarker?: string;
+  inviteBindingEnabled: boolean;
+}): ShareCampaignAttributionRule {
+  const campaignClause = input.campaign ? `campaign ${input.campaign}` : "the default campaign";
+  const channelClause = input.channelMarker ? `channel marker ${input.channelMarker}` : "the shared channel marker";
+  return {
+    ...(input.campaign ? { campaign: input.campaign } : {}),
+    ...(input.channelMarker ? { channelMarker: input.channelMarker } : {}),
+    inviteBindingEnabled: input.inviteBindingEnabled,
+    conversionOutcomes: ["conversion"],
+    ruleSummary: `Attribution binds ${campaignClause} to ${channelClause}; conversions are counted from recognized conversion returns.`,
+  };
+}
+
+function createShareConversionEvidence(
+  request: ShareReturnRecognitionRequest,
+  conversionCount: number,
+  now: string,
+): ShareConversionEvidence {
+  return {
+    outcome: request.outcome,
+    recognizedAt: now,
+    ...(request.recognizedPath ? { recognizedPath: request.recognizedPath } : {}),
+    ...(request.recognizedUserId ? { recognizedUserId: request.recognizedUserId } : {}),
+    conversionCount,
+    evidenceSummary:
+      request.outcome === "conversion"
+        ? `Conversion recognized at ${now}; total conversions are ${conversionCount}.`
+        : `${request.outcome} recognized at ${now}; conversion count remains ${conversionCount}.`,
+  };
+}
+
+function createShareProviderPosture(input: {
+  providerMode: "sample" | "production";
+  shortLinkProvider: string;
+  posterProvider?: string;
+  shortLink?: string;
+  posterUrl?: string;
+}): ShareProviderPosture {
+  const shortLinkHost = resolveUrlHost(input.shortLink);
+  const posterHost = resolveUrlHost(input.posterUrl);
+  const readinessSummary =
+    input.providerMode === "production"
+      ? `Share short-link provider ${input.shortLinkProvider} and poster provider ${input.posterProvider ?? "configured poster provider"} are configured. Secret material is not tracked in source.`
+      : `Share short-link and poster generation remain sample-backed through ${input.shortLinkProvider} and ${input.posterProvider ?? "sample-poster-provider"}. Secret material is not tracked in source.`;
+  return {
+    providerMode: input.providerMode,
+    shortLinkProvider: input.shortLinkProvider,
+    ...(input.posterProvider ? { posterProvider: input.posterProvider } : {}),
+    ...(shortLinkHost ? { shortLinkHost } : {}),
+    ...(posterHost ? { posterHost } : {}),
+    secretMaterialTracked: false,
+    readinessSummary,
+  };
+}
+
+function resolveShareProviderPosture(response: {
+  shortLinkRecord?: { provider?: string; providerMode?: "sample" | "production"; shortLink?: string };
+  posterAsset?: { provider: string; providerMode?: "sample" | "production"; url: string };
+  providerPosture?: ShareProviderPosture;
+}): ShareProviderPosture {
+  if (response.providerPosture) {
+    return response.providerPosture;
+  }
+  const providerMode = response.shortLinkRecord?.providerMode ?? response.posterAsset?.providerMode ?? "sample";
+  return createShareProviderPosture({
+    providerMode,
+    shortLinkProvider: response.shortLinkRecord?.provider ?? "sample-short-link",
+    ...(response.posterAsset?.provider ? { posterProvider: response.posterAsset.provider } : {}),
+    ...(response.shortLinkRecord?.shortLink ? { shortLink: response.shortLinkRecord.shortLink } : {}),
+    ...(response.posterAsset?.url ? { posterUrl: response.posterAsset.url } : {}),
+  });
+}
+
 function createShortLinkReadinessSummary(provider: string, providerMode: "sample" | "production"): string {
   return providerMode === "production"
     ? `Short-link delivery is backed by ${provider}.`
@@ -194,6 +284,13 @@ export function createSharePrepareResponse(
     readinessSummary: createShortLinkReadinessSummary(shortLinkProvider, providerMode),
     diagnosticsSummary: createShortLinkDiagnosticsSummary(0),
   };
+  const providerPosture = createShareProviderPosture({
+    providerMode,
+    shortLinkProvider,
+    ...(posterAsset?.provider ? { posterProvider: posterAsset.provider } : {}),
+    shortLink,
+    ...(posterAsset?.url ? { posterUrl: posterAsset.url } : {}),
+  });
 
   const landingTarget = {
     ...(request.sharePayload.landingTarget?.routeId ? { routeId: request.sharePayload.landingTarget.routeId } : {}),
@@ -226,6 +323,13 @@ export function createSharePrepareResponse(
     ),
     replaySummary: createShareReplaySummary(0),
     inviteBindingSummary: createInviteBindingSummary(request.shareAttribution.inviteBindingEnabled),
+    campaignRule: createShareCampaignRule({
+      channelMarker,
+      inviteBindingEnabled: request.shareAttribution.inviteBindingEnabled,
+      ...(request.sharePayload.trackingParams.campaign
+        ? { campaign: request.sharePayload.trackingParams.campaign }
+        : {}),
+    }),
   };
   const attributionReport: ShareAttributionReport = {
     shareAttribution,
@@ -266,6 +370,7 @@ export function createSharePrepareResponse(
     landingTarget,
     shortLinkRecord,
     ...(posterAsset ? { posterAsset } : {}),
+    providerPosture,
     attributionReport,
   };
 }
@@ -301,6 +406,7 @@ export function recognizeShareReturn(
       next.shareAttribution.inviteBoundUserId = request.recognizedUserId;
     }
   }
+  next.shareAttribution.conversionEvidence = createShareConversionEvidence(request, next.shareAttribution.conversionCount, now);
 
   next.sharePayload.readinessSummary = createSharePayloadReadinessSummary({
     scenario: next.sharePayload.scenario,
@@ -351,6 +457,7 @@ export function recognizeShareReturn(
     landingTarget: next.landingTarget,
     ...(next.shortLinkRecord ? { shortLinkRecord: next.shortLinkRecord } : {}),
     ...(next.posterAsset ? { posterAsset: next.posterAsset } : {}),
+    providerPosture: resolveShareProviderPosture(next),
     attributionReport: {
       shareAttribution: next.shareAttribution,
       ...(next.shortLinkRecord ? { shortLinkRecord: next.shortLinkRecord } : {}),
@@ -434,6 +541,7 @@ export function resolveShareShortLink(
         lastResolvedAt: now,
       },
     ...(next.posterAsset ? { posterAsset: next.posterAsset } : {}),
+    providerPosture: resolveShareProviderPosture(next),
     attributionReport: {
       shareAttribution: next.shareAttribution,
       shortLinkRecord:
@@ -504,6 +612,7 @@ export function createShareAttributionReport(existing: SharePrepareResponse): Sh
     ...(next.landingTarget ? { landingTarget: next.landingTarget } : {}),
     ...(next.shortLinkRecord ? { shortLinkRecord: next.shortLinkRecord } : {}),
     ...(next.posterAsset ? { posterAsset: next.posterAsset } : {}),
+    providerPosture: resolveShareProviderPosture(next),
     attributionReport: {
       shareAttribution: next.shareAttribution,
       ...(next.shortLinkRecord ? { shortLinkRecord: next.shortLinkRecord } : {}),

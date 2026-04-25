@@ -1410,6 +1410,16 @@ test("media-tools controller surfaces production share provider posture from att
           url: "https://cdn.example.test/share-posters/share1.svg",
           createdAt: "2026-04-08T09:39:00.000Z",
         },
+        providerPosture: {
+          providerMode: "production",
+          shortLinkProvider: "branch-io",
+          posterProvider: "canvas-render-service",
+          shortLinkHost: "https://mini.example.test",
+          posterHost: "https://cdn.example.test",
+          secretMaterialTracked: false,
+          readinessSummary:
+            "Share short-link provider branch-io and poster provider canvas-render-service are configured. Secret material is not tracked in source.",
+        },
         attributionReport: {
           shareAttribution: {
             attributionId: "share_prepare_1",
@@ -1469,8 +1479,11 @@ test("media-tools controller surfaces production share provider posture from att
   await controller.loadShareReport();
 
   assert.equal(controller.store.getState().sharePayload.posterImageUrl, "https://cdn.example.test/share-posters/share1.svg");
+  assert.equal(controller.store.getState().shareProviderPosture?.secretMaterialTracked, false);
+  assert.equal(controller.store.getState().shareProviderPosture?.shortLinkHost, "https://mini.example.test");
   assert.equal(controller.store.getState().shareProviderSummary.includes("branch-io"), true);
   assert.equal(controller.store.getState().shareProviderSummary.includes("canvas-render-service"), true);
+  assert.equal(controller.store.getState().shareProviderSummary.includes("Secret material is not tracked in source"), true);
   assert.equal(controller.store.getState().shareProviderSummary.includes("sample-backed"), false);
   assert.equal(controller.store.getState().shareChannelReadinessSummary.length > 0, true);
 });
