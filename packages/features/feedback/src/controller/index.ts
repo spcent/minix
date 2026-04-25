@@ -106,6 +106,9 @@ function cloneState(state: FeedbackState): FeedbackState {
     supportEntries: state.supportEntries.map((entry) => structuredClone(entry)),
     supportEntry: state.supportEntry ? structuredClone(state.supportEntry) : undefined,
     revisitAction: state.revisitAction ? structuredClone(state.revisitAction) : undefined,
+    queueDashboards: state.queueDashboards.map((dashboard) => structuredClone(dashboard)),
+    slaRules: state.slaRules.map((rule) => structuredClone(rule)),
+    handlingReport: state.handlingReport ? structuredClone(state.handlingReport) : undefined,
     serviceLoopSummary: state.serviceLoopSummary,
   };
 }
@@ -350,6 +353,7 @@ function createDetailStatePatch(
           ? structuredClone(detail.feedbackCategory.supportEntry)
           : undefined,
     revisitAction: detail.feedbackStatus.revisitAction ? structuredClone(detail.feedbackStatus.revisitAction) : undefined,
+    handlingReport: detail.feedbackStatus.handlingReport ? structuredClone(detail.feedbackStatus.handlingReport) : undefined,
     serviceLoopSummary:
       detail.feedbackStatus.supportLoopSummary ?? detail.feedbackStatus.nextStepLabel ?? detail.feedbackStatus.progressLabel,
     serviceHint:
@@ -1160,6 +1164,8 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         selectedTicketId: result.value.ticketList.selectedTicketId ?? result.value.ticketList.items[0]?.ticketId,
         faqCatalog: result.value.faqCatalog.map((entry) => structuredClone(entry)),
         supportEntries: result.value.supportEntries.map((entry) => structuredClone(entry)),
+        queueDashboards: result.value.queueDashboards ? result.value.queueDashboards.map((dashboard) => structuredClone(dashboard)) : [],
+        slaRules: result.value.slaRules ? result.value.slaRules.map((rule) => structuredClone(rule)) : [],
       });
       return result;
     },

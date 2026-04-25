@@ -2,10 +2,14 @@ import type {
   FeedbackBootstrapResponse,
   FeedbackCategory,
   FeedbackFaqEntry,
+  FeedbackHandlingReport,
   FeedbackPriority,
+  FeedbackQueueDashboard,
   FeedbackRevisitAction,
+  FeedbackSlaRule,
   FeedbackStatus,
   FeedbackSupportEntry,
+  FeedbackSupportHandoff,
   FeedbackTicket,
   FeedbackTicketAssignee,
   FeedbackTicketDetailResponse,
@@ -235,9 +239,13 @@ export function cloneFeedbackStatus(status: FeedbackStatus): FeedbackStatus {
     processingHistory: status.processingHistory.map((record) => ({ ...record })),
     ...(status.assignee ? { assignee: { ...status.assignee } } : {}),
     ...(status.sla ? { sla: { ...status.sla } } : {}),
+    ...(status.slaRule ? { slaRule: { ...status.slaRule } } : {}),
     ...(status.faqEntry ? { faqEntry: { ...status.faqEntry } } : {}),
     ...(status.faqEntries ? { faqEntries: status.faqEntries.map((entry) => ({ ...entry })) } : {}),
     ...(status.supportEntry ? { supportEntry: { ...status.supportEntry } } : {}),
+    ...(status.queueDashboard ? { queueDashboard: { ...status.queueDashboard } } : {}),
+    ...(status.supportHandoff ? { supportHandoff: { ...status.supportHandoff } } : {}),
+    ...(status.handlingReport ? { handlingReport: { ...status.handlingReport } } : {}),
     ...(status.revisitAction ? { revisitAction: { ...status.revisitAction } } : {}),
   };
 }
@@ -253,6 +261,78 @@ export function resolveFeedbackCategory(categoryKey: string, type: FeedbackType)
 
 export function shiftIsoMinutes(timestamp: string, minutes: number): string {
   return new Date(new Date(timestamp).getTime() + minutes * 60_000).toISOString();
+}
+
+function createFeedbackSlaRule(category: FeedbackCategory, sla?: FeedbackTicketSla): FeedbackSlaRule {
+  const responseMinutes = category.defaultPriority === "urgent" ? 30 : category.defaultPriority === "high" ? 60 : 240;
+  const resolutionMinutes = category.defaultPriority === "urgent" ? 240 : category.defaultPriority === "high" ? 480 : 1440;
+  const policyKey = sla?.policyKey ?? `${category.key}_default_sla`;
+  return {
+    policyKey,
+    label: sla?.label ?? `${category.label} SLA`,
+    responseMinutes,
+    resolutionMinutes,
+    ruleSummary: `${category.label} uses ${responseMinutes} minute first response and ${resolutionMinutes} minute resolution targets.`,
+  };
+}
+
+function createFeedbackQueueDashboard(input: {
+  queueKey: string;
+  queueLabel: string;
+  summaries: FeedbackTicketSummary[];
+}): FeedbackQueueDashboard {
+  const openItems = input.summaries.filter((item) => item.state !== "closed" && item.state !== "resolved");
+  const waitingUserCount = input.summaries.filter((item) => item.state === "waiting_user").length;
+  const breachedSlaCount = input.summaries.filter((item) => item.sla?.breached).length;
+  const urgentCount = input.summaries.filter((item) => item.priority === "urgent").length;
+  return {
+    queueKey: input.queueKey,
+    queueLabel: input.queueLabel,
+    openCount: openItems.length,
+    waitingUserCount,
+    breachedSlaCount,
+    urgentCount,
+    dashboardSummary: `${input.queueLabel} has ${openItems.length} open ticket${openItems.length === 1 ? "" : "s"}, ${waitingUserCount} waiting on users, and ${breachedSlaCount} SLA breach${breachedSlaCount === 1 ? "" : "es"}.`,
+  };
+}
+
+function createFeedbackSupportHandoff(input: {
+  supportEntry?: FeedbackSupportEntry;
+  queueKey?: string;
+  queueLabel: string;
+}): FeedbackSupportHandoff {
+  const channel = input.supportEntry?.channel ?? "messages";
+  const transport = channel === "messages" ? "messages_touchpoint" : "settings_entry";
+  return {
+    channel,
+    transport,
+    ...(input.queueKey ? { queueKey: input.queueKey } : input.supportEntry?.queueKey ? { queueKey: input.supportEntry.queueKey } : {}),
+    queueLabel: input.queueLabel,
+    ...(input.supportEntry?.threadId ? { threadId: input.supportEntry.threadId } : {}),
+    handoffSummary:
+      transport === "messages_touchpoint"
+        ? `${input.queueLabel} handoff stays on the shared messages touchpoint model.`
+        : `${input.queueLabel} handoff stays on the settings support entry.`,
+  };
+}
+
+export function createFeedbackHandlingReport(input: {
+  ticketId: string;
+  state: FeedbackStatus["state"];
+  queueKey?: string;
+  sla?: FeedbackTicketSla;
+  history: FeedbackStatus["processingHistory"];
+}): FeedbackHandlingReport {
+  const latestAction = input.history.at(-1)?.actionLabel;
+  return {
+    ticketId: input.ticketId,
+    state: input.state,
+    ...(input.queueKey ? { queueKey: input.queueKey } : {}),
+    slaBreached: input.sla?.breached ?? false,
+    processingHistoryCount: input.history.length,
+    ...(latestAction ? { latestActionLabel: latestAction } : {}),
+    reportSummary: `${input.ticketId} is ${input.state}; ${input.history.length} processing event${input.history.length === 1 ? "" : "s"} recorded.`,
+  };
 }
 
 function createFeedbackRevisitAction(
@@ -384,6 +464,43 @@ export function createFeedbackStatus(
     });
   }
 
+  const queueKey = options.queueKey ?? category.defaultQueueKey;
+  const slaRule = createFeedbackSlaRule(category, options.sla);
+  const queueDashboard = createFeedbackQueueDashboard({
+    queueKey: queueKey ?? "general",
+    queueLabel,
+    summaries: [
+      {
+        ticketId,
+        title: `${category.label} ticket`,
+        categoryKey: category.key,
+        categoryLabel: category.label,
+        type: category.type,
+        state,
+        priority: category.defaultPriority,
+        labels: [...category.labels],
+        revisitRequired,
+        ...(queueKey ? { queueKey } : {}),
+        queueLabel,
+        ...(options.assignee ? { assignee: { ...options.assignee } } : {}),
+        ...(options.sla ? { sla: { ...options.sla } } : {}),
+        lastUpdatedAt: createdAt,
+      },
+    ],
+  });
+  const supportHandoff = createFeedbackSupportHandoff({
+    ...(supportEntry ? { supportEntry } : {}),
+    ...(queueKey ? { queueKey } : {}),
+    queueLabel,
+  });
+  const handlingReport = createFeedbackHandlingReport({
+    ticketId,
+    state,
+    ...(queueKey ? { queueKey } : {}),
+    ...(options.sla ? { sla: options.sla } : {}),
+    history,
+  });
+
   return {
     state,
     label:
@@ -430,10 +547,14 @@ export function createFeedbackStatus(
       : category.supportEntry
         ? { supportEntry: { ...category.supportEntry, threadSummary, supportLoopSummary } }
         : {}),
-    ...(options.queueKey ? { queueKey: options.queueKey } : category.defaultQueueKey ? { queueKey: category.defaultQueueKey } : {}),
+    ...(queueKey ? { queueKey } : {}),
     ...(options.queueLabel ? { queueLabel: options.queueLabel } : category.defaultQueueLabel ? { queueLabel: category.defaultQueueLabel } : {}),
     ...(options.assignee ? { assignee: { ...options.assignee } } : {}),
     ...(options.sla ? { sla: { ...options.sla } } : {}),
+    slaRule,
+    queueDashboard,
+    supportHandoff,
+    handlingReport,
     revisitAction: createFeedbackRevisitAction(ticketId, category, state, revisitRequired),
     handlingProgress: [
       "Submitted to intake",
@@ -542,6 +663,46 @@ export function createFeedbackTicketList(
     hasMore: start + items.length < total,
     ...(userState.latestFeedbackTicketId ? { selectedTicketId: userState.latestFeedbackTicketId } : {}),
   };
+}
+
+export function createFeedbackQueueDashboards(userState: UserState): FeedbackQueueDashboard[] {
+  const summaries = userState.feedbackTicketIds
+    .map((ticketId) => {
+      const detail = userState.feedbackDetailsById[ticketId];
+      return detail ? createFeedbackTicketSummary(detail) : undefined;
+    })
+    .filter((summary): summary is FeedbackTicketSummary => Boolean(summary));
+  const byQueue = new Map<string, { queueLabel: string; summaries: FeedbackTicketSummary[] }>();
+  for (const summary of summaries) {
+    const queueKey = summary.queueKey ?? "general";
+    const queueLabel = summary.queueLabel ?? "General Support";
+    const existing = byQueue.get(queueKey);
+    if (existing) {
+      existing.summaries.push(summary);
+    } else {
+      byQueue.set(queueKey, { queueLabel, summaries: [summary] });
+    }
+  }
+  if (byQueue.size === 0) {
+    for (const category of FEEDBACK_CATEGORIES) {
+      const queueKey = category.defaultQueueKey ?? "general";
+      const queueLabel = category.defaultQueueLabel ?? "General Support";
+      if (!byQueue.has(queueKey)) {
+        byQueue.set(queueKey, { queueLabel, summaries: [] });
+      }
+    }
+  }
+  return Array.from(byQueue.entries()).map(([queueKey, value]) =>
+    createFeedbackQueueDashboard({
+      queueKey,
+      queueLabel: value.queueLabel,
+      summaries: value.summaries,
+    }),
+  );
+}
+
+export function createFeedbackSlaRules(): FeedbackSlaRule[] {
+  return FEEDBACK_CATEGORIES.map((category) => createFeedbackSlaRule(category));
 }
 
 export function cloneFeedbackFaqCatalog(entries: FeedbackFaqEntry[]): FeedbackFaqEntry[] {
@@ -714,6 +875,8 @@ export function createFeedbackBootstrapResponse(userState: UserState): FeedbackB
       (referenceCategory?.faqEntry ? [{ ...referenceCategory.faqEntry }] : []),
     faqCatalog: cloneFeedbackFaqCatalog(userState.feedbackFaqCatalog),
     supportEntries: cloneFeedbackSupportEntries(userState.feedbackSupportEntries),
+    queueDashboards: createFeedbackQueueDashboards(userState),
+    slaRules: createFeedbackSlaRules(),
     ...(latestDetail?.feedbackStatus.supportEntry
       ? { supportEntry: { ...latestDetail.feedbackStatus.supportEntry } }
       : referenceCategory?.supportEntry

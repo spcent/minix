@@ -53,6 +53,43 @@ export interface FeedbackTicketSla {
   updatedAt?: string;
 }
 
+export interface FeedbackSlaRule {
+  policyKey: string;
+  label: string;
+  responseMinutes: number;
+  resolutionMinutes: number;
+  ruleSummary: string;
+}
+
+export interface FeedbackQueueDashboard {
+  queueKey: string;
+  queueLabel: string;
+  openCount: number;
+  waitingUserCount: number;
+  breachedSlaCount: number;
+  urgentCount: number;
+  dashboardSummary: string;
+}
+
+export interface FeedbackSupportHandoff {
+  channel: "messages" | "settings";
+  transport: "messages_touchpoint" | "settings_entry";
+  queueKey?: string;
+  queueLabel?: string;
+  threadId?: string;
+  handoffSummary: string;
+}
+
+export interface FeedbackHandlingReport {
+  ticketId: string;
+  state: FeedbackTicketState;
+  queueKey?: string;
+  slaBreached: boolean;
+  processingHistoryCount: number;
+  latestActionLabel?: string;
+  reportSummary: string;
+}
+
 export interface FeedbackRevisitAction {
   ticketId: string;
   label: string;
@@ -90,6 +127,10 @@ export interface FeedbackStatus {
   queueLabel?: string;
   assignee?: FeedbackTicketAssignee;
   sla?: FeedbackTicketSla;
+  slaRule?: FeedbackSlaRule;
+  queueDashboard?: FeedbackQueueDashboard;
+  supportHandoff?: FeedbackSupportHandoff;
+  handlingReport?: FeedbackHandlingReport;
   revisitAction?: FeedbackRevisitAction;
   handlingProgress: string[];
   processingHistory: FeedbackProcessingRecord[];
@@ -190,6 +231,8 @@ export interface FeedbackBootstrapResponse {
   supportEntries?: FeedbackSupportEntry[];
   supportEntry?: FeedbackSupportEntry;
   serviceLoopSummary?: string;
+  queueDashboards?: FeedbackQueueDashboard[];
+  slaRules?: FeedbackSlaRule[];
 }
 
 export interface SubmitFeedbackRequest {
@@ -218,6 +261,8 @@ export interface ListFeedbackTicketsResponse {
   ticketList: FeedbackTicketList;
   faqCatalog: FeedbackFaqEntry[];
   supportEntries: FeedbackSupportEntry[];
+  queueDashboards?: FeedbackQueueDashboard[];
+  slaRules?: FeedbackSlaRule[];
 }
 
 export interface FeedbackRevisitRequest {

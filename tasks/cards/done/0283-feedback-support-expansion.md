@@ -87,11 +87,23 @@ Keep issue reports, suggestions, complaints, abuse reports, satisfaction feedbac
 - final verifier handoff:
   - include bootstrap, submit, list, detail, revisit, action, FAQ, support-entry, queue, SLA, and processing-history examples
 
+## Implementation Notes
+
+- Added shared SLA rule, queue dashboard, support handoff, and handling report descriptors to the feedback contract.
+- Derived SLA, queue, handoff, and handling-report metadata in the feedback API while keeping support-thread transport on the existing messages touchpoint model.
+- Surfaced queue dashboards, SLA rules, and latest handling report in the feedback controller state.
+- Updated `docs/DOMAIN_COMPLETENESS_MATRIX.md` to record the expanded feedback support posture.
+
+## Verification Notes
+
+- Ran `pnpm verify:feature feedback`.
+- Ran `pnpm test`.
+
 ## Acceptance
 
-- [ ] feedback outputs remain `feedbackTicket`, `feedbackCategory`, and `feedbackStatus`
-- [ ] support-thread delivery stays aligned with message touchpoints
-- [ ] context capture keeps page, user, device, version, screenshot, and attachment data explicit
-- [ ] queue and SLA changes are documented
-- [ ] docs updated for workflow or support posture changes
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] feedback outputs remain `feedbackTicket`, `feedbackCategory`, and `feedbackStatus`
+- [x] support-thread delivery stays aligned with message touchpoints
+- [x] context capture keeps page, user, device, version, screenshot, and attachment data explicit
+- [x] queue and SLA changes are documented
+- [x] docs updated for workflow or support posture changes
+- [x] `pnpm verify` run, or skipped with reason if docs-only

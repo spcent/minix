@@ -244,6 +244,26 @@ function createKernelStub() {
               supportLoopSummary: "Product Support posted a resolution and keeps the same support thread available for confirmation.",
             },
             serviceLoopSummary: "Use the support entry if you need to add more context.",
+            queueDashboards: [
+              {
+                queueKey: "product_support",
+                queueLabel: "Product Support",
+                openCount: 0,
+                waitingUserCount: 0,
+                breachedSlaCount: 0,
+                urgentCount: 0,
+                dashboardSummary: "Product Support has 0 open tickets, 0 waiting on users, and 0 SLA breaches.",
+              },
+            ],
+            slaRules: [
+              {
+                policyKey: "product_issue_default_sla",
+                label: "Product Issue SLA",
+                responseMinutes: 60,
+                resolutionMinutes: 480,
+                ruleSummary: "Product Issue uses 60 minute first response and 480 minute resolution targets.",
+              },
+            ],
             ticketList: {
               items: [],
               page: 1,
@@ -1012,6 +1032,8 @@ test("feedback controller loads bootstrap data and captures local context", asyn
   );
   assert.equal(controller.store.getState().recommendedFaqEntries.length, 1);
   assert.equal(controller.store.getState().supportEntry?.threadId, "thread_customer_service");
+  assert.equal(controller.store.getState().queueDashboards[0]?.queueKey, "product_support");
+  assert.equal(controller.store.getState().slaRules[0]?.responseMinutes, 60);
 });
 
 test("feedback controller drives schema, draft recovery, and approval nodes from the shared form platform", async () => {

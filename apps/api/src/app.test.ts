@@ -1637,6 +1637,8 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
     supportEntries?: Array<{ entryId: string }>;
     supportEntry?: { threadId?: string };
     serviceLoopSummary?: string;
+    queueDashboards?: Array<{ queueKey: string; dashboardSummary: string }>;
+    slaRules?: Array<{ policyKey: string; responseMinutes: number }>;
     latestTicket?: { ticketId: string };
     ticketList?: { items: Array<{ ticketId: string }> };
   };
@@ -1647,6 +1649,8 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
   assert.equal(bootstrapPayload.supportEntries?.[0]?.entryId?.startsWith("support_"), true);
   assert.equal(bootstrapPayload.supportEntry?.threadId, "thread_customer_service");
   assert.equal(typeof bootstrapPayload.serviceLoopSummary, "string");
+  assert.equal(bootstrapPayload.queueDashboards?.[0]?.queueKey, "product_support");
+  assert.equal(bootstrapPayload.slaRules?.some((rule) => rule.policyKey === "product_issue_default_sla"), true);
   assert.equal(bootstrapPayload.latestTicket, undefined);
   assert.equal(bootstrapPayload.ticketList?.items.length ?? 0, 0);
 
@@ -1706,6 +1710,10 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
       supportEntry?: { threadId?: string; queueKey?: string; threadSummary?: string; supportLoopSummary?: string };
       assignee?: { label: string };
       sla?: { label: string };
+      slaRule?: { responseMinutes: number; resolutionMinutes: number; ruleSummary: string };
+      queueDashboard?: { queueKey: string; openCount: number; dashboardSummary: string };
+      supportHandoff?: { transport: string; threadId?: string; handoffSummary: string };
+      handlingReport?: { ticketId: string; processingHistoryCount: number; reportSummary: string };
       revisitAction?: { enabled: boolean };
     };
   };
@@ -1734,6 +1742,11 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
   );
   assert.equal(submitPayload.feedbackStatus.assignee?.label, "Support Bot");
   assert.equal(submitPayload.feedbackStatus.sla?.label, "24 hour response");
+  assert.equal(submitPayload.feedbackStatus.slaRule?.responseMinutes, 60);
+  assert.equal(submitPayload.feedbackStatus.queueDashboard?.queueKey, "product_support");
+  assert.equal(submitPayload.feedbackStatus.supportHandoff?.transport, "messages_touchpoint");
+  assert.equal(submitPayload.feedbackStatus.supportHandoff?.threadId, submitPayload.feedbackTicket.supportThreadId);
+  assert.equal(submitPayload.feedbackStatus.handlingReport?.ticketId, submitPayload.feedbackTicket.ticketId);
   assert.equal(submitPayload.feedbackStatus.revisitAction?.enabled, true);
 
   const supportThreadResponse = await app.request(
@@ -1769,6 +1782,8 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
     };
     faqCatalog: Array<{ entryId: string }>;
     supportEntries: Array<{ entryId: string }>;
+    queueDashboards?: Array<{ queueKey: string; openCount: number }>;
+    slaRules?: Array<{ policyKey: string }>;
   };
   assert.equal(ticketListPayload.ticketList.items[0]?.ticketId, submitPayload.feedbackTicket.ticketId);
   assert.equal(ticketListPayload.ticketList.items[0]?.supportThreadId, submitPayload.feedbackTicket.supportThreadId);
@@ -1776,6 +1791,9 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
   assert.equal(ticketListPayload.ticketList.selectedTicketId, submitPayload.feedbackTicket.ticketId);
   assert.equal(ticketListPayload.faqCatalog[0]?.entryId, "faq_account_recovery");
   assert.equal(ticketListPayload.supportEntries.length > 0, true);
+  assert.equal(ticketListPayload.queueDashboards?.[0]?.queueKey, "product_support");
+  assert.equal((ticketListPayload.queueDashboards?.[0]?.openCount ?? 0) >= 1, true);
+  assert.equal(ticketListPayload.slaRules?.some((rule) => rule.policyKey === "product_issue_default_sla"), true);
 
   const operatorActionResponse = await app.request("http://localhost/feedback/ticket/action", {
     method: "POST",
@@ -1809,6 +1827,7 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
       state: string;
       assignee?: { label: string };
       processingHistory: Array<{ actorLabel: string; note?: string }>;
+      handlingReport?: { latestActionLabel?: string; processingHistoryCount: number };
     };
     ticketList: { items: Array<{ priority: string }> };
   };
@@ -1817,6 +1836,7 @@ test("feedback bootstrap, submit, and ticket detail endpoints expose the shared 
   assert.equal(operatorActionPayload.feedbackTicket.priority, "urgent");
   assert.equal(operatorActionPayload.feedbackTicket.labels.includes("route-guard"), true);
   assert.equal(operatorActionPayload.ticketList.items[0]?.priority, "urgent");
+  assert.equal(operatorActionPayload.feedbackStatus.handlingReport?.latestActionLabel, "Ticket assigned");
   assert.equal(
     operatorActionPayload.feedbackStatus.processingHistory.some(
       (record) =>

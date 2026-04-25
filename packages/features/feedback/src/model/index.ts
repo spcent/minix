@@ -2,7 +2,10 @@ import type {
   FeedbackBootstrapResponse,
   FeedbackCategory,
   FeedbackFaqEntry,
+  FeedbackHandlingReport,
+  FeedbackQueueDashboard,
   FeedbackRevisitAction,
+  FeedbackSlaRule,
   FeedbackSupportEntry,
   FeedbackTicket,
   FeedbackTicketList,
@@ -49,6 +52,9 @@ export type FeedbackState = FormPageState<FeedbackValues, FeedbackTicketDetailRe
   supportEntries: FeedbackSupportEntry[];
   supportEntry: FeedbackSupportEntry | undefined;
   revisitAction: FeedbackRevisitAction | undefined;
+  queueDashboards: FeedbackQueueDashboard[];
+  slaRules: FeedbackSlaRule[];
+  handlingReport: FeedbackHandlingReport | undefined;
   serviceLoopSummary: string | undefined;
   serviceHint: string | undefined;
 };
@@ -99,6 +105,9 @@ export function createDefaultFeedbackState(
     supportEntries: [],
     supportEntry: undefined,
     revisitAction: undefined,
+    queueDashboards: [],
+    slaRules: [],
+    handlingReport: undefined,
     serviceLoopSummary: undefined,
     serviceHint: undefined,
   };
@@ -123,6 +132,9 @@ export function applyFeedbackBootstrap(
     supportEntries: bootstrap.supportEntries ? bootstrap.supportEntries.map((entry) => structuredClone(entry)) : [],
     supportEntry: bootstrap.supportEntry ? structuredClone(bootstrap.supportEntry) : undefined,
     revisitAction: bootstrap.latestStatus?.revisitAction ? structuredClone(bootstrap.latestStatus.revisitAction) : undefined,
+    queueDashboards: bootstrap.queueDashboards ? bootstrap.queueDashboards.map((dashboard) => structuredClone(dashboard)) : [],
+    slaRules: bootstrap.slaRules ? bootstrap.slaRules.map((rule) => structuredClone(rule)) : [],
+    handlingReport: bootstrap.latestStatus?.handlingReport ? structuredClone(bootstrap.latestStatus.handlingReport) : undefined,
     serviceLoopSummary: bootstrap.serviceLoopSummary,
     serviceHint:
       bootstrap.supportEntry?.label ??

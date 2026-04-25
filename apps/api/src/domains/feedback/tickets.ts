@@ -25,6 +25,9 @@ import {
   cloneFeedbackSupportEntries,
   cloneFeedbackTicket,
   createDefaultFeedbackContext,
+  createFeedbackQueueDashboards,
+  createFeedbackHandlingReport,
+  createFeedbackSlaRules,
   createFeedbackStatus,
   createFeedbackTicketList,
   createFeedbackTicketResponse,
@@ -149,6 +152,8 @@ export function listFeedbackTickets(
     ticketList: createFeedbackTicketList(userState, input),
     faqCatalog: cloneFeedbackFaqCatalog(userState.feedbackFaqCatalog),
     supportEntries: cloneFeedbackSupportEntries(userState.feedbackSupportEntries),
+    queueDashboards: createFeedbackQueueDashboards(userState),
+    slaRules: createFeedbackSlaRules(),
   };
 }
 
@@ -263,6 +268,13 @@ export function applyFeedbackTicketAction(
         ]
       : []),
   );
+  nextStatus.handlingReport = createFeedbackHandlingReport({
+    ticketId: nextTicket.ticketId,
+    state: nextState,
+    ...(nextTicket.queueKey ? { queueKey: nextTicket.queueKey } : {}),
+    ...(nextTicket.sla ? { sla: nextTicket.sla } : {}),
+    history: nextStatus.processingHistory,
+  });
   if (request.supportReply && nextTicket.supportThreadId) {
     appendSupportMessageToThread(userState, {
       threadId: nextTicket.supportThreadId,
