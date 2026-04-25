@@ -1,6 +1,6 @@
 # API Feedback Domain Snapshot Cleanup
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -39,10 +39,16 @@ Feedback/support is a reusable service-loop capability. API response shaping sho
 
 ## Acceptance
 
-- [ ] feedback support clone helpers use API domain snapshot helpers
-- [ ] feedback ticket and asset snapshots use API domain snapshot helpers
-- [ ] feedback thread message snapshots use API domain snapshot helpers
-- [ ] API response envelopes remain unchanged
-- [ ] playbook records feedback API snapshot guidance
-- [ ] change is local and reversible
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] feedback support clone helpers use API domain snapshot helpers
+- [x] feedback ticket and asset snapshots use API domain snapshot helpers
+- [x] feedback thread message snapshots use API domain snapshot helpers
+- [x] API response envelopes remain unchanged
+- [x] playbook records feedback API snapshot guidance
+- [x] change is local and reversible
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced feedback support category/status/ticket clones with API-domain snapshot helpers.
+- Replaced FAQ catalog, support entry, asset, and support-thread message clones with API-domain snapshot helpers.
+- Kept feedback bootstrap and ticket response envelopes unchanged.

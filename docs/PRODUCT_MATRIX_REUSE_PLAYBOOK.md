@@ -32,6 +32,7 @@ If any step cannot be answered, add the smallest missing contract or shared cont
 - Reuse `apps/api/src/domains/provider-posture.ts` for API-side `ProviderPostureMode` resolution and sample/production predicates across auth, messages, upload, and share; keep configured-provider fallbacks, base URL normalization, host extraction, and secret-material posture copy there too.
 - Payment-specific provider modes should still branch through the same provider posture predicates when they are equivalent to sample/production posture; this keeps commerce summaries aligned with upload, share, auth, and message provider readiness.
 - Use `apps/api/src/domains/snapshot.ts` for API-domain workflow snapshots. Keep it local to the API app instead of importing core helpers into backend-only code.
+- Feedback/support API shaping should use the API-domain snapshot helper for tickets, statuses, FAQ catalogs, support entries, and support-thread echoes so service-loop surfaces stay portable.
 - Extend `apps/api/src/domains/*` for business workflow shaping. Keep `apps/api/src/app.ts` as routing assembly and avoid pushing domain rules into host code.
 - Prefer manifest changes and existing scaffolds for new host exposure. Generated registries and WeChat shell output should only change through generation scripts.
 

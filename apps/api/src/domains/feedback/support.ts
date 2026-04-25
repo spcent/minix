@@ -30,6 +30,7 @@ import {
   createSupportOperatorActionSummary,
   sendThreadMessage,
 } from "../messages/threads";
+import { cloneDomainSnapshot, cloneDomainSnapshotArray } from "../snapshot";
 
 const FEEDBACK_FAQ_ENTRIES: Record<string, FeedbackFaqEntry> = {
   account: {
@@ -86,7 +87,7 @@ function createFeedbackSupportEntry(
 }
 
 function createFeedbackFaqEntries(keys: Array<keyof typeof FEEDBACK_FAQ_ENTRIES>): FeedbackFaqEntry[] {
-  return keys.map((key) => ({ ...FEEDBACK_FAQ_ENTRIES[key]! }));
+  return keys.map((key) => cloneDomainSnapshot(FEEDBACK_FAQ_ENTRIES[key]!));
 }
 
 export const FEEDBACK_CATEGORIES: FeedbackCategory[] = [
@@ -205,7 +206,7 @@ function createDefaultFeedbackFaqCatalog(): FeedbackFaqEntry[] {
 function createDefaultFeedbackSupportEntries(): FeedbackSupportEntry[] {
   return FEEDBACK_CATEGORIES.map((category) => ({
     ...(category.supportEntry
-      ? structuredClone(category.supportEntry)
+      ? cloneDomainSnapshot(category.supportEntry)
       : createFeedbackSupportEntry("Support", "Support", "general", "General Support")),
     ...(category.defaultQueueKey ? { queueKey: category.defaultQueueKey } : {}),
     ...(category.defaultQueueLabel ? { queueLabel: category.defaultQueueLabel } : {}),
@@ -226,9 +227,9 @@ export function cloneFeedbackCategory(category: FeedbackCategory): FeedbackCateg
   return {
     ...category,
     labels: [...category.labels],
-    ...(category.faqEntry ? { faqEntry: { ...category.faqEntry } } : {}),
-    ...(category.faqEntries ? { faqEntries: category.faqEntries.map((entry) => ({ ...entry })) } : {}),
-    ...(category.supportEntry ? { supportEntry: { ...category.supportEntry } } : {}),
+    ...(category.faqEntry ? { faqEntry: cloneDomainSnapshot(category.faqEntry) } : {}),
+    ...(category.faqEntries ? { faqEntries: cloneDomainSnapshotArray(category.faqEntries) } : {}),
+    ...(category.supportEntry ? { supportEntry: cloneDomainSnapshot(category.supportEntry) } : {}),
   };
 }
 
@@ -236,17 +237,17 @@ export function cloneFeedbackStatus(status: FeedbackStatus): FeedbackStatus {
   return {
     ...status,
     handlingProgress: [...status.handlingProgress],
-    processingHistory: status.processingHistory.map((record) => ({ ...record })),
-    ...(status.assignee ? { assignee: { ...status.assignee } } : {}),
-    ...(status.sla ? { sla: { ...status.sla } } : {}),
-    ...(status.slaRule ? { slaRule: { ...status.slaRule } } : {}),
-    ...(status.faqEntry ? { faqEntry: { ...status.faqEntry } } : {}),
-    ...(status.faqEntries ? { faqEntries: status.faqEntries.map((entry) => ({ ...entry })) } : {}),
-    ...(status.supportEntry ? { supportEntry: { ...status.supportEntry } } : {}),
-    ...(status.queueDashboard ? { queueDashboard: { ...status.queueDashboard } } : {}),
-    ...(status.supportHandoff ? { supportHandoff: { ...status.supportHandoff } } : {}),
-    ...(status.handlingReport ? { handlingReport: { ...status.handlingReport } } : {}),
-    ...(status.revisitAction ? { revisitAction: { ...status.revisitAction } } : {}),
+    processingHistory: cloneDomainSnapshotArray(status.processingHistory),
+    ...(status.assignee ? { assignee: cloneDomainSnapshot(status.assignee) } : {}),
+    ...(status.sla ? { sla: cloneDomainSnapshot(status.sla) } : {}),
+    ...(status.slaRule ? { slaRule: cloneDomainSnapshot(status.slaRule) } : {}),
+    ...(status.faqEntry ? { faqEntry: cloneDomainSnapshot(status.faqEntry) } : {}),
+    ...(status.faqEntries ? { faqEntries: cloneDomainSnapshotArray(status.faqEntries) } : {}),
+    ...(status.supportEntry ? { supportEntry: cloneDomainSnapshot(status.supportEntry) } : {}),
+    ...(status.queueDashboard ? { queueDashboard: cloneDomainSnapshot(status.queueDashboard) } : {}),
+    ...(status.supportHandoff ? { supportHandoff: cloneDomainSnapshot(status.supportHandoff) } : {}),
+    ...(status.handlingReport ? { handlingReport: cloneDomainSnapshot(status.handlingReport) } : {}),
+    ...(status.revisitAction ? { revisitAction: cloneDomainSnapshot(status.revisitAction) } : {}),
   };
 }
 
@@ -539,8 +540,8 @@ export function createFeedbackStatus(
     supportLoopSummary,
     operatorActionSummary: createSupportOperatorActionSummary({ queueLabel }),
     sharedThreadSummary: threadSummary,
-    ...(category.faqEntry ? { faqEntry: { ...category.faqEntry } } : {}),
-    ...(category.faqEntries ? { faqEntries: category.faqEntries.map((entry) => ({ ...entry })) } : {}),
+    ...(category.faqEntry ? { faqEntry: cloneDomainSnapshot(category.faqEntry) } : {}),
+    ...(category.faqEntries ? { faqEntries: cloneDomainSnapshotArray(category.faqEntries) } : {}),
     ...(category.customerServiceEntryLabel ? { customerServiceEntryLabel: category.customerServiceEntryLabel } : {}),
     ...(options.supportEntry
       ? { supportEntry: { ...options.supportEntry, threadSummary, supportLoopSummary } }
@@ -573,7 +574,7 @@ export function createFeedbackTicketResponse(
   status: FeedbackStatus,
 ): FeedbackTicketDetailResponse {
   return {
-    feedbackTicket: structuredClone(ticket),
+    feedbackTicket: cloneDomainSnapshot(ticket),
     feedbackCategory: cloneFeedbackCategory(category),
     feedbackStatus: cloneFeedbackStatus(status),
   };
@@ -583,14 +584,14 @@ export function cloneFeedbackTicket(ticket: FeedbackTicket): FeedbackTicket {
   return {
     ...ticket,
     labels: [...ticket.labels],
-    ...(ticket.assignee ? { assignee: { ...ticket.assignee } } : {}),
-    ...(ticket.sla ? { sla: { ...ticket.sla } } : {}),
+    ...(ticket.assignee ? { assignee: cloneDomainSnapshot(ticket.assignee) } : {}),
+    ...(ticket.sla ? { sla: cloneDomainSnapshot(ticket.sla) } : {}),
     context: {
       ...ticket.context,
-      ...(ticket.context.sourceContext ? { sourceContext: { ...ticket.context.sourceContext } } : {}),
-      ...(ticket.context.actorContext ? { actorContext: { ...ticket.context.actorContext } } : {}),
-      screenshotAssets: ticket.context.screenshotAssets.map((asset) => structuredClone(asset)),
-      attachmentAssets: ticket.context.attachmentAssets.map((asset) => structuredClone(asset)),
+      ...(ticket.context.sourceContext ? { sourceContext: cloneDomainSnapshot(ticket.context.sourceContext) } : {}),
+      ...(ticket.context.actorContext ? { actorContext: cloneDomainSnapshot(ticket.context.actorContext) } : {}),
+      screenshotAssets: cloneDomainSnapshotArray(ticket.context.screenshotAssets),
+      attachmentAssets: cloneDomainSnapshotArray(ticket.context.attachmentAssets),
     },
   };
 }
@@ -706,14 +707,11 @@ export function createFeedbackSlaRules(): FeedbackSlaRule[] {
 }
 
 export function cloneFeedbackFaqCatalog(entries: FeedbackFaqEntry[]): FeedbackFaqEntry[] {
-  return entries.map((entry) => ({
-    ...entry,
-    ...(entry.categoryKeys ? { categoryKeys: [...entry.categoryKeys] } : {}),
-  }));
+  return cloneDomainSnapshotArray(entries);
 }
 
 export function cloneFeedbackSupportEntries(entries: FeedbackSupportEntry[]): FeedbackSupportEntry[] {
-  return entries.map((entry) => ({ ...entry }));
+  return cloneDomainSnapshotArray(entries);
 }
 
 export function appendSupportMessageToThread(
@@ -742,11 +740,11 @@ export function appendSupportMessageToThread(
     deliveredAt: input.createdAt,
     attemptCount: 1,
     retryable: false,
-    touchpoints: structuredClone(record.thread.touchpoints),
+    touchpoints: cloneDomainSnapshotArray(record.thread.touchpoints),
   };
-  record.messages = [...structuredClone(record.messages), nextMessage];
+  record.messages = [...cloneDomainSnapshotArray(record.messages), nextMessage];
   record.updatedAt = input.createdAt;
-  userState.threadMessagesByThreadId[input.threadId] = structuredClone(record.messages);
+  userState.threadMessagesByThreadId[input.threadId] = cloneDomainSnapshotArray(record.messages);
   return nextMessage;
 }
 
@@ -853,8 +851,8 @@ export function createDefaultFeedbackContext(
       appVersion: request.appVersion,
       ...(request.deviceSummary ? { deviceSummary: request.deviceSummary } : {}),
     },
-    screenshotAssets: request.screenshotAssets.map((asset) => structuredClone(asset)),
-    attachmentAssets: request.attachmentAssets.map((asset) => structuredClone(asset)),
+    screenshotAssets: cloneDomainSnapshotArray(request.screenshotAssets),
+    attachmentAssets: cloneDomainSnapshotArray(request.attachmentAssets),
   };
 }
 
@@ -871,21 +869,20 @@ export function createFeedbackBootstrapResponse(userState: UserState): FeedbackB
     feedbackCategories: FEEDBACK_CATEGORIES.map(cloneFeedbackCategory),
     ticketList: createFeedbackTicketList(userState, { page: 1, pageSize: 10 }),
     recommendedFaqEntries:
-      referenceCategory?.faqEntries?.map((entry) => ({ ...entry })) ??
-      (referenceCategory?.faqEntry ? [{ ...referenceCategory.faqEntry }] : []),
+      cloneDomainSnapshotArray(referenceCategory?.faqEntries ?? (referenceCategory?.faqEntry ? [referenceCategory.faqEntry] : [])),
     faqCatalog: cloneFeedbackFaqCatalog(userState.feedbackFaqCatalog),
     supportEntries: cloneFeedbackSupportEntries(userState.feedbackSupportEntries),
     queueDashboards: createFeedbackQueueDashboards(userState),
     slaRules: createFeedbackSlaRules(),
     ...(latestDetail?.feedbackStatus.supportEntry
-      ? { supportEntry: { ...latestDetail.feedbackStatus.supportEntry } }
+      ? { supportEntry: cloneDomainSnapshot(latestDetail.feedbackStatus.supportEntry) }
       : referenceCategory?.supportEntry
-        ? { supportEntry: { ...referenceCategory.supportEntry } }
+        ? { supportEntry: cloneDomainSnapshot(referenceCategory.supportEntry) }
         : {}),
     ...(serviceLoopSummary !== undefined ? { serviceLoopSummary } : {}),
     ...(latestDetail
       ? {
-          latestTicket: structuredClone(latestDetail.feedbackTicket),
+          latestTicket: cloneDomainSnapshot(latestDetail.feedbackTicket),
           latestStatus: cloneFeedbackStatus(latestDetail.feedbackStatus),
           latestCategory: cloneFeedbackCategory(latestDetail.feedbackCategory),
         }
