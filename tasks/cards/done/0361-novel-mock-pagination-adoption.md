@@ -1,6 +1,6 @@
 # Novel Mock Pagination Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -35,7 +35,13 @@ Novel host mock catalog pagination should share the same pagination envelope beh
 
 ## Acceptance
 
-- [ ] Novel H5 catalog pagination uses `paginateMockItems`
-- [ ] Novel WeChat catalog pagination uses `paginateMockItems`
-- [ ] mock list behavior remains unchanged
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] Novel H5 catalog pagination uses `paginateMockItems`
+- [x] Novel WeChat catalog pagination uses `paginateMockItems`
+- [x] mock list behavior remains unchanged
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Reused `paginateMockItems` for Novel H5 and Novel WeChat catalog mock pagination.
+- Kept novel-specific filtering, sorting, and search metadata local to each mock adapter.
+- Ran `pnpm verify:host novel-h5` and `pnpm verify:host novel-wechat`; both passed.

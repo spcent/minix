@@ -1,11 +1,11 @@
 import {
-  coerceMockQueryNumber,
   coerceMockQueryString,
   createError,
   createJsonMockResponse,
   fail,
   matchesMockBearerAuthorizationHeader,
   ok,
+  paginateMockItems,
   resolveMockRequestPath,
   type RequestAdapter,
   type RequestOptions,
@@ -754,8 +754,6 @@ function listNovels(
   membershipActive: boolean,
   bookshelfNovelIds?: Set<string>,
 ): NovelListResponse {
-  const page = coerceMockQueryNumber(query?.page, 1);
-  const pageSize = coerceMockQueryNumber(query?.pageSize, 6);
   const categoryKey = coerceMockQueryString(query?.categoryKey);
   const status = coerceMockQueryString(query?.status);
   const keyword = coerceMockQueryString(query?.keyword) ?? "";
@@ -787,9 +785,8 @@ function listNovels(
     cards.sort((left, right) => right.wordCount - left.wordCount);
   }
 
-  const start = (page - 1) * pageSize;
-  const items = cards.slice(start, start + pageSize);
-  const hasMore = start + pageSize < cards.length;
+  const pageData = paginateMockItems(cards, query, { defaultPageSize: 6 });
+  const { items, page, pageSize, hasMore } = pageData;
 
   return {
     items,
