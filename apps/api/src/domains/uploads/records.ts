@@ -4,9 +4,13 @@ import type {
   UploadReference,
   UploadReviewRecord,
   UploadSession,
+  UploadSelectionResult,
 } from "@minix/contracts";
 
+import type { StoredUploadRecord } from "../../types";
 import { cloneOptionalDomainSnapshot } from "../snapshot";
+import { cloneUploadAsset } from "./assets";
+import { cloneUploadError, cloneUploadTask, cloneUploadTransferPayload } from "./tasks";
 
 export function cloneUploadChunkReceipt(receipt: UploadChunkReceipt): UploadChunkReceipt {
   return {
@@ -73,5 +77,35 @@ export function cloneUploadReference(reference: UploadReference): UploadReferenc
     ...(actorContext !== undefined ? { actorContext } : {}),
     attachedAt: reference.attachedAt,
     ...(reference.ownerSummary !== undefined ? { ownerSummary: reference.ownerSummary } : {}),
+  };
+}
+
+export function cloneUploadSelectionResult(selection: UploadSelectionResult): UploadSelectionResult {
+  return {
+    uploadTask: cloneUploadTask(selection.uploadTask),
+    ...(selection.uploadAsset !== undefined ? { uploadAsset: cloneUploadAsset(selection.uploadAsset) } : {}),
+    ...(selection.uploadError !== undefined ? { uploadError: cloneUploadError(selection.uploadError) } : {}),
+    ...(selection.transfer !== undefined ? { transfer: cloneUploadTransferPayload(selection.transfer) } : {}),
+  };
+}
+
+export function cloneStoredUploadRecord(record: StoredUploadRecord): StoredUploadRecord {
+  return {
+    source: record.source,
+    selection: cloneUploadSelectionResult(record.selection),
+    uploadTask: cloneUploadTask(record.uploadTask),
+    ...(record.uploadAsset !== undefined ? { uploadAsset: cloneUploadAsset(record.uploadAsset) } : {}),
+    ...(record.uploadError !== undefined ? { uploadError: cloneUploadError(record.uploadError) } : {}),
+    ...(record.transfer !== undefined ? { transfer: cloneUploadTransferPayload(record.transfer) } : {}),
+    ...(record.session !== undefined ? { session: cloneUploadSession(record.session) } : {}),
+    ...(record.receivedChunk !== undefined ? { receivedChunk: cloneUploadChunkReceipt(record.receivedChunk) } : {}),
+    ...(record.reviewRecord !== undefined ? { reviewRecord: cloneUploadReviewRecord(record.reviewRecord) } : {}),
+    ...(record.cleanupRecord !== undefined ? { cleanupRecord: cloneUploadCleanupRecord(record.cleanupRecord) } : {}),
+    references: record.references.map(cloneUploadReference),
+    chunksByIndex: Object.fromEntries(
+      Object.entries(record.chunksByIndex).map(([key, value]) => [key, cloneUploadChunkReceipt(value)]),
+    ),
+    binaryByChunkIndex: { ...record.binaryByChunkIndex },
+    ...(record.binaryObjectKey !== undefined ? { binaryObjectKey: record.binaryObjectKey } : {}),
   };
 }

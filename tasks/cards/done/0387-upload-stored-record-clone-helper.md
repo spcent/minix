@@ -1,6 +1,6 @@
 # Upload Stored Record Clone Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -36,7 +36,14 @@ Stored upload record projection should be reusable and keep nested task, asset, 
 
 ## Acceptance
 
-- [ ] stored record helper clones nested upload selection
-- [ ] chunks and references collections are not shared
-- [ ] binary maps are copied
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] stored record helper clones nested upload selection
+- [x] chunks and references collections are not shared
+- [x] binary maps are copied
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added `cloneUploadSelectionResult` and `cloneStoredUploadRecord`.
+- Composed existing upload task, asset, transfer, session, review, cleanup, and reference helpers.
+- Covered nested collection and map clone isolation in tests.
+- Verified with `pnpm verify:api`.

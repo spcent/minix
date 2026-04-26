@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { StoredUploadRecord } from "../../types";
 import {
   cloneUploadChunkReceipt,
   cloneUploadCleanupRecord,
   cloneUploadReference,
   cloneUploadReviewRecord,
   cloneUploadSession,
+  cloneStoredUploadRecord,
 } from "./records";
 
 test("upload chunk receipt helper preserves receipt fields", () => {
@@ -128,4 +130,69 @@ test("upload reference helper clones source and actor context snapshots", () => 
   assert.deepEqual(snapshot, reference);
   assert.notEqual(snapshot.sourceContext, reference.sourceContext);
   assert.notEqual(snapshot.actorContext, reference.actorContext);
+});
+
+test("stored upload record helper clones nested collections and maps", () => {
+  const uploadTask = {
+    taskId: "task_1",
+    scenario: "attachment" as const,
+    fileType: "image" as const,
+    stage: "uploading" as const,
+    progress: {
+      completedBytes: 512,
+      totalBytes: 1024,
+      percentage: 50,
+    },
+    chunkingReserved: true,
+    governance: {
+      maxSizeBytes: 4096,
+      acceptedFileTypes: ["image"] as const,
+      sensitiveReviewRequired: true,
+    },
+    reviewStatus: "pending" as const,
+    lifecycle: {
+      backendBacked: true,
+      retentionStatus: "active" as const,
+      retryCount: 0,
+      canRetry: true,
+      canCancel: true,
+    },
+  };
+  const chunk = {
+    chunkIndex: 0,
+    byteOffset: 0,
+    byteLength: 512,
+    checksum: "sha256:chunk-0",
+    checksumAlgorithm: "sha256" as const,
+    receivedAt: "2026-04-26T00:00:00.000Z",
+  };
+  const record: StoredUploadRecord = {
+    source: "backend_chunk",
+    selection: { uploadTask },
+    uploadTask,
+    receivedChunk: chunk,
+    references: [
+      {
+        ownerType: "feedback",
+        ownerId: "ticket_1",
+        role: "attachment",
+        attachedAt: "2026-04-26T00:00:00.000Z",
+      },
+    ],
+    chunksByIndex: { "0": chunk },
+    binaryByChunkIndex: { "0": "Zmlyc3Q=" },
+    binaryObjectKey: "object/asset_1",
+  };
+
+  const snapshot = cloneStoredUploadRecord(record);
+
+  assert.deepEqual(snapshot, record);
+  assert.notEqual(snapshot.selection, record.selection);
+  assert.notEqual(snapshot.uploadTask, record.uploadTask);
+  assert.notEqual(snapshot.receivedChunk, record.receivedChunk);
+  assert.notEqual(snapshot.references, record.references);
+  assert.notEqual(snapshot.references[0], record.references[0]);
+  assert.notEqual(snapshot.chunksByIndex, record.chunksByIndex);
+  assert.notEqual(snapshot.chunksByIndex["0"], record.chunksByIndex["0"]);
+  assert.notEqual(snapshot.binaryByChunkIndex, record.binaryByChunkIndex);
 });
