@@ -581,6 +581,9 @@ export function createFeedbackTicketResponse(
 }
 
 export function cloneFeedbackTicket(ticket: FeedbackTicket): FeedbackTicket {
+  const sourceContext = cloneOptionalDomainSnapshot(ticket.context.sourceContext);
+  const actorContext = cloneOptionalDomainSnapshot(ticket.context.actorContext);
+
   return {
     ...ticket,
     labels: [...ticket.labels],
@@ -588,8 +591,8 @@ export function cloneFeedbackTicket(ticket: FeedbackTicket): FeedbackTicket {
     ...(ticket.sla ? { sla: cloneDomainSnapshot(ticket.sla) } : {}),
     context: {
       ...ticket.context,
-      ...(ticket.context.sourceContext ? { sourceContext: cloneDomainSnapshot(ticket.context.sourceContext) } : {}),
-      ...(ticket.context.actorContext ? { actorContext: cloneDomainSnapshot(ticket.context.actorContext) } : {}),
+      ...(sourceContext ? { sourceContext } : {}),
+      ...(actorContext ? { actorContext } : {}),
       screenshotAssets: cloneDomainSnapshotArray(ticket.context.screenshotAssets),
       attachmentAssets: cloneDomainSnapshotArray(ticket.context.attachmentAssets),
     },

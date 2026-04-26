@@ -1,6 +1,6 @@
 # Feedback Ticket Clone Helper Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -34,7 +34,13 @@ Feedback ticket projections should use the shared optional snapshot convention f
 
 ## Acceptance
 
-- [ ] feedback source context projection uses the optional snapshot helper
-- [ ] feedback actor context projection uses the optional snapshot helper
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] feedback source context projection uses the optional snapshot helper
+- [x] feedback actor context projection uses the optional snapshot helper
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Refactored `cloneFeedbackTicket` to normalize optional `sourceContext` and `actorContext` through `cloneOptionalDomainSnapshot`.
+- Preserved existing ticket response shape and asset cloning behavior.
+- Verified with `pnpm verify:api`.
