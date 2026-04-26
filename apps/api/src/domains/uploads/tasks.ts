@@ -1,5 +1,7 @@
 import type {
   UploadChecksumAlgorithm,
+  UploadChunkTransfer,
+  UploadError,
   UploadFileType,
   UploadGovernance,
   UploadIntegrity,
@@ -10,6 +12,7 @@ import type {
   UploadStage,
   UploadTask,
   UploadTransferMode,
+  UploadTransferPayload,
 } from "@minix/contracts";
 
 type UploadGovernanceInput = {
@@ -54,6 +57,22 @@ type UploadTaskInput = {
   reviewMessage?: string | undefined;
   lifecycle: UploadLifecycleInput;
   ownershipSummary?: string | undefined;
+};
+type UploadChunkTransferInput = {
+  chunkIndex: number;
+  byteOffset: number;
+  byteLength: number;
+  checksum: string;
+  checksumAlgorithm: UploadChecksumAlgorithm;
+  dataBase64: string;
+};
+type UploadTransferPayloadInput = {
+  mode: UploadTransferMode;
+  checksumAlgorithm: UploadChecksumAlgorithm;
+  fileChecksum: string;
+  totalBytes: number;
+  chunkSizeBytes: number;
+  chunks: UploadChunkTransferInput[];
 };
 
 export function cloneUploadProgress(progress: UploadProgress): UploadProgress {
@@ -115,5 +134,37 @@ export function cloneUploadTask(task: UploadTaskInput): UploadTask {
     ...(task.reviewMessage !== undefined ? { reviewMessage: task.reviewMessage } : {}),
     lifecycle: cloneUploadLifecycle(task.lifecycle),
     ...(task.ownershipSummary !== undefined ? { ownershipSummary: task.ownershipSummary } : {}),
+  };
+}
+
+export function cloneUploadError(uploadError: UploadError): UploadError {
+  return {
+    code: uploadError.code,
+    message: uploadError.message,
+    recoverable: uploadError.recoverable,
+    retryable: uploadError.retryable,
+    stage: uploadError.stage,
+  };
+}
+
+export function cloneUploadChunkTransfer(chunk: UploadChunkTransferInput): UploadChunkTransfer {
+  return {
+    chunkIndex: chunk.chunkIndex,
+    byteOffset: chunk.byteOffset,
+    byteLength: chunk.byteLength,
+    checksum: chunk.checksum,
+    checksumAlgorithm: chunk.checksumAlgorithm,
+    dataBase64: chunk.dataBase64,
+  };
+}
+
+export function cloneUploadTransferPayload(transfer: UploadTransferPayloadInput): UploadTransferPayload {
+  return {
+    mode: transfer.mode,
+    checksumAlgorithm: transfer.checksumAlgorithm,
+    fileChecksum: transfer.fileChecksum,
+    totalBytes: transfer.totalBytes,
+    chunkSizeBytes: transfer.chunkSizeBytes,
+    chunks: transfer.chunks.map(cloneUploadChunkTransfer),
   };
 }

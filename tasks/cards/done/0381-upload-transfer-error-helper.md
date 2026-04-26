@@ -1,6 +1,6 @@
 # Upload Transfer Error Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -36,7 +36,13 @@ Upload selection results should reuse common error and transfer projection logic
 
 ## Acceptance
 
-- [ ] upload error helper preserves error fields
-- [ ] transfer helper clones chunk arrays
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] upload error helper preserves error fields
+- [x] transfer helper clones chunk arrays
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added upload error, chunk transfer, and transfer payload clone helpers.
+- Covered transfer chunk clone isolation in tests.
+- Verified with `pnpm verify:api`.
