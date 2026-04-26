@@ -1,6 +1,6 @@
 # Upload Schema Asset Helper Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -34,7 +34,13 @@ Use the shared upload asset clone helper in upload schema normalization.
 
 ## Acceptance
 
-- [ ] schema normalization delegates upload asset shaping to shared helper
-- [ ] feedback submit normalization still reuses `normalizeUploadAsset`
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] schema normalization delegates upload asset shaping to shared helper
+- [x] feedback submit normalization still reuses `normalizeUploadAsset`
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Refactored `normalizeUploadAsset` to delegate to `cloneUploadAsset`.
+- Removed duplicate metadata and variant shaping from upload schemas.
+- Verified with `pnpm verify:api`.

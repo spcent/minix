@@ -19,6 +19,7 @@ import {
   apiSourceContextSchema,
   normalizeApiContextSnapshots,
 } from "../schema-helpers";
+import { cloneUploadAsset } from "./assets";
 
 const uploadProgressSchema = z.object({
   completedBytes: z.number().int().nonnegative(),
@@ -180,40 +181,7 @@ export const uploadCancelSchema = z.object({
 });
 
 export function normalizeUploadAsset(asset: z.infer<typeof uploadAssetSchema>): UploadAsset {
-  return {
-    assetId: asset.assetId,
-    fileType: asset.fileType,
-    fileName: asset.fileName,
-    url: asset.url,
-    ...(asset.thumbnailUrl !== undefined ? { thumbnailUrl: asset.thumbnailUrl } : {}),
-    ...(asset.coverImageUrl !== undefined ? { coverImageUrl: asset.coverImageUrl } : {}),
-    metadata: {
-      sizeBytes: asset.metadata.sizeBytes,
-      ...(asset.metadata.mimeType !== undefined ? { mimeType: asset.metadata.mimeType } : {}),
-      ...(asset.metadata.checksum !== undefined ? { checksum: asset.metadata.checksum } : {}),
-      ...(asset.metadata.checksumAlgorithm !== undefined ? { checksumAlgorithm: asset.metadata.checksumAlgorithm } : {}),
-      ...(asset.metadata.width !== undefined ? { width: asset.metadata.width } : {}),
-      ...(asset.metadata.height !== undefined ? { height: asset.metadata.height } : {}),
-      ...(asset.metadata.durationSeconds !== undefined ? { durationSeconds: asset.metadata.durationSeconds } : {}),
-      ...(asset.metadata.pageCount !== undefined ? { pageCount: asset.metadata.pageCount } : {}),
-      ...(asset.metadata.variants !== undefined
-        ? {
-            variants: asset.metadata.variants.map((variant) => ({
-              kind: variant.kind,
-              url: variant.url,
-              label: variant.label,
-              ...(variant.width !== undefined ? { width: variant.width } : {}),
-              ...(variant.height !== undefined ? { height: variant.height } : {}),
-              ...(variant.durationSeconds !== undefined ? { durationSeconds: variant.durationSeconds } : {}),
-              ...(variant.pageCount !== undefined ? { pageCount: variant.pageCount } : {}),
-            })),
-          }
-        : {}),
-      ...(asset.metadata.reviewAnnotations !== undefined ? { reviewAnnotations: asset.metadata.reviewAnnotations } : {}),
-    },
-    ...(asset.derivedAssetSummary !== undefined ? { derivedAssetSummary: asset.derivedAssetSummary } : {}),
-    ...(asset.ownershipSummary !== undefined ? { ownershipSummary: asset.ownershipSummary } : {}),
-  };
+  return cloneUploadAsset(asset);
 }
 
 export function normalizeUploadSelectionResult(payload: z.infer<typeof uploadSelectionResultSchema>) {
