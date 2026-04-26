@@ -80,12 +80,23 @@ Remove repeated route-local `response.unreadBadge = ...` mutation from message e
 - final verifier handoff:
   - unread badge remains present on list, detail, create, read, send, retry, and sync responses.
 
+## Implementation Notes
+
+- Added `withMessageRouteUnreadBadge` under the messages API domain.
+- Replaced route-local unread badge mutation in thread list, detail, create, read, send, retry, and sync handlers.
+- Kept notification unread semantics inside the messages domain and left shared contracts unchanged.
+
+## Verification Notes
+
+- Ran `pnpm verify:api`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
