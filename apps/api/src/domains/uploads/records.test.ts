@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   cloneUploadChunkReceipt,
   cloneUploadCleanupRecord,
+  cloneUploadReference,
   cloneUploadReviewRecord,
   cloneUploadSession,
 } from "./records";
@@ -101,4 +102,30 @@ test("upload cleanup record helper preserves optional retention fields", () => {
       cleanupSummary: "Cleanup queued.",
     },
   );
+});
+
+test("upload reference helper clones source and actor context snapshots", () => {
+  const reference = {
+    ownerType: "feedback" as const,
+    ownerId: "ticket_1",
+    role: "attachment",
+    sourceContext: {
+      pagePath: "/feedback",
+      routeId: "feedback.form",
+      params: { ticketId: "ticket_1" },
+    },
+    actorContext: {
+      userId: "user_1",
+      platform: "h5",
+      appVersion: "1.0.0",
+    },
+    attachedAt: "2026-04-26T00:00:00.000Z",
+    ownerSummary: "Attached to feedback ticket ticket_1.",
+  };
+
+  const snapshot = cloneUploadReference(reference);
+
+  assert.deepEqual(snapshot, reference);
+  assert.notEqual(snapshot.sourceContext, reference.sourceContext);
+  assert.notEqual(snapshot.actorContext, reference.actorContext);
 });

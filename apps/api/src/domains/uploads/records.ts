@@ -1,4 +1,12 @@
-import type { UploadChunkReceipt, UploadCleanupRecord, UploadReviewRecord, UploadSession } from "@minix/contracts";
+import type {
+  UploadChunkReceipt,
+  UploadCleanupRecord,
+  UploadReference,
+  UploadReviewRecord,
+  UploadSession,
+} from "@minix/contracts";
+
+import { cloneOptionalDomainSnapshot } from "../snapshot";
 
 export function cloneUploadChunkReceipt(receipt: UploadChunkReceipt): UploadChunkReceipt {
   return {
@@ -50,5 +58,20 @@ export function cloneUploadCleanupRecord(cleanupRecord: UploadCleanupRecord): Up
     ...(cleanupRecord.ownershipSummary !== undefined ? { ownershipSummary: cleanupRecord.ownershipSummary } : {}),
     ...(cleanupRecord.retentionSummary !== undefined ? { retentionSummary: cleanupRecord.retentionSummary } : {}),
     ...(cleanupRecord.cleanupSummary !== undefined ? { cleanupSummary: cleanupRecord.cleanupSummary } : {}),
+  };
+}
+
+export function cloneUploadReference(reference: UploadReference): UploadReference {
+  const sourceContext = cloneOptionalDomainSnapshot(reference.sourceContext);
+  const actorContext = cloneOptionalDomainSnapshot(reference.actorContext);
+
+  return {
+    ownerType: reference.ownerType,
+    ownerId: reference.ownerId,
+    role: reference.role,
+    ...(sourceContext !== undefined ? { sourceContext } : {}),
+    ...(actorContext !== undefined ? { actorContext } : {}),
+    attachedAt: reference.attachedAt,
+    ...(reference.ownerSummary !== undefined ? { ownerSummary: reference.ownerSummary } : {}),
   };
 }

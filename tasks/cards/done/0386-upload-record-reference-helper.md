@@ -1,6 +1,6 @@
 # Upload Record Reference Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -35,7 +35,13 @@ Upload reference snapshots should use the same optional context clone convention
 
 ## Acceptance
 
-- [ ] upload reference helper preserves owner fields
-- [ ] source context is cloned
-- [ ] actor context is cloned
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] upload reference helper preserves owner fields
+- [x] source context is cloned
+- [x] actor context is cloned
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added `cloneUploadReference` using the shared optional domain snapshot helper.
+- Covered source and actor context clone isolation in tests.
+- Verified with `pnpm verify:api`.
