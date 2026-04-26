@@ -1,5 +1,5 @@
 import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
-import { defineFeatureManifest, type AppKernel, type FeatureConfig } from "@minix/core";
+import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel, type FeatureConfig } from "@minix/core";
 
 import { createFeedbackController } from "./controller";
 import { createDefaultFeedbackState, type FeedbackState } from "./model";
@@ -48,17 +48,19 @@ export const feedbackFeatureManifest = defineFeatureManifest<
   ) {
     return createFeedbackController({
       kernel,
-      ...(options.feedbackRouteId ? { feedbackRouteId: options.feedbackRouteId } : {}),
-      ...(options.loginRouteId ? { loginRouteId: options.loginRouteId } : {}),
-      ...(options.settingsRouteId ? { settingsRouteId: options.settingsRouteId } : {}),
-      ...(options.messagesRouteId ? { messagesRouteId: options.messagesRouteId } : {}),
-      ...(options.cancelRouteId ? { cancelRouteId: options.cancelRouteId } : {}),
-      ...(options.bootstrapPath ? { bootstrapPath: options.bootstrapPath } : {}),
-      ...(options.submitPath ? { submitPath: options.submitPath } : {}),
-      ...(options.detailPath ? { detailPath: options.detailPath } : {}),
-      ...(options.listPath ? { listPath: options.listPath } : {}),
-      ...(options.actionPath ? { actionPath: options.actionPath } : {}),
-      ...(options.authRedirectSource ? { authRedirectSource: options.authRedirectSource } : {}),
+      ...pickDefinedManifestOptions(options, [
+        "feedbackRouteId",
+        "loginRouteId",
+        "settingsRouteId",
+        "messagesRouteId",
+        "cancelRouteId",
+        "bootstrapPath",
+        "submitPath",
+        "detailPath",
+        "listPath",
+        "actionPath",
+        "authRedirectSource",
+      ] as const),
       initialState: {
         ...createDefaultFeedbackState(),
         ...pageData,

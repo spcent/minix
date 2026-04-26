@@ -83,12 +83,23 @@ Reduce repeated optional-spread blocks in feature manifests and make future prod
 - final verifier handoff:
   - option helper preserves explicitly defined empty strings and false values when callers use them.
 
+## Implementation Notes
+
+- Added `pickDefinedManifestOptions` to core manifest helpers.
+- Covered the helper with a core test that preserves empty string and `false` while dropping only `undefined`.
+- Adopted the helper in account, feedback, and messages feature manifests to replace repeated optional-spread pass-through blocks.
+
+## Verification Notes
+
+- Ran `node --import tsx --test packages/core/src/runtime/manifest.test.ts packages/features/account/src/feature.manifest.test.ts packages/features/feedback/src/feature.manifest.test.ts packages/features/messages/src/feature.manifest.test.ts`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

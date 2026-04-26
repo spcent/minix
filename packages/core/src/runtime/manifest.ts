@@ -72,6 +72,22 @@ export function defineFeatureManifest<
   };
 }
 
+export function pickDefinedManifestOptions<TOptions extends object, TKey extends keyof TOptions>(
+  options: TOptions,
+  keys: readonly TKey[],
+): Partial<Pick<TOptions, TKey>> {
+  const result: Partial<Pick<TOptions, TKey>> = {};
+
+  for (const key of keys) {
+    const value = options[key];
+    if (value !== undefined) {
+      (result as Record<PropertyKey, unknown>)[key as PropertyKey] = value;
+    }
+  }
+
+  return result;
+}
+
 export interface HostPageDefinition<
   TControllerOptions = unknown,
   TPageData = unknown,

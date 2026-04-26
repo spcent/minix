@@ -1,5 +1,5 @@
 import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
-import { defineFeatureManifest, type AppKernel, type FeatureConfig } from "@minix/core";
+import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel, type FeatureConfig } from "@minix/core";
 
 import { createMessagesController } from "./controller";
 import { createDefaultMessagesState, type MessagesState } from "./model";
@@ -43,12 +43,14 @@ export const messagesFeatureManifest = defineFeatureManifest<
   ) {
     return createMessagesController({
       kernel,
-      ...(options.messagesRouteId ? { messagesRouteId: options.messagesRouteId } : {}),
-      ...(options.loginRouteId ? { loginRouteId: options.loginRouteId } : {}),
-      ...(options.settingsRouteId ? { settingsRouteId: options.settingsRouteId } : {}),
-      ...(options.requestPath ? { requestPath: options.requestPath } : {}),
-      ...(options.markReadPath ? { markReadPath: options.markReadPath } : {}),
-      ...(options.authRedirectSource ? { authRedirectSource: options.authRedirectSource } : {}),
+      ...pickDefinedManifestOptions(options, [
+        "messagesRouteId",
+        "loginRouteId",
+        "settingsRouteId",
+        "requestPath",
+        "markReadPath",
+        "authRedirectSource",
+      ] as const),
       initialState: {
         ...createDefaultMessagesState(),
         ...pageData,

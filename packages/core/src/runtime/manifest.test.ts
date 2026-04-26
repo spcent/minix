@@ -7,7 +7,13 @@ import { ok } from "../error/index";
 
 import { readAuthRedirectTarget } from "./auth-redirect";
 import type { AppKernel } from "./app";
-import { createManifestPageRegistry, defineHostPageDefinitions, type FeatureManifest, type HostFeatureBehavior } from "./index";
+import {
+  createManifestPageRegistry,
+  defineHostPageDefinitions,
+  pickDefinedManifestOptions,
+  type FeatureManifest,
+  type HostFeatureBehavior,
+} from "./index";
 
 const testFeatureManifest: FeatureManifest<Record<string, never>, Record<string, never>, Record<string, never>> = {
   featureKey: "test",
@@ -81,6 +87,24 @@ test("defineHostPageDefinitions keeps valid definitions unchanged", () => {
   });
 
   assert.equal(definitions.login.routePath, "/login");
+});
+
+test("pickDefinedManifestOptions keeps only defined values and preserves falsy values", () => {
+  const picked = pickDefinedManifestOptions(
+    {
+      routeId: "login",
+      requestPath: "",
+      retry: false,
+      missing: undefined as string | undefined,
+    },
+    ["routeId", "requestPath", "retry", "missing"] as const,
+  );
+
+  assert.deepEqual(picked, {
+    routeId: "login",
+    requestPath: "",
+    retry: false,
+  });
 });
 
 test("defineHostPageDefinitions rejects unknown required capabilities", () => {

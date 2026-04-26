@@ -1,5 +1,5 @@
 import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
-import { defineFeatureManifest, type AppKernel, type FeatureConfig } from "@minix/core";
+import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel, type FeatureConfig } from "@minix/core";
 
 import { createAccountController } from "./controller";
 import { createDefaultAccountState, type AccountState } from "./model";
@@ -46,14 +46,16 @@ export const accountFeatureManifest = defineFeatureManifest<
   ) {
     return createAccountController({
       kernel,
-      ...(options.loginRouteId ? { loginRouteId: options.loginRouteId } : {}),
-      ...(options.settingsRouteId ? { settingsRouteId: options.settingsRouteId } : {}),
-      ...(options.overviewRouteId ? { overviewRouteId: options.overviewRouteId } : {}),
-      ...(options.identityUpgradeRouteId ? { identityUpgradeRouteId: options.identityUpgradeRouteId } : {}),
-      ...(options.identityBindPhoneRouteId ? { identityBindPhoneRouteId: options.identityBindPhoneRouteId } : {}),
-      ...(options.identityMergeRouteId ? { identityMergeRouteId: options.identityMergeRouteId } : {}),
-      ...(options.requestPath ? { requestPath: options.requestPath } : {}),
-      ...(options.authRedirectSource ? { authRedirectSource: options.authRedirectSource } : {}),
+      ...pickDefinedManifestOptions(options, [
+        "loginRouteId",
+        "settingsRouteId",
+        "overviewRouteId",
+        "identityUpgradeRouteId",
+        "identityBindPhoneRouteId",
+        "identityMergeRouteId",
+        "requestPath",
+        "authRedirectSource",
+      ] as const),
       initialState: {
         ...createDefaultAccountState(),
         ...pageData,
