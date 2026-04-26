@@ -1,6 +1,6 @@
 # Novel Mock Cover Helper Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -35,7 +35,13 @@ Novel host mock adapters should stop carrying duplicate SVG cover generator code
 
 ## Acceptance
 
-- [ ] Novel H5 mock covers use the shared helper
-- [ ] Novel WeChat mock covers use the shared helper
-- [ ] generated cover behavior remains unchanged
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] Novel H5 mock covers use the shared helper
+- [x] Novel WeChat mock covers use the shared helper
+- [x] generated cover behavior remains unchanged
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced local SVG cover builder functions with `createMockSvgCoverDataUrl`.
+- Kept all novel-specific titles and color palettes inside the host mock adapters.
+- Ran `pnpm verify:host novel-h5` and `pnpm verify:host novel-wechat`; both passed.
