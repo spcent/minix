@@ -30,6 +30,7 @@ import {
   resolveUrlHost,
   SECRET_MATERIAL_NOT_TRACKED_SUMMARY,
 } from "../provider-posture";
+import { cloneOptionalDomainSnapshot } from "../snapshot";
 import type { ApiBindings, StoredUploadRecord, UserState } from "../../types";
 
 const DEFAULT_UPLOAD_CHUNK_SIZE_BYTES = 64 * 1024;
@@ -217,12 +218,15 @@ function cloneUploadCleanupRecord(cleanupRecord: UploadCleanupRecord): UploadCle
 }
 
 function cloneUploadReference(reference: UploadReference): UploadReference {
+  const sourceContext = cloneOptionalDomainSnapshot(reference.sourceContext);
+  const actorContext = cloneOptionalDomainSnapshot(reference.actorContext);
+
   return {
     ownerType: reference.ownerType,
     ownerId: reference.ownerId,
     role: reference.role,
-    ...(reference.sourceContext ? { sourceContext: { ...reference.sourceContext } } : {}),
-    ...(reference.actorContext ? { actorContext: { ...reference.actorContext } } : {}),
+    ...(sourceContext ? { sourceContext } : {}),
+    ...(actorContext ? { actorContext } : {}),
     attachedAt: reference.attachedAt,
     ...(reference.ownerSummary ? { ownerSummary: reference.ownerSummary } : {}),
   };
@@ -1000,12 +1004,14 @@ export function attachUploadRecord(
   now = new Date().toISOString(),
 ): StoredUploadRecord {
   const record = cloneStoredUploadRecord(existing);
+  const sourceContext = cloneOptionalDomainSnapshot(request.reference.sourceContext);
+  const actorContext = cloneOptionalDomainSnapshot(request.reference.actorContext);
   const reference: UploadReference = {
     ownerType: request.reference.ownerType,
     ownerId: request.reference.ownerId,
     role: request.reference.role,
-    ...(request.reference.sourceContext ? { sourceContext: { ...request.reference.sourceContext } } : {}),
-    ...(request.reference.actorContext ? { actorContext: { ...request.reference.actorContext } } : {}),
+    ...(sourceContext ? { sourceContext } : {}),
+    ...(actorContext ? { actorContext } : {}),
     attachedAt: now,
   };
   const duplicate = record.references.find(

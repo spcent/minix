@@ -1,6 +1,6 @@
 # Upload Reference Snapshot Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -34,7 +34,12 @@ Upload records should clone optional source and actor context consistently inste
 
 ## Acceptance
 
-- [ ] upload source context snapshots use the shared optional helper
-- [ ] upload actor context snapshots use the shared optional helper
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] upload source context snapshots use the shared optional helper
+- [x] upload actor context snapshots use the shared optional helper
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced shallow source and actor context copies in upload reference cloning and attach handling with `cloneOptionalDomainSnapshot`.
+- Ran `pnpm verify:api`; it passed.
