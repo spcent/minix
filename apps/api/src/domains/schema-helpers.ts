@@ -49,6 +49,14 @@ export const apiAuthRedirectTargetSchema = z.object({
 type ApiSourceContext = z.infer<typeof apiSourceContextSchema>;
 type ApiActorContext = z.infer<typeof apiActorContextSchema>;
 type ApiAuthRedirectTarget = z.infer<typeof apiAuthRedirectTargetSchema>;
+type ApiContextSnapshotInput = {
+  sourceContext?: ApiSourceContext;
+  actorContext?: ApiActorContext;
+};
+type ApiContextSnapshots = {
+  sourceContext?: SourceContextSnapshot;
+  actorContext?: ActorContextSnapshot;
+};
 
 function omitUndefinedProperties<TValue extends Record<string, unknown>>(value: TValue): Partial<TValue> {
   const result: Partial<TValue> = {};
@@ -82,6 +90,16 @@ export function normalizeApiActorContext(value: ApiActorContext | undefined): Ac
         deviceSummary: value.deviceSummary,
       }) as ActorContextSnapshot)
     : undefined;
+}
+
+export function normalizeApiContextSnapshots(value: ApiContextSnapshotInput | undefined): ApiContextSnapshots {
+  const sourceContext = normalizeApiSourceContext(value?.sourceContext);
+  const actorContext = normalizeApiActorContext(value?.actorContext);
+
+  return {
+    ...(sourceContext !== undefined ? { sourceContext } : {}),
+    ...(actorContext !== undefined ? { actorContext } : {}),
+  };
 }
 
 export function normalizeApiAuthRedirectTarget(

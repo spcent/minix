@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   normalizeApiActorContext,
   normalizeApiAuthRedirectTarget,
+  normalizeApiContextSnapshots,
   normalizeApiSourceContext,
 } from "./schema-helpers";
 
@@ -60,4 +61,36 @@ test("api schema normalizers preserve undefined objects", () => {
   assert.equal(normalizeApiSourceContext(undefined), undefined);
   assert.equal(normalizeApiActorContext(undefined), undefined);
   assert.equal(normalizeApiAuthRedirectTarget(undefined), undefined);
+  assert.deepEqual(normalizeApiContextSnapshots(undefined), {});
+  assert.deepEqual(normalizeApiContextSnapshots({}), {});
+});
+
+test("api context snapshot normalizer returns only defined normalized fields", () => {
+  assert.deepEqual(
+    normalizeApiContextSnapshots({
+      sourceContext: {
+        pagePath: "/messages",
+        routeId: undefined,
+        label: "Messages",
+        params: { threadId: "thread_1" },
+      },
+      actorContext: {
+        userId: "user_1",
+        platform: "h5",
+        appVersion: undefined,
+        deviceSummary: undefined,
+      },
+    }),
+    {
+      sourceContext: {
+        pagePath: "/messages",
+        label: "Messages",
+        params: { threadId: "thread_1" },
+      },
+      actorContext: {
+        userId: "user_1",
+        platform: "h5",
+      },
+    },
+  );
 });
