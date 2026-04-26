@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { cloneUploadChunkReceipt, cloneUploadSession } from "./records";
+import {
+  cloneUploadChunkReceipt,
+  cloneUploadCleanupRecord,
+  cloneUploadReviewRecord,
+  cloneUploadSession,
+} from "./records";
 
 test("upload chunk receipt helper preserves receipt fields", () => {
   assert.deepEqual(
@@ -53,6 +58,47 @@ test("upload session helper preserves session fields", () => {
       resumeSupported: true,
       createdAt: "2026-04-26T00:00:00.000Z",
       expiresAt: "2026-04-27T00:00:00.000Z",
+    },
+  );
+});
+
+test("upload review record helper clones reason codes", () => {
+  const reviewRecord = {
+    status: "rejected" as const,
+    provider: "sample-review",
+    providerMode: "sample" as const,
+    storageProvider: "sample-storage",
+    reviewedAt: "2026-04-26T00:00:00.000Z",
+    message: "Rejected by policy.",
+    reasonCodes: ["blocked", "sensitive"],
+    annotationSummary: "2 reasons.",
+  };
+
+  const snapshot = cloneUploadReviewRecord(reviewRecord);
+
+  assert.deepEqual(snapshot, reviewRecord);
+  assert.notEqual(snapshot.reasonCodes, reviewRecord.reasonCodes);
+});
+
+test("upload cleanup record helper preserves optional retention fields", () => {
+  assert.deepEqual(
+    cloneUploadCleanupRecord({
+      retentionStatus: "scheduled_cleanup",
+      cleanupScheduledAt: "2026-05-03T00:00:00.000Z",
+      cleanupReason: "No references remain.",
+      referenced: false,
+      ownershipSummary: "No owner.",
+      retentionSummary: "Retained for 7 days.",
+      cleanupSummary: "Cleanup queued.",
+    }),
+    {
+      retentionStatus: "scheduled_cleanup",
+      cleanupScheduledAt: "2026-05-03T00:00:00.000Z",
+      cleanupReason: "No references remain.",
+      referenced: false,
+      ownershipSummary: "No owner.",
+      retentionSummary: "Retained for 7 days.",
+      cleanupSummary: "Cleanup queued.",
     },
   );
 });

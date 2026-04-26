@@ -1,6 +1,6 @@
 # Upload Record Review Cleanup Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -36,7 +36,13 @@ Review and cleanup record snapshots should use consistent optional-field handlin
 
 ## Acceptance
 
-- [ ] review record helper preserves optional provider fields
-- [ ] cleanup record helper preserves optional retention fields
-- [ ] review reason codes are cloned, not shared
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] review record helper preserves optional provider fields
+- [x] cleanup record helper preserves optional retention fields
+- [x] review reason codes are cloned, not shared
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added `cloneUploadReviewRecord` and `cloneUploadCleanupRecord`.
+- Covered optional review/cleanup fields and review reason code clone isolation.
+- Verified with `pnpm verify:api`.
