@@ -1,6 +1,6 @@
 # Message Thread Snapshot Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -36,7 +36,13 @@ Message thread snapshots should centralize participant labels, touchpoints, memb
 
 ## Acceptance
 
-- [ ] thread helper clones participant labels
-- [ ] thread helper clones member arrays
-- [ ] optional thread metadata snapshots are cloned
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] thread helper clones participant labels
+- [x] thread helper clones member arrays
+- [x] optional thread metadata snapshots are cloned
+- [x] `pnpm verify:api` run for this code slice
+
+## Completion Notes
+
+- Added `cloneMessageThread` beside member snapshot helpers.
+- Preserved touchpoint projection behavior while centralizing nested optional thread metadata clones.
+- Covered participant labels, member arrays, and optional snapshot isolation in API domain tests.
