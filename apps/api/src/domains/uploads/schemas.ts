@@ -17,8 +17,7 @@ import { z } from "zod";
 import {
   apiActorContextSchema,
   apiSourceContextSchema,
-  normalizeApiActorContext,
-  normalizeApiSourceContext,
+  normalizeApiContextSnapshots,
 } from "../schema-helpers";
 
 const uploadProgressSchema = z.object({
@@ -310,8 +309,7 @@ export function normalizeUploadSessionRequest(
 }
 
 export function normalizeUploadAttachRequest(payload: z.infer<typeof uploadAttachSchema>): UploadAttachRequest {
-  const sourceContext = normalizeApiSourceContext(payload.reference.sourceContext);
-  const actorContext = normalizeApiActorContext(payload.reference.actorContext);
+  const contextSnapshots = normalizeApiContextSnapshots(payload.reference);
 
   return {
     ...(payload.taskId !== undefined ? { taskId: payload.taskId } : {}),
@@ -320,8 +318,7 @@ export function normalizeUploadAttachRequest(payload: z.infer<typeof uploadAttac
       ownerType: payload.reference.ownerType,
       ownerId: payload.reference.ownerId,
       role: payload.reference.role,
-      ...(sourceContext !== undefined ? { sourceContext } : {}),
-      ...(actorContext !== undefined ? { actorContext } : {}),
+      ...contextSnapshots,
     },
   };
 }
