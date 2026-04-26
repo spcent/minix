@@ -1,6 +1,6 @@
 # Upload Task Clone Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -35,7 +35,13 @@ Upload task shaping should have one reusable implementation for schema request n
 
 ## Acceptance
 
-- [ ] task helper clones required fields
-- [ ] task helper preserves defined optional fields
-- [ ] nested progress, governance, and lifecycle objects are not shared
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] task helper clones required fields
+- [x] task helper preserves defined optional fields
+- [x] nested progress, governance, and lifecycle objects are not shared
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added `cloneUploadTask` and `cloneUploadIntegrity`.
+- Covered optional task fields and nested clone isolation in tests.
+- Verified with `pnpm verify:api`.

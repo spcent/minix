@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { cloneUploadGovernance, cloneUploadLifecycle, cloneUploadProgress } from "./tasks";
+import { cloneUploadGovernance, cloneUploadLifecycle, cloneUploadProgress, cloneUploadTask } from "./tasks";
 
 test("upload progress helper preserves scalar fields", () => {
   assert.deepEqual(
@@ -58,4 +58,54 @@ test("upload lifecycle helper preserves defined optional fields", () => {
       cleanupSummary: "Cleanup queued.",
     },
   );
+});
+
+test("upload task helper preserves optional fields and clones nested objects", () => {
+  const task = {
+    taskId: "task_1",
+    scenario: "attachment" as const,
+    fileType: "image" as const,
+    stage: "uploading" as const,
+    fileName: "demo.png",
+    progress: {
+      completedBytes: 512,
+      totalBytes: 1024,
+      percentage: 50,
+    },
+    chunkingReserved: true,
+    transferMode: "chunked" as const,
+    sessionId: "session_1",
+    chunkCount: 4,
+    uploadedChunkCount: 2,
+    integrity: {
+      checksumAlgorithm: "sha256" as const,
+      fileChecksum: "sha256:demo",
+      expectedSizeBytes: 1024,
+    },
+    governance: {
+      maxSizeBytes: 4096,
+      acceptedFileTypes: ["image", "attachment"] as const,
+      sensitiveReviewRequired: true,
+      expiresInDays: 7,
+    },
+    reviewStatus: "pending" as const,
+    reviewMessage: "Review queued.",
+    lifecycle: {
+      backendBacked: true,
+      retentionStatus: "active" as const,
+      retryCount: 0,
+      canRetry: true,
+      canCancel: true,
+    },
+    ownershipSummary: "Attached to feedback.",
+  };
+
+  const snapshot = cloneUploadTask(task);
+
+  assert.deepEqual(snapshot, task);
+  assert.notEqual(snapshot.progress, task.progress);
+  assert.notEqual(snapshot.governance, task.governance);
+  assert.notEqual(snapshot.governance.acceptedFileTypes, task.governance.acceptedFileTypes);
+  assert.notEqual(snapshot.lifecycle, task.lifecycle);
+  assert.notEqual(snapshot.integrity, task.integrity);
 });
