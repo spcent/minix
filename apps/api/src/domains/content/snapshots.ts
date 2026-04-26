@@ -5,7 +5,10 @@ import type {
   ContentReviewRecord,
 } from "@minix/contracts";
 
+import type { UserState } from "../../types";
 import { cloneDomainSnapshot, cloneDomainSnapshotArray } from "../snapshot";
+
+export type ManagedContentEntrySnapshot = NonNullable<UserState["managedContentById"]>[string];
 
 export function cloneManagedContentReviewRecord(reviewRecord: ContentReviewRecord): ContentReviewRecord {
   return cloneDomainSnapshot(reviewRecord);
@@ -38,5 +41,28 @@ export function cloneManagedContentAuthoring(authoring: ContentAuthoringData): C
     tags: cloneDomainSnapshotArray(authoring.tags),
     ...(authoring.coverAssetId !== undefined ? { coverAssetId: authoring.coverAssetId } : {}),
     attachmentAssetIds: [...authoring.attachmentAssetIds],
+  };
+}
+
+export function cloneManagedContentEntry(entry: ManagedContentEntrySnapshot): ManagedContentEntrySnapshot {
+  return {
+    authorUserId: entry.authorUserId,
+    model: entry.model,
+    visibility: entry.visibility,
+    lifecycle: cloneManagedContentLifecycle(entry.lifecycle),
+    authorLabel: entry.authorLabel,
+    title: entry.title,
+    ...(entry.subtitle !== undefined ? { subtitle: entry.subtitle } : {}),
+    summary: entry.summary,
+    ...(entry.bodyPreview !== undefined ? { bodyPreview: entry.bodyPreview } : {}),
+    categoryKey: entry.categoryKey,
+    categoryLabel: entry.categoryLabel,
+    tags: cloneDomainSnapshotArray(entry.tags),
+    ...(entry.coverAssetId !== undefined ? { coverAssetId: entry.coverAssetId } : {}),
+    attachments: cloneDomainSnapshotArray(entry.attachments),
+    reviewRecord: cloneManagedContentReviewRecord(entry.reviewRecord),
+    auditHistory: cloneManagedContentAuditHistory(entry.auditHistory),
+    actorRoles: [...entry.actorRoles],
+    authoring: cloneManagedContentAuthoring(entry.authoring),
   };
 }

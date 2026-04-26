@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   cloneManagedContentAuditHistory,
   cloneManagedContentAuthoring,
+  cloneManagedContentEntry,
   cloneManagedContentLifecycle,
   cloneManagedContentReviewRecord,
 } from "./snapshots";
@@ -82,4 +83,76 @@ test("managed content authoring snapshot helper clones nested facets and attachm
   assert.notEqual(snapshot.tags, authoring.tags);
   assert.notEqual(snapshot.tags[0], authoring.tags[0]);
   assert.notEqual(snapshot.attachmentAssetIds, authoring.attachmentAssetIds);
+});
+
+test("managed content entry snapshot helper clones nested runtime state", () => {
+  const entry = {
+    authorUserId: "author_1",
+    model: "article" as const,
+    visibility: "public" as const,
+    lifecycle: {
+      state: "published" as const,
+      availableActions: ["update", "archive", "delete", "change_visibility"],
+      publishedAt: "2026-04-25T00:00:00.000Z",
+      updatedAt: "2026-04-26T00:00:00.000Z",
+    },
+    authorLabel: "MiniX Author",
+    title: "Published article",
+    subtitle: "Article subtitle",
+    summary: "Article summary",
+    bodyPreview: "Article preview",
+    categoryKey: "article",
+    categoryLabel: "Article",
+    tags: [{ key: "lesson", label: "Lesson" }],
+    coverAssetId: "asset_cover",
+    attachments: [
+      {
+        assetId: "asset_1",
+        kind: "attachment" as const,
+        label: "Attachment 1",
+        url: "https://example.test/asset_1",
+      },
+    ],
+    reviewRecord: {
+      reviewId: "review_1",
+      status: "approved" as const,
+      queueLabel: "Editorial review",
+      decidedAt: "2026-04-26T00:00:00.000Z",
+    },
+    auditHistory: [
+      {
+        auditId: "audit_1",
+        action: "publish" as const,
+        actorRole: "reviewer" as const,
+        actorLabel: "Reviewer Mina",
+        createdAt: "2026-04-26T00:00:00.000Z",
+        message: "Published.",
+      },
+    ],
+    actorRoles: ["author", "reviewer", "admin", "reader"] as const,
+    authoring: {
+      title: "Published article",
+      summary: "Article summary",
+      visibility: "public" as const,
+      category: { key: "article", label: "Article" },
+      tags: [{ key: "lesson", label: "Lesson" }],
+      attachmentAssetIds: ["asset_1"],
+    },
+  };
+
+  const snapshot = cloneManagedContentEntry(entry);
+
+  assert.deepEqual(snapshot, entry);
+  assert.notEqual(snapshot.lifecycle, entry.lifecycle);
+  assert.notEqual(snapshot.lifecycle.availableActions, entry.lifecycle.availableActions);
+  assert.notEqual(snapshot.tags, entry.tags);
+  assert.notEqual(snapshot.tags[0], entry.tags[0]);
+  assert.notEqual(snapshot.attachments, entry.attachments);
+  assert.notEqual(snapshot.attachments[0], entry.attachments[0]);
+  assert.notEqual(snapshot.reviewRecord, entry.reviewRecord);
+  assert.notEqual(snapshot.auditHistory, entry.auditHistory);
+  assert.notEqual(snapshot.auditHistory[0], entry.auditHistory[0]);
+  assert.notEqual(snapshot.actorRoles, entry.actorRoles);
+  assert.notEqual(snapshot.authoring, entry.authoring);
+  assert.notEqual(snapshot.authoring.category, entry.authoring.category);
 });

@@ -1,6 +1,6 @@
 # Content Entry Snapshot Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -36,7 +36,13 @@ Stored managed-content entries should clone nested lifecycle, tags, attachments,
 
 ## Acceptance
 
-- [ ] entry helper clones lifecycle and tags
-- [ ] entry helper clones attachments, review, audit, roles, and authoring
-- [ ] stored scalar fields are preserved
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] entry helper clones lifecycle and tags
+- [x] entry helper clones attachments, review, audit, roles, and authoring
+- [x] stored scalar fields are preserved
+- [x] `pnpm verify:api` run for this code slice
+
+## Completion Notes
+
+- Added `ManagedContentEntrySnapshot` and `cloneManagedContentEntry`.
+- Composed the entry clone from lifecycle, review, audit, and authoring snapshot helpers.
+- Covered scalar preservation and nested clone isolation in API domain tests.
