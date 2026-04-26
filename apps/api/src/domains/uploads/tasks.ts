@@ -17,7 +17,7 @@ import type {
 
 type UploadGovernanceInput = {
   maxSizeBytes: number;
-  acceptedFileTypes: UploadFileType[];
+  acceptedFileTypes: readonly UploadFileType[];
   sensitiveReviewRequired: boolean;
   expiresInDays?: number | undefined;
   governanceSummary?: string | undefined;
