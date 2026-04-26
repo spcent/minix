@@ -1,6 +1,6 @@
 # Upload Asset Clone Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -35,7 +35,13 @@ Upload asset cloning should have one reusable implementation for API projection 
 
 ## Acceptance
 
-- [ ] upload asset helper clones top-level fields
-- [ ] nested metadata and variants are not shared
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] upload asset helper clones top-level fields
+- [x] nested metadata and variants are not shared
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added `cloneUploadAsset` on top of the metadata helper.
+- Covered top-level optional fields and nested clone isolation in tests.
+- Verified with `pnpm verify:api`.

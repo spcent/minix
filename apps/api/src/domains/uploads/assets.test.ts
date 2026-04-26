@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { UploadAssetMetadata, UploadDerivedAssetVariant } from "@minix/contracts";
+import type { UploadAsset, UploadAssetMetadata, UploadDerivedAssetVariant } from "@minix/contracts";
 
-import { cloneUploadAssetMetadata, cloneUploadAssetVariant } from "./assets";
+import { cloneUploadAsset, cloneUploadAssetMetadata, cloneUploadAssetVariant } from "./assets";
 
 test("upload asset variant helper preserves optional dimensions", () => {
   const variant: UploadDerivedAssetVariant = {
@@ -47,4 +47,38 @@ test("upload asset metadata helper clones variants and review annotations", () =
   assert.notEqual(snapshot.variants, metadata.variants);
   assert.notEqual(snapshot.variants?.[0], metadata.variants?.[0]);
   assert.notEqual(snapshot.reviewAnnotations, metadata.reviewAnnotations);
+});
+
+test("upload asset clone helper clones top-level and nested fields", () => {
+  const asset: UploadAsset = {
+    assetId: "asset_1",
+    fileType: "image",
+    fileName: "demo.png",
+    url: "https://assets.example.test/demo.png",
+    thumbnailUrl: "https://assets.example.test/demo-thumb.png",
+    coverImageUrl: "https://assets.example.test/demo-cover.png",
+    metadata: {
+      sizeBytes: 2048,
+      mimeType: "image/png",
+      variants: [
+        {
+          kind: "thumbnail",
+          url: "https://assets.example.test/demo-thumb.png",
+          label: "Thumbnail",
+          width: 120,
+          height: 80,
+        },
+      ],
+      reviewAnnotations: ["Provider: sample-review."],
+    },
+    derivedAssetSummary: "1 derived asset variant is available.",
+    ownershipSummary: "Attached to feedback ticket ticket_1.",
+  };
+
+  const snapshot = cloneUploadAsset(asset);
+
+  assert.deepEqual(snapshot, asset);
+  assert.notEqual(snapshot.metadata, asset.metadata);
+  assert.notEqual(snapshot.metadata.variants, asset.metadata.variants);
+  assert.notEqual(snapshot.metadata.reviewAnnotations, asset.metadata.reviewAnnotations);
 });

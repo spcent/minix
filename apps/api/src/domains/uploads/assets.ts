@@ -26,3 +26,17 @@ export function cloneUploadAssetMetadata(metadata: UploadAssetMetadata): UploadA
     ...(metadata.reviewAnnotations !== undefined ? { reviewAnnotations: [...metadata.reviewAnnotations] } : {}),
   };
 }
+
+export function cloneUploadAsset(asset: UploadAsset): UploadAsset {
+  return {
+    assetId: asset.assetId,
+    fileType: asset.fileType,
+    fileName: asset.fileName,
+    url: asset.url,
+    ...(asset.thumbnailUrl !== undefined ? { thumbnailUrl: asset.thumbnailUrl } : {}),
+    ...(asset.coverImageUrl !== undefined ? { coverImageUrl: asset.coverImageUrl } : {}),
+    metadata: cloneUploadAssetMetadata(asset.metadata),
+    ...(asset.derivedAssetSummary !== undefined ? { derivedAssetSummary: asset.derivedAssetSummary } : {}),
+    ...(asset.ownershipSummary !== undefined ? { ownershipSummary: asset.ownershipSummary } : {}),
+  };
+}
