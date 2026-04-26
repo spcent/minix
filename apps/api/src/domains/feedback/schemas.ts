@@ -6,8 +6,7 @@ import {
   apiActorContextSchema,
   apiPaginationQueryShape,
   apiSourceContextSchema,
-  normalizeApiActorContext,
-  normalizeApiSourceContext,
+  normalizeApiContextSnapshots,
 } from "../schema-helpers";
 
 const FEEDBACK_TICKET_STATE_FILTERS = [...FEEDBACK_TICKET_STATES, "all"] as const;
@@ -83,8 +82,7 @@ export const feedbackTicketActionSchema = z.object({
 });
 
 export function normalizeSubmitFeedbackRequest(payload: z.infer<typeof submitFeedbackSchema>) {
-  const sourceContext = normalizeApiSourceContext(payload.context.sourceContext);
-  const actorContext = normalizeApiActorContext(payload.context.actorContext);
+  const contextSnapshots = normalizeApiContextSnapshots(payload.context);
 
   return {
     type: payload.type,
@@ -103,8 +101,7 @@ export function normalizeSubmitFeedbackRequest(payload: z.infer<typeof submitFee
       platform: payload.context.platform,
       appVersion: payload.context.appVersion,
       ...(payload.context.deviceSummary !== undefined ? { deviceSummary: payload.context.deviceSummary } : {}),
-      ...(sourceContext !== undefined ? { sourceContext } : {}),
-      ...(actorContext !== undefined ? { actorContext } : {}),
+      ...contextSnapshots,
       screenshotAssets: payload.context.screenshotAssets.map(normalizeUploadAsset),
       attachmentAssets: payload.context.attachmentAssets.map(normalizeUploadAsset),
     },

@@ -1,6 +1,6 @@
 # Feedback Context Normalizer Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -34,7 +34,13 @@ Feedback context normalization should be reusable and consistent with message, u
 
 ## Acceptance
 
-- [ ] feedback submit normalization uses the shared context helper
-- [ ] feedback context output shape is unchanged
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] feedback submit normalization uses the shared context helper
+- [x] feedback context output shape is unchanged
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced duplicated feedback submit context normalization in `normalizeSubmitFeedbackRequest`.
+- Preserved existing feedback context scalar fields and upload asset normalization.
+- Verified with `pnpm verify:api`.
