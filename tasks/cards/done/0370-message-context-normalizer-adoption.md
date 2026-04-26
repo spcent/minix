@@ -1,6 +1,6 @@
 # Message Context Normalizer Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -34,7 +34,13 @@ Message thread creation should use the same context normalization convention as 
 
 ## Acceptance
 
-- [ ] message schema normalization uses the shared context helper
-- [ ] source and actor context output shape is unchanged
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] message schema normalization uses the shared context helper
+- [x] source and actor context output shape is unchanged
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced duplicated source and actor context normalization in `normalizeCreateMessageThreadRequest`.
+- Kept optional fields omitted through the shared helper spread.
+- Verified with `pnpm verify:api`.

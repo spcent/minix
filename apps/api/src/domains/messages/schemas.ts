@@ -12,8 +12,7 @@ import {
   apiPaginationQueryShape,
   apiQueryBooleanSchema,
   apiSourceContextSchema,
-  normalizeApiActorContext,
-  normalizeApiSourceContext,
+  normalizeApiContextSnapshots,
 } from "../schema-helpers";
 
 const NOTIFICATION_TYPE_FILTERS = [...NOTIFICATION_TYPES, "all"] as const;
@@ -76,16 +75,14 @@ export const markNotificationsReadSchema = z.object({
 export function normalizeCreateMessageThreadRequest(
   payload: z.infer<typeof createMessageThreadSchema>,
 ): CreateMessageThreadRequest {
-  const sourceContext = normalizeApiSourceContext(payload.sourceContext);
-  const actorContext = normalizeApiActorContext(payload.actorContext);
+  const contextSnapshots = normalizeApiContextSnapshots(payload);
 
   return {
     type: payload.type,
     ...(payload.title !== undefined ? { title: payload.title } : {}),
     ...(payload.participantUserIds !== undefined ? { participantUserIds: payload.participantUserIds } : {}),
     ...(payload.sourceTicketId !== undefined ? { sourceTicketId: payload.sourceTicketId } : {}),
-    ...(sourceContext !== undefined ? { sourceContext } : {}),
-    ...(actorContext !== undefined ? { actorContext } : {}),
+    ...contextSnapshots,
     ...(payload.replyPolicy !== undefined ? { replyPolicy: payload.replyPolicy } : {}),
   };
 }
