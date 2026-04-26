@@ -1,5 +1,5 @@
 import type { AppRouteId, ItemsListItem } from "@minix/contracts";
-import { defineFeatureManifest, type AppKernel } from "@minix/core";
+import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
 
 import { createItemsController } from "./controller";
 import type { ItemsPageModel } from "./model";
@@ -32,11 +32,9 @@ export const itemsFeatureManifest = defineFeatureManifest<
       kernel,
       loginRouteId: options.loginRouteId,
       settingsRouteId: options.settingsRouteId,
-      ...(options.overviewRouteId ? { overviewRouteId: options.overviewRouteId } : {}),
-      ...(options.planRouteId ? { planRouteId: options.planRouteId } : {}),
-      ...(options.authRedirectSource ? { authRedirectSource: options.authRedirectSource } : {}),
+      ...pickDefinedManifestOptions(options, ["overviewRouteId", "planRouteId", "authRedirectSource"] as const),
       initialModel: pageData,
-      ...(options.requestPath ? { requestPath: options.requestPath } : {}),
+      ...pickDefinedManifestOptions(options, ["requestPath"] as const),
     });
   },
   hosts: {

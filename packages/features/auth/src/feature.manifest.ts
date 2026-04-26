@@ -1,5 +1,5 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, type AppKernel } from "@minix/core";
+import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
 
 import { createAuthController } from "./controller";
 import type { AuthPageState } from "./model";
@@ -26,10 +26,12 @@ export const authFeatureManifest = defineFeatureManifest<
     return createAuthController({
       kernel,
       successRouteId: options.successRouteId,
-      ...(options.stayOnSuccess !== undefined ? { stayOnSuccess: options.stayOnSuccess } : {}),
-      ...(options.overviewRouteId ? { overviewRouteId: options.overviewRouteId } : {}),
-      ...(options.planRouteId ? { planRouteId: options.planRouteId } : {}),
-      ...(options.settingsRouteId ? { settingsRouteId: options.settingsRouteId } : {}),
+      ...pickDefinedManifestOptions(options, [
+        "stayOnSuccess",
+        "overviewRouteId",
+        "planRouteId",
+        "settingsRouteId",
+      ] as const),
       ...(options.reportError
         ? {
             async reportError(message: string) {

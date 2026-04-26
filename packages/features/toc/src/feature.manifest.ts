@@ -1,5 +1,5 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, type AppKernel } from "@minix/core";
+import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
 
 import { createTocController } from "./controller";
 import { createInitialTocState, type TocState } from "./model";
@@ -34,9 +34,7 @@ export const tocFeatureManifest = defineFeatureManifest<
       catalogRouteId: options.catalogRouteId,
       novelDetailRouteId: options.novelDetailRouteId,
       readerRouteId: options.readerRouteId,
-      ...(options.membershipRouteId ? { membershipRouteId: options.membershipRouteId } : {}),
-      ...(options.loginRouteId ? { loginRouteId: options.loginRouteId } : {}),
-      ...(options.progressRequestPath ? { progressRequestPath: options.progressRequestPath } : {}),
+      ...pickDefinedManifestOptions(options, ["membershipRouteId", "loginRouteId", "progressRequestPath"] as const),
       initialState: {
         ...pageData,
         ...options.initialState,

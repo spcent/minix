@@ -1,5 +1,5 @@
 import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
-import { defineFeatureManifest, type AppKernel, type FeatureConfig } from "@minix/core";
+import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel, type FeatureConfig } from "@minix/core";
 
 import { createFeedController } from "./controller";
 import { createDefaultFeedState, type FeedState } from "./model";
@@ -37,12 +37,14 @@ export const feedFeatureManifest = defineFeatureManifest<
   ) {
     return createFeedController({
       kernel,
-      ...(options.feedRouteId ? { feedRouteId: options.feedRouteId } : {}),
-      ...(options.detailRouteId ? { detailRouteId: options.detailRouteId } : {}),
-      ...(options.settingsRouteId ? { settingsRouteId: options.settingsRouteId } : {}),
-      ...(options.loginRouteId ? { loginRouteId: options.loginRouteId } : {}),
-      ...(options.requestPath ? { requestPath: options.requestPath } : {}),
-      ...(options.authRedirectSource ? { authRedirectSource: options.authRedirectSource } : {}),
+      ...pickDefinedManifestOptions(options, [
+        "feedRouteId",
+        "detailRouteId",
+        "settingsRouteId",
+        "loginRouteId",
+        "requestPath",
+        "authRedirectSource",
+      ] as const),
       initialState: {
         ...createDefaultFeedState(),
         ...pageData,

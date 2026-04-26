@@ -1,5 +1,5 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, type AppKernel } from "@minix/core";
+import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
 
 import { createSubscriptionController } from "./controller";
 import { createInitialSubscriptionState, type SubscriptionState } from "./model";
@@ -34,13 +34,15 @@ export const subscriptionFeatureManifest = defineFeatureManifest<
     return createSubscriptionController({
       kernel,
       catalogRouteId: options.catalogRouteId,
-      ...(options.loginRouteId ? { loginRouteId: options.loginRouteId } : {}),
-      ...(options.membershipRouteId ? { membershipRouteId: options.membershipRouteId } : {}),
-      ...(options.ordersRouteId ? { ordersRouteId: options.ordersRouteId } : {}),
-      ...(options.novelDetailRouteId ? { novelDetailRouteId: options.novelDetailRouteId } : {}),
-      ...(options.readerRouteId ? { readerRouteId: options.readerRouteId } : {}),
-      ...(options.tocRouteId ? { tocRouteId: options.tocRouteId } : {}),
-      ...(options.bookshelfRouteId ? { bookshelfRouteId: options.bookshelfRouteId } : {}),
+      ...pickDefinedManifestOptions(options, [
+        "loginRouteId",
+        "membershipRouteId",
+        "ordersRouteId",
+        "novelDetailRouteId",
+        "readerRouteId",
+        "tocRouteId",
+        "bookshelfRouteId",
+      ] as const),
       initialState: {
         ...pageData,
         ...options.initialState,

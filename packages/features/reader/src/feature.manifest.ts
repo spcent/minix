@@ -1,5 +1,5 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, type AppKernel } from "@minix/core";
+import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
 
 import { createReaderController } from "./controller";
 import { createInitialReaderState, type ReaderState } from "./model";
@@ -35,10 +35,12 @@ export const readerFeatureManifest = defineFeatureManifest<
       readerRouteId: options.readerRouteId,
       novelDetailRouteId: options.novelDetailRouteId,
       tocRouteId: options.tocRouteId,
-      ...(options.loginRouteId ? { loginRouteId: options.loginRouteId } : {}),
-      ...(options.bookshelfRouteId ? { bookshelfRouteId: options.bookshelfRouteId } : {}),
-      ...(options.membershipRouteId ? { membershipRouteId: options.membershipRouteId } : {}),
-      ...(options.displaySettingsStorageKey ? { displaySettingsStorageKey: options.displaySettingsStorageKey } : {}),
+      ...pickDefinedManifestOptions(options, [
+        "loginRouteId",
+        "bookshelfRouteId",
+        "membershipRouteId",
+        "displaySettingsStorageKey",
+      ] as const),
       initialState: {
         ...pageData,
         ...options.initialState,

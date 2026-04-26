@@ -1,5 +1,5 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, type AppKernel } from "@minix/core";
+import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
 
 import { createNovelDetailController } from "./controller";
 import { createInitialNovelDetailState, type NovelDetailState } from "./model";
@@ -37,10 +37,12 @@ export const novelDetailFeatureManifest = defineFeatureManifest<
       catalogRouteId: options.catalogRouteId,
       tocRouteId: options.tocRouteId,
       readerRouteId: options.readerRouteId,
-      ...(options.loginRouteId ? { loginRouteId: options.loginRouteId } : {}),
-      ...(options.bookshelfRouteId ? { bookshelfRouteId: options.bookshelfRouteId } : {}),
-      ...(options.membershipRouteId ? { membershipRouteId: options.membershipRouteId } : {}),
-      ...(options.progressRequestPath ? { progressRequestPath: options.progressRequestPath } : {}),
+      ...pickDefinedManifestOptions(options, [
+        "loginRouteId",
+        "bookshelfRouteId",
+        "membershipRouteId",
+        "progressRequestPath",
+      ] as const),
       initialState: {
         ...pageData,
         ...options.initialState,

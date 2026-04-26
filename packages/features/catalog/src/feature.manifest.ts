@@ -1,5 +1,5 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, type AppKernel } from "@minix/core";
+import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
 
 import { createCatalogController } from "./controller";
 import { createInitialCatalogState, type CatalogState } from "./model";
@@ -33,12 +33,14 @@ export const catalogFeatureManifest = defineFeatureManifest<
     return createCatalogController({
       kernel,
       detailRouteId: options.detailRouteId,
-      ...(options.loginRouteId ? { loginRouteId: options.loginRouteId } : {}),
-      ...(options.catalogRouteId ? { catalogRouteId: options.catalogRouteId } : {}),
-      ...(options.readerRouteId ? { readerRouteId: options.readerRouteId } : {}),
-      ...(options.tocRouteId ? { tocRouteId: options.tocRouteId } : {}),
-      ...(options.bookshelfRouteId ? { bookshelfRouteId: options.bookshelfRouteId } : {}),
-      ...(options.settingsRouteId ? { settingsRouteId: options.settingsRouteId } : {}),
+      ...pickDefinedManifestOptions(options, [
+        "loginRouteId",
+        "catalogRouteId",
+        "readerRouteId",
+        "tocRouteId",
+        "bookshelfRouteId",
+        "settingsRouteId",
+      ] as const),
       initialState: {
         ...pageData,
         ...options.initialState,
