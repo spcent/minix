@@ -6,9 +6,8 @@ import {
   apiAuthRedirectTargetSchema,
   apiRouteParamsSchema,
   apiSourceContextSchema,
-  normalizeApiActorContext,
   normalizeApiAuthRedirectTarget,
-  normalizeApiSourceContext,
+  normalizeApiContextSnapshots,
 } from "../schema-helpers";
 
 export const shareRedirectTargetSchema = apiAuthRedirectTargetSchema;
@@ -115,9 +114,11 @@ export function normalizeSharePrepareRequest(payload: z.infer<typeof sharePrepar
         ...(landingAuthRedirect !== undefined ? { authRedirect: landingAuthRedirect } : {}),
       }
     : undefined;
-  const sourceContext = normalizeApiSourceContext(payload.sharePayload.sourceContext);
+  const { sourceContext, actorContext } = normalizeApiContextSnapshots({
+    sourceContext: payload.sharePayload.sourceContext,
+    actorContext: payload.shareAttribution.actorContext,
+  });
   const returnTarget = normalizeApiAuthRedirectTarget(payload.sharePayload.returnTarget);
-  const actorContext = normalizeApiActorContext(payload.shareAttribution.actorContext);
   const attributionReturnTarget = normalizeApiAuthRedirectTarget(payload.shareAttribution.returnTarget);
   const redirectTarget = normalizeApiAuthRedirectTarget(payload.redirectTarget);
 

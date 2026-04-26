@@ -1,6 +1,6 @@
 # Share Context Normalizer Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -34,7 +34,13 @@ Share payload and attribution context normalization should reuse the same helper
 
 ## Acceptance
 
-- [ ] share prepare normalization uses the shared context helper
-- [ ] share payload and attribution output shapes are unchanged
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] share prepare normalization uses the shared context helper
+- [x] share payload and attribution output shapes are unchanged
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced duplicated share source and actor context normalization with `normalizeApiContextSnapshots`.
+- Kept `sourceContext` under `sharePayload` and `actorContext` under `shareAttribution`.
+- Verified with `pnpm verify:api`.
