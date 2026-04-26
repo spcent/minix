@@ -1,6 +1,6 @@
 # Content Authoring Lifecycle Snapshot Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -36,7 +36,13 @@ Authoring drafts and lifecycle snapshots should centralize optional field handli
 
 ## Acceptance
 
-- [ ] lifecycle helper clones available actions
-- [ ] authoring helper clones category and tags
-- [ ] authoring attachment ids are not shared
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] lifecycle helper clones available actions
+- [x] authoring helper clones category and tags
+- [x] authoring attachment ids are not shared
+- [x] `pnpm verify:api` run for this code slice
+
+## Completion Notes
+
+- Added lifecycle and authoring snapshot helpers to the content snapshot module.
+- Preserved exact optional fields while cloning lifecycle actions, facets, tags, and attachment asset ids.
+- Covered nested clone isolation in API domain tests.
