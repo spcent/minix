@@ -1,5 +1,5 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
+import { defineFeatureManifest, mergeFeaturePageState, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
 
 import { createCatalogController } from "./controller";
 import { createInitialCatalogState, type CatalogState } from "./model";
@@ -41,10 +41,7 @@ export const catalogFeatureManifest = defineFeatureManifest<
         "bookshelfRouteId",
         "settingsRouteId",
       ] as const),
-      initialState: {
-        ...pageData,
-        ...options.initialState,
-      },
+      initialState: mergeFeaturePageState(pageData, options.initialState),
     });
   },
   hosts: {

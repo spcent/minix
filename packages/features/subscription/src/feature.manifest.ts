@@ -1,5 +1,5 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
+import { defineFeatureManifest, mergeFeaturePageState, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
 
 import { createSubscriptionController } from "./controller";
 import { createInitialSubscriptionState, type SubscriptionState } from "./model";
@@ -43,10 +43,7 @@ export const subscriptionFeatureManifest = defineFeatureManifest<
         "tocRouteId",
         "bookshelfRouteId",
       ] as const),
-      initialState: {
-        ...pageData,
-        ...options.initialState,
-      },
+      initialState: mergeFeaturePageState(pageData, options.initialState),
     });
   },
   hosts: {

@@ -1,5 +1,11 @@
 import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
-import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel, type FeatureConfig } from "@minix/core";
+import {
+  defineFeatureManifest,
+  mergeFeaturePageState,
+  pickDefinedManifestOptions,
+  type AppKernel,
+  type FeatureConfig,
+} from "@minix/core";
 
 import { createMediaToolsController } from "./controller";
 import { createDefaultMediaToolsState, type MediaToolsState } from "./model";
@@ -43,11 +49,7 @@ export const mediaToolsFeatureManifest = defineFeatureManifest<
     return createMediaToolsController({
       kernel,
       ...pickDefinedManifestOptions(options, ["loginRouteId", "settingsRouteId"] as const),
-      initialState: {
-        ...createDefaultMediaToolsState(),
-        ...pageData,
-        ...options.initialState,
-      },
+      initialState: mergeFeaturePageState(createDefaultMediaToolsState(), pageData, options.initialState),
     });
   },
   hosts: {

@@ -1,5 +1,11 @@
 import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
-import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel, type FeatureConfig } from "@minix/core";
+import {
+  defineFeatureManifest,
+  mergeFeaturePageState,
+  pickDefinedManifestOptions,
+  type AppKernel,
+  type FeatureConfig,
+} from "@minix/core";
 
 import { createFeedbackController } from "./controller";
 import { createDefaultFeedbackState, type FeedbackState } from "./model";
@@ -61,11 +67,7 @@ export const feedbackFeatureManifest = defineFeatureManifest<
         "actionPath",
         "authRedirectSource",
       ] as const),
-      initialState: {
-        ...createDefaultFeedbackState(),
-        ...pageData,
-        ...options.initialState,
-      },
+      initialState: mergeFeaturePageState(createDefaultFeedbackState(), pageData, options.initialState),
     });
   },
   hosts: {

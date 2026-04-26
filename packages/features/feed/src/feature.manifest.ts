@@ -1,5 +1,11 @@
 import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
-import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel, type FeatureConfig } from "@minix/core";
+import {
+  defineFeatureManifest,
+  mergeFeaturePageState,
+  pickDefinedManifestOptions,
+  type AppKernel,
+  type FeatureConfig,
+} from "@minix/core";
 
 import { createFeedController } from "./controller";
 import { createDefaultFeedState, type FeedState } from "./model";
@@ -45,11 +51,7 @@ export const feedFeatureManifest = defineFeatureManifest<
         "requestPath",
         "authRedirectSource",
       ] as const),
-      initialState: {
-        ...createDefaultFeedState(),
-        ...pageData,
-        ...options.initialState,
-      },
+      initialState: mergeFeaturePageState(createDefaultFeedState(), pageData, options.initialState),
     });
   },
   hosts: {

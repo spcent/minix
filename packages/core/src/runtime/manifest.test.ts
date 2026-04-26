@@ -10,6 +10,7 @@ import type { AppKernel } from "./app";
 import {
   createManifestPageRegistry,
   defineHostPageDefinitions,
+  mergeFeaturePageState,
   pickDefinedManifestOptions,
   type FeatureManifest,
   type HostFeatureBehavior,
@@ -104,6 +105,35 @@ test("pickDefinedManifestOptions keeps only defined values and preserves falsy v
     routeId: "login",
     requestPath: "",
     retry: false,
+  });
+});
+
+test("mergeFeaturePageState preserves shallow precedence across defaults page data and overrides", () => {
+  interface TestPageState {
+    title: string;
+    pageSize: number;
+    emptyText: string;
+  }
+
+  const merged = mergeFeaturePageState<TestPageState>(
+    {
+      title: "Default",
+      pageSize: 10,
+      emptyText: "No data",
+    },
+    {
+      title: "Host page",
+    },
+    undefined,
+    {
+      pageSize: 20,
+    },
+  );
+
+  assert.deepEqual(merged, {
+    title: "Host page",
+    pageSize: 20,
+    emptyText: "No data",
   });
 });
 

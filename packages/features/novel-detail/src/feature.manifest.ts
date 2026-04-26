@@ -1,5 +1,5 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
+import { defineFeatureManifest, mergeFeaturePageState, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
 
 import { createNovelDetailController } from "./controller";
 import { createInitialNovelDetailState, type NovelDetailState } from "./model";
@@ -43,10 +43,7 @@ export const novelDetailFeatureManifest = defineFeatureManifest<
         "membershipRouteId",
         "progressRequestPath",
       ] as const),
-      initialState: {
-        ...pageData,
-        ...options.initialState,
-      },
+      initialState: mergeFeaturePageState(pageData, options.initialState),
     });
   },
   hosts: {

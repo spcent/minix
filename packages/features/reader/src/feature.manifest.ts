@@ -1,5 +1,5 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
+import { defineFeatureManifest, mergeFeaturePageState, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
 
 import { createReaderController } from "./controller";
 import { createInitialReaderState, type ReaderState } from "./model";
@@ -41,10 +41,7 @@ export const readerFeatureManifest = defineFeatureManifest<
         "membershipRouteId",
         "displaySettingsStorageKey",
       ] as const),
-      initialState: {
-        ...pageData,
-        ...options.initialState,
-      },
+      initialState: mergeFeaturePageState(pageData, options.initialState),
     });
   },
   hosts: {

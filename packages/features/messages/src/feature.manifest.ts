@@ -1,5 +1,11 @@
 import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
-import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel, type FeatureConfig } from "@minix/core";
+import {
+  defineFeatureManifest,
+  mergeFeaturePageState,
+  pickDefinedManifestOptions,
+  type AppKernel,
+  type FeatureConfig,
+} from "@minix/core";
 
 import { createMessagesController } from "./controller";
 import { createDefaultMessagesState, type MessagesState } from "./model";
@@ -51,11 +57,7 @@ export const messagesFeatureManifest = defineFeatureManifest<
         "markReadPath",
         "authRedirectSource",
       ] as const),
-      initialState: {
-        ...createDefaultMessagesState(),
-        ...pageData,
-        ...options.initialState,
-      },
+      initialState: mergeFeaturePageState(createDefaultMessagesState(), pageData, options.initialState),
     });
   },
   hosts: {

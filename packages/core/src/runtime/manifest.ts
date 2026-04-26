@@ -88,6 +88,12 @@ export function pickDefinedManifestOptions<TOptions extends object, TKey extends
   return result;
 }
 
+export function mergeFeaturePageState<TState extends object>(
+  ...states: Array<Partial<TState> | undefined>
+): TState {
+  return Object.assign({}, ...states) as TState;
+}
+
 export interface HostPageDefinition<
   TControllerOptions = unknown,
   TPageData = unknown,

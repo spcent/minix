@@ -1,5 +1,5 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
+import { defineFeatureManifest, mergeFeaturePageState, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
 
 import { createBookshelfController } from "./controller";
 import { createInitialBookshelfState, type BookshelfState } from "./model";
@@ -35,10 +35,7 @@ export const bookshelfFeatureManifest = defineFeatureManifest<
       novelDetailRouteId: options.novelDetailRouteId,
       readerRouteId: options.readerRouteId,
       ...pickDefinedManifestOptions(options, ["tocRouteId", "loginRouteId", "settingsRouteId"] as const),
-      initialState: {
-        ...pageData,
-        ...options.initialState,
-      },
+      initialState: mergeFeaturePageState(pageData, options.initialState),
     });
   },
   hosts: {

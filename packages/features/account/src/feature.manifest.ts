@@ -1,5 +1,11 @@
 import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
-import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel, type FeatureConfig } from "@minix/core";
+import {
+  defineFeatureManifest,
+  mergeFeaturePageState,
+  pickDefinedManifestOptions,
+  type AppKernel,
+  type FeatureConfig,
+} from "@minix/core";
 
 import { createAccountController } from "./controller";
 import { createDefaultAccountState, type AccountState } from "./model";
@@ -56,11 +62,7 @@ export const accountFeatureManifest = defineFeatureManifest<
         "requestPath",
         "authRedirectSource",
       ] as const),
-      initialState: {
-        ...createDefaultAccountState(),
-        ...pageData,
-        ...options.initialState,
-      },
+      initialState: mergeFeaturePageState(createDefaultAccountState(), pageData, options.initialState),
     });
   },
   hosts: {

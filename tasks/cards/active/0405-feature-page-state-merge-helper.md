@@ -81,12 +81,23 @@ Replace repeated shallow merge blocks like default state, host page data, and `o
 - final verifier handoff:
   - precedence remains default state, then page data, then explicit initial state.
 
+## Implementation Notes
+
+- Added `mergeFeaturePageState` to core manifest helpers with shallow merge semantics matching the previous inline object-spread behavior.
+- Adopted the helper across feature manifests that merged page data with optional `initialState`, including default-state feature manifests and novel reading feature manifests.
+- Confirmed old inline `initialState: { ... }` merge blocks are no longer present in feature manifests.
+
+## Verification Notes
+
+- Ran `node --import tsx --test packages/core/src/runtime/manifest.test.ts packages/features/*/src/feature.manifest.test.ts`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
