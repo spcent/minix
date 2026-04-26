@@ -1,6 +1,6 @@
 # Core Mock Pagination Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -35,7 +35,13 @@ Official host mock adapters should not repeat page/pageSize coercion, start inde
 
 ## Acceptance
 
-- [ ] mock pagination helper is exported through `@minix/core`
-- [ ] helper keeps fixture data host-owned
-- [ ] runtime tests cover defaults and `hasMore`
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] mock pagination helper is exported through `@minix/core`
+- [x] helper keeps fixture data host-owned
+- [x] runtime tests cover defaults and `hasMore`
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added `paginateMockItems` and the `PaginatedMockList` envelope to core mock request helpers.
+- Covered explicit page/pageSize input, default page size, and terminal `hasMore: false`.
+- Ran `pnpm test -- packages/core/src/runtime/*.test.ts`; the repo test script executed successfully.

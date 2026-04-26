@@ -7,6 +7,7 @@ import {
   createJsonMockResponse,
   createMockBearerAuthorizationHeader,
   matchesMockBearerAuthorizationHeader,
+  paginateMockItems,
   resolveMockRequestPath,
 } from "./mock-request";
 
@@ -40,4 +41,27 @@ test("mock query coercion helpers normalize query values", () => {
   assert.equal(coerceMockQueryNumber(true, 1), 1);
   assert.equal(coerceMockQueryString("novel"), "novel");
   assert.equal(coerceMockQueryString(""), undefined);
+});
+
+test("paginateMockItems returns the canonical mock list envelope", () => {
+  assert.deepEqual(paginateMockItems(["a", "b", "c"], { page: "2", pageSize: "1" }), {
+    items: ["b"],
+    page: 2,
+    pageSize: 1,
+    hasMore: true,
+  });
+
+  assert.deepEqual(paginateMockItems(["a", "b", "c"], undefined, { defaultPageSize: 2 }), {
+    items: ["a", "b"],
+    page: 1,
+    pageSize: 2,
+    hasMore: true,
+  });
+
+  assert.deepEqual(paginateMockItems(["a", "b", "c"], { page: 2, pageSize: 2 }), {
+    items: ["c"],
+    page: 2,
+    pageSize: 2,
+    hasMore: false,
+  });
 });
