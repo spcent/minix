@@ -50,8 +50,8 @@ type ApiSourceContext = z.infer<typeof apiSourceContextSchema>;
 type ApiActorContext = z.infer<typeof apiActorContextSchema>;
 type ApiAuthRedirectTarget = z.infer<typeof apiAuthRedirectTargetSchema>;
 type ApiContextSnapshotInput = {
-  sourceContext?: ApiSourceContext;
-  actorContext?: ApiActorContext;
+  sourceContext?: ApiSourceContext | undefined;
+  actorContext?: ApiActorContext | undefined;
 };
 type ApiContextSnapshots = {
   sourceContext?: SourceContextSnapshot;
