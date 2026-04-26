@@ -1,3 +1,5 @@
+import type { RuntimeEnv } from "../types/index";
+
 export interface BootstrapEnvGlobals {
   process?: {
     env?: Record<string, string | undefined>;
@@ -5,6 +7,22 @@ export interface BootstrapEnvGlobals {
   location?: {
     search?: string;
   };
+  __MINIX_BOOTSTRAP_ENV__?: BootstrapRuntimeEnvOverride;
+}
+
+export interface BootstrapRuntimeEnvOverride {
+  apiBaseUrl?: string;
+  useMock?: boolean;
+}
+
+export interface CreateBootstrapRuntimeEnvOptions {
+  appId: string;
+  appName: string;
+  platform: RuntimeEnv["platform"];
+  defaultApiBaseUrl: string;
+  mockApiBaseUrl: string;
+  version: string;
+  allowLocationParams?: boolean;
 }
 
 export function parseBootstrapBooleanFlag(value: string | boolean | null | undefined): boolean | undefined {
@@ -44,4 +62,42 @@ export function readBootstrapLocationParam(name: string, globals: BootstrapEnvGl
 
   const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
   return params.get(name) ?? undefined;
+}
+
+export function readBootstrapEnvOverride<TOverride extends BootstrapRuntimeEnvOverride>(
+  globals: BootstrapEnvGlobals = globalThis,
+): TOverride | undefined {
+  return globals.__MINIX_BOOTSTRAP_ENV__ as TOverride | undefined;
+}
+
+export function createBootstrapRuntimeEnv(
+  options: CreateBootstrapRuntimeEnvOptions,
+  globals: BootstrapEnvGlobals = globalThis,
+): RuntimeEnv {
+  const override = readBootstrapEnvOverride(globals);
+  const queryMockFlag = options.allowLocationParams
+    ? parseBootstrapBooleanFlag(readBootstrapLocationParam("minix_use_mock", globals))
+    : undefined;
+  const queryApiBaseUrl = options.allowLocationParams
+    ? readBootstrapLocationParam("minix_api_base_url", globals)
+    : undefined;
+  const useMock =
+    override?.useMock ??
+    parseBootstrapBooleanFlag(readBootstrapProcessEnv("MINIX_USE_MOCK", globals)) ??
+    queryMockFlag ??
+    false;
+  const apiBaseUrl =
+    override?.apiBaseUrl ??
+    readBootstrapProcessEnv("MINIX_API_BASE_URL", globals) ??
+    queryApiBaseUrl ??
+    (useMock ? options.mockApiBaseUrl : options.defaultApiBaseUrl);
+
+  return {
+    appId: options.appId,
+    appName: options.appName,
+    platform: options.platform,
+    apiBaseUrl,
+    debug: useMock,
+    version: options.version,
+  };
 }

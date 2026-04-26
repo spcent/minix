@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { parseBootstrapBooleanFlag, readBootstrapLocationParam, readBootstrapProcessEnv } from "./bootstrap-env";
+import {
+  createBootstrapRuntimeEnv,
+  parseBootstrapBooleanFlag,
+  readBootstrapLocationParam,
+  readBootstrapProcessEnv,
+} from "./bootstrap-env";
 
 test("parseBootstrapBooleanFlag normalizes common truthy and falsy values", () => {
   assert.equal(parseBootstrapBooleanFlag(true), true);
@@ -24,4 +29,84 @@ test("bootstrap env readers support explicit globals for host env tests", () => 
   assert.equal(readBootstrapLocationParam("minix_use_mock", globals), "0");
   assert.equal(readBootstrapLocationParam("minix_api_base_url", globals), "https://api.example.test");
   assert.equal(readBootstrapLocationParam("missing", globals), undefined);
+});
+
+test("createBootstrapRuntimeEnv resolves host metadata and mock defaults", () => {
+  const env = createBootstrapRuntimeEnv(
+    {
+      appId: "test-h5",
+      appName: "Test H5",
+      platform: "h5",
+      defaultApiBaseUrl: "http://localhost:3000",
+      mockApiBaseUrl: "https://mock.minix.local",
+      version: "1.0.0",
+      allowLocationParams: true,
+    },
+    {
+      process: { env: { MINIX_USE_MOCK: "1" } },
+    },
+  );
+
+  assert.deepEqual(env, {
+    appId: "test-h5",
+    appName: "Test H5",
+    platform: "h5",
+    apiBaseUrl: "https://mock.minix.local",
+    debug: true,
+    version: "1.0.0",
+  });
+});
+
+test("createBootstrapRuntimeEnv keeps process env before h5 query params", () => {
+  const env = createBootstrapRuntimeEnv(
+    {
+      appId: "test-h5",
+      appName: "Test H5",
+      platform: "h5",
+      defaultApiBaseUrl: "http://localhost:3000",
+      mockApiBaseUrl: "https://mock.minix.local",
+      version: "1.0.0",
+      allowLocationParams: true,
+    },
+    {
+      process: {
+        env: {
+          MINIX_USE_MOCK: "0",
+          MINIX_API_BASE_URL: "https://api.process.test",
+        },
+      },
+      location: { search: "?minix_use_mock=1&minix_api_base_url=https%3A%2F%2Fapi.query.test" },
+    },
+  );
+
+  assert.equal(env.apiBaseUrl, "https://api.process.test");
+  assert.equal(env.debug, false);
+});
+
+test("createBootstrapRuntimeEnv lets explicit overrides win before process env", () => {
+  const env = createBootstrapRuntimeEnv(
+    {
+      appId: "test-wechat",
+      appName: "Test Wechat",
+      platform: "wechat",
+      defaultApiBaseUrl: "http://localhost:3000",
+      mockApiBaseUrl: "https://mock.minix.local",
+      version: "1.0.0",
+    },
+    {
+      __MINIX_BOOTSTRAP_ENV__: {
+        apiBaseUrl: "https://api.override.test",
+        useMock: true,
+      },
+      process: {
+        env: {
+          MINIX_USE_MOCK: "0",
+          MINIX_API_BASE_URL: "https://api.process.test",
+        },
+      },
+    },
+  );
+
+  assert.equal(env.apiBaseUrl, "https://api.override.test");
+  assert.equal(env.debug, true);
 });

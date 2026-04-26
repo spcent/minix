@@ -1,0 +1,91 @@
+# Card 0400 Bootstrap Env Testkit
+
+## Summary
+
+Move repeated host bootstrap global and location test scaffolding into `@minix/testkit`.
+
+## Goal
+
+Make official host env tests shorter and less fragile by reusing one test utility for `__MINIX_BOOTSTRAP_ENV__` overrides and browser query-string overrides.
+
+## Milestone
+
+- milestone file: none
+- slice name: `bootstrap env testkit`
+
+## Priority
+
+- priority: `P3`
+
+## Scope
+
+- In scope:
+  - reusable testkit helpers for bootstrap override and `globalThis.location.search`
+  - adoption in official host env tests
+  - targeted test/typecheck validation
+- Out of scope:
+  - production runtime behavior changes
+  - new testing framework or broad test rewrites
+
+## Ownership
+
+- owned files:
+  - `packages/testkit/src/index.ts`
+  - `apps/*/src/bootstrap/env.test.ts`
+- allowed generated outputs:
+  - none
+- forbidden files:
+  - generated host manifests and registries
+
+## Dependencies
+
+- depends on:
+  - `tasks/cards/active/0399-host-bootstrap-env-normalization.md`
+- blocked by:
+  - none
+- integration notes:
+  - Keep helpers generic and test-only; production code must continue using `@minix/core`.
+
+## Affected Paths
+
+- `packages/testkit/src/index.ts`
+- `apps/host-h5/src/bootstrap/env.test.ts`
+- `apps/novel-h5/src/bootstrap/env.test.ts`
+- `apps/host-wechat/src/bootstrap/env.test.ts`
+- `apps/novel-wechat/src/bootstrap/env.test.ts`
+
+## Related Specs
+
+- `docs/modules/testkit.md`
+- `specs/dependency-rules.yaml`
+
+## Interface Notes
+
+- contract changes allowed:
+  - none
+- store shape changes allowed:
+  - none
+- controller action changes allowed:
+  - none
+- route param changes allowed:
+  - none
+
+## Verification
+
+- slice gate:
+  - env-focused node tests
+  - `pnpm typecheck`
+- generation needed:
+  - none
+- final verifier handoff:
+  - host env tests should not define local global override helpers.
+
+## Acceptance
+
+- [ ] change is local and reversible
+- [ ] write set matches ownership
+- [ ] boundaries still match specs
+- [ ] host wiring remains manifest- and registry-driven
+- [ ] generated files were regenerated, not manually authored as source
+- [ ] docs updated if behavior or workflow changed
+- [ ] `pnpm verify` run, or skipped with reason if docs-only
