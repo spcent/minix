@@ -1,6 +1,6 @@
 # Message Item Snapshot Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -36,7 +36,13 @@ Message item snapshots should centralize optional delivery/read/failure fields a
 
 ## Acceptance
 
-- [ ] message item helper preserves optional delivery fields
-- [ ] message item array helper returns new items
-- [ ] touchpoint arrays are not shared
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] message item helper preserves optional delivery fields
+- [x] message item array helper returns new items
+- [x] touchpoint arrays are not shared
+- [x] `pnpm verify:api` run for this code slice
+
+## Completion Notes
+
+- Added `cloneMessageBodyItem` and `cloneMessageItems` to the message snapshot helper module.
+- Kept delivery, read, failure, retry, and touchpoint semantics equivalent to the existing runtime clone path.
+- Covered single-item and array clone isolation in API domain tests.

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { cloneMessageThread, cloneThreadMembers } from "./snapshots";
+import { cloneMessageBodyItem, cloneMessageItems, cloneMessageThread, cloneThreadMembers } from "./snapshots";
 
 test("message thread member snapshot helper clones member arrays", () => {
   const members = [
@@ -73,4 +73,55 @@ test("message thread snapshot helper clones nested arrays and objects", () => {
   assert.notEqual(snapshot.assignment, thread.assignment);
   assert.notEqual(snapshot.supportProgress, thread.supportProgress);
   assert.notEqual(snapshot.syncState, thread.syncState);
+});
+
+test("message body item snapshot helper clones delivery fields and touchpoints", () => {
+  const message = {
+    messageId: "msg_1",
+    threadId: "thread_1",
+    direction: "outbound" as const,
+    senderRole: "customer" as const,
+    senderLabel: "You",
+    body: "Can you check this?",
+    createdAt: "2026-04-26T00:00:00.000Z",
+    updatedAt: "2026-04-26T00:01:00.000Z",
+    deliveryStatus: "failed" as const,
+    deliveredAt: "2026-04-26T00:00:02.000Z",
+    readAt: "2026-04-26T00:00:05.000Z",
+    failureCode: "provider_unavailable",
+    failureMessage: "Provider unavailable",
+    attemptCount: 2,
+    retryable: true,
+    touchpoints: [],
+  };
+
+  const snapshot = cloneMessageBodyItem(message);
+
+  assert.deepEqual(snapshot, message);
+  assert.notEqual(snapshot.touchpoints, message.touchpoints);
+});
+
+test("message item array snapshot helper returns new message items", () => {
+  const messages = [
+    {
+      messageId: "msg_1",
+      threadId: "thread_1",
+      direction: "inbound" as const,
+      senderRole: "support" as const,
+      senderLabel: "Support",
+      body: "We are checking.",
+      createdAt: "2026-04-26T00:00:00.000Z",
+      deliveryStatus: "read" as const,
+      attemptCount: 1,
+      retryable: false,
+      touchpoints: [],
+    },
+  ];
+
+  const snapshot = cloneMessageItems(messages);
+
+  assert.deepEqual(snapshot, messages);
+  assert.notEqual(snapshot, messages);
+  assert.notEqual(snapshot[0], messages[0]);
+  assert.notEqual(snapshot[0]?.touchpoints, messages[0]?.touchpoints);
 });

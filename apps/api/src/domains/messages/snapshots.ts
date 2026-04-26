@@ -1,9 +1,9 @@
-import type { MessageThread, MessageThreadMember } from "@minix/contracts";
+import type { MessageBodyItem, MessageThread, MessageThreadMember } from "@minix/contracts";
 
 import type { UserState } from "../../types";
 import type { NotificationChannelProviderRuntimeEnv } from "../settings/state";
 import { cloneDomainSnapshot } from "../snapshot";
-import { cloneTouchpoints } from "./touchpoints";
+import { cloneMessageTouchpointsForItem, cloneTouchpoints } from "./touchpoints";
 
 export function cloneThreadMembers(members: MessageThreadMember[]): MessageThreadMember[] {
   return members.map((member) => ({
@@ -39,4 +39,28 @@ export function cloneMessageThread(
     ...(thread.groupState !== undefined ? { groupState: cloneDomainSnapshot(thread.groupState) } : {}),
     ...(thread.syncState !== undefined ? { syncState: cloneDomainSnapshot(thread.syncState) } : {}),
   };
+}
+
+export function cloneMessageBodyItem(
+  message: MessageBodyItem,
+  userState?: UserState,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+): MessageBodyItem {
+  return {
+    ...message,
+    ...(message.updatedAt !== undefined ? { updatedAt: message.updatedAt } : {}),
+    ...(message.readAt !== undefined ? { readAt: message.readAt } : {}),
+    ...(message.deliveredAt !== undefined ? { deliveredAt: message.deliveredAt } : {}),
+    ...(message.failureCode !== undefined ? { failureCode: message.failureCode } : {}),
+    ...(message.failureMessage !== undefined ? { failureMessage: message.failureMessage } : {}),
+    touchpoints: cloneMessageTouchpointsForItem(message, userState, runtimeEnv),
+  };
+}
+
+export function cloneMessageItems(
+  messages: MessageBodyItem[],
+  userState?: UserState,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+): MessageBodyItem[] {
+  return messages.map((message) => cloneMessageBodyItem(message, userState, runtimeEnv));
 }
