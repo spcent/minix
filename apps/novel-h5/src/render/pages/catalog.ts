@@ -1,6 +1,7 @@
 import type { CatalogState } from "@minix/feature-catalog";
 
 import type { NovelH5PageRenderContext } from "../types";
+import { renderChipRow } from "../components/chip-row";
 import { renderNovelCard } from "../components/novel-card";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderStatPanels } from "../components/stat-panel";
@@ -69,12 +70,12 @@ export function renderCatalogPage(context: NovelH5PageRenderContext, state: Cata
             <div class="nh-kicker">Selected title</div>
             <h2 class="nh-title-small">${escapeHtml(selected.title)}</h2>
             <p class="nh-copy">${escapeHtml(selected.summary)}</p>
-            <div class="nh-chip-row">
-              <span class="nh-chip">${escapeHtml(selected.categoryLabel)}</span>
-              <span class="nh-chip">${escapeHtml(selected.status)}</span>
-              ${selected.requiresMembership ? '<span class="nh-chip">Membership</span>' : '<span class="nh-chip">Open reading</span>'}
-              ${selected.continueChapterId ? '<span class="nh-chip">Resume ready</span>' : ""}
-            </div>
+            ${renderChipRow([
+              selected.categoryLabel,
+              selected.status,
+              selected.requiresMembership ? "Membership" : "Open reading",
+              selected.continueChapterId ? "Resume ready" : undefined,
+            ])}
             <div class="nh-stat-strip">
               ${renderStatPanels([
                 { label: "Readers", value: formatCompactNumber(selected.readingCount) },

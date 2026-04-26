@@ -1,5 +1,6 @@
 import type { NovelCard } from "@minix/contracts";
 
+import { renderChipRow } from "./chip-row";
 import { escapeHtml, formatCompactNumber, formatDate, renderActionButton } from "../utils";
 
 type ButtonConfig = {
@@ -42,9 +43,7 @@ export function renderNovelCard(
       </div>
       <div class="nh-grid">
         ${options.highlight ? `<p class="nh-item-highlight">${escapeHtml(options.highlight)}</p>` : ""}
-        <div class="nh-chip-row">
-          ${badges.map((badge) => `<span class="nh-chip">${escapeHtml(badge)}</span>`).join("")}
-        </div>
+        ${renderChipRow(badges)}
         <div class="nh-grid">
           <h3 class="nh-item-title">${escapeHtml(item.title)}</h3>
           <p class="nh-item-subtitle">${escapeHtml(item.authorName)}</p>

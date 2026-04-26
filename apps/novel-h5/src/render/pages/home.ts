@@ -1,6 +1,7 @@
 import type { CatalogState } from "@minix/feature-catalog";
 
 import type { NovelH5PageRenderContext } from "../types";
+import { renderChipRow } from "../components/chip-row";
 import { renderNovelCard } from "../components/novel-card";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderStatPanels } from "../components/stat-panel";
@@ -34,11 +35,7 @@ export function renderHomePage(context: NovelH5PageRenderContext, state: Catalog
           <div class="nh-kicker">Editorial frontlist</div>
           <h1 class="nh-title">${escapeHtml(featured.title)}</h1>
           <p class="nh-copy">${escapeHtml(featured.summary)}</p>
-          <div class="nh-chip-row">
-            <span class="nh-chip">${escapeHtml(featured.categoryLabel)}</span>
-            <span class="nh-chip">${escapeHtml(featured.status)}</span>
-            ${featured.requiresMembership ? '<span class="nh-chip">Membership</span>' : '<span class="nh-chip">Free entry</span>'}
-          </div>
+          ${renderChipRow([featured.categoryLabel, featured.status, featured.requiresMembership ? "Membership" : "Free entry"])}
           <div class="nh-stat-strip">
             ${renderStatPanels(heroStats)}
           </div>
@@ -167,11 +164,11 @@ export function renderHomePage(context: NovelH5PageRenderContext, state: Catalog
                 title: state.latestMilestoneTitle,
                 copy: state.latestMilestoneCopy ?? "The storefront should remember the latest completed reading milestone, not only the next unfinished return.",
               })}
-              <div class="nh-chip-row">
-                ${state.latestMilestoneSourceLabel ? `<span class="nh-chip">${escapeHtml(state.latestMilestoneSourceLabel)}</span>` : ""}
-                ${state.latestMilestoneRecencyLabel ? `<span class="nh-chip">${escapeHtml(state.latestMilestoneRecencyLabel)}</span>` : ""}
-                ${state.latestMilestoneMeta ? `<span class="nh-chip">${escapeHtml(state.latestMilestoneMeta)}</span>` : ""}
-              </div>
+              ${renderChipRow([
+                state.latestMilestoneSourceLabel,
+                state.latestMilestoneRecencyLabel,
+                state.latestMilestoneMeta,
+              ])}
               ${
                 state.latestMilestoneReturnHint
                   ? `<p class="nh-copy">${escapeHtml(state.latestMilestoneReturnHint)}</p>`
@@ -202,11 +199,7 @@ export function renderHomePage(context: NovelH5PageRenderContext, state: Catalog
                         <div class="nh-kicker">${escapeHtml(item.typeLabel)}</div>
                         <h2 class="nh-item-title">${escapeHtml(item.title)}</h2>
                         <p class="nh-item-copy">${escapeHtml(item.copy)}</p>
-                        <div class="nh-chip-row">
-                          <span class="nh-chip">${escapeHtml(item.sourceLabel)}</span>
-                          ${item.recencyLabel ? `<span class="nh-chip">${escapeHtml(item.recencyLabel)}</span>` : ""}
-                          ${item.meta ? `<span class="nh-chip">${escapeHtml(item.meta)}</span>` : ""}
-                        </div>
+                        ${renderChipRow([item.sourceLabel, item.recencyLabel, item.meta])}
                         <p class="nh-item-copy">${escapeHtml(item.returnHint)}</p>
                         <div class="nh-actions">
                           ${renderActionButton(item.returnLabel, "controller", "openMilestoneHistoryItem", index, "ghost")}

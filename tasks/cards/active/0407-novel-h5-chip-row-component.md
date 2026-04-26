@@ -80,12 +80,23 @@ Reduce repeated `<span class="nh-chip">` rendering and make host-local Novel H5 
 - final verifier handoff:
   - all chip labels remain escaped and existing `nh-chip-row`/`nh-chip` classes stay intact.
 
+## Implementation Notes
+
+- Added `renderChip` and `renderChipRow` under Novel H5 render components.
+- Adopted the chip-row helper in `novel-card`, home, catalog, and novel-detail where status, access, and milestone badges repeated raw `nh-chip` markup.
+- Kept the helper host-local and class-compatible with existing Novel H5 styles.
+
+## Verification Notes
+
+- Ran `pnpm verify:host novel-h5`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

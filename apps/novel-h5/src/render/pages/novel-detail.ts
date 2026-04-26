@@ -1,6 +1,7 @@
 import type { NovelDetailState } from "@minix/feature-novel-detail";
 
 import type { NovelH5PageRenderContext } from "../types";
+import { renderChipRow } from "../components/chip-row";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, formatCompactNumber, formatDate, renderActionButton, renderRouteLink, routePath } from "../utils";
@@ -28,12 +29,12 @@ export function renderNovelDetailPage(context: NovelH5PageRenderContext, state: 
             <div class="nh-kicker">${escapeHtml(detail.categoryLabel)}</div>
             <h1 class="nh-title">${escapeHtml(detail.title)}</h1>
             <p class="nh-copy">${escapeHtml(detail.subtitle ?? "A high-fidelity detail page should convert curiosity into reading intent.")}</p>
-            <div class="nh-chip-row">
-              ${detail.tags.map((tag) => `<span class="nh-chip">${escapeHtml(tag.label)}</span>`).join("")}
-              <span class="nh-chip">${escapeHtml(detail.status)}</span>
-              ${detail.requiresMembership ? '<span class="nh-chip">Membership title</span>' : ""}
-              ${state.accessBadgeLabel ? `<span class="nh-chip">${escapeHtml(state.accessBadgeLabel)}</span>` : ""}
-            </div>
+            ${renderChipRow([
+              ...detail.tags.map((tag) => tag.label),
+              detail.status,
+              detail.requiresMembership ? "Membership title" : undefined,
+              state.accessBadgeLabel,
+            ])}
             ${state.membershipMessage ? `<div class="nh-lock-banner"><p class="nh-note">${escapeHtml(state.membershipMessage)}</p></div>` : ""}
             ${state.bookshelfNotice ? `<div class="nh-lock-banner"><p class="nh-note">${escapeHtml(state.bookshelfNotice)}</p></div>` : ""}
             <div class="nh-actions">
@@ -56,9 +57,7 @@ export function renderNovelDetailPage(context: NovelH5PageRenderContext, state: 
             </div>
             <article class="nh-panel nh-issue-panel">
               <p class="nh-meta-label">Reading access</p>
-              <div class="nh-chip-row">
-                ${accessLabels.map((label) => `<span class="nh-chip">${escapeHtml(label)}</span>`).join("")}
-              </div>
+              ${renderChipRow(accessLabels)}
               <div class="nh-item-metadata">
                 ${detail.ratingScore !== undefined ? `<span>${escapeHtml(detail.ratingScore.toFixed(1))} score</span>` : ""}
                 ${detail.ratingCount !== undefined ? `<span>${formatCompactNumber(detail.ratingCount)} ratings</span>` : ""}
@@ -144,11 +143,11 @@ export function renderNovelDetailPage(context: NovelH5PageRenderContext, state: 
                     title: state.latestMilestoneTitle,
                     copy: state.latestMilestoneCopy ?? "The detail page should know the latest completed reading milestone, not only the next chapter to resume.",
                   })}
-                  <div class="nh-chip-row">
-                    ${state.latestMilestoneSourceLabel ? `<span class="nh-chip">${escapeHtml(state.latestMilestoneSourceLabel)}</span>` : ""}
-                    ${state.latestMilestoneRecencyLabel ? `<span class="nh-chip">${escapeHtml(state.latestMilestoneRecencyLabel)}</span>` : ""}
-                    ${state.latestMilestoneMeta ? `<span class="nh-chip">${escapeHtml(state.latestMilestoneMeta)}</span>` : ""}
-                  </div>
+                  ${renderChipRow([
+                    state.latestMilestoneSourceLabel,
+                    state.latestMilestoneRecencyLabel,
+                    state.latestMilestoneMeta,
+                  ])}
                   ${
                     state.latestMilestoneReturnHint
                       ? `<p class="nh-copy">${escapeHtml(state.latestMilestoneReturnHint)}</p>`
@@ -224,11 +223,7 @@ export function renderNovelDetailPage(context: NovelH5PageRenderContext, state: 
                 .map(
                   (item) => `
                     <article class="nh-item">
-                      <div class="nh-chip-row">
-                        <span class="nh-chip">${escapeHtml(item.categoryLabel)}</span>
-                        <span class="nh-chip">${escapeHtml(item.status)}</span>
-                        ${item.requiresMembership ? '<span class="nh-chip">Membership</span>' : '<span class="nh-chip">Open</span>'}
-                      </div>
+                      ${renderChipRow([item.categoryLabel, item.status, item.requiresMembership ? "Membership" : "Open"])}
                       <h3 class="nh-item-title">${escapeHtml(item.title)}</h3>
                       <p class="nh-item-subtitle">${escapeHtml(item.authorName)}</p>
                       <p class="nh-item-copy">${escapeHtml(item.highlight)}</p>
