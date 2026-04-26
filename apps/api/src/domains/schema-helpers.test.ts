@@ -43,14 +43,14 @@ test("api redirect normalizer preserves explicit false flags", () => {
       params: { next: "/account" },
       source: undefined,
       label: "Sign in",
-      reason: "login_required",
+      reason: "auth-required",
       forceReauth: false,
     }),
     {
       routeId: "auth.login",
       params: { next: "/account" },
       label: "Sign in",
-      reason: "login_required",
+      reason: "auth-required",
       forceReauth: false,
     },
   );

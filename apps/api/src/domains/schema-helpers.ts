@@ -1,4 +1,9 @@
-import { AUTH_REDIRECT_REASONS } from "@minix/contracts";
+import {
+  AUTH_REDIRECT_REASONS,
+  type ActorContextSnapshot,
+  type AuthRedirectTarget,
+  type SourceContextSnapshot,
+} from "@minix/contracts";
 import { z } from "zod";
 
 export const apiPaginationQueryShape = {
@@ -57,33 +62,33 @@ function omitUndefinedProperties<TValue extends Record<string, unknown>>(value: 
   return result;
 }
 
-export function normalizeApiSourceContext(value: ApiSourceContext | undefined): ApiSourceContext | undefined {
+export function normalizeApiSourceContext(value: ApiSourceContext | undefined): SourceContextSnapshot | undefined {
   return value
-    ? omitUndefinedProperties({
+    ? (omitUndefinedProperties({
         pagePath: value.pagePath,
         routeId: value.routeId,
         label: value.label,
         params: value.params,
-      })
+      }) as SourceContextSnapshot)
     : undefined;
 }
 
-export function normalizeApiActorContext(value: ApiActorContext | undefined): ApiActorContext | undefined {
+export function normalizeApiActorContext(value: ApiActorContext | undefined): ActorContextSnapshot | undefined {
   return value
-    ? omitUndefinedProperties({
+    ? (omitUndefinedProperties({
         userId: value.userId,
         platform: value.platform,
         appVersion: value.appVersion,
         deviceSummary: value.deviceSummary,
-      })
+      }) as ActorContextSnapshot)
     : undefined;
 }
 
 export function normalizeApiAuthRedirectTarget(
   value: ApiAuthRedirectTarget | undefined,
-): ApiAuthRedirectTarget | undefined {
+): AuthRedirectTarget | undefined {
   return value
-    ? omitUndefinedProperties({
+    ? (omitUndefinedProperties({
         routeId: value.routeId,
         path: value.path,
         params: value.params,
@@ -91,6 +96,6 @@ export function normalizeApiAuthRedirectTarget(
         label: value.label,
         reason: value.reason,
         forceReauth: value.forceReauth,
-      })
+      }) as AuthRedirectTarget)
     : undefined;
 }

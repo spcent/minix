@@ -1,10 +1,10 @@
 import {
-  coerceMockQueryNumber,
   createError,
   createJsonMockResponse,
   fail,
   matchesMockBearerAuthorizationHeader,
   ok,
+  paginateMockItems,
   resolveMockRequestPath,
   type RequestAdapter,
   type RequestOptions,
@@ -71,17 +71,7 @@ const HOST_ITEMS: HostMockItem[] = [
 const ACCESS_TOKEN = "mock-access-token";
 
 function listItems(query?: RequestOptions["query"]) {
-  const page = coerceMockQueryNumber(query?.page, 1);
-  const pageSize = coerceMockQueryNumber(query?.pageSize, 2);
-  const start = (page - 1) * pageSize;
-  const items = HOST_ITEMS.slice(start, start + pageSize);
-
-  return {
-    items,
-    page,
-    pageSize,
-    hasMore: start + pageSize < HOST_ITEMS.length,
-  };
+  return paginateMockItems(HOST_ITEMS, query, { defaultPageSize: 2 });
 }
 
 export function createHostWechatMockApiAdapter(): RequestAdapter {

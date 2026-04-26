@@ -1,6 +1,6 @@
 # Host Mock Pagination Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -35,7 +35,13 @@ Host H5 and Host WeChat should expose the same mock list pagination behavior wit
 
 ## Acceptance
 
-- [ ] Host H5 item mock pagination uses the shared helper
-- [ ] Host WeChat item mock pagination uses the shared helper
-- [ ] mock route behavior remains unchanged
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] Host H5 item mock pagination uses the shared helper
+- [x] Host WeChat item mock pagination uses the shared helper
+- [x] mock route behavior remains unchanged
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced Host H5 and Host WeChat local item pagination slicing with `paginateMockItems`.
+- Tightened API schema normalizer return types after the host gates surfaced full `exactOptionalPropertyTypes` checks from earlier schema-helper work.
+- Ran `pnpm typecheck`, `pnpm verify:host host-h5`, and `pnpm verify:host host-wechat`; all passed.
