@@ -7,14 +7,12 @@ import type {
   UploadChunkReceipt,
   UploadChunkRequest,
   UploadCleanupRecord,
-  UploadError,
   UploadPipelineRequest,
   UploadPipelineResponse,
   UploadPipelineSource,
   UploadProviderPosture,
   ProviderPostureMode,
   UploadReference,
-  UploadReviewRecord,
   UploadRetryRequest,
   UploadSelectionResult,
   UploadSession,
@@ -33,6 +31,15 @@ import {
 import { cloneOptionalDomainSnapshot } from "../snapshot";
 import type { ApiBindings, StoredUploadRecord, UserState } from "../../types";
 import { cloneUploadAsset, createUploadAssetVariant } from "./assets";
+import {
+  cloneStoredUploadRecord,
+  cloneUploadChunkReceipt,
+  cloneUploadCleanupRecord,
+  cloneUploadReference,
+  cloneUploadReviewRecord,
+  cloneUploadSelectionResult,
+  cloneUploadSession,
+} from "./records";
 import { cloneUploadError, cloneUploadTask, cloneUploadTransferPayload } from "./tasks";
 
 const DEFAULT_UPLOAD_CHUNK_SIZE_BYTES = 64 * 1024;
@@ -46,104 +53,6 @@ export type UploadProviderRuntimeEnv = Pick<
   | "MINIX_UPLOAD_REVIEW_PROVIDER"
   | "MINIX_UPLOAD_ASSET_BASE_URL"
 >;
-
-function cloneUploadChunkReceipt(receipt: UploadChunkReceipt): UploadChunkReceipt {
-  return {
-    chunkIndex: receipt.chunkIndex,
-    byteOffset: receipt.byteOffset,
-    byteLength: receipt.byteLength,
-    checksum: receipt.checksum,
-    checksumAlgorithm: receipt.checksumAlgorithm,
-    receivedAt: receipt.receivedAt,
-  };
-}
-
-function cloneUploadSession(session: UploadSession): UploadSession {
-  return {
-    sessionId: session.sessionId,
-    uploadToken: session.uploadToken,
-    objectKey: session.objectKey,
-    mode: session.mode,
-    checksumAlgorithm: session.checksumAlgorithm,
-    chunkSizeBytes: session.chunkSizeBytes,
-    chunkCount: session.chunkCount,
-    receivedChunkCount: session.receivedChunkCount,
-    nextChunkIndex: session.nextChunkIndex,
-    resumeSupported: session.resumeSupported,
-    createdAt: session.createdAt,
-    expiresAt: session.expiresAt,
-  };
-}
-
-function cloneUploadReviewRecord(reviewRecord: UploadReviewRecord): UploadReviewRecord {
-  return {
-    status: reviewRecord.status,
-    provider: reviewRecord.provider,
-    ...(reviewRecord.providerMode ? { providerMode: reviewRecord.providerMode } : {}),
-    ...(reviewRecord.storageProvider ? { storageProvider: reviewRecord.storageProvider } : {}),
-    ...(reviewRecord.reviewedAt ? { reviewedAt: reviewRecord.reviewedAt } : {}),
-    ...(reviewRecord.message ? { message: reviewRecord.message } : {}),
-    ...(reviewRecord.reasonCodes ? { reasonCodes: [...reviewRecord.reasonCodes] } : {}),
-    ...(reviewRecord.annotationSummary ? { annotationSummary: reviewRecord.annotationSummary } : {}),
-  };
-}
-
-function cloneUploadCleanupRecord(cleanupRecord: UploadCleanupRecord): UploadCleanupRecord {
-  return {
-    retentionStatus: cleanupRecord.retentionStatus,
-    ...(cleanupRecord.cleanupScheduledAt ? { cleanupScheduledAt: cleanupRecord.cleanupScheduledAt } : {}),
-    ...(cleanupRecord.cleanupReason ? { cleanupReason: cleanupRecord.cleanupReason } : {}),
-    referenced: cleanupRecord.referenced,
-    ...(cleanupRecord.ownershipSummary ? { ownershipSummary: cleanupRecord.ownershipSummary } : {}),
-    ...(cleanupRecord.retentionSummary ? { retentionSummary: cleanupRecord.retentionSummary } : {}),
-    ...(cleanupRecord.cleanupSummary ? { cleanupSummary: cleanupRecord.cleanupSummary } : {}),
-  };
-}
-
-function cloneUploadReference(reference: UploadReference): UploadReference {
-  const sourceContext = cloneOptionalDomainSnapshot(reference.sourceContext);
-  const actorContext = cloneOptionalDomainSnapshot(reference.actorContext);
-
-  return {
-    ownerType: reference.ownerType,
-    ownerId: reference.ownerId,
-    role: reference.role,
-    ...(sourceContext ? { sourceContext } : {}),
-    ...(actorContext ? { actorContext } : {}),
-    attachedAt: reference.attachedAt,
-    ...(reference.ownerSummary ? { ownerSummary: reference.ownerSummary } : {}),
-  };
-}
-
-function cloneUploadSelectionResult(selection: UploadSelectionResult): UploadSelectionResult {
-  return {
-    uploadTask: cloneUploadTask(selection.uploadTask),
-    ...(selection.uploadAsset ? { uploadAsset: cloneUploadAsset(selection.uploadAsset) } : {}),
-    ...(selection.uploadError ? { uploadError: cloneUploadError(selection.uploadError) } : {}),
-    ...(selection.transfer ? { transfer: cloneUploadTransferPayload(selection.transfer) } : {}),
-  };
-}
-
-function cloneStoredUploadRecord(record: StoredUploadRecord): StoredUploadRecord {
-  return {
-    source: record.source,
-    selection: cloneUploadSelectionResult(record.selection),
-    uploadTask: cloneUploadTask(record.uploadTask),
-    ...(record.uploadAsset ? { uploadAsset: cloneUploadAsset(record.uploadAsset) } : {}),
-    ...(record.uploadError ? { uploadError: cloneUploadError(record.uploadError) } : {}),
-    ...(record.transfer ? { transfer: cloneUploadTransferPayload(record.transfer) } : {}),
-    ...(record.session ? { session: cloneUploadSession(record.session) } : {}),
-    ...(record.receivedChunk ? { receivedChunk: cloneUploadChunkReceipt(record.receivedChunk) } : {}),
-    ...(record.reviewRecord ? { reviewRecord: cloneUploadReviewRecord(record.reviewRecord) } : {}),
-    ...(record.cleanupRecord ? { cleanupRecord: cloneUploadCleanupRecord(record.cleanupRecord) } : {}),
-    references: record.references.map(cloneUploadReference),
-    chunksByIndex: Object.fromEntries(
-      Object.entries(record.chunksByIndex).map(([key, value]) => [key, cloneUploadChunkReceipt(value)]),
-    ),
-    binaryByChunkIndex: { ...record.binaryByChunkIndex },
-    ...(record.binaryObjectKey ? { binaryObjectKey: record.binaryObjectKey } : {}),
-  };
-}
 
 function resolveUploadProviderMode(runtimeEnv?: UploadProviderRuntimeEnv): ProviderPostureMode {
   return resolveProviderPostureMode(runtimeEnv?.MINIX_UPLOAD_PROVIDER_MODE);

@@ -1,6 +1,6 @@
 # Upload Pipeline Record Helper Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -34,7 +34,13 @@ Upload pipeline should no longer own private record clone helpers that duplicate
 
 ## Acceptance
 
-- [ ] pipeline imports shared record helpers
-- [ ] private duplicate record clone helpers are removed
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] pipeline imports shared record helpers
+- [x] private duplicate record clone helpers are removed
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced private upload pipeline chunk, session, review, cleanup, reference, selection, and stored record clone helpers with shared record helpers.
+- Preserved existing upload response assembly and attach context behavior.
+- Verified with `pnpm verify:api`.
