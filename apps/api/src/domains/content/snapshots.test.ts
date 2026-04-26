@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { ContentAuthoringData, ContentLifecycle } from "@minix/contracts";
+
 import {
   cloneManagedContentAuditHistory,
   cloneManagedContentAuthoring,
@@ -8,6 +10,7 @@ import {
   cloneManagedContentLifecycle,
   cloneManagedContentReviewRecord,
 } from "./snapshots";
+import type { ManagedContentEntrySnapshot } from "./snapshots";
 
 test("managed content review snapshot helper clones review records", () => {
   const reviewRecord = {
@@ -47,9 +50,9 @@ test("managed content audit history snapshot helper clones arrays and entries", 
 });
 
 test("managed content lifecycle snapshot helper clones action arrays", () => {
-  const lifecycle = {
+  const lifecycle: ContentLifecycle = {
     state: "under_review" as const,
-    availableActions: ["approve_review", "reject_review", "change_visibility"] as const,
+    availableActions: ["approve_review", "reject_review", "change_visibility"],
     publishedAt: "2026-04-25T00:00:00.000Z",
     updatedAt: "2026-04-26T00:00:00.000Z",
     offlineAt: "2026-04-27T00:00:00.000Z",
@@ -64,7 +67,7 @@ test("managed content lifecycle snapshot helper clones action arrays", () => {
 });
 
 test("managed content authoring snapshot helper clones nested facets and attachments", () => {
-  const authoring = {
+  const authoring: ContentAuthoringData = {
     title: "Draft",
     subtitle: "Draft subtitle",
     summary: "Draft summary",
@@ -86,7 +89,7 @@ test("managed content authoring snapshot helper clones nested facets and attachm
 });
 
 test("managed content entry snapshot helper clones nested runtime state", () => {
-  const entry = {
+  const entry: ManagedContentEntrySnapshot = {
     authorUserId: "author_1",
     model: "article" as const,
     visibility: "public" as const,
@@ -129,7 +132,7 @@ test("managed content entry snapshot helper clones nested runtime state", () => 
         message: "Published.",
       },
     ],
-    actorRoles: ["author", "reviewer", "admin", "reader"] as const,
+    actorRoles: ["author", "reviewer", "admin", "reader"],
     authoring: {
       title: "Published article",
       summary: "Article summary",
@@ -155,4 +158,31 @@ test("managed content entry snapshot helper clones nested runtime state", () => 
   assert.notEqual(snapshot.actorRoles, entry.actorRoles);
   assert.notEqual(snapshot.authoring, entry.authoring);
   assert.notEqual(snapshot.authoring.category, entry.authoring.category);
+});
+
+test("managed content snapshot helpers omit absent optional fields", () => {
+  const lifecycle: ContentLifecycle = {
+    state: "draft",
+    availableActions: ["publish"],
+  };
+  const authoring: ContentAuthoringData = {
+    title: "Draft",
+    summary: "Draft summary",
+    visibility: "public",
+    category: { key: "draft", label: "Draft" },
+    tags: [],
+    attachmentAssetIds: [],
+  };
+
+  const lifecycleSnapshot = cloneManagedContentLifecycle(lifecycle);
+  const authoringSnapshot = cloneManagedContentAuthoring(authoring);
+
+  assert.equal("publishedAt" in lifecycleSnapshot, false);
+  assert.equal("updatedAt" in lifecycleSnapshot, false);
+  assert.equal("offlineAt" in lifecycleSnapshot, false);
+  assert.equal("reviewMessage" in lifecycleSnapshot, false);
+  assert.equal("moderationSummary" in lifecycleSnapshot, false);
+  assert.equal("subtitle" in authoringSnapshot, false);
+  assert.equal("bodyPreview" in authoringSnapshot, false);
+  assert.equal("coverAssetId" in authoringSnapshot, false);
 });

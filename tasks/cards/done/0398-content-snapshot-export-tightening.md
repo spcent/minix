@@ -1,6 +1,6 @@
 # Content Snapshot Export Tightening
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -36,7 +36,13 @@ The new content snapshot module should expose only reusable domain helpers with 
 
 ## Acceptance
 
-- [ ] snapshot helpers keep optional fields exact
-- [ ] tests cover omitted optional fields
-- [ ] exported helper surface remains focused
-- [ ] `pnpm verify` passes
+- [x] snapshot helpers keep optional fields exact
+- [x] tests cover omitted optional fields
+- [x] exported helper surface remains focused
+- [x] `pnpm verify` passes
+
+## Completion Notes
+
+- Tightened content snapshot tests with contract-aligned fixture types.
+- Added optional-field omission coverage for lifecycle and authoring snapshots.
+- Ran the full verification gate successfully.
