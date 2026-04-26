@@ -1,6 +1,6 @@
 # Upload Pipeline Selection Helper Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -34,7 +34,13 @@ Upload pipeline should not maintain private projection helpers that duplicate sc
 
 ## Acceptance
 
-- [ ] pipeline selection projection uses shared helpers
-- [ ] private duplicate helpers are removed
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] pipeline selection projection uses shared helpers
+- [x] private duplicate helpers are removed
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced upload pipeline private task, error, and transfer clone helpers with shared helpers.
+- Kept existing response assembly call sites unchanged.
+- Verified with `pnpm verify:api`.

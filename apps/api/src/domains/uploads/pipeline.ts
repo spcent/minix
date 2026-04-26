@@ -33,6 +33,7 @@ import {
 import { cloneOptionalDomainSnapshot } from "../snapshot";
 import type { ApiBindings, StoredUploadRecord, UserState } from "../../types";
 import { cloneUploadAsset, createUploadAssetVariant } from "./assets";
+import { cloneUploadError, cloneUploadTask, cloneUploadTransferPayload } from "./tasks";
 
 const DEFAULT_UPLOAD_CHUNK_SIZE_BYTES = 64 * 1024;
 const REDUCED_UPLOAD_CHUNK_SIZE_BYTES = 16 * 1024;
@@ -45,88 +46,6 @@ export type UploadProviderRuntimeEnv = Pick<
   | "MINIX_UPLOAD_REVIEW_PROVIDER"
   | "MINIX_UPLOAD_ASSET_BASE_URL"
 >;
-
-function cloneUploadProgress(progress: UploadTask["progress"]): UploadTask["progress"] {
-  return {
-    completedBytes: progress.completedBytes,
-    totalBytes: progress.totalBytes,
-    percentage: progress.percentage,
-  };
-}
-
-function cloneUploadTask(task: UploadTask): UploadTask {
-  return {
-    taskId: task.taskId,
-    scenario: task.scenario,
-    fileType: task.fileType,
-    stage: task.stage,
-    ...(task.fileName ? { fileName: task.fileName } : {}),
-    progress: cloneUploadProgress(task.progress),
-    chunkingReserved: task.chunkingReserved,
-    ...(task.transferMode ? { transferMode: task.transferMode } : {}),
-    ...(task.sessionId ? { sessionId: task.sessionId } : {}),
-    ...(task.chunkCount !== undefined ? { chunkCount: task.chunkCount } : {}),
-    ...(task.uploadedChunkCount !== undefined ? { uploadedChunkCount: task.uploadedChunkCount } : {}),
-    ...(task.integrity
-      ? {
-          integrity: {
-            checksumAlgorithm: task.integrity.checksumAlgorithm,
-            fileChecksum: task.integrity.fileChecksum,
-            expectedSizeBytes: task.integrity.expectedSizeBytes,
-          },
-        }
-      : {}),
-    governance: {
-      maxSizeBytes: task.governance.maxSizeBytes,
-      acceptedFileTypes: [...task.governance.acceptedFileTypes],
-      sensitiveReviewRequired: task.governance.sensitiveReviewRequired,
-      ...(task.governance.expiresInDays !== undefined ? { expiresInDays: task.governance.expiresInDays } : {}),
-      ...(task.governance.governanceSummary ? { governanceSummary: task.governance.governanceSummary } : {}),
-    },
-    reviewStatus: task.reviewStatus,
-    ...(task.reviewMessage ? { reviewMessage: task.reviewMessage } : {}),
-    lifecycle: {
-      backendBacked: task.lifecycle.backendBacked,
-      retentionStatus: task.lifecycle.retentionStatus,
-      retryCount: task.lifecycle.retryCount,
-      canRetry: task.lifecycle.canRetry,
-      canCancel: task.lifecycle.canCancel,
-      ...(task.lifecycle.lastTransitionAt ? { lastTransitionAt: task.lifecycle.lastTransitionAt } : {}),
-      ...(task.lifecycle.expiresAt ? { expiresAt: task.lifecycle.expiresAt } : {}),
-      ...(task.lifecycle.retentionSummary ? { retentionSummary: task.lifecycle.retentionSummary } : {}),
-      ...(task.lifecycle.cleanupSummary ? { cleanupSummary: task.lifecycle.cleanupSummary } : {}),
-    },
-    ...(task.ownershipSummary ? { ownershipSummary: task.ownershipSummary } : {}),
-  };
-}
-
-function cloneUploadError(uploadError: UploadError): UploadError {
-  return {
-    code: uploadError.code,
-    message: uploadError.message,
-    recoverable: uploadError.recoverable,
-    retryable: uploadError.retryable,
-    stage: uploadError.stage,
-  };
-}
-
-function cloneUploadTransferPayload(transfer: UploadTransferPayload): UploadTransferPayload {
-  return {
-    mode: transfer.mode,
-    checksumAlgorithm: transfer.checksumAlgorithm,
-    fileChecksum: transfer.fileChecksum,
-    totalBytes: transfer.totalBytes,
-    chunkSizeBytes: transfer.chunkSizeBytes,
-    chunks: transfer.chunks.map((chunk) => ({
-      chunkIndex: chunk.chunkIndex,
-      byteOffset: chunk.byteOffset,
-      byteLength: chunk.byteLength,
-      checksum: chunk.checksum,
-      checksumAlgorithm: chunk.checksumAlgorithm,
-      dataBase64: chunk.dataBase64,
-    })),
-  };
-}
 
 function cloneUploadChunkReceipt(receipt: UploadChunkReceipt): UploadChunkReceipt {
   return {
