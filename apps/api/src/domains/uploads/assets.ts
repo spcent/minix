@@ -1,4 +1,10 @@
-import type { UploadAsset, UploadAssetMetadata, UploadDerivedAssetVariant } from "@minix/contracts";
+import type {
+  UploadAsset,
+  UploadAssetMetadata,
+  UploadChecksumAlgorithm,
+  UploadDerivedAssetVariant,
+  UploadFileType,
+} from "@minix/contracts";
 
 type UploadAssetVariantInput = {
   kind: UploadDerivedAssetVariant["kind"];
@@ -8,6 +14,29 @@ type UploadAssetVariantInput = {
   height?: number | undefined;
   durationSeconds?: number | undefined;
   pageCount?: number | undefined;
+};
+type UploadAssetMetadataInput = {
+  mimeType?: string | undefined;
+  sizeBytes: number;
+  checksum?: string | undefined;
+  checksumAlgorithm?: UploadChecksumAlgorithm | undefined;
+  width?: number | undefined;
+  height?: number | undefined;
+  durationSeconds?: number | undefined;
+  pageCount?: number | undefined;
+  variants?: UploadAssetVariantInput[] | undefined;
+  reviewAnnotations?: string[] | undefined;
+};
+type UploadAssetInput = {
+  assetId: string;
+  fileType: UploadFileType;
+  fileName: string;
+  url: string;
+  thumbnailUrl?: string | undefined;
+  coverImageUrl?: string | undefined;
+  metadata: UploadAssetMetadataInput;
+  derivedAssetSummary?: string | undefined;
+  ownershipSummary?: string | undefined;
 };
 
 export function createUploadAssetVariant(input: UploadAssetVariantInput): UploadDerivedAssetVariant {
@@ -26,7 +55,7 @@ export function cloneUploadAssetVariant(variant: UploadDerivedAssetVariant): Upl
   return createUploadAssetVariant(variant);
 }
 
-export function cloneUploadAssetMetadata(metadata: UploadAssetMetadata): UploadAssetMetadata {
+export function cloneUploadAssetMetadata(metadata: UploadAssetMetadataInput): UploadAssetMetadata {
   return {
     sizeBytes: metadata.sizeBytes,
     ...(metadata.mimeType !== undefined ? { mimeType: metadata.mimeType } : {}),
@@ -36,12 +65,12 @@ export function cloneUploadAssetMetadata(metadata: UploadAssetMetadata): UploadA
     ...(metadata.height !== undefined ? { height: metadata.height } : {}),
     ...(metadata.durationSeconds !== undefined ? { durationSeconds: metadata.durationSeconds } : {}),
     ...(metadata.pageCount !== undefined ? { pageCount: metadata.pageCount } : {}),
-    ...(metadata.variants !== undefined ? { variants: metadata.variants.map(cloneUploadAssetVariant) } : {}),
+    ...(metadata.variants !== undefined ? { variants: metadata.variants.map(createUploadAssetVariant) } : {}),
     ...(metadata.reviewAnnotations !== undefined ? { reviewAnnotations: [...metadata.reviewAnnotations] } : {}),
   };
 }
 
-export function cloneUploadAsset(asset: UploadAsset): UploadAsset {
+export function cloneUploadAsset(asset: UploadAssetInput): UploadAsset {
   return {
     assetId: asset.assetId,
     fileType: asset.fileType,
