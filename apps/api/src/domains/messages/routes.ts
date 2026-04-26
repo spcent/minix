@@ -14,6 +14,7 @@ import type { Context, Hono, MiddlewareHandler } from "hono";
 import { loadRouteUserState, parseRouteBody, parseRouteQuery } from "../../http/route-context";
 import { jsonError } from "../../http/response";
 import type { ApiBindings, ApiStore, UserState } from "../../types";
+import { pickDefinedApiFields } from "../schema-helpers";
 import { getUnreadBadge, listNotifications, markNotificationsRead } from "./notifications";
 import { withMessageRouteUnreadBadge } from "./route-responses";
 import {
@@ -137,12 +138,14 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
 
     const { userState } = await loadRouteUserState(c, resolveStore);
     const request: ListMessageThreadsRequest = {
-      ...(query.page !== undefined ? { page: query.page } : {}),
-      ...(query.pageSize !== undefined ? { pageSize: query.pageSize } : {}),
-      ...(query.type !== undefined ? { type: query.type } : {}),
-      ...(query.onlyUnread !== undefined ? { onlyUnread: query.onlyUnread } : {}),
-      ...(query.sort !== undefined ? { sort: query.sort } : {}),
-      ...(query.sourceTicketId !== undefined ? { sourceTicketId: query.sourceTicketId } : {}),
+      ...pickDefinedApiFields(query, [
+        "page",
+        "pageSize",
+        "type",
+        "onlyUnread",
+        "sort",
+        "sourceTicketId",
+      ] as const),
     };
     return c.json(
       withMessageRouteUnreadBadge(userState, listMessageThreadResponse(userState, request, c.env), c.env),
@@ -158,7 +161,7 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
     const { traceId, userState } = await loadRouteUserState(c, resolveStore);
     const response = getMessageThread(userState, {
       threadId: query.threadId,
-      ...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
+      ...pickDefinedApiFields(query, ["cursor"] as const),
     }, c.env);
     if (!response) {
       return jsonError("NOT_FOUND", "Message thread not found.", 404, traceId);
@@ -300,7 +303,7 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
     const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
     const request: SyncMessageThreadRequest = {
       threadId: query.threadId,
-      ...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
+      ...pickDefinedApiFields(query, ["cursor"] as const),
     };
     const response = syncMessageThread(userState, request, c.env);
     if (!response) {

@@ -6,6 +6,7 @@ import {
   normalizeApiAuthRedirectTarget,
   normalizeApiContextSnapshots,
   normalizeApiSourceContext,
+  pickDefinedApiFields,
 } from "./schema-helpers";
 
 test("api schema normalizers omit undefined optional fields", () => {
@@ -93,4 +94,22 @@ test("api context snapshot normalizer returns only defined normalized fields", (
       },
     },
   );
+});
+
+test("pickDefinedApiFields preserves falsy defined request values", () => {
+  const picked = pickDefinedApiFields(
+    {
+      page: 0,
+      keyword: "",
+      onlyUnread: false,
+      missing: undefined as string | undefined,
+    },
+    ["page", "keyword", "onlyUnread", "missing"] as const,
+  );
+
+  assert.deepEqual(picked, {
+    page: 0,
+    keyword: "",
+    onlyUnread: false,
+  });
 });

@@ -13,6 +13,7 @@ import {
   apiQueryBooleanSchema,
   apiSourceContextSchema,
   normalizeApiContextSnapshots,
+  pickDefinedApiFields,
 } from "../schema-helpers";
 
 const NOTIFICATION_TYPE_FILTERS = [...NOTIFICATION_TYPES, "all"] as const;
@@ -79,10 +80,8 @@ export function normalizeCreateMessageThreadRequest(
 
   return {
     type: payload.type,
-    ...(payload.title !== undefined ? { title: payload.title } : {}),
-    ...(payload.participantUserIds !== undefined ? { participantUserIds: payload.participantUserIds } : {}),
-    ...(payload.sourceTicketId !== undefined ? { sourceTicketId: payload.sourceTicketId } : {}),
+    ...pickDefinedApiFields(payload, ["title", "participantUserIds", "sourceTicketId"] as const),
     ...contextSnapshots,
-    ...(payload.replyPolicy !== undefined ? { replyPolicy: payload.replyPolicy } : {}),
+    ...pickDefinedApiFields(payload, ["replyPolicy"] as const),
   };
 }

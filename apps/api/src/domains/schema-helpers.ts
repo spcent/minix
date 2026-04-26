@@ -70,6 +70,26 @@ function omitUndefinedProperties<TValue extends Record<string, unknown>>(value: 
   return result;
 }
 
+type DefinedApiFields<TValue, TKey extends keyof TValue> = {
+  [TField in TKey]?: Exclude<TValue[TField], undefined>;
+};
+
+export function pickDefinedApiFields<TValue extends object, TKey extends keyof TValue>(
+  value: TValue,
+  keys: readonly TKey[],
+): DefinedApiFields<TValue, TKey> {
+  const result: DefinedApiFields<TValue, TKey> = {};
+
+  for (const key of keys) {
+    const fieldValue = value[key];
+    if (fieldValue !== undefined) {
+      (result as Record<PropertyKey, unknown>)[key as PropertyKey] = fieldValue;
+    }
+  }
+
+  return result;
+}
+
 export function normalizeApiSourceContext(value: ApiSourceContext | undefined): SourceContextSnapshot | undefined {
   return value
     ? (omitUndefinedProperties({

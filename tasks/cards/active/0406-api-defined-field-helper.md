@@ -82,12 +82,24 @@ Reduce repeated optional request-object assembly in API domains and keep query/b
 - final verifier handoff:
   - optional request fields preserve explicit `false`, `0`, and empty strings when schema allows them.
 
+## Implementation Notes
+
+- Added `pickDefinedApiFields` to API schema helpers with a return type that omits `undefined` values under `exactOptionalPropertyTypes`.
+- Covered preservation of `false`, `0`, and empty string values in API schema-helper tests.
+- Adopted the helper in message thread list/detail/sync request assembly and create-thread request normalization.
+
+## Verification Notes
+
+- Ran `node --import tsx --test apps/api/src/domains/schema-helpers.test.ts apps/api/src/app.test.ts`.
+- Ran `pnpm verify:api`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
