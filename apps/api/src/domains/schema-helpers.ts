@@ -40,3 +40,57 @@ export const apiAuthRedirectTargetSchema = z.object({
   reason: z.enum(AUTH_REDIRECT_REASONS).optional(),
   forceReauth: z.boolean().optional(),
 });
+
+type ApiSourceContext = z.infer<typeof apiSourceContextSchema>;
+type ApiActorContext = z.infer<typeof apiActorContextSchema>;
+type ApiAuthRedirectTarget = z.infer<typeof apiAuthRedirectTargetSchema>;
+
+function omitUndefinedProperties<TValue extends Record<string, unknown>>(value: TValue): Partial<TValue> {
+  const result: Partial<TValue> = {};
+
+  for (const [key, fieldValue] of Object.entries(value) as [keyof TValue, TValue[keyof TValue]][]) {
+    if (fieldValue !== undefined) {
+      result[key] = fieldValue;
+    }
+  }
+
+  return result;
+}
+
+export function normalizeApiSourceContext(value: ApiSourceContext | undefined): ApiSourceContext | undefined {
+  return value
+    ? omitUndefinedProperties({
+        pagePath: value.pagePath,
+        routeId: value.routeId,
+        label: value.label,
+        params: value.params,
+      })
+    : undefined;
+}
+
+export function normalizeApiActorContext(value: ApiActorContext | undefined): ApiActorContext | undefined {
+  return value
+    ? omitUndefinedProperties({
+        userId: value.userId,
+        platform: value.platform,
+        appVersion: value.appVersion,
+        deviceSummary: value.deviceSummary,
+      })
+    : undefined;
+}
+
+export function normalizeApiAuthRedirectTarget(
+  value: ApiAuthRedirectTarget | undefined,
+): ApiAuthRedirectTarget | undefined {
+  return value
+    ? omitUndefinedProperties({
+        routeId: value.routeId,
+        path: value.path,
+        params: value.params,
+        source: value.source,
+        label: value.label,
+        reason: value.reason,
+        forceReauth: value.forceReauth,
+      })
+    : undefined;
+}
