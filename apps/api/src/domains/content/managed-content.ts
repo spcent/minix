@@ -3,7 +3,6 @@ import type {
   ContentActorRole,
   ContentAttachmentReference,
   ContentAuditEntry,
-  ContentAuthoringData,
   ContentCard,
   ContentDetail,
   ContentDetailResponse,
@@ -25,8 +24,14 @@ import type {
 
 import { HOST_ITEMS } from "../../content";
 import { bindUploadAssetsToOwner, resolveUploadAssetForUser } from "../uploads/pipeline";
-import { cloneDomainSnapshot, cloneDomainSnapshotArray } from "../snapshot";
+import { cloneDomainSnapshotArray } from "../snapshot";
 import type { UserState } from "../../types";
+import {
+  cloneManagedContentAuditHistory,
+  cloneManagedContentAuthoring,
+  cloneManagedContentEntry,
+  cloneManagedContentReviewRecord,
+} from "./snapshots";
 
 function createManagedContentAuditEntry(input: {
   auditId: string;
@@ -356,28 +361,6 @@ type ManagedContentMutationResult<TValue> = ManagedContentMutationSuccess<TValue
 
 function resolveManagedContentEntry(contentId: string, userState?: UserState): ManagedContentEntry | undefined {
   return userState?.managedContentById?.[contentId] ?? createDefaultManagedContentEntries()[contentId];
-}
-
-function cloneManagedContentReviewRecord(reviewRecord: ContentReviewRecord): ContentReviewRecord {
-  return cloneDomainSnapshot(reviewRecord);
-}
-
-function cloneManagedContentAuditHistory(auditHistory: ContentAuditEntry[]): ContentAuditEntry[] {
-  return cloneDomainSnapshotArray(auditHistory);
-}
-
-function cloneManagedContentAuthoring(authoring: ContentAuthoringData): ContentAuthoringData {
-  return {
-    title: authoring.title,
-    ...(authoring.subtitle ? { subtitle: authoring.subtitle } : {}),
-    summary: authoring.summary,
-    ...(authoring.bodyPreview ? { bodyPreview: authoring.bodyPreview } : {}),
-    visibility: authoring.visibility,
-    category: cloneDomainSnapshot(authoring.category),
-    tags: cloneDomainSnapshotArray(authoring.tags),
-    ...(authoring.coverAssetId ? { coverAssetId: authoring.coverAssetId } : {}),
-    attachmentAssetIds: [...authoring.attachmentAssetIds],
-  };
 }
 
 function resolveManagedContentActorRole(actorRole: ContentActorRole | undefined): ContentActorRole {
@@ -899,7 +882,7 @@ export function applyManagedContentLifecycle(
 
   const actorRole = resolveManagedContentActorRole(input.actorRole);
   const permissions = createManagedContentPermissions(current, actorRole);
-  const next = cloneDomainSnapshot(current);
+  const next = cloneManagedContentEntry(current);
   const now = new Date().toISOString();
 
   switch (input.action) {

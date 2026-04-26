@@ -1,6 +1,6 @@
 # Content Runtime Snapshot Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -35,7 +35,13 @@ Use shared managed-content snapshot helpers in the content runtime.
 
 ## Acceptance
 
-- [ ] runtime imports shared content snapshot helpers
-- [ ] private duplicate helpers are removed
-- [ ] lifecycle mutation uses the entry helper
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] runtime imports shared content snapshot helpers
+- [x] private duplicate helpers are removed
+- [x] lifecycle mutation uses the entry helper
+- [x] `pnpm verify:api` run for this code slice
+
+## Completion Notes
+
+- Replaced private managed-content snapshot helpers with imports from `content/snapshots`.
+- Switched lifecycle mutation cloning from broad domain clone to `cloneManagedContentEntry`.
+- Preserved response shaping and upload asset binding paths.
