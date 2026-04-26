@@ -146,7 +146,7 @@ test("stored upload record helper clones nested collections and maps", () => {
     chunkingReserved: true,
     governance: {
       maxSizeBytes: 4096,
-      acceptedFileTypes: ["image"] as const,
+      acceptedFileTypes: ["image" as const],
       sensitiveReviewRequired: true,
     },
     reviewStatus: "pending" as const,
