@@ -32,6 +32,7 @@ import {
 } from "../provider-posture";
 import { cloneOptionalDomainSnapshot } from "../snapshot";
 import type { ApiBindings, StoredUploadRecord, UserState } from "../../types";
+import { cloneUploadAsset } from "./assets";
 
 const DEFAULT_UPLOAD_CHUNK_SIZE_BYTES = 64 * 1024;
 const REDUCED_UPLOAD_CHUNK_SIZE_BYTES = 16 * 1024;
@@ -50,43 +51,6 @@ function cloneUploadProgress(progress: UploadTask["progress"]): UploadTask["prog
     completedBytes: progress.completedBytes,
     totalBytes: progress.totalBytes,
     percentage: progress.percentage,
-  };
-}
-
-function cloneUploadAsset(asset: UploadAsset): UploadAsset {
-  return {
-    assetId: asset.assetId,
-    fileType: asset.fileType,
-    fileName: asset.fileName,
-    url: asset.url,
-    ...(asset.thumbnailUrl ? { thumbnailUrl: asset.thumbnailUrl } : {}),
-    ...(asset.coverImageUrl ? { coverImageUrl: asset.coverImageUrl } : {}),
-    metadata: {
-      sizeBytes: asset.metadata.sizeBytes,
-      ...(asset.metadata.checksum ? { checksum: asset.metadata.checksum } : {}),
-      ...(asset.metadata.checksumAlgorithm ? { checksumAlgorithm: asset.metadata.checksumAlgorithm } : {}),
-      ...(asset.metadata.mimeType ? { mimeType: asset.metadata.mimeType } : {}),
-      ...(asset.metadata.width !== undefined ? { width: asset.metadata.width } : {}),
-      ...(asset.metadata.height !== undefined ? { height: asset.metadata.height } : {}),
-      ...(asset.metadata.durationSeconds !== undefined ? { durationSeconds: asset.metadata.durationSeconds } : {}),
-      ...(asset.metadata.pageCount !== undefined ? { pageCount: asset.metadata.pageCount } : {}),
-      ...(asset.metadata.variants
-        ? {
-            variants: asset.metadata.variants.map((variant) => ({
-              kind: variant.kind,
-              url: variant.url,
-              label: variant.label,
-              ...(variant.width !== undefined ? { width: variant.width } : {}),
-              ...(variant.height !== undefined ? { height: variant.height } : {}),
-              ...(variant.durationSeconds !== undefined ? { durationSeconds: variant.durationSeconds } : {}),
-              ...(variant.pageCount !== undefined ? { pageCount: variant.pageCount } : {}),
-            })),
-          }
-        : {}),
-      ...(asset.metadata.reviewAnnotations ? { reviewAnnotations: [...asset.metadata.reviewAnnotations] } : {}),
-    },
-    ...(asset.derivedAssetSummary ? { derivedAssetSummary: asset.derivedAssetSummary } : {}),
-    ...(asset.ownershipSummary ? { ownershipSummary: asset.ownershipSummary } : {}),
   };
 }
 

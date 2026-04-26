@@ -1,6 +1,6 @@
 # Upload Pipeline Asset Helper Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -34,7 +34,13 @@ Upload pipeline response cloning should align with schema normalization and avoi
 
 ## Acceptance
 
-- [ ] upload pipeline uses the shared asset clone helper
-- [ ] private duplicate asset clone logic is removed
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] upload pipeline uses the shared asset clone helper
+- [x] private duplicate asset clone logic is removed
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Replaced the upload pipeline private `cloneUploadAsset` implementation with the shared helper.
+- Kept existing pipeline response call sites unchanged.
+- Verified with `pnpm verify:api`.
