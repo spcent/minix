@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { cloneMessageBodyItem, cloneMessageItems, cloneMessageThread, cloneThreadMembers } from "./snapshots";
+import {
+  cloneMessageBodyItem,
+  cloneMessageItems,
+  cloneMessageThread,
+  cloneStoredMessageThreadRecord,
+  cloneThreadMembers,
+} from "./snapshots";
 
 test("message thread member snapshot helper clones member arrays", () => {
   const members = [
@@ -124,4 +130,59 @@ test("message item array snapshot helper returns new message items", () => {
   assert.notEqual(snapshot, messages);
   assert.notEqual(snapshot[0], messages[0]);
   assert.notEqual(snapshot[0]?.touchpoints, messages[0]?.touchpoints);
+});
+
+test("stored message thread record snapshot helper clones thread and messages", () => {
+  const record = {
+    thread: {
+      threadId: "thread_1",
+      type: "customer_service" as const,
+      title: "Support",
+      participantLabels: ["You", "Support"],
+      pinned: false,
+      doNotDisturb: false,
+      unreadCount: 0,
+      lastMessagePreview: "We are checking.",
+      lastMessageAt: "2026-04-26T00:00:00.000Z",
+      reserved: false,
+      touchpoints: [],
+      members: [
+        {
+          userId: "self",
+          label: "You",
+          role: "customer" as const,
+          active: true,
+          canReply: true,
+        },
+      ],
+    },
+    messages: [
+      {
+        messageId: "msg_1",
+        threadId: "thread_1",
+        direction: "inbound" as const,
+        senderRole: "support" as const,
+        senderLabel: "Support",
+        body: "We are checking.",
+        createdAt: "2026-04-26T00:00:00.000Z",
+        deliveryStatus: "read" as const,
+        attemptCount: 1,
+        retryable: false,
+        touchpoints: [],
+      },
+    ],
+    syncCursor: "cursor_1",
+    updatedAt: "2026-04-26T00:01:00.000Z",
+  };
+
+  const snapshot = cloneStoredMessageThreadRecord(record);
+
+  assert.deepEqual(snapshot, record);
+  assert.notEqual(snapshot.thread, record.thread);
+  assert.notEqual(snapshot.thread.participantLabels, record.thread.participantLabels);
+  assert.notEqual(snapshot.thread.members, record.thread.members);
+  assert.notEqual(snapshot.messages, record.messages);
+  assert.notEqual(snapshot.messages[0], record.messages[0]);
+  assert.equal(snapshot.syncCursor, record.syncCursor);
+  assert.equal(snapshot.updatedAt, record.updatedAt);
 });

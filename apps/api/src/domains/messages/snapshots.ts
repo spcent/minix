@@ -1,6 +1,6 @@
 import type { MessageBodyItem, MessageThread, MessageThreadMember } from "@minix/contracts";
 
-import type { UserState } from "../../types";
+import type { StoredMessageThreadRecord, UserState } from "../../types";
 import type { NotificationChannelProviderRuntimeEnv } from "../settings/state";
 import { cloneDomainSnapshot } from "../snapshot";
 import { cloneMessageTouchpointsForItem, cloneTouchpoints } from "./touchpoints";
@@ -63,4 +63,17 @@ export function cloneMessageItems(
   runtimeEnv?: NotificationChannelProviderRuntimeEnv,
 ): MessageBodyItem[] {
   return messages.map((message) => cloneMessageBodyItem(message, userState, runtimeEnv));
+}
+
+export function cloneStoredMessageThreadRecord(
+  record: StoredMessageThreadRecord,
+  userState?: UserState,
+  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
+): StoredMessageThreadRecord {
+  return {
+    thread: cloneMessageThread(record.thread, userState, runtimeEnv),
+    messages: cloneMessageItems(record.messages, userState, runtimeEnv),
+    syncCursor: record.syncCursor,
+    updatedAt: record.updatedAt,
+  };
 }

@@ -1,6 +1,6 @@
 # Message Stored Record Snapshot Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -35,7 +35,13 @@ Stored message thread records should have a reusable snapshot path that composes
 
 ## Acceptance
 
-- [ ] stored record helper clones thread
-- [ ] stored record helper clones messages
-- [ ] sync cursor and updated timestamp are preserved
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] stored record helper clones thread
+- [x] stored record helper clones messages
+- [x] sync cursor and updated timestamp are preserved
+- [x] `pnpm verify:api` run for this code slice
+
+## Completion Notes
+
+- Added `cloneStoredMessageThreadRecord` as the record-level composition helper.
+- Reused thread and message item snapshot helpers instead of duplicating nested clone behavior.
+- Covered thread, messages, cursor, and timestamp preservation in API domain tests.
