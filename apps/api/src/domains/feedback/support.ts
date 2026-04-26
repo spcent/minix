@@ -30,7 +30,7 @@ import {
   createSupportOperatorActionSummary,
   sendThreadMessage,
 } from "../messages/threads";
-import { cloneDomainSnapshot, cloneDomainSnapshotArray } from "../snapshot";
+import { cloneDomainSnapshot, cloneDomainSnapshotArray, cloneOptionalDomainSnapshot } from "../snapshot";
 
 const FEEDBACK_FAQ_ENTRIES: Record<string, FeedbackFaqEntry> = {
   account: {
@@ -832,6 +832,22 @@ export function createDefaultFeedbackContext(
   session: SessionRecord,
   request: SubmitFeedbackRequest["context"],
 ): FeedbackTicket["context"] {
+  const sourceContext =
+    cloneOptionalDomainSnapshot(request.sourceContext) ??
+    {
+      pagePath: request.sourcePage,
+      ...(request.sourceRouteId ? { routeId: request.sourceRouteId } : {}),
+      ...(request.sourceLabel ? { label: request.sourceLabel } : {}),
+    };
+  const actorContext =
+    cloneOptionalDomainSnapshot(request.actorContext) ??
+    {
+      userId: request.userId ?? session.userId,
+      platform: request.platform,
+      appVersion: request.appVersion,
+      ...(request.deviceSummary ? { deviceSummary: request.deviceSummary } : {}),
+    };
+
   return {
     sourcePage: request.sourcePage,
     ...(request.sourceRouteId ? { sourceRouteId: request.sourceRouteId } : {}),
@@ -840,17 +856,8 @@ export function createDefaultFeedbackContext(
     platform: request.platform,
     appVersion: request.appVersion,
     ...(request.deviceSummary ? { deviceSummary: request.deviceSummary } : {}),
-    sourceContext: request.sourceContext ?? {
-      pagePath: request.sourcePage,
-      ...(request.sourceRouteId ? { routeId: request.sourceRouteId } : {}),
-      ...(request.sourceLabel ? { label: request.sourceLabel } : {}),
-    },
-    actorContext: request.actorContext ?? {
-      userId: request.userId ?? session.userId,
-      platform: request.platform,
-      appVersion: request.appVersion,
-      ...(request.deviceSummary ? { deviceSummary: request.deviceSummary } : {}),
-    },
+    sourceContext,
+    actorContext,
     screenshotAssets: cloneDomainSnapshotArray(request.screenshotAssets),
     attachmentAssets: cloneDomainSnapshotArray(request.attachmentAssets),
   };

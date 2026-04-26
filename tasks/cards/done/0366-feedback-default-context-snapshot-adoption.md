@@ -1,6 +1,6 @@
 # Feedback Default Context Snapshot Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -34,7 +34,13 @@ Feedback ticket context should not retain caller-owned nested context object ref
 
 ## Acceptance
 
-- [ ] explicit feedback source context is cloned before storage
-- [ ] explicit feedback actor context is cloned before storage
-- [ ] fallback context remains unchanged
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] explicit feedback source context is cloned before storage
+- [x] explicit feedback actor context is cloned before storage
+- [x] fallback context remains unchanged
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Updated `createDefaultFeedbackContext` to clone explicit source and actor context with `cloneOptionalDomainSnapshot`.
+- Kept fallback context creation unchanged for requests that do not carry explicit context snapshots.
+- Ran `pnpm verify:api`; it passed.
