@@ -3,6 +3,7 @@ import type { CatalogState } from "@minix/feature-catalog";
 import type { NovelH5PageRenderContext } from "../types";
 import { renderNovelCard } from "../components/novel-card";
 import { renderSectionHeading } from "../components/section-heading";
+import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, formatCompactNumber, renderActionButton, renderRouteLink, routePath } from "../utils";
 
@@ -75,18 +76,11 @@ export function renderCatalogPage(context: NovelH5PageRenderContext, state: Cata
               ${selected.continueChapterId ? '<span class="nh-chip">Resume ready</span>' : ""}
             </div>
             <div class="nh-stat-strip">
-              <article class="nh-stat-panel">
-                <p class="nh-meta-label">Readers</p>
-                <p class="nh-stat-value">${formatCompactNumber(selected.readingCount)}</p>
-              </article>
-              <article class="nh-stat-panel">
-                <p class="nh-meta-label">Shelves</p>
-                <p class="nh-stat-value">${formatCompactNumber(selected.bookshelfCount)}</p>
-              </article>
-              <article class="nh-stat-panel">
-                <p class="nh-meta-label">Words</p>
-                <p class="nh-stat-value">${formatCompactNumber(selected.wordCount)}</p>
-              </article>
+              ${renderStatPanels([
+                { label: "Readers", value: formatCompactNumber(selected.readingCount) },
+                { label: "Shelves", value: formatCompactNumber(selected.bookshelfCount) },
+                { label: "Words", value: formatCompactNumber(selected.wordCount) },
+              ])}
             </div>
             <p class="nh-item-copy">
               ${escapeHtml(
@@ -151,21 +145,11 @@ export function renderCatalogPage(context: NovelH5PageRenderContext, state: Cata
           }
         </div>
         <div class="nh-stat-strip">
-          <article class="nh-stat-panel">
-            <p class="nh-meta-label">Results</p>
-            <p class="nh-stat-value">${String(state.items.length).padStart(2, "0")}</p>
-            <p class="nh-item-copy">Visible after filtering</p>
-          </article>
-          <article class="nh-stat-panel">
-            <p class="nh-meta-label">Serials</p>
-            <p class="nh-stat-value">${String(serialCount).padStart(2, "0")}</p>
-            <p class="nh-item-copy">Release-driven titles</p>
-          </article>
-          <article class="nh-stat-panel">
-            <p class="nh-meta-label">Premium</p>
-            <p class="nh-stat-value">${String(premiumCount).padStart(2, "0")}</p>
-            <p class="nh-item-copy">Membership-aware inventory</p>
-          </article>
+          ${renderStatPanels([
+            { label: "Results", value: String(state.items.length).padStart(2, "0"), note: "Visible after filtering" },
+            { label: "Serials", value: String(serialCount).padStart(2, "0"), note: "Release-driven titles" },
+            { label: "Premium", value: String(premiumCount).padStart(2, "0"), note: "Membership-aware inventory" },
+          ])}
         </div>
       </section>
       <section class="nh-catalog-layout">

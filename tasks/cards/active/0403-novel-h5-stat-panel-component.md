@@ -82,12 +82,23 @@ Reduce repeated `<article class="nh-stat-panel">` markup across Novel H5 pages a
 - final verifier handoff:
   - stat labels, values, and notes remain escaped and visually class-compatible.
 
+## Implementation Notes
+
+- Added `renderStatPanel` and `renderStatPanels` under Novel H5 render components.
+- Adopted the component in home, catalog, and messages where repeated `nh-stat-panel` markup was concentrated.
+- Kept the helper host-local so shared feature packages remain view-agnostic.
+
+## Verification Notes
+
+- Ran `pnpm verify:host novel-h5`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

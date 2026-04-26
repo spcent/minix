@@ -3,6 +3,7 @@ import type { CatalogState } from "@minix/feature-catalog";
 import type { NovelH5PageRenderContext } from "../types";
 import { renderNovelCard } from "../components/novel-card";
 import { renderSectionHeading } from "../components/section-heading";
+import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, formatCompactNumber, formatDate, renderActionButton, renderRouteLink, routePath } from "../utils";
 
@@ -39,17 +40,7 @@ export function renderHomePage(context: NovelH5PageRenderContext, state: Catalog
             ${featured.requiresMembership ? '<span class="nh-chip">Membership</span>' : '<span class="nh-chip">Free entry</span>'}
           </div>
           <div class="nh-stat-strip">
-            ${heroStats
-              .map(
-                (stat) => `
-                  <article class="nh-stat-panel">
-                    <p class="nh-meta-label">${escapeHtml(stat.label)}</p>
-                    <p class="nh-stat-value">${escapeHtml(stat.value)}</p>
-                    <p class="nh-item-copy">${escapeHtml(stat.note)}</p>
-                  </article>
-                `,
-              )
-              .join("")}
+            ${renderStatPanels(heroStats)}
           </div>
           <div class="nh-actions">
             ${renderActionButton(featuredPrimaryLabel, "controller", featuredPrimaryAction, featured.id, "primary")}
@@ -123,21 +114,25 @@ export function renderHomePage(context: NovelH5PageRenderContext, state: Catalog
             copy: "Use shelf momentum, resume state, and category drift to make the storefront feel personal before the user taps a title.",
           })}
           <div class="nh-stat-strip">
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Primary lane</p>
-              <p class="nh-stat-value">${escapeHtml(resumeNovel?.categoryLabel ?? featured?.categoryLabel ?? "Frontlist")}</p>
-              <p class="nh-item-copy">${escapeHtml(resumeNovel ? "Derived from the current resume title." : "Derived from the editorial lead title.")}</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Session mode</p>
-              <p class="nh-stat-value">${resumeNovel ? "Resume-first" : "Browse-first"}</p>
-              <p class="nh-item-copy">${escapeHtml(resumeNovel ? "A saved chapter exists, so the homepage prioritizes fast re-entry." : "No saved chapter is active, so discovery leads the route.")}</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Commercial mix</p>
-              <p class="nh-stat-value">${membershipTitles.length}/${state.items.length}</p>
-              <p class="nh-item-copy">Membership titles kept visible without collapsing the page into a paywall.</p>
-            </article>
+            ${renderStatPanels([
+              {
+                label: "Primary lane",
+                value: resumeNovel?.categoryLabel ?? featured?.categoryLabel ?? "Frontlist",
+                note: resumeNovel ? "Derived from the current resume title." : "Derived from the editorial lead title.",
+              },
+              {
+                label: "Session mode",
+                value: resumeNovel ? "Resume-first" : "Browse-first",
+                note: resumeNovel
+                  ? "A saved chapter exists, so the homepage prioritizes fast re-entry."
+                  : "No saved chapter is active, so discovery leads the route.",
+              },
+              {
+                label: "Commercial mix",
+                value: `${membershipTitles.length}/${state.items.length}`,
+                note: "Membership titles kept visible without collapsing the page into a paywall.",
+              },
+            ])}
           </div>
         </div>
         <aside class="nh-card">

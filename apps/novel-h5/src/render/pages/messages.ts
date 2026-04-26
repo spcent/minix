@@ -1,6 +1,7 @@
 import type { MessagesState } from "@minix/feature-messages";
 
 import { renderSectionHeading } from "../components/section-heading";
+import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, formatDate, renderActionButton, renderRouteLink, routePath } from "../utils";
 
@@ -20,21 +21,23 @@ export function renderMessagesPage(state: MessagesState): string {
           <h1 class="nh-title">${escapeHtml(state.title)}</h1>
           <p class="nh-copy">${escapeHtml(state.subtitle ?? "Shared notifications and reserved threads stay visible inside the novel host.")}</p>
           <div class="nh-stat-strip">
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Unread total</p>
-              <p class="nh-stat-value">${escapeHtml(String(state.unreadBadge.totalUnread))}</p>
-              <p class="nh-item-copy">${escapeHtml(`${state.unreadBadge.notificationUnread} notices · ${state.unreadBadge.threadUnread} thread items`)}</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Sync posture</p>
-              <p class="nh-stat-value">${escapeHtml(syncState?.modeLabel ?? syncState?.mode ?? "Polling")}</p>
-              <p class="nh-item-copy">${escapeHtml(syncState?.statusLabel ?? "Polling remains the explicit sync contract for this surface.")}</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Visible thread</p>
-              <p class="nh-stat-value">${escapeHtml(selectedThread?.title ?? "No thread selected")}</p>
-              <p class="nh-item-copy">${escapeHtml(syncState?.providerSummary ?? "Touchpoint provider posture is kept explicit in the shared thread state.")}</p>
-            </article>
+            ${renderStatPanels([
+              {
+                label: "Unread total",
+                value: String(state.unreadBadge.totalUnread),
+                note: `${state.unreadBadge.notificationUnread} notices · ${state.unreadBadge.threadUnread} thread items`,
+              },
+              {
+                label: "Sync posture",
+                value: syncState?.modeLabel ?? syncState?.mode ?? "Polling",
+                note: syncState?.statusLabel ?? "Polling remains the explicit sync contract for this surface.",
+              },
+              {
+                label: "Visible thread",
+                value: selectedThread?.title ?? "No thread selected",
+                note: syncState?.providerSummary ?? "Touchpoint provider posture is kept explicit in the shared thread state.",
+              },
+            ])}
           </div>
           <div class="nh-actions">
             ${renderActionButton("Refresh inbox", "entry", "onShow", undefined, "primary")}
