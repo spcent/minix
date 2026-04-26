@@ -20,6 +20,7 @@ import {
   normalizeApiContextSnapshots,
 } from "../schema-helpers";
 import { cloneUploadAsset } from "./assets";
+import { cloneUploadError, cloneUploadTask, cloneUploadTransferPayload } from "./tasks";
 
 const uploadProgressSchema = z.object({
   completedBytes: z.number().int().nonnegative(),
@@ -186,84 +187,10 @@ export function normalizeUploadAsset(asset: z.infer<typeof uploadAssetSchema>): 
 
 export function normalizeUploadSelectionResult(payload: z.infer<typeof uploadSelectionResultSchema>) {
   return {
-    uploadTask: {
-      taskId: payload.uploadTask.taskId,
-      scenario: payload.uploadTask.scenario,
-      fileType: payload.uploadTask.fileType,
-      stage: payload.uploadTask.stage,
-      ...(payload.uploadTask.fileName !== undefined ? { fileName: payload.uploadTask.fileName } : {}),
-      progress: {
-        completedBytes: payload.uploadTask.progress.completedBytes,
-        totalBytes: payload.uploadTask.progress.totalBytes,
-        percentage: payload.uploadTask.progress.percentage,
-      },
-      ...(payload.uploadTask.uploadedChunkCount !== undefined
-        ? { uploadedChunkCount: payload.uploadTask.uploadedChunkCount }
-        : {}),
-      chunkingReserved: payload.uploadTask.chunkingReserved,
-      governance: {
-        maxSizeBytes: payload.uploadTask.governance.maxSizeBytes,
-        acceptedFileTypes: payload.uploadTask.governance.acceptedFileTypes,
-        sensitiveReviewRequired: payload.uploadTask.governance.sensitiveReviewRequired,
-        ...(payload.uploadTask.governance.expiresInDays !== undefined
-          ? { expiresInDays: payload.uploadTask.governance.expiresInDays }
-          : {}),
-        ...(payload.uploadTask.governance.governanceSummary !== undefined
-          ? { governanceSummary: payload.uploadTask.governance.governanceSummary }
-          : {}),
-      },
-      reviewStatus: payload.uploadTask.reviewStatus,
-      ...(payload.uploadTask.reviewMessage !== undefined ? { reviewMessage: payload.uploadTask.reviewMessage } : {}),
-      lifecycle: {
-        backendBacked: payload.uploadTask.lifecycle.backendBacked,
-        retentionStatus: payload.uploadTask.lifecycle.retentionStatus,
-        retryCount: payload.uploadTask.lifecycle.retryCount,
-        canRetry: payload.uploadTask.lifecycle.canRetry,
-        canCancel: payload.uploadTask.lifecycle.canCancel,
-        ...(payload.uploadTask.lifecycle.lastTransitionAt !== undefined
-          ? { lastTransitionAt: payload.uploadTask.lifecycle.lastTransitionAt }
-          : {}),
-        ...(payload.uploadTask.lifecycle.expiresAt !== undefined ? { expiresAt: payload.uploadTask.lifecycle.expiresAt } : {}),
-        ...(payload.uploadTask.lifecycle.retentionSummary !== undefined
-          ? { retentionSummary: payload.uploadTask.lifecycle.retentionSummary }
-          : {}),
-        ...(payload.uploadTask.lifecycle.cleanupSummary !== undefined
-          ? { cleanupSummary: payload.uploadTask.lifecycle.cleanupSummary }
-          : {}),
-      },
-      ...(payload.uploadTask.ownershipSummary !== undefined ? { ownershipSummary: payload.uploadTask.ownershipSummary } : {}),
-    },
+    uploadTask: cloneUploadTask(payload.uploadTask),
     ...(payload.uploadAsset !== undefined ? { uploadAsset: normalizeUploadAsset(payload.uploadAsset) } : {}),
-    ...(payload.uploadError !== undefined
-      ? {
-          uploadError: {
-            code: payload.uploadError.code,
-            message: payload.uploadError.message,
-            recoverable: payload.uploadError.recoverable,
-            retryable: payload.uploadError.retryable,
-            stage: payload.uploadError.stage,
-          },
-        }
-      : {}),
-    ...(payload.transfer !== undefined
-      ? {
-          transfer: {
-            mode: payload.transfer.mode,
-            checksumAlgorithm: payload.transfer.checksumAlgorithm,
-            fileChecksum: payload.transfer.fileChecksum,
-            totalBytes: payload.transfer.totalBytes,
-            chunkSizeBytes: payload.transfer.chunkSizeBytes,
-            chunks: payload.transfer.chunks.map((chunk) => ({
-              chunkIndex: chunk.chunkIndex,
-              byteOffset: chunk.byteOffset,
-              byteLength: chunk.byteLength,
-              checksum: chunk.checksum,
-              checksumAlgorithm: chunk.checksumAlgorithm,
-              dataBase64: chunk.dataBase64,
-            })),
-          },
-        }
-      : {}),
+    ...(payload.uploadError !== undefined ? { uploadError: cloneUploadError(payload.uploadError) } : {}),
+    ...(payload.transfer !== undefined ? { transfer: cloneUploadTransferPayload(payload.transfer) } : {}),
   };
 }
 

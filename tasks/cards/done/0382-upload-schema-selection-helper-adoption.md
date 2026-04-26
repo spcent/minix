@@ -1,6 +1,6 @@
 # Upload Schema Selection Helper Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -34,7 +34,13 @@ Use shared upload task, error, and transfer helpers in upload schema selection n
 
 ## Acceptance
 
-- [ ] selection upload task uses shared helper
-- [ ] selection upload error and transfer use shared helpers
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] selection upload task uses shared helper
+- [x] selection upload error and transfer use shared helpers
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Refactored `normalizeUploadSelectionResult` to delegate task, error, and transfer projection to shared helpers.
+- Kept `normalizeUploadAsset` as the asset-level projection path.
+- Verified with `pnpm verify:api`.
