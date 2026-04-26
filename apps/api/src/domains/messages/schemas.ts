@@ -1,4 +1,5 @@
 import {
+  type CreateMessageThreadRequest,
   MESSAGE_REPLY_POLICIES,
   MESSAGE_THREAD_LIST_SORTS,
   MESSAGE_THREAD_TYPES,
@@ -6,7 +7,14 @@ import {
 } from "@minix/contracts";
 import { z } from "zod";
 
-import { apiActorContextSchema, apiPaginationQueryShape, apiQueryBooleanSchema, apiSourceContextSchema } from "../schema-helpers";
+import {
+  apiActorContextSchema,
+  apiPaginationQueryShape,
+  apiQueryBooleanSchema,
+  apiSourceContextSchema,
+  normalizeApiActorContext,
+  normalizeApiSourceContext,
+} from "../schema-helpers";
 
 const NOTIFICATION_TYPE_FILTERS = [...NOTIFICATION_TYPES, "all"] as const;
 const MESSAGE_THREAD_TYPE_FILTERS = [...MESSAGE_THREAD_TYPES, "all"] as const;
@@ -64,3 +72,20 @@ export const markNotificationsReadSchema = z.object({
   groupKey: z.string().min(1).optional(),
   onlyUnread: z.boolean().optional(),
 });
+
+export function normalizeCreateMessageThreadRequest(
+  payload: z.infer<typeof createMessageThreadSchema>,
+): CreateMessageThreadRequest {
+  const sourceContext = normalizeApiSourceContext(payload.sourceContext);
+  const actorContext = normalizeApiActorContext(payload.actorContext);
+
+  return {
+    type: payload.type,
+    ...(payload.title !== undefined ? { title: payload.title } : {}),
+    ...(payload.participantUserIds !== undefined ? { participantUserIds: payload.participantUserIds } : {}),
+    ...(payload.sourceTicketId !== undefined ? { sourceTicketId: payload.sourceTicketId } : {}),
+    ...(sourceContext !== undefined ? { sourceContext } : {}),
+    ...(actorContext !== undefined ? { actorContext } : {}),
+    ...(payload.replyPolicy !== undefined ? { replyPolicy: payload.replyPolicy } : {}),
+  };
+}

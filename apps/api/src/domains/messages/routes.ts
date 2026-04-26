@@ -1,6 +1,5 @@
 import type {
   AuthRateLimitState,
-  CreateMessageThreadRequest,
   CreateMessageThreadResponse,
   ListMessageThreadsRequest,
   MarkThreadReadRequest,
@@ -31,6 +30,7 @@ import {
   markThreadReadSchema,
   messageThreadListQuerySchema,
   notificationsQuerySchema,
+  normalizeCreateMessageThreadRequest,
   retryMessageSchema,
   sendMessageSchema,
   threadIdQuerySchema,
@@ -189,39 +189,7 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
     if (!rateLimitGuard.allowed) {
       return rateLimitGuard.response;
     }
-    const request: CreateMessageThreadRequest = {
-      type: payload.type,
-      ...(payload.title !== undefined ? { title: payload.title } : {}),
-      ...(payload.participantUserIds !== undefined
-        ? { participantUserIds: payload.participantUserIds }
-        : {}),
-      ...(payload.sourceTicketId !== undefined ? { sourceTicketId: payload.sourceTicketId } : {}),
-      ...(payload.sourceContext !== undefined
-        ? {
-            sourceContext: {
-              ...(payload.sourceContext.pagePath !== undefined ? { pagePath: payload.sourceContext.pagePath } : {}),
-              ...(payload.sourceContext.routeId !== undefined ? { routeId: payload.sourceContext.routeId } : {}),
-              ...(payload.sourceContext.label !== undefined ? { label: payload.sourceContext.label } : {}),
-              ...(payload.sourceContext.params !== undefined ? { params: payload.sourceContext.params } : {}),
-            },
-          }
-        : {}),
-      ...(payload.actorContext !== undefined
-        ? {
-            actorContext: {
-              ...(payload.actorContext.userId !== undefined ? { userId: payload.actorContext.userId } : {}),
-              ...(payload.actorContext.platform !== undefined ? { platform: payload.actorContext.platform } : {}),
-              ...(payload.actorContext.appVersion !== undefined
-                ? { appVersion: payload.actorContext.appVersion }
-                : {}),
-              ...(payload.actorContext.deviceSummary !== undefined
-                ? { deviceSummary: payload.actorContext.deviceSummary }
-                : {}),
-            },
-          }
-        : {}),
-      ...(payload.replyPolicy !== undefined ? { replyPolicy: payload.replyPolicy } : {}),
-    };
+    const request = normalizeCreateMessageThreadRequest(payload);
     const response = createMessageThread(userState, request, new Date().toISOString(), c.env);
     response.unreadBadge = getUnreadBadge(userState, c.env);
     appendMessageAudit({
