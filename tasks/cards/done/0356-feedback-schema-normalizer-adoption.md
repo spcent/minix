@@ -1,6 +1,6 @@
 # Feedback Schema Normalizer Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -35,7 +35,13 @@ Feedback/support request normalization should share source and actor context sha
 
 ## Acceptance
 
-- [ ] feedback normalizer removes duplicated context copy logic
-- [ ] attachment and screenshot asset normalization stays unchanged
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] feedback normalizer removes duplicated context copy logic
+- [x] attachment and screenshot asset normalization stays unchanged
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Reused API source and actor context normalizers in feedback submit request shaping.
+- Left upload asset normalization in the upload-owned schema helper.
+- Ran `pnpm verify:api`; it passed.

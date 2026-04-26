@@ -2,7 +2,13 @@ import { FEEDBACK_PRIORITIES, FEEDBACK_TICKET_STATES, FEEDBACK_TYPES } from "@mi
 import { z } from "zod";
 
 import { normalizeUploadAsset, uploadAssetSchema } from "../uploads/schemas";
-import { apiActorContextSchema, apiPaginationQueryShape, apiSourceContextSchema } from "../schema-helpers";
+import {
+  apiActorContextSchema,
+  apiPaginationQueryShape,
+  apiSourceContextSchema,
+  normalizeApiActorContext,
+  normalizeApiSourceContext,
+} from "../schema-helpers";
 
 const FEEDBACK_TICKET_STATE_FILTERS = [...FEEDBACK_TICKET_STATES, "all"] as const;
 
@@ -77,6 +83,9 @@ export const feedbackTicketActionSchema = z.object({
 });
 
 export function normalizeSubmitFeedbackRequest(payload: z.infer<typeof submitFeedbackSchema>) {
+  const sourceContext = normalizeApiSourceContext(payload.context.sourceContext);
+  const actorContext = normalizeApiActorContext(payload.context.actorContext);
+
   return {
     type: payload.type,
     categoryKey: payload.categoryKey,
@@ -94,28 +103,8 @@ export function normalizeSubmitFeedbackRequest(payload: z.infer<typeof submitFee
       platform: payload.context.platform,
       appVersion: payload.context.appVersion,
       ...(payload.context.deviceSummary !== undefined ? { deviceSummary: payload.context.deviceSummary } : {}),
-      ...(payload.context.sourceContext !== undefined
-        ? {
-            sourceContext: {
-              ...(payload.context.sourceContext.pagePath !== undefined ? { pagePath: payload.context.sourceContext.pagePath } : {}),
-              ...(payload.context.sourceContext.routeId !== undefined ? { routeId: payload.context.sourceContext.routeId } : {}),
-              ...(payload.context.sourceContext.label !== undefined ? { label: payload.context.sourceContext.label } : {}),
-              ...(payload.context.sourceContext.params !== undefined ? { params: payload.context.sourceContext.params } : {}),
-            },
-          }
-        : {}),
-      ...(payload.context.actorContext !== undefined
-        ? {
-            actorContext: {
-              ...(payload.context.actorContext.userId !== undefined ? { userId: payload.context.actorContext.userId } : {}),
-              ...(payload.context.actorContext.platform !== undefined ? { platform: payload.context.actorContext.platform } : {}),
-              ...(payload.context.actorContext.appVersion !== undefined ? { appVersion: payload.context.actorContext.appVersion } : {}),
-              ...(payload.context.actorContext.deviceSummary !== undefined
-                ? { deviceSummary: payload.context.actorContext.deviceSummary }
-                : {}),
-            },
-          }
-        : {}),
+      ...(sourceContext !== undefined ? { sourceContext } : {}),
+      ...(actorContext !== undefined ? { actorContext } : {}),
       screenshotAssets: payload.context.screenshotAssets.map(normalizeUploadAsset),
       attachmentAssets: payload.context.attachmentAssets.map(normalizeUploadAsset),
     },
