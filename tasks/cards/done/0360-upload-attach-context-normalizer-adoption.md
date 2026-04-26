@@ -1,6 +1,6 @@
 # Upload Attach Context Normalizer Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -36,7 +36,13 @@ Upload reference attachment should preserve source and actor context with the sa
 
 ## Acceptance
 
-- [ ] upload attach context shaping reuses shared normalizers
-- [ ] route code no longer repeats optional source/actor context copy logic
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] upload attach context shaping reuses shared normalizers
+- [x] route code no longer repeats optional source/actor context copy logic
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added `normalizeUploadAttachRequest` in the upload schema module.
+- Reused shared API source and actor context normalizers for upload references.
+- Ran `pnpm verify:api`; it passed.

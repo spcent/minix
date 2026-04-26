@@ -9,11 +9,17 @@ import {
   UPLOAD_STAGES,
   UPLOAD_TRANSFER_MODES,
   type UploadAsset,
+  type UploadAttachRequest,
   type UploadPipelineRequest,
 } from "@minix/contracts";
 import { z } from "zod";
 
-import { apiActorContextSchema, apiSourceContextSchema } from "../schema-helpers";
+import {
+  apiActorContextSchema,
+  apiSourceContextSchema,
+  normalizeApiActorContext,
+  normalizeApiSourceContext,
+} from "../schema-helpers";
 
 const uploadProgressSchema = z.object({
   completedBytes: z.number().int().nonnegative(),
@@ -300,6 +306,23 @@ export function normalizeUploadSessionRequest(
   return {
     scenario: payload.scenario,
     selection: normalizeUploadSelectionResult(payload.selection),
+  };
+}
+
+export function normalizeUploadAttachRequest(payload: z.infer<typeof uploadAttachSchema>): UploadAttachRequest {
+  const sourceContext = normalizeApiSourceContext(payload.reference.sourceContext);
+  const actorContext = normalizeApiActorContext(payload.reference.actorContext);
+
+  return {
+    ...(payload.taskId !== undefined ? { taskId: payload.taskId } : {}),
+    ...(payload.assetId !== undefined ? { assetId: payload.assetId } : {}),
+    reference: {
+      ownerType: payload.reference.ownerType,
+      ownerId: payload.reference.ownerId,
+      role: payload.reference.role,
+      ...(sourceContext !== undefined ? { sourceContext } : {}),
+      ...(actorContext !== undefined ? { actorContext } : {}),
+    },
   };
 }
 

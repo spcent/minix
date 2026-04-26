@@ -1,6 +1,5 @@
 import type {
   AuthRateLimitState,
-  UploadAttachRequest,
   UploadCancelRequest,
   UploadChunkRequest,
   UploadRetryRequest,
@@ -23,6 +22,7 @@ import {
   retryUploadPipeline,
 } from "./pipeline";
 import {
+  normalizeUploadAttachRequest,
   normalizeUploadChunkRequest,
   normalizeUploadSessionRequest,
   uploadAttachSchema,
@@ -254,37 +254,7 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
       return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
     }
 
-    const request: UploadAttachRequest = {
-      ...(payload.taskId ? { taskId: payload.taskId } : {}),
-      ...(payload.assetId ? { assetId: payload.assetId } : {}),
-      reference: {
-        ownerType: payload.reference.ownerType,
-        ownerId: payload.reference.ownerId,
-        role: payload.reference.role,
-        ...(payload.reference.sourceContext
-          ? {
-              sourceContext: {
-                ...(payload.reference.sourceContext.pagePath ? { pagePath: payload.reference.sourceContext.pagePath } : {}),
-                ...(payload.reference.sourceContext.routeId ? { routeId: payload.reference.sourceContext.routeId } : {}),
-                ...(payload.reference.sourceContext.label ? { label: payload.reference.sourceContext.label } : {}),
-                ...(payload.reference.sourceContext.params ? { params: payload.reference.sourceContext.params } : {}),
-              },
-            }
-          : {}),
-        ...(payload.reference.actorContext
-          ? {
-              actorContext: {
-                ...(payload.reference.actorContext.userId ? { userId: payload.reference.actorContext.userId } : {}),
-                ...(payload.reference.actorContext.platform ? { platform: payload.reference.actorContext.platform } : {}),
-                ...(payload.reference.actorContext.appVersion ? { appVersion: payload.reference.actorContext.appVersion } : {}),
-                ...(payload.reference.actorContext.deviceSummary
-                  ? { deviceSummary: payload.reference.actorContext.deviceSummary }
-                  : {}),
-              },
-            }
-          : {}),
-      },
-    };
+    const request = normalizeUploadAttachRequest(payload);
     const record = attachUploadRecord(existing, request);
     userState.uploadsByTaskId[record.uploadTask.taskId] = record;
     if (request.reference.ownerType === "avatar" && record.uploadAsset?.assetId) {
