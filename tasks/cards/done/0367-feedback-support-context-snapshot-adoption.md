@@ -1,6 +1,6 @@
 # Feedback Support Context Snapshot Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -36,7 +36,13 @@ Feedback support handoff and upload attachment ownership should use consistent i
 
 ## Acceptance
 
-- [ ] support thread creation receives cloned optional contexts
-- [ ] upload binding receives cloned optional contexts
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] support thread creation receives cloned optional contexts
+- [x] upload binding receives cloned optional contexts
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Cloned optional source and actor context before creating feedback support threads.
+- Cloned optional source and actor context before binding screenshot and attachment upload references.
+- Ran `pnpm verify:api`; it passed.

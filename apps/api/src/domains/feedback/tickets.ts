@@ -17,6 +17,7 @@ import type {
 } from "@minix/contracts";
 
 import { bindUploadAssetsToOwner } from "../uploads/pipeline";
+import { cloneOptionalDomainSnapshot } from "../snapshot";
 import type { SessionRecord, UserState } from "../../types";
 import {
   appendSupportMessageToThread,
@@ -112,14 +113,16 @@ export function submitFeedbackTicket(
     status.revisitAction.threadId = supportEntry.threadId;
   }
   const response = createFeedbackTicketResponse(ticket, category, status);
+  const sourceContext = cloneOptionalDomainSnapshot(ticket.context.sourceContext);
+  const actorContext = cloneOptionalDomainSnapshot(ticket.context.actorContext);
 
   bindUploadAssetsToOwner(userState, {
     assetIds: ticket.context.screenshotAssets.map((asset) => asset.assetId),
     ownerType: "feedback",
     ownerId: ticketId,
     role: "screenshot",
-    ...(ticket.context.sourceContext ? { sourceContext: ticket.context.sourceContext } : {}),
-    ...(ticket.context.actorContext ? { actorContext: ticket.context.actorContext } : {}),
+    ...(sourceContext ? { sourceContext } : {}),
+    ...(actorContext ? { actorContext } : {}),
     now,
   });
   bindUploadAssetsToOwner(userState, {
@@ -127,8 +130,8 @@ export function submitFeedbackTicket(
     ownerType: "feedback",
     ownerId: ticketId,
     role: "attachment",
-    ...(ticket.context.sourceContext ? { sourceContext: ticket.context.sourceContext } : {}),
-    ...(ticket.context.actorContext ? { actorContext: ticket.context.actorContext } : {}),
+    ...(sourceContext ? { sourceContext: cloneOptionalDomainSnapshot(sourceContext) } : {}),
+    ...(actorContext ? { actorContext: cloneOptionalDomainSnapshot(actorContext) } : {}),
     now,
   });
   userState.feedbackDetailsById[ticketId] = response;

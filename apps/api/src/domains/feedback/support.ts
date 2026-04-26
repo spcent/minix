@@ -764,14 +764,16 @@ export function ensureFeedbackSupportThread(
     return undefined;
   }
 
+  const sourceContext = cloneOptionalDomainSnapshot(context?.sourceContext);
+  const actorContext = cloneOptionalDomainSnapshot(context?.actorContext);
   const threadResponse = createMessageThread(
     userState,
     {
       type: "customer_service",
       title: `${category.label}: ${ticketId}`,
       sourceTicketId: ticketId,
-      ...(context?.sourceContext ? { sourceContext: context.sourceContext } : {}),
-      ...(context?.actorContext ? { actorContext: context.actorContext } : {}),
+      ...(sourceContext ? { sourceContext } : {}),
+      ...(actorContext ? { actorContext } : {}),
     },
     now,
   );
