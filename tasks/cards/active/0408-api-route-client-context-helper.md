@@ -80,12 +80,23 @@ Remove repeated `resolveClientId` and `resolveRequestDeviceId` blocks from API r
 - final verifier handoff:
   - rate-limit and audit calls still receive the same `clientId` and optional `deviceId`.
 
+## Implementation Notes
+
+- Added `loadRouteClientContext` to API HTTP route context helpers.
+- Adopted the helper in account route helpers and message thread create/send routes.
+- Preserved the previous behavior of omitting `deviceId` when the resolver returns an empty or missing value.
+
+## Verification Notes
+
+- Ran `pnpm verify:api`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

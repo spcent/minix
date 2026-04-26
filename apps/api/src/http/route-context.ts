@@ -39,6 +39,20 @@ export function loadRouteStore(
   };
 }
 
+export function loadRouteClientContext(
+  c: Context<any>,
+  resolveClientId: (request: Request) => string,
+  resolveRequestDeviceId: (c: Context<any>) => string | undefined,
+): { clientId: string; deviceId?: string } {
+  const clientId = resolveClientId(c.req.raw);
+  const deviceId = resolveRequestDeviceId(c);
+
+  return {
+    clientId,
+    ...(deviceId ? { deviceId } : {}),
+  };
+}
+
 export async function loadRouteUserState(
   c: Context<any>,
   resolveStore: (env: ApiBindings | undefined) => ApiStore,

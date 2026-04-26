@@ -11,7 +11,12 @@ import type {
 } from "@minix/contracts";
 import type { Context, Hono, MiddlewareHandler } from "hono";
 
-import { loadRouteUserState, parseRouteBody, parseRouteQuery } from "../../http/route-context";
+import {
+  loadRouteClientContext,
+  loadRouteUserState,
+  parseRouteBody,
+  parseRouteQuery,
+} from "../../http/route-context";
 import { jsonError } from "../../http/response";
 import type { ApiBindings, ApiStore, UserState } from "../../types";
 import { pickDefinedApiFields } from "../schema-helpers";
@@ -176,8 +181,7 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
     }
 
     const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
-    const clientId = resolveClientId(c.req.raw);
-    const deviceId = resolveRequestDeviceId(c);
+    const clientContext = loadRouteClientContext(c, resolveClientId, resolveRequestDeviceId);
     const rateLimitGuard = await guardMessageRateLimit({
       c,
       store,
@@ -185,8 +189,7 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
       userState,
       action: "thread_create",
       platform: session.platform,
-      clientId,
-      ...(deviceId ? { deviceId } : {}),
+      ...clientContext,
       traceId,
     });
     if (!rateLimitGuard.allowed) {
@@ -197,8 +200,7 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
     appendMessageAudit({
       userState,
       actorUserId: session.userId,
-      clientId,
-      ...(deviceId ? { deviceId } : {}),
+      ...clientContext,
       platform: session.platform,
       traceId,
       action: "thread_create",
@@ -230,8 +232,7 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
     }
 
     const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
-    const clientId = resolveClientId(c.req.raw);
-    const deviceId = resolveRequestDeviceId(c);
+    const clientContext = loadRouteClientContext(c, resolveClientId, resolveRequestDeviceId);
     const rateLimitGuard = await guardMessageRateLimit({
       c,
       store,
@@ -239,8 +240,7 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
       userState,
       action: "thread_send",
       platform: session.platform,
-      clientId,
-      ...(deviceId ? { deviceId } : {}),
+      ...clientContext,
       traceId,
     });
     if (!rateLimitGuard.allowed) {
@@ -265,8 +265,7 @@ export function registerMessageRoutes(options: RegisterMessageRoutesOptions) {
     appendMessageAudit({
       userState,
       actorUserId: session.userId,
-      clientId,
-      ...(deviceId ? { deviceId } : {}),
+      ...clientContext,
       platform: session.platform,
       traceId,
       action: "thread_send",

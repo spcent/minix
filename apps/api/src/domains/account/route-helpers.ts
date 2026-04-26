@@ -4,7 +4,7 @@ import type {
 } from "@minix/contracts";
 import type { Context } from "hono";
 
-import { loadRouteUserState } from "../../http/route-context";
+import { loadRouteClientContext, loadRouteUserState } from "../../http/route-context";
 import type { ApiStore, SessionRecord, UserState } from "../../types";
 import { resolveAccountSecurityPhoneNumber } from "./operations";
 import type { RegisterAccountRoutesOptions } from "./route-options";
@@ -91,13 +91,11 @@ export function createAccountRouteHelpers(
     input?: { guardSecurity?: boolean },
   ) {
     const routeContext = await loadRouteUserState(c, resolveStore);
-    const clientId = resolveClientId(c.req.raw);
-    const deviceId = resolveRequestDeviceId(c);
+    const clientContext = loadRouteClientContext(c, resolveClientId, resolveRequestDeviceId);
     if (!input?.guardSecurity) {
       return {
         ...routeContext,
-        clientId,
-        ...(deviceId ? { deviceId } : {}),
+        ...clientContext,
       };
     }
 
@@ -109,8 +107,7 @@ export function createAccountRouteHelpers(
       action: "account",
       scope: "account",
       platform: routeContext.session.platform,
-      clientId,
-      ...(deviceId ? { deviceId } : {}),
+      ...clientContext,
       actorUserId: routeContext.session.userId,
       traceId: routeContext.traceId,
     });
@@ -120,8 +117,7 @@ export function createAccountRouteHelpers(
 
     return {
       ...routeContext,
-      clientId,
-      ...(deviceId ? { deviceId } : {}),
+      ...clientContext,
     };
   }
 
