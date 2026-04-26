@@ -1,4 +1,4 @@
-import { ok, type AppKernel } from "@minix/core";
+import { ok, type AppKernel, type BootstrapRuntimeEnvOverride } from "@minix/core";
 
 export function createBaseKernelStub(platform: AppKernel["env"]["platform"]): AppKernel {
   return {
@@ -66,4 +66,39 @@ export function createBaseKernelStub(platform: AppKernel["env"]["platform"]): Ap
       },
     },
   };
+}
+
+export function withBootstrapEnvOverride<TOverride extends BootstrapRuntimeEnvOverride, TResult>(
+  override: TOverride | undefined,
+  run: () => TResult,
+): TResult {
+  const globals = globalThis as typeof globalThis & {
+    __MINIX_BOOTSTRAP_ENV__: TOverride | undefined;
+  };
+  const previous = globals.__MINIX_BOOTSTRAP_ENV__;
+
+  try {
+    globals.__MINIX_BOOTSTRAP_ENV__ = override;
+    return run();
+  } finally {
+    globals.__MINIX_BOOTSTRAP_ENV__ = previous;
+  }
+}
+
+export function withBootstrapLocationSearch<TResult>(search: string | undefined, run: () => TResult): TResult {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "location");
+
+  try {
+    Object.defineProperty(globalThis, "location", {
+      configurable: true,
+      value: search === undefined ? undefined : { search },
+    });
+    return run();
+  } finally {
+    if (descriptor) {
+      Object.defineProperty(globalThis, "location", descriptor);
+    } else {
+      delete (globalThis as typeof globalThis & { location?: unknown }).location;
+    }
+  }
 }

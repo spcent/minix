@@ -1,48 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { withBootstrapEnvOverride, withBootstrapLocationSearch } from "@minix/testkit";
+
 import {
   NOVEL_H5_DEFAULT_API_BASE_URL,
   NOVEL_H5_MOCK_API_BASE_URL,
   loadNovelH5Env,
-  type NovelH5BootstrapEnvOverride,
 } from "./env";
-
-function withBootstrapEnvOverride(override: NovelH5BootstrapEnvOverride | undefined, run: () => void) {
-  const globals = globalThis as typeof globalThis & {
-    __MINIX_BOOTSTRAP_ENV__: NovelH5BootstrapEnvOverride | undefined;
-  };
-  const previous = globals.__MINIX_BOOTSTRAP_ENV__;
-
-  try {
-    globals.__MINIX_BOOTSTRAP_ENV__ = override;
-    run();
-  } finally {
-    globals.__MINIX_BOOTSTRAP_ENV__ = previous;
-  }
-}
-
-function withLocationSearch(search: string | undefined, run: () => void) {
-  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "location");
-
-  try {
-    Object.defineProperty(globalThis, "location", {
-      configurable: true,
-      value: search === undefined ? undefined : { search },
-    });
-    run();
-  } finally {
-    if (descriptor) {
-      Object.defineProperty(globalThis, "location", descriptor);
-    } else {
-      delete (globalThis as typeof globalThis & { location?: unknown }).location;
-    }
-  }
-}
 
 test("novel h5 env defaults to the local hono api on port 3000", () => {
   withBootstrapEnvOverride(undefined, () => {
-    withLocationSearch(undefined, () => {
+    withBootstrapLocationSearch(undefined, () => {
       const env = loadNovelH5Env();
 
       assert.equal(env.apiBaseUrl, NOVEL_H5_DEFAULT_API_BASE_URL);
@@ -53,7 +22,7 @@ test("novel h5 env defaults to the local hono api on port 3000", () => {
 
 test("novel h5 env can opt into the mock adapter from the browser query string", () => {
   withBootstrapEnvOverride(undefined, () => {
-    withLocationSearch("?minix_use_mock=1", () => {
+    withBootstrapLocationSearch("?minix_use_mock=1", () => {
       const env = loadNovelH5Env();
 
       assert.equal(env.apiBaseUrl, NOVEL_H5_MOCK_API_BASE_URL);

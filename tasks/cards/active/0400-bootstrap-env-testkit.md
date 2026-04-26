@@ -80,12 +80,23 @@ Make official host env tests shorter and less fragile by reusing one test utilit
 - final verifier handoff:
   - host env tests should not define local global override helpers.
 
+## Implementation Notes
+
+- Added `withBootstrapEnvOverride` and `withBootstrapLocationSearch` to `@minix/testkit`.
+- Removed repeated local global override helpers from all official host env tests.
+- Kept H5-only location query coverage explicit in H5 env tests.
+
+## Verification Notes
+
+- Ran `node --import tsx --test apps/host-h5/src/bootstrap/env.test.ts apps/novel-h5/src/bootstrap/env.test.ts apps/host-wechat/src/bootstrap/env.test.ts apps/novel-wechat/src/bootstrap/env.test.ts`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

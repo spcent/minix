@@ -1,26 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { withBootstrapEnvOverride } from "@minix/testkit";
+
 import {
   NOVEL_WECHAT_DEFAULT_API_BASE_URL,
   NOVEL_WECHAT_MOCK_API_BASE_URL,
   loadNovelWechatEnv,
-  type NovelWechatBootstrapEnvOverride,
 } from "./env";
-
-function withBootstrapEnvOverride(override: NovelWechatBootstrapEnvOverride | undefined, run: () => void) {
-  const globals = globalThis as typeof globalThis & {
-    __MINIX_BOOTSTRAP_ENV__: NovelWechatBootstrapEnvOverride | undefined;
-  };
-  const previous = globals.__MINIX_BOOTSTRAP_ENV__;
-
-  try {
-    globals.__MINIX_BOOTSTRAP_ENV__ = override;
-    run();
-  } finally {
-    globals.__MINIX_BOOTSTRAP_ENV__ = previous;
-  }
-}
 
 test("novel wechat env defaults to the local hono api on port 3000", () => {
   withBootstrapEnvOverride(undefined, () => {
