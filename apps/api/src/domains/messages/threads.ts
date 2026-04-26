@@ -31,7 +31,8 @@ import type { StoredMessageThreadRecord, UserState } from "../../types";
 import { isProductionProviderMode, isSampleProviderMode, resolveProviderPostureMode } from "../provider-posture";
 import type { NotificationChannelProviderRuntimeEnv } from "../settings/state";
 import { cloneDomainSnapshot } from "../snapshot";
-import { cloneTouchpoints, DEFAULT_MESSAGE_TOUCHPOINTS, cloneMessageTouchpointsForItem } from "./touchpoints";
+import { cloneMessageBodyItem, cloneMessageItems, cloneMessageThread } from "./snapshots";
+import { cloneTouchpoints, DEFAULT_MESSAGE_TOUCHPOINTS } from "./touchpoints";
 
 const MESSAGE_POLL_INTERVAL_MS = 5_000;
 
@@ -354,64 +355,6 @@ const THREAD_MESSAGE_SEEDS: Record<string, MessageBodyItem[]> = {
     },
   ],
 };
-
-function cloneThreadMembers(members: MessageThreadMember[]): MessageThreadMember[] {
-  return members.map((member) => ({
-    userId: member.userId,
-    label: member.label,
-    role: member.role,
-    active: member.active,
-    canReply: member.canReply,
-    ...(member.joinedAt ? { joinedAt: member.joinedAt } : {}),
-  }));
-}
-
-function cloneMessageThread(
-  thread: MessageThread,
-  userState?: UserState,
-  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
-): MessageThread {
-  return {
-    ...thread,
-    participantLabels: [...thread.participantLabels],
-    touchpoints: cloneTouchpoints(thread.touchpoints, userState, {
-      resourceId: `thread:${thread.threadId}`,
-      resourceLabel: `thread.${thread.type}`,
-      ...(thread.lastMessageAt ? { createdAt: thread.lastMessageAt } : {}),
-    }, runtimeEnv),
-    ...(thread.replyPolicy ? { replyPolicy: thread.replyPolicy } : {}),
-    ...(thread.members ? { members: cloneThreadMembers(thread.members) } : {}),
-    ...(thread.assignment ? { assignment: cloneDomainSnapshot(thread.assignment) } : {}),
-    ...(thread.consultationProgress ? { consultationProgress: cloneDomainSnapshot(thread.consultationProgress) } : {}),
-    ...(thread.supportProgress ? { supportProgress: cloneDomainSnapshot(thread.supportProgress) } : {}),
-    ...(thread.groupState ? { groupState: cloneDomainSnapshot(thread.groupState) } : {}),
-    ...(thread.syncState ? { syncState: cloneDomainSnapshot(thread.syncState) } : {}),
-  };
-}
-
-function cloneMessageBodyItem(
-  message: MessageBodyItem,
-  userState?: UserState,
-  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
-): MessageBodyItem {
-  return {
-    ...message,
-    ...(message.updatedAt ? { updatedAt: message.updatedAt } : {}),
-    ...(message.readAt ? { readAt: message.readAt } : {}),
-    ...(message.deliveredAt ? { deliveredAt: message.deliveredAt } : {}),
-    ...(message.failureCode ? { failureCode: message.failureCode } : {}),
-    ...(message.failureMessage ? { failureMessage: message.failureMessage } : {}),
-    touchpoints: cloneMessageTouchpointsForItem(message, userState, runtimeEnv),
-  };
-}
-
-function cloneMessageItems(
-  messages: MessageBodyItem[],
-  userState?: UserState,
-  runtimeEnv?: NotificationChannelProviderRuntimeEnv,
-): MessageBodyItem[] {
-  return messages.map((message) => cloneMessageBodyItem(message, userState, runtimeEnv));
-}
 
 function createThreadSyncState(
   cursor: string,

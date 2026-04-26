@@ -1,6 +1,6 @@
 # Message Thread Runtime Snapshot Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -35,7 +35,13 @@ Use shared message snapshot helpers in the message thread runtime.
 
 ## Acceptance
 
-- [ ] runtime imports shared snapshot helpers
-- [ ] private duplicate clone helpers are removed
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] runtime imports shared snapshot helpers
+- [x] private duplicate clone helpers are removed
+- [x] API tests still pass
+- [x] `pnpm verify:api` run for this code slice
+
+## Completion Notes
+
+- Replaced message runtime private clone helpers with imports from `domains/messages/snapshots`.
+- Removed duplicate member, thread, item, and item-array clone implementations from `threads.ts`.
+- Preserved existing dispatch/touchpoint and domain context logic in the runtime.
