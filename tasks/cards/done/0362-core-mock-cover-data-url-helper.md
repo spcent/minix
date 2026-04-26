@@ -1,6 +1,6 @@
 # Core Mock Cover Data URL Helper
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -35,7 +35,13 @@ Official mock adapters should reuse a single data-only helper for generated samp
 
 ## Acceptance
 
-- [ ] mock cover helper is exported through `@minix/core`
-- [ ] helper keeps product-specific cover inputs caller-owned
-- [ ] runtime tests cover generated data URL content
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] mock cover helper is exported through `@minix/core`
+- [x] helper keeps product-specific cover inputs caller-owned
+- [x] runtime tests cover generated data URL content
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added `createMockSvgCoverDataUrl` to core mock request helpers.
+- Covered deterministic data URL prefix, title encoding, and accent color preservation.
+- Ran `pnpm test -- packages/core/src/runtime/*.test.ts`; the repo test script executed successfully.

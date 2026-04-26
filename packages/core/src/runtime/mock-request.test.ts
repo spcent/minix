@@ -6,6 +6,7 @@ import {
   coerceMockQueryString,
   createJsonMockResponse,
   createMockBearerAuthorizationHeader,
+  createMockSvgCoverDataUrl,
   matchesMockBearerAuthorizationHeader,
   paginateMockItems,
   resolveMockRequestPath,
@@ -32,6 +33,21 @@ test("mock bearer auth helpers build and match authorization headers", () => {
   assert.equal(matchesMockBearerAuthorizationHeader("Bearer mock-token", "mock-token"), true);
   assert.equal(matchesMockBearerAuthorizationHeader("Bearer other-token", "mock-token"), false);
   assert.equal(matchesMockBearerAuthorizationHeader(undefined, "mock-token"), false);
+});
+
+test("createMockSvgCoverDataUrl returns an encoded deterministic svg cover", () => {
+  const dataUrl = createMockSvgCoverDataUrl({
+    title: "Ashes Of The Lantern",
+    accent: "#f4b860",
+    backgroundStart: "#0f1d2f",
+    backgroundEnd: "#314a5f",
+  });
+  const [, encodedSvg] = dataUrl.split(",");
+
+  assert.equal(dataUrl.startsWith("data:image/svg+xml;charset=utf-8,"), true);
+  assert.ok(encodedSvg);
+  assert.equal(decodeURIComponent(encodedSvg).includes("Ashes Of The Lantern cover"), true);
+  assert.equal(decodeURIComponent(encodedSvg).includes("#f4b860"), true);
 });
 
 test("mock query coercion helpers normalize query values", () => {
