@@ -1,7 +1,15 @@
 import { SHARE_CHANNEL_KINDS, SHARE_RETURN_OUTCOMES, SHARE_SCENARIOS, type SharePrepareRequest } from "@minix/contracts";
 import { z } from "zod";
 
-import { apiActorContextSchema, apiAuthRedirectTargetSchema, apiRouteParamsSchema, apiSourceContextSchema } from "../schema-helpers";
+import {
+  apiActorContextSchema,
+  apiAuthRedirectTargetSchema,
+  apiRouteParamsSchema,
+  apiSourceContextSchema,
+  normalizeApiActorContext,
+  normalizeApiAuthRedirectTarget,
+  normalizeApiSourceContext,
+} from "../schema-helpers";
 
 export const shareRedirectTargetSchema = apiAuthRedirectTargetSchema;
 
@@ -86,19 +94,7 @@ export const shareAttributionReportSchema = z.object({
 });
 
 export function normalizeSharePrepareRequest(payload: z.infer<typeof sharePrepareSchema>): SharePrepareRequest {
-  const normalizeRedirectTarget = (value: z.infer<typeof shareRedirectTargetSchema> | undefined) =>
-    value
-      ? {
-          ...(value.routeId !== undefined ? { routeId: value.routeId } : {}),
-          ...(value.path !== undefined ? { path: value.path } : {}),
-          ...(value.params !== undefined ? { params: value.params } : {}),
-          ...(value.source !== undefined ? { source: value.source } : {}),
-          ...(value.label !== undefined ? { label: value.label } : {}),
-          ...(value.reason !== undefined ? { reason: value.reason } : {}),
-          ...(value.forceReauth !== undefined ? { forceReauth: value.forceReauth } : {}),
-        }
-      : undefined;
-  const landingAuthRedirect = normalizeRedirectTarget(payload.sharePayload.landingTarget?.authRedirect);
+  const landingAuthRedirect = normalizeApiAuthRedirectTarget(payload.sharePayload.landingTarget?.authRedirect);
   const landingTarget = payload.sharePayload.landingTarget
     ? {
         ...(payload.sharePayload.landingTarget.routeId !== undefined
@@ -119,9 +115,11 @@ export function normalizeSharePrepareRequest(payload: z.infer<typeof sharePrepar
         ...(landingAuthRedirect !== undefined ? { authRedirect: landingAuthRedirect } : {}),
       }
     : undefined;
-  const returnTarget = normalizeRedirectTarget(payload.sharePayload.returnTarget);
-  const attributionReturnTarget = normalizeRedirectTarget(payload.shareAttribution.returnTarget);
-  const redirectTarget = normalizeRedirectTarget(payload.redirectTarget);
+  const sourceContext = normalizeApiSourceContext(payload.sharePayload.sourceContext);
+  const returnTarget = normalizeApiAuthRedirectTarget(payload.sharePayload.returnTarget);
+  const actorContext = normalizeApiActorContext(payload.shareAttribution.actorContext);
+  const attributionReturnTarget = normalizeApiAuthRedirectTarget(payload.shareAttribution.returnTarget);
+  const redirectTarget = normalizeApiAuthRedirectTarget(payload.redirectTarget);
 
   return {
     sharePayload: {
@@ -140,16 +138,7 @@ export function normalizeSharePrepareRequest(payload: z.infer<typeof sharePrepar
       ...(payload.sharePayload.contentId !== undefined ? { contentId: payload.sharePayload.contentId } : {}),
       ...(payload.sharePayload.inviteCode !== undefined ? { inviteCode: payload.sharePayload.inviteCode } : {}),
       ...(payload.sharePayload.shareToken !== undefined ? { shareToken: payload.sharePayload.shareToken } : {}),
-      ...(payload.sharePayload.sourceContext !== undefined
-        ? {
-            sourceContext: {
-              ...(payload.sharePayload.sourceContext.pagePath !== undefined ? { pagePath: payload.sharePayload.sourceContext.pagePath } : {}),
-              ...(payload.sharePayload.sourceContext.routeId !== undefined ? { routeId: payload.sharePayload.sourceContext.routeId } : {}),
-              ...(payload.sharePayload.sourceContext.label !== undefined ? { label: payload.sharePayload.sourceContext.label } : {}),
-              ...(payload.sharePayload.sourceContext.params !== undefined ? { params: payload.sharePayload.sourceContext.params } : {}),
-            },
-          }
-        : {}),
+      ...(sourceContext !== undefined ? { sourceContext } : {}),
       ...(landingTarget !== undefined ? { landingTarget } : {}),
       ...(returnTarget !== undefined ? { returnTarget } : {}),
     },
@@ -162,18 +151,7 @@ export function normalizeSharePrepareRequest(payload: z.infer<typeof sharePrepar
     shareAttribution: {
       ...(payload.shareAttribution.attributionId !== undefined ? { attributionId: payload.shareAttribution.attributionId } : {}),
       ...(payload.shareAttribution.channelMarker !== undefined ? { channelMarker: payload.shareAttribution.channelMarker } : {}),
-      ...(payload.shareAttribution.actorContext !== undefined
-        ? {
-            actorContext: {
-              ...(payload.shareAttribution.actorContext.userId !== undefined ? { userId: payload.shareAttribution.actorContext.userId } : {}),
-              ...(payload.shareAttribution.actorContext.platform !== undefined ? { platform: payload.shareAttribution.actorContext.platform } : {}),
-              ...(payload.shareAttribution.actorContext.appVersion !== undefined ? { appVersion: payload.shareAttribution.actorContext.appVersion } : {}),
-              ...(payload.shareAttribution.actorContext.deviceSummary !== undefined
-                ? { deviceSummary: payload.shareAttribution.actorContext.deviceSummary }
-                : {}),
-            },
-          }
-        : {}),
+      ...(actorContext !== undefined ? { actorContext } : {}),
       inviteBindingEnabled: payload.shareAttribution.inviteBindingEnabled,
       returnFlowRecognized: payload.shareAttribution.returnFlowRecognized,
       shareCount: payload.shareAttribution.shareCount,

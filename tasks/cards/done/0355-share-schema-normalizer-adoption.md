@@ -1,6 +1,6 @@
 # Share Schema Normalizer Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -35,7 +35,13 @@ Share growth request normalization should stay readable and portable as landing,
 
 ## Acceptance
 
-- [ ] share normalizer removes duplicated redirect and context copy logic
-- [ ] share prepare request shape is unchanged
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] share normalizer removes duplicated redirect and context copy logic
+- [x] share prepare request shape is unchanged
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Reused API schema normalizers for share source context, attribution actor context, and redirect targets.
+- Kept landing target domain-specific shaping local to share.
+- Ran `pnpm verify:api`; it passed.
