@@ -32,7 +32,7 @@ import {
 } from "../provider-posture";
 import { cloneOptionalDomainSnapshot } from "../snapshot";
 import type { ApiBindings, StoredUploadRecord, UserState } from "../../types";
-import { cloneUploadAsset } from "./assets";
+import { cloneUploadAsset, createUploadAssetVariant } from "./assets";
 
 const DEFAULT_UPLOAD_CHUNK_SIZE_BYTES = 64 * 1024;
 const REDUCED_UPLOAD_CHUNK_SIZE_BYTES = 16 * 1024;
@@ -542,35 +542,35 @@ function createUploadCleanupSummary(cleanupRecord: UploadCleanupRecord | undefin
 
 function createDerivedAssetVariants(asset: UploadAsset): NonNullable<UploadAsset["metadata"]["variants"]> {
   const variants: NonNullable<UploadAsset["metadata"]["variants"]> = [
-    {
+    createUploadAssetVariant({
       kind: "original",
       url: asset.url,
       label: "Original asset",
-      ...(asset.metadata.width !== undefined ? { width: asset.metadata.width } : {}),
-      ...(asset.metadata.height !== undefined ? { height: asset.metadata.height } : {}),
-      ...(asset.metadata.durationSeconds !== undefined ? { durationSeconds: asset.metadata.durationSeconds } : {}),
-      ...(asset.metadata.pageCount !== undefined ? { pageCount: asset.metadata.pageCount } : {}),
-    },
+      width: asset.metadata.width,
+      height: asset.metadata.height,
+      durationSeconds: asset.metadata.durationSeconds,
+      pageCount: asset.metadata.pageCount,
+    }),
   ];
 
   if (asset.thumbnailUrl) {
-    variants.push({
+    variants.push(createUploadAssetVariant({
       kind: "thumbnail",
       url: asset.thumbnailUrl,
       label: "Thumbnail",
-      ...(asset.metadata.width !== undefined ? { width: Math.max(1, Math.round(asset.metadata.width / 4)) } : {}),
-      ...(asset.metadata.height !== undefined ? { height: Math.max(1, Math.round(asset.metadata.height / 4)) } : {}),
-    });
+      width: asset.metadata.width !== undefined ? Math.max(1, Math.round(asset.metadata.width / 4)) : undefined,
+      height: asset.metadata.height !== undefined ? Math.max(1, Math.round(asset.metadata.height / 4)) : undefined,
+    }));
   }
 
   if (asset.coverImageUrl) {
-    variants.push({
+    variants.push(createUploadAssetVariant({
       kind: "cover",
       url: asset.coverImageUrl,
       label: "Cover image",
-      ...(asset.metadata.width !== undefined ? { width: asset.metadata.width } : {}),
-      ...(asset.metadata.height !== undefined ? { height: asset.metadata.height } : {}),
-    });
+      width: asset.metadata.width,
+      height: asset.metadata.height,
+    }));
   }
 
   return variants;

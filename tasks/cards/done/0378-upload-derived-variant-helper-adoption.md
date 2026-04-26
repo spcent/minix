@@ -1,6 +1,6 @@
 # Upload Derived Variant Helper Adoption
 
-Status: active
+Status: done
 
 ## Summary
 
@@ -36,7 +36,13 @@ Derived upload asset variants should use the same optional dimension shaping as 
 
 ## Acceptance
 
-- [ ] derived variant builder preserves optional dimensions
-- [ ] thumbnail scaling remains unchanged
-- [ ] API tests still pass
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] derived variant builder preserves optional dimensions
+- [x] thumbnail scaling remains unchanged
+- [x] API tests still pass
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Completion Notes
+
+- Added `createUploadAssetVariant` to centralize optional dimension shaping.
+- Refactored derived original, thumbnail, and cover variants to use the shared builder.
+- Verified with `pnpm verify:api`.

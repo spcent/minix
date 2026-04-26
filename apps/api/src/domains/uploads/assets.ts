@@ -1,15 +1,29 @@
 import type { UploadAsset, UploadAssetMetadata, UploadDerivedAssetVariant } from "@minix/contracts";
 
-export function cloneUploadAssetVariant(variant: UploadDerivedAssetVariant): UploadDerivedAssetVariant {
+type UploadAssetVariantInput = {
+  kind: UploadDerivedAssetVariant["kind"];
+  url: string;
+  label: string;
+  width?: number | undefined;
+  height?: number | undefined;
+  durationSeconds?: number | undefined;
+  pageCount?: number | undefined;
+};
+
+export function createUploadAssetVariant(input: UploadAssetVariantInput): UploadDerivedAssetVariant {
   return {
-    kind: variant.kind,
-    url: variant.url,
-    label: variant.label,
-    ...(variant.width !== undefined ? { width: variant.width } : {}),
-    ...(variant.height !== undefined ? { height: variant.height } : {}),
-    ...(variant.durationSeconds !== undefined ? { durationSeconds: variant.durationSeconds } : {}),
-    ...(variant.pageCount !== undefined ? { pageCount: variant.pageCount } : {}),
+    kind: input.kind,
+    url: input.url,
+    label: input.label,
+    ...(input.width !== undefined ? { width: input.width } : {}),
+    ...(input.height !== undefined ? { height: input.height } : {}),
+    ...(input.durationSeconds !== undefined ? { durationSeconds: input.durationSeconds } : {}),
+    ...(input.pageCount !== undefined ? { pageCount: input.pageCount } : {}),
   };
+}
+
+export function cloneUploadAssetVariant(variant: UploadDerivedAssetVariant): UploadDerivedAssetVariant {
+  return createUploadAssetVariant(variant);
 }
 
 export function cloneUploadAssetMetadata(metadata: UploadAssetMetadata): UploadAssetMetadata {

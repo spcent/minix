@@ -3,7 +3,7 @@ import test from "node:test";
 
 import type { UploadAsset, UploadAssetMetadata, UploadDerivedAssetVariant } from "@minix/contracts";
 
-import { cloneUploadAsset, cloneUploadAssetMetadata, cloneUploadAssetVariant } from "./assets";
+import { cloneUploadAsset, cloneUploadAssetMetadata, cloneUploadAssetVariant, createUploadAssetVariant } from "./assets";
 
 test("upload asset variant helper preserves optional dimensions", () => {
   const variant: UploadDerivedAssetVariant = {
@@ -17,6 +17,27 @@ test("upload asset variant helper preserves optional dimensions", () => {
   };
 
   assert.deepEqual(cloneUploadAssetVariant(variant), variant);
+});
+
+test("upload asset variant builder omits undefined dimensions and preserves zero values", () => {
+  assert.deepEqual(
+    createUploadAssetVariant({
+      kind: "original",
+      url: "https://assets.example.test/original.mp4",
+      label: "Original",
+      width: undefined,
+      height: 0,
+      durationSeconds: 0,
+      pageCount: undefined,
+    }),
+    {
+      kind: "original",
+      url: "https://assets.example.test/original.mp4",
+      label: "Original",
+      height: 0,
+      durationSeconds: 0,
+    },
+  );
 });
 
 test("upload asset metadata helper clones variants and review annotations", () => {
