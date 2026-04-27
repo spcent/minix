@@ -6,7 +6,7 @@ import type {
 } from "@minix/contracts";
 
 import type { UserState } from "../../types";
-import { cloneDomainSnapshot, cloneDomainSnapshotArray } from "../snapshot";
+import { cloneDefinedDomainFields, cloneDomainSnapshot, cloneDomainSnapshotArray } from "../snapshot";
 
 export type ManagedContentEntrySnapshot = NonNullable<UserState["managedContentById"]>[string];
 
@@ -22,24 +22,26 @@ export function cloneManagedContentLifecycle(lifecycle: ContentLifecycle): Conte
   return {
     state: lifecycle.state,
     availableActions: [...lifecycle.availableActions],
-    ...(lifecycle.publishedAt !== undefined ? { publishedAt: lifecycle.publishedAt } : {}),
-    ...(lifecycle.updatedAt !== undefined ? { updatedAt: lifecycle.updatedAt } : {}),
-    ...(lifecycle.offlineAt !== undefined ? { offlineAt: lifecycle.offlineAt } : {}),
-    ...(lifecycle.reviewMessage !== undefined ? { reviewMessage: lifecycle.reviewMessage } : {}),
-    ...(lifecycle.moderationSummary !== undefined ? { moderationSummary: lifecycle.moderationSummary } : {}),
+    ...cloneDefinedDomainFields(lifecycle, [
+      "publishedAt",
+      "updatedAt",
+      "offlineAt",
+      "reviewMessage",
+      "moderationSummary",
+    ]),
   };
 }
 
 export function cloneManagedContentAuthoring(authoring: ContentAuthoringData): ContentAuthoringData {
   return {
     title: authoring.title,
-    ...(authoring.subtitle !== undefined ? { subtitle: authoring.subtitle } : {}),
+    ...cloneDefinedDomainFields(authoring, ["subtitle"]),
     summary: authoring.summary,
-    ...(authoring.bodyPreview !== undefined ? { bodyPreview: authoring.bodyPreview } : {}),
+    ...cloneDefinedDomainFields(authoring, ["bodyPreview"]),
     visibility: authoring.visibility,
     category: cloneDomainSnapshot(authoring.category),
     tags: cloneDomainSnapshotArray(authoring.tags),
-    ...(authoring.coverAssetId !== undefined ? { coverAssetId: authoring.coverAssetId } : {}),
+    ...cloneDefinedDomainFields(authoring, ["coverAssetId"]),
     attachmentAssetIds: [...authoring.attachmentAssetIds],
   };
 }
@@ -52,13 +54,13 @@ export function cloneManagedContentEntry(entry: ManagedContentEntrySnapshot): Ma
     lifecycle: cloneManagedContentLifecycle(entry.lifecycle),
     authorLabel: entry.authorLabel,
     title: entry.title,
-    ...(entry.subtitle !== undefined ? { subtitle: entry.subtitle } : {}),
+    ...cloneDefinedDomainFields(entry, ["subtitle"]),
     summary: entry.summary,
-    ...(entry.bodyPreview !== undefined ? { bodyPreview: entry.bodyPreview } : {}),
+    ...cloneDefinedDomainFields(entry, ["bodyPreview"]),
     categoryKey: entry.categoryKey,
     categoryLabel: entry.categoryLabel,
     tags: cloneDomainSnapshotArray(entry.tags),
-    ...(entry.coverAssetId !== undefined ? { coverAssetId: entry.coverAssetId } : {}),
+    ...cloneDefinedDomainFields(entry, ["coverAssetId"]),
     attachments: cloneDomainSnapshotArray(entry.attachments),
     reviewRecord: cloneManagedContentReviewRecord(entry.reviewRecord),
     auditHistory: cloneManagedContentAuditHistory(entry.auditHistory),
