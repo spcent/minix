@@ -1,6 +1,7 @@
 import type { BookshelfState } from "@minix/feature-bookshelf";
 
 import type { NovelH5PageRenderContext } from "../types";
+import { renderChipRow } from "../components/chip-row";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, formatDate, renderActionButton } from "../utils";
@@ -127,11 +128,11 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
               ? `
                 <article class="nh-spotlight-card">
                   <div class="nh-grid">
-                    <div class="nh-chip-row">
-                      ${state.pinnedNovelId === selected.novelId ? '<span class="nh-chip">Pinned</span>' : ""}
-                      ${selected.hasUpdate ? '<span class="nh-chip">Updated</span>' : '<span class="nh-chip">Stable</span>'}
-                      ${selected.progressPercent !== undefined ? `<span class="nh-chip">${Math.round(selected.progressPercent * 100)}% read</span>` : ""}
-                    </div>
+                    ${renderChipRow([
+                      state.pinnedNovelId === selected.novelId ? "Pinned" : undefined,
+                      selected.hasUpdate ? "Updated" : "Stable",
+                      selected.progressPercent !== undefined ? `${Math.round(selected.progressPercent * 100)}% read` : undefined,
+                    ])}
                     <h2 class="nh-title-small">${escapeHtml(selected.title)}</h2>
                     <p class="nh-item-subtitle">${escapeHtml(selected.authorName)}</p>
                     <p class="nh-copy">
@@ -267,7 +268,7 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
         })}
         ${
           state.programMilestoneMeta
-            ? `<div class="nh-chip-row"><span class="nh-chip">${escapeHtml(state.programMilestoneMeta)}</span></div>`
+            ? renderChipRow([state.programMilestoneMeta])
             : ""
         }
       </section>
@@ -289,11 +290,7 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
                         <div class="nh-kicker">${escapeHtml(item.typeLabel)}</div>
                         <h2 class="nh-item-title">${escapeHtml(item.title)}</h2>
                         <p class="nh-item-copy">${escapeHtml(item.copy)}</p>
-                        <div class="nh-chip-row">
-                          <span class="nh-chip">${escapeHtml(item.sourceLabel)}</span>
-                          ${item.recencyLabel ? `<span class="nh-chip">${escapeHtml(item.recencyLabel)}</span>` : ""}
-                          ${item.meta ? `<span class="nh-chip">${escapeHtml(item.meta)}</span>` : ""}
-                        </div>
+                        ${renderChipRow([item.sourceLabel, item.recencyLabel, item.meta])}
                         <p class="nh-item-copy">${escapeHtml(item.returnHint)}</p>
                         ${
                           item.source === "bookshelf"
@@ -321,12 +318,12 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
                 .map(
                   (item) => `
                     <article class="nh-item nh-item-activeable${state.selectedNovelId === item.novelId ? " nh-item-active" : ""}">
-                      <div class="nh-chip-row">
-                        ${state.pinnedNovelId === item.novelId ? '<span class="nh-chip">Pinned</span>' : ""}
-                        ${item.hasUpdate ? '<span class="nh-chip">Updated</span>' : ""}
-                        ${item.progressPercent !== undefined ? `<span class="nh-chip">${Math.round(item.progressPercent * 100)}% read</span>` : ""}
-                        ${isCompleted(item.progressPercent) ? '<span class="nh-chip">Completed</span>' : ""}
-                      </div>
+                      ${renderChipRow([
+                        state.pinnedNovelId === item.novelId ? "Pinned" : undefined,
+                        item.hasUpdate ? "Updated" : undefined,
+                        item.progressPercent !== undefined ? `${Math.round(item.progressPercent * 100)}% read` : undefined,
+                        isCompleted(item.progressPercent) ? "Completed" : undefined,
+                      ])}
                       <h2 class="nh-item-title">${escapeHtml(item.title)}</h2>
                       <p class="nh-item-subtitle">${escapeHtml(item.authorName)}</p>
                       <p class="nh-item-copy">Continue at ${escapeHtml(item.continueChapterTitle ?? item.latestChapterTitle ?? "the latest chapter")} · ${escapeHtml(formatDate(item.updatedAt))}</p>

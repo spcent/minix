@@ -79,18 +79,21 @@ Replace repeated membership and bookshelf milestone/status chip markup with the 
 
 ## Implementation Notes
 
-- Pending.
+- Adopted `renderChipRow` for membership hero, plan status, latest milestone, and milestone history chips.
+- Adopted `renderChipRow` for bookshelf spotlight, reading milestone, milestone history, and inventory status chips.
+- Preserved existing labels while moving optional-chip filtering and escaping into the shared component.
 
 ## Verification Notes
 
-- Pending.
+- Ran `pnpm verify:host novel-h5`.
+- Ran `pnpm typecheck`.
 
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

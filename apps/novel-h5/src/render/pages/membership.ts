@@ -1,6 +1,7 @@
 import type { SubscriptionState } from "@minix/feature-subscription";
 
 import type { NovelH5PageRenderContext } from "../types";
+import { renderChipRow } from "../components/chip-row";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, renderActionButton } from "../utils";
@@ -114,11 +115,7 @@ export function renderMembershipPage(context: NovelH5PageRenderContext, state: S
           <div class="nh-kicker">Membership</div>
           <h1 class="nh-title">${escapeHtml(state.overview?.headline ?? state.title)}</h1>
           <p class="nh-copy">${escapeHtml(state.overview?.subheadline ?? "Unlock premium chapters, serialized continuations, and calm reading continuity.")}</p>
-          <div class="nh-chip-row">
-            <span class="nh-chip">Instant unlock</span>
-            <span class="nh-chip">Reader progress preserved</span>
-            <span class="nh-chip">${escapeHtml(isUnlocked ? "Membership active" : "Cancel anytime")}</span>
-          </div>
+          ${renderChipRow(["Instant unlock", "Reader progress preserved", isUnlocked ? "Membership active" : "Cancel anytime"])}
           ${state.lockedMessage ? `<div class="nh-lock-banner"><p class="nh-note">${escapeHtml(state.lockedMessage)}</p></div>` : ""}
           <div class="nh-stat-strip">
             <article class="nh-stat-panel">
@@ -188,18 +185,10 @@ export function renderMembershipPage(context: NovelH5PageRenderContext, state: S
                 (plan) => `
                   <article class="nh-plan-card${plan.accent ? " nh-plan-card-accent" : ""}">
                     <div class="nh-grid">
-                      <div class="nh-chip-row">
-                        ${
-                          plan.id === recommendedPlanId
-                            ? '<span class="nh-chip">Recommended</span>'
-                            : ""
-                        }
-                        ${
-                          state.lastPurchasedPlanId === plan.id
-                            ? '<span class="nh-chip">Current plan</span>'
-                            : ""
-                        }
-                      </div>
+                      ${renderChipRow([
+                        plan.id === recommendedPlanId ? "Recommended" : undefined,
+                        state.lastPurchasedPlanId === plan.id ? "Current plan" : undefined,
+                      ])}
                       <div class="nh-kicker">${escapeHtml(plan.name)}</div>
                       <div class="nh-plan-price-line">
                         <h3 class="nh-title-small">${escapeHtml(plan.price)}</h3>
@@ -286,11 +275,11 @@ export function renderMembershipPage(context: NovelH5PageRenderContext, state: S
                     <div class="nh-kicker">Latest milestone</div>
                     <h2 class="nh-item-title">${escapeHtml(state.latestMilestoneTitle)}</h2>
                     <p class="nh-item-copy">${escapeHtml(state.latestMilestoneCopy ?? "Premium continuity should remember the latest completed milestone as well as the next blocked step.")}</p>
-                    <div class="nh-chip-row">
-                      ${state.latestMilestoneSourceLabel ? `<span class="nh-chip">${escapeHtml(state.latestMilestoneSourceLabel)}</span>` : ""}
-                      ${state.latestMilestoneRecencyLabel ? `<span class="nh-chip">${escapeHtml(state.latestMilestoneRecencyLabel)}</span>` : ""}
-                      ${state.latestMilestoneMeta ? `<span class="nh-chip">${escapeHtml(state.latestMilestoneMeta)}</span>` : ""}
-                    </div>
+                    ${renderChipRow([
+                      state.latestMilestoneSourceLabel,
+                      state.latestMilestoneRecencyLabel,
+                      state.latestMilestoneMeta,
+                    ])}
                     ${
                       state.latestMilestoneReturnHint
                         ? `<p class="nh-item-copy">${escapeHtml(state.latestMilestoneReturnHint)}</p>`
@@ -400,11 +389,7 @@ export function renderMembershipPage(context: NovelH5PageRenderContext, state: S
                         <div class="nh-kicker">${escapeHtml(item.typeLabel)}</div>
                         <h2 class="nh-item-title">${escapeHtml(item.title)}</h2>
                         <p class="nh-item-copy">${escapeHtml(item.copy)}</p>
-                        <div class="nh-chip-row">
-                          <span class="nh-chip">${escapeHtml(item.sourceLabel)}</span>
-                          ${item.recencyLabel ? `<span class="nh-chip">${escapeHtml(item.recencyLabel)}</span>` : ""}
-                          ${item.meta ? `<span class="nh-chip">${escapeHtml(item.meta)}</span>` : ""}
-                        </div>
+                        ${renderChipRow([item.sourceLabel, item.recencyLabel, item.meta])}
                         <p class="nh-item-copy">${escapeHtml(item.returnHint)}</p>
                         <div class="nh-actions">
                           ${renderActionButton(item.returnLabel, "controller", "openMilestoneHistoryItem", index, "ghost")}
