@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { parseJsonBody, parseQuery } from "../../http/parsing";
+import { parseRouteBody, parseRouteQuery } from "../../http/route-context";
 import { OPERATIONAL_JOB_KINDS, type ApiStore, type OperationalJobKind } from "../../types";
 import type { ApiRouteBaseOptions } from "../route-options";
 import { pickDefinedApiFields } from "../schema-helpers";
@@ -58,8 +58,7 @@ export function registerOpsRoutes(options: RegisterOpsRoutesOptions) {
   app.use("/ops/*", requireSession);
 
   app.get("/ops/diagnostics", async (c) => {
-    const traceId = c.get("traceId");
-    const query = parseQuery(new URL(c.req.url), opsDiagnosticsQuerySchema, traceId);
+    const query = parseRouteQuery(c, opsDiagnosticsQuerySchema);
     if (query instanceof Response) {
       return query;
     }
@@ -97,8 +96,7 @@ export function registerOpsRoutes(options: RegisterOpsRoutesOptions) {
   });
 
   app.post("/ops/jobs/run", async (c) => {
-    const traceId = c.get("traceId");
-    const payload = await parseJsonBody(c.req.raw, opsRunJobsRequestSchema, traceId);
+    const payload = await parseRouteBody(c, opsRunJobsRequestSchema);
     if (payload instanceof Response) {
       return payload;
     }

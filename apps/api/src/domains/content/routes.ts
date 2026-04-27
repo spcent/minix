@@ -24,7 +24,7 @@ import {
 } from "./managed-content";
 import { listFeed } from "./feed";
 import { CHAPTER_CONTENT, CHAPTER_LISTS, NOVELS } from "../../content";
-import { parseJsonBody, parseQuery } from "../../http/parsing";
+import { getRouteTraceId, parseRouteBody, parseRouteQuery } from "../../http/route-context";
 import { jsonError } from "../../http/response";
 import type { ApiRouteBaseOptions } from "../route-options";
 import { pickDefinedApiFields } from "../schema-helpers";
@@ -57,7 +57,7 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   app.use("/reading-progress", requireSession);
 
   app.get("/feed", async (c) => {
-    const query = parseQuery(new URL(c.req.url), feedQuerySchema, c.get("traceId"));
+    const query = parseRouteQuery(c, feedQuerySchema);
     if (query instanceof Response) {
       return query;
     }
@@ -69,11 +69,12 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   });
 
   app.get("/content/detail", async (c) => {
-    const query = parseQuery(new URL(c.req.url), contentIdQuerySchema, c.get("traceId"));
+    const query = parseRouteQuery(c, contentIdQuerySchema);
     if (query instanceof Response) {
       return query;
     }
 
+    const traceId = getRouteTraceId(c);
     const session = c.get("session");
     const store = resolveStore(c.env);
     const userState = await store.getUserState(session.userId);
@@ -85,15 +86,14 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
       userState,
     );
     if (!response) {
-      return jsonError("NOT_FOUND", "Managed content not found.", 404, c.get("traceId"));
+      return jsonError("NOT_FOUND", "Managed content not found.", 404, traceId);
     }
 
     return c.json(response satisfies ContentDetailResponse);
   });
 
   app.get("/content/review-queue", async (c) => {
-    const traceId = c.get("traceId");
-    const query = parseQuery(new URL(c.req.url), contentReviewQueueQuerySchema, traceId);
+    const query = parseRouteQuery(c, contentReviewQueueQuerySchema);
     if (query instanceof Response) {
       return query;
     }
@@ -111,8 +111,8 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   });
 
   app.post("/content/save-draft", async (c) => {
-    const traceId = c.get("traceId");
-    const payload = await parseJsonBody(c.req.raw, contentDraftSaveSchema, traceId);
+    const traceId = getRouteTraceId(c);
+    const payload = await parseRouteBody(c, contentDraftSaveSchema);
     if (payload instanceof Response) {
       return payload;
     }
@@ -147,8 +147,8 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   });
 
   app.post("/content/lifecycle", async (c) => {
-    const traceId = c.get("traceId");
-    const payload = await parseJsonBody(c.req.raw, contentLifecycleMutationSchema, traceId);
+    const traceId = getRouteTraceId(c);
+    const payload = await parseRouteBody(c, contentLifecycleMutationSchema);
     if (payload instanceof Response) {
       return payload;
     }
@@ -170,7 +170,7 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   });
 
   app.get("/novels", async (c) => {
-    const query = parseQuery(new URL(c.req.url), novelsQuerySchema, c.get("traceId"));
+    const query = parseRouteQuery(c, novelsQuerySchema);
     if (query instanceof Response) {
       return query;
     }
@@ -183,8 +183,8 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   });
 
   app.get("/novels/detail", async (c) => {
-    const traceId = c.get("traceId");
-    const query = parseQuery(new URL(c.req.url), novelIdQuerySchema, traceId);
+    const traceId = getRouteTraceId(c);
+    const query = parseRouteQuery(c, novelIdQuerySchema);
     if (query instanceof Response) {
       return query;
     }
@@ -201,8 +201,8 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   });
 
   app.get("/chapters", async (c) => {
-    const traceId = c.get("traceId");
-    const query = parseQuery(new URL(c.req.url), novelIdQuerySchema, traceId);
+    const traceId = getRouteTraceId(c);
+    const query = parseRouteQuery(c, novelIdQuerySchema);
     if (query instanceof Response) {
       return query;
     }
@@ -219,8 +219,8 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   });
 
   app.get("/chapters/content", async (c) => {
-    const traceId = c.get("traceId");
-    const query = parseQuery(new URL(c.req.url), chapterIdQuerySchema, traceId);
+    const traceId = getRouteTraceId(c);
+    const query = parseRouteQuery(c, chapterIdQuerySchema);
     if (query instanceof Response) {
       return query;
     }
@@ -244,8 +244,8 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   });
 
   app.post("/bookshelf", async (c) => {
-    const traceId = c.get("traceId");
-    const payload = await parseJsonBody(c.req.raw, bookshelfMutationSchema, traceId);
+    const traceId = getRouteTraceId(c);
+    const payload = await parseRouteBody(c, bookshelfMutationSchema);
     if (payload instanceof Response) {
       return payload;
     }
@@ -273,8 +273,8 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   });
 
   app.delete("/bookshelf", async (c) => {
-    const traceId = c.get("traceId");
-    const payload = await parseJsonBody(c.req.raw, bookshelfMutationSchema, traceId);
+    const traceId = getRouteTraceId(c);
+    const payload = await parseRouteBody(c, bookshelfMutationSchema);
     if (payload instanceof Response) {
       return payload;
     }
@@ -302,7 +302,7 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   });
 
   app.get("/reading-progress", async (c) => {
-    const query = parseQuery(new URL(c.req.url), novelIdQuerySchema, c.get("traceId"));
+    const query = parseRouteQuery(c, novelIdQuerySchema);
     if (query instanceof Response) {
       return query;
     }
@@ -317,7 +317,7 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   });
 
   app.post("/reading-progress", async (c) => {
-    const payload = await parseJsonBody(c.req.raw, saveReadingProgressSchema, c.get("traceId"));
+    const payload = await parseRouteBody(c, saveReadingProgressSchema);
     if (payload instanceof Response) {
       return payload;
     }

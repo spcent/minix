@@ -1,6 +1,6 @@
 import type { UpdateSettingsRequest } from "@minix/contracts";
 
-import { parseJsonBody } from "../../http/parsing";
+import { parseRouteBody } from "../../http/route-context";
 import type { ApiStore, SessionRecord } from "../../types";
 import type { ApiRouteBaseOptions } from "../route-options";
 import type { NotificationChannelProviderRuntimeEnv } from "./state";
@@ -34,8 +34,7 @@ export function registerSettingsRoutes(options: RegisterSettingsRoutesOptions) {
   });
 
   app.post("/settings", async (c) => {
-    const traceId = c.get("traceId");
-    const payload = await parseJsonBody(c.req.raw, settingsUpdateSchema, traceId);
+    const payload = await parseRouteBody(c, settingsUpdateSchema);
     if (payload instanceof Response) {
       return payload;
     }
