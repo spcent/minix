@@ -5,6 +5,7 @@ import {
 } from "./rate-limit";
 import { createUnauthorizedResponse, resolveBearerToken } from "./http/auth";
 import { applyCorsHeaders, buildAllowedCorsOrigins, createCorsPreflightResponse, resolveAllowedCorsOrigin } from "./http/cors";
+import { getRouteTraceId } from "./http/route-context";
 import { resolveTraceId } from "./http/response";
 import { registerApiRoutes } from "./app-composition";
 import {
@@ -34,12 +35,12 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     const store = getStore(c.env, options.store);
     const token = resolveBearerToken(c.req.header("authorization"));
     if (!token) {
-      return createUnauthorizedResponse(c.get("traceId"));
+      return createUnauthorizedResponse(getRouteTraceId(c));
     }
 
     const session = await store.getSessionByAccessToken(token);
     if (!session) {
-      return createUnauthorizedResponse(c.get("traceId"));
+      return createUnauthorizedResponse(getRouteTraceId(c));
     }
 
     c.set("session", session);
