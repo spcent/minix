@@ -1,6 +1,7 @@
 import type { ChapterListResponse } from "@minix/contracts";
 import type { ReaderState } from "@minix/feature-reader";
 
+import { renderActionRow } from "./action-row";
 import { describeChapterFlow, findNextChapter } from "./chapter-flow";
 import { renderChipRow } from "./chip-row";
 import { escapeHtml, formatDate, formatCompactNumber, renderActionButton } from "../utils";
@@ -14,10 +15,10 @@ export function renderReaderTocPanelBody(toc: ChapterListResponse, state: Reader
         <p class="nh-meta-label">Novel chapters</p>
         <p class="nh-copy">${toc.totalChapters} chapters across ${toc.volumes.length} volume${toc.volumes.length === 1 ? "" : "s"} with the live reading trail pinned to the current chapter.</p>
       </div>
-      <div class="nh-actions">
-        ${state.chapter?.id ? renderActionButton("Back to current chapter", "controller", "goToChapter", state.chapter.id, "secondary") : ""}
-        ${state.nextChapterTitle ? renderActionButton(`Next · ${state.nextChapterTitle}`, "controller", "goToNextChapter", undefined, "ghost") : ""}
-      </div>
+      ${renderActionRow([
+        state.chapter?.id ? renderActionButton("Back to current chapter", "controller", "goToChapter", state.chapter.id, "secondary") : undefined,
+        state.nextChapterTitle ? renderActionButton(`Next · ${state.nextChapterTitle}`, "controller", "goToNextChapter", undefined, "ghost") : undefined,
+      ])}
       ${renderChipRow([
         `Current ${state.chapter?.title ?? state.title}`,
         state.currentVolumeTitle,
@@ -62,13 +63,11 @@ export function renderReaderTocPanelBody(toc: ChapterListResponse, state: Reader
                           </p>
                           <p class="nh-item-copy">${escapeHtml(descriptor.copy)}</p>
                         </div>
-                        <div class="nh-actions">
-                          ${
-                            chapter.id === state.chapter?.id
-                              ? `<span class="nh-reader-current-pill">Current</span>`
-                              : renderActionButton(descriptor.actionLabel, "controller", "goToChapter", chapter.id, "secondary")
-                          }
-                        </div>
+                        ${renderActionRow([
+                          chapter.id === state.chapter?.id
+                            ? `<span class="nh-reader-current-pill">Current</span>`
+                            : renderActionButton(descriptor.actionLabel, "controller", "goToChapter", chapter.id, "secondary"),
+                        ])}
                       </article>
                     `;
                     },

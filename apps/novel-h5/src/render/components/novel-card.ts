@@ -1,5 +1,6 @@
 import type { NovelCard } from "@minix/contracts";
 
+import { renderActionRow } from "./action-row";
 import { renderChipRow } from "./chip-row";
 import { escapeHtml, formatCompactNumber, formatDate, renderActionButton } from "../utils";
 
@@ -58,14 +59,14 @@ export function renderNovelCard(
           <span>${formatCompactNumber(item.readingCount)} readers</span>
           <span>${formatCompactNumber(item.bookshelfCount)} shelves</span>
         </div>
-        ${
-          options.primary || options.secondary
-            ? `<div class="nh-actions">
-              ${options.primary ? renderActionButton(options.primary.label, "controller", options.primary.action, options.primary.value, options.primary.variant ?? "primary") : ""}
-              ${options.secondary ? renderActionButton(options.secondary.label, "controller", options.secondary.action, options.secondary.value, options.secondary.variant ?? "ghost") : ""}
-            </div>`
-            : ""
-        }
+        ${renderActionRow([
+          options.primary
+            ? renderActionButton(options.primary.label, "controller", options.primary.action, options.primary.value, options.primary.variant ?? "primary")
+            : undefined,
+          options.secondary
+            ? renderActionButton(options.secondary.label, "controller", options.secondary.action, options.secondary.value, options.secondary.variant ?? "ghost")
+            : undefined,
+        ])}
       </div>
     </article>
   `;
