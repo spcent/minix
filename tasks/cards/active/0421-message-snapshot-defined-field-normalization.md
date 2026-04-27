@@ -81,18 +81,21 @@ Use the shared domain snapshot helper in message snapshot cloning so thread memb
 
 ## Implementation Notes
 
-- Pending.
+- Adopted `cloneDefinedDomainFields` for message thread member `joinedAt`.
+- Adopted the helper for thread reply policy, cloned metadata objects, and touchpoint resource creation time.
+- Adopted the helper for message delivery and failure optional fields while preserving custom touchpoint cloning.
 
 ## Verification Notes
 
-- Pending.
+- Ran `pnpm verify:api`.
+- Ran `pnpm typecheck`.
 
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

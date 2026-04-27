@@ -2,7 +2,7 @@ import type { MessageBodyItem, MessageThread, MessageThreadMember } from "@minix
 
 import type { StoredMessageThreadRecord, UserState } from "../../types";
 import type { NotificationChannelProviderRuntimeEnv } from "../settings/state";
-import { cloneDomainSnapshot } from "../snapshot";
+import { cloneDefinedDomainFields } from "../snapshot";
 import { cloneMessageTouchpointsForItem, cloneTouchpoints } from "./touchpoints";
 
 export function cloneThreadMembers(members: MessageThreadMember[]): MessageThreadMember[] {
@@ -12,7 +12,7 @@ export function cloneThreadMembers(members: MessageThreadMember[]): MessageThrea
     role: member.role,
     active: member.active,
     canReply: member.canReply,
-    ...(member.joinedAt !== undefined ? { joinedAt: member.joinedAt } : {}),
+    ...cloneDefinedDomainFields(member, ["joinedAt"]),
   }));
 }
 
@@ -27,17 +27,17 @@ export function cloneMessageThread(
     touchpoints: cloneTouchpoints(thread.touchpoints, userState, {
       resourceId: `thread:${thread.threadId}`,
       resourceLabel: `thread.${thread.type}`,
-      ...(thread.lastMessageAt !== undefined ? { createdAt: thread.lastMessageAt } : {}),
+      ...cloneDefinedDomainFields({ createdAt: thread.lastMessageAt }, ["createdAt"]),
     }, runtimeEnv),
-    ...(thread.replyPolicy !== undefined ? { replyPolicy: thread.replyPolicy } : {}),
+    ...cloneDefinedDomainFields(thread, ["replyPolicy"]),
     ...(thread.members !== undefined ? { members: cloneThreadMembers(thread.members) } : {}),
-    ...(thread.assignment !== undefined ? { assignment: cloneDomainSnapshot(thread.assignment) } : {}),
-    ...(thread.consultationProgress !== undefined
-      ? { consultationProgress: cloneDomainSnapshot(thread.consultationProgress) }
-      : {}),
-    ...(thread.supportProgress !== undefined ? { supportProgress: cloneDomainSnapshot(thread.supportProgress) } : {}),
-    ...(thread.groupState !== undefined ? { groupState: cloneDomainSnapshot(thread.groupState) } : {}),
-    ...(thread.syncState !== undefined ? { syncState: cloneDomainSnapshot(thread.syncState) } : {}),
+    ...cloneDefinedDomainFields(thread, [
+      "assignment",
+      "consultationProgress",
+      "supportProgress",
+      "groupState",
+      "syncState",
+    ]),
   };
 }
 
@@ -48,11 +48,13 @@ export function cloneMessageBodyItem(
 ): MessageBodyItem {
   return {
     ...message,
-    ...(message.updatedAt !== undefined ? { updatedAt: message.updatedAt } : {}),
-    ...(message.readAt !== undefined ? { readAt: message.readAt } : {}),
-    ...(message.deliveredAt !== undefined ? { deliveredAt: message.deliveredAt } : {}),
-    ...(message.failureCode !== undefined ? { failureCode: message.failureCode } : {}),
-    ...(message.failureMessage !== undefined ? { failureMessage: message.failureMessage } : {}),
+    ...cloneDefinedDomainFields(message, [
+      "updatedAt",
+      "readAt",
+      "deliveredAt",
+      "failureCode",
+      "failureMessage",
+    ]),
     touchpoints: cloneMessageTouchpointsForItem(message, userState, runtimeEnv),
   };
 }
