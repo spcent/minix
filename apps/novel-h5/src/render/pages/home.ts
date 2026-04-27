@@ -1,7 +1,9 @@
 import type { CatalogState } from "@minix/feature-catalog";
 
 import type { NovelH5PageRenderContext } from "../types";
+import { renderActionRow } from "../components/action-row";
 import { renderChipRow } from "../components/chip-row";
+import { renderInfoPanel } from "../components/info-panel";
 import { renderNovelCard } from "../components/novel-card";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderStatPanels } from "../components/stat-panel";
@@ -39,12 +41,12 @@ export function renderHomePage(context: NovelH5PageRenderContext, state: Catalog
           <div class="nh-stat-strip">
             ${renderStatPanels(heroStats)}
           </div>
-          <div class="nh-actions">
-            ${renderActionButton(featuredPrimaryLabel, "controller", featuredPrimaryAction, featured.id, "primary")}
-            ${renderRouteLink("Browse all books", routePath("catalog"), "button")}
-            ${renderRouteLink("Editorial discover", routePath("feed"), "ghost")}
-            ${renderRouteLink("Open shelf", routePath("bookshelf"), "ghost")}
-          </div>
+          ${renderActionRow([
+            renderActionButton(featuredPrimaryLabel, "controller", featuredPrimaryAction, featured.id, "primary"),
+            renderRouteLink("Browse all books", routePath("catalog"), "button"),
+            renderRouteLink("Editorial discover", routePath("feed"), "ghost"),
+            renderRouteLink("Open shelf", routePath("bookshelf"), "ghost"),
+          ])}
           ${
             resumeNovel
               ? `
@@ -55,10 +57,10 @@ export function renderHomePage(context: NovelH5PageRenderContext, state: Catalog
                       ${escapeHtml(state.continueReason ?? `Return to ${resumeNovel.title} at ${resumeNovel.continueChapterTitle ?? resumeNovel.latestChapterTitle ?? "your saved chapter"}.`)}
                     </p>
                   </div>
-                  <div class="nh-actions">
-                    ${renderActionButton("Resume now", "controller", "continueReading", resumeNovel.id, "primary")}
-                    ${renderActionButton("Open shelf", "controller", "goToBookshelf", undefined, "ghost")}
-                  </div>
+                  ${renderActionRow([
+                    renderActionButton("Resume now", "controller", "continueReading", resumeNovel.id, "primary"),
+                    renderActionButton("Open shelf", "controller", "goToBookshelf", undefined, "ghost"),
+                  ])}
                 </div>
               `
               : ""
@@ -140,18 +142,18 @@ export function renderHomePage(context: NovelH5PageRenderContext, state: Catalog
             compact: true,
           })}
           <div class="nh-grid">
-            <article class="nh-panel">
-              <p class="nh-meta-label">Because you read...</p>
-              <p class="nh-item-copy">${escapeHtml(state.continueReason ?? (resumeNovel ? `${resumeNovel.title} keeps the strongest return signal, so it stays above fresh discovery.` : "No active trail is pinned yet, so the lead slot stays editorial."))}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Recently updated on your shelf</p>
-              <p class="nh-item-copy">${escapeHtml(state.updateReason ?? serials[0]?.latestChapterTitle ?? "Serial update cadence becomes visible here once active titles start landing weekly.")}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Frontlist note</p>
-              <p class="nh-item-copy">${escapeHtml(state.frontlistReason ?? "The discovery lane should explain why one title anchors the storefront right now.")}</p>
-            </article>
+            ${renderInfoPanel({
+              label: "Because you read...",
+              copy: state.continueReason ?? (resumeNovel ? `${resumeNovel.title} keeps the strongest return signal, so it stays above fresh discovery.` : "No active trail is pinned yet, so the lead slot stays editorial."),
+            })}
+            ${renderInfoPanel({
+              label: "Recently updated on your shelf",
+              copy: state.updateReason ?? serials[0]?.latestChapterTitle ?? "Serial update cadence becomes visible here once active titles start landing weekly.",
+            })}
+            ${renderInfoPanel({
+              label: "Frontlist note",
+              copy: state.frontlistReason ?? "The discovery lane should explain why one title anchors the storefront right now.",
+            })}
           </div>
         </aside>
       </section>
@@ -174,9 +176,9 @@ export function renderHomePage(context: NovelH5PageRenderContext, state: Catalog
                   ? `<p class="nh-copy">${escapeHtml(state.latestMilestoneReturnHint)}</p>`
                   : ""
               }
-              <div class="nh-actions">
-                ${renderActionButton(state.latestMilestoneReturnLabel ?? "Resume milestone", "controller", "openLatestMilestone", undefined, "primary")}
-              </div>
+              ${renderActionRow([
+                renderActionButton(state.latestMilestoneReturnLabel ?? "Resume milestone", "controller", "openLatestMilestone", undefined, "primary"),
+              ])}
             </section>
           `
           : ""
@@ -201,9 +203,9 @@ export function renderHomePage(context: NovelH5PageRenderContext, state: Catalog
                         <p class="nh-item-copy">${escapeHtml(item.copy)}</p>
                         ${renderChipRow([item.sourceLabel, item.recencyLabel, item.meta])}
                         <p class="nh-item-copy">${escapeHtml(item.returnHint)}</p>
-                        <div class="nh-actions">
-                          ${renderActionButton(item.returnLabel, "controller", "openMilestoneHistoryItem", index, "ghost")}
-                        </div>
+                        ${renderActionRow([
+                          renderActionButton(item.returnLabel, "controller", "openMilestoneHistoryItem", index, "ghost"),
+                        ])}
                       </article>
                     `,
                   )
@@ -345,15 +347,15 @@ export function renderHomePage(context: NovelH5PageRenderContext, state: Catalog
             compact: true,
           })}
           <div class="nh-grid">
-            ${membershipTitles.slice(0, 2).map((item) => `
-              <article class="nh-panel">
-                <p class="nh-meta-label">${escapeHtml(item.title)}</p>
-                <p class="nh-item-copy">${escapeHtml(item.recommendedReason ?? state.membershipReason ?? item.summary)}</p>
-                <div class="nh-actions">
-                  ${renderActionButton("Open detail", "controller", "goToNovelDetail", item.id, "secondary")}
-                </div>
-              </article>
-            `).join("")}
+            ${membershipTitles.slice(0, 2).map((item) =>
+              renderInfoPanel({
+                label: item.title,
+                copy: item.recommendedReason ?? state.membershipReason ?? item.summary,
+                actions: [
+                  renderActionButton("Open detail", "controller", "goToNovelDetail", item.id, "secondary"),
+                ],
+              }),
+            ).join("")}
           </div>
         </aside>
       </section>
@@ -399,9 +401,9 @@ export function renderHomePage(context: NovelH5PageRenderContext, state: Catalog
                       <p class="nh-meta"><strong>${escapeHtml(category.label)}</strong></p>
                       <p class="nh-item-copy">Jump into the ${escapeHtml(category.label.toLowerCase())} lane with the catalog already narrowed.</p>
                     </div>
-                    <div class="nh-actions">
-                      ${renderActionButton("Open lane", "controller", "applyCategory", category.key, "secondary")}
-                    </div>
+                    ${renderActionRow([
+                      renderActionButton("Open lane", "controller", "applyCategory", category.key, "secondary"),
+                    ])}
                   </article>
                 `,
               )
