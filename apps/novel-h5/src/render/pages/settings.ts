@@ -1,5 +1,7 @@
 import type { SettingsPageModel } from "@minix/core";
 
+import { renderActionRow } from "../components/action-row";
+import { renderInfoPanel } from "../components/info-panel";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
@@ -47,17 +49,17 @@ export function renderSettingsPage(state: SettingsPageModel): string {
               },
             ])}
           </div>
-          <div class="nh-actions">
-            ${renderActionButton("Back home", "entry", "onTapOverview", undefined, "secondary")}
-            ${renderActionButton("Open discover", "entry", "onTapDiscover", undefined, "secondary")}
-            ${renderActionButton("Open account", "entry", "onTapAccount", undefined, "secondary")}
-            ${renderActionButton("Open inbox", "entry", "onTapInbox", undefined, "secondary")}
-            ${renderActionButton("Support", "entry", "onTapFeedback", undefined, "secondary")}
-            ${renderActionButton("Media tools", "entry", "onTapMediaTools", undefined, "ghost")}
-            ${renderActionButton("Back to reader", "entry", "onTapReader", undefined, "secondary")}
-            ${renderActionButton("Open shelf", "entry", "onTapPlan", undefined, "ghost")}
-            ${renderActionButton("Sign out", "entry", "onTapLogout", undefined, "primary")}
-          </div>
+          ${renderActionRow([
+            renderActionButton("Back home", "entry", "onTapOverview", undefined, "secondary"),
+            renderActionButton("Open discover", "entry", "onTapDiscover", undefined, "secondary"),
+            renderActionButton("Open account", "entry", "onTapAccount", undefined, "secondary"),
+            renderActionButton("Open inbox", "entry", "onTapInbox", undefined, "secondary"),
+            renderActionButton("Support", "entry", "onTapFeedback", undefined, "secondary"),
+            renderActionButton("Media tools", "entry", "onTapMediaTools", undefined, "ghost"),
+            renderActionButton("Back to reader", "entry", "onTapReader", undefined, "secondary"),
+            renderActionButton("Open shelf", "entry", "onTapPlan", undefined, "ghost"),
+            renderActionButton("Sign out", "entry", "onTapLogout", undefined, "primary"),
+          ])}
         </div>
         <aside class="nh-grid">
           <div class="nh-cover">
@@ -65,10 +67,11 @@ export function renderSettingsPage(state: SettingsPageModel): string {
             <h2 class="nh-cover-title">${escapeHtml(readingProfile?.items[0]?.value ? String(readingProfile.items[0].value) : "Quiet defaults for a long-form product.")}</h2>
             <p class="nh-cover-copy">${escapeHtml(readingProfile?.items[1]?.value ? String(readingProfile.items[1].value) : "Typography, continuity, digest posture, and account state should read like one coherent reading-center story.")}</p>
           </div>
-          <article class="nh-panel nh-issue-panel">
-            <p class="nh-meta-label">Reading intent</p>
-            <p class="nh-item-copy">Reading Center should now behave like a retention layer: calmer defaults, clearer continuity, and fewer reasons for the reader to lose momentum between sessions.</p>
-          </article>
+          ${renderInfoPanel({
+            label: "Reading intent",
+            copy: "Reading Center should now behave like a retention layer: calmer defaults, clearer continuity, and fewer reasons for the reader to lose momentum between sessions.",
+            className: "nh-panel nh-issue-panel",
+          })}
         </aside>
       </section>
       <section class="nh-sidebar-grid">
@@ -104,14 +107,14 @@ export function renderSettingsPage(state: SettingsPageModel): string {
             compact: true,
           })}
           <div class="nh-grid">
-            <article class="nh-panel">
-              <p class="nh-meta-label">Sync posture</p>
-              <p class="nh-item-copy">${escapeHtml(String(syncValue ?? "Progress and shelf state should stay portable across reading surfaces."))}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Return promise</p>
-              <p class="nh-item-copy">When the reader leaves for detail, shelf, or membership, this surface should still make the way back feel predictable.</p>
-            </article>
+            ${renderInfoPanel({
+              label: "Sync posture",
+              copy: String(syncValue ?? "Progress and shelf state should stay portable across reading surfaces."),
+            })}
+            ${renderInfoPanel({
+              label: "Return promise",
+              copy: "When the reader leaves for detail, shelf, or membership, this surface should still make the way back feel predictable.",
+            })}
           </div>
         </aside>
       </section>
@@ -146,37 +149,37 @@ export function renderSettingsPage(state: SettingsPageModel): string {
             ${(displayDefaults?.items ?? [])
               .map(
                 (item) => `
-                  <article class="nh-panel">
-                    <p class="nh-meta-label">${escapeHtml(item.label)}</p>
-                    <p class="nh-item-copy">${escapeHtml(String(item.value ?? "Not set"))}</p>
-                  </article>
+                  ${renderInfoPanel({
+                    label: item.label,
+                    copy: String(item.value ?? "Not set"),
+                  })}
                 `,
               )
               .join("")}
-            <article class="nh-panel">
-              <p class="nh-meta-label">Reader controls</p>
-              <p class="nh-item-copy">These controls now write to the same stored display preferences that the reader hydrates on load, including the night-mode default used for late reading sessions.</p>
-              <div class="nh-actions">
-                ${renderActionButton("A-", "controller", "decreaseReaderFontScale", undefined, "ghost")}
-                ${renderActionButton("A+", "controller", "increaseReaderFontScale", undefined, "ghost")}
-                ${renderActionButton("Cycle theme", "controller", "cycleReaderTheme", undefined, "secondary")}
-                ${renderActionButton("Cycle mode", "controller", "cycleReaderMode", undefined, "secondary")}
-                ${renderActionButton("Night default", "entry", "onTapCycleNightModeDefault", undefined, "secondary")}
-                ${renderActionButton("Apply and return", "entry", "onTapApplyReader", undefined, "primary")}
-                ${renderActionButton("Back to reader", "entry", "onTapReader", undefined, "ghost")}
-              </div>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Reading center controls</p>
-              <p class="nh-item-copy">Continuity, reminders, digest cadence, sync posture, and shelf order now live here as stored reading-center preferences instead of static copy.</p>
-              <div class="nh-actions">
-                ${renderActionButton("Cycle resume mode", "entry", "onTapCycleResumeMode", undefined, "secondary")}
-                ${renderActionButton("Cycle shelf order", "entry", "onTapCycleShelfOrder", undefined, "secondary")}
-                ${renderActionButton("Cycle reminders", "entry", "onTapCycleReminderMode", undefined, "secondary")}
-                ${renderActionButton("Cycle digest", "entry", "onTapCycleDigestMode", undefined, "secondary")}
-                ${renderActionButton("Cycle sync", "entry", "onTapCycleSyncMode", undefined, "secondary")}
-              </div>
-            </article>
+            ${renderInfoPanel({
+              label: "Reader controls",
+              copy: "These controls now write to the same stored display preferences that the reader hydrates on load, including the night-mode default used for late reading sessions.",
+              actions: [
+                renderActionButton("A-", "controller", "decreaseReaderFontScale", undefined, "ghost"),
+                renderActionButton("A+", "controller", "increaseReaderFontScale", undefined, "ghost"),
+                renderActionButton("Cycle theme", "controller", "cycleReaderTheme", undefined, "secondary"),
+                renderActionButton("Cycle mode", "controller", "cycleReaderMode", undefined, "secondary"),
+                renderActionButton("Night default", "entry", "onTapCycleNightModeDefault", undefined, "secondary"),
+                renderActionButton("Apply and return", "entry", "onTapApplyReader", undefined, "primary"),
+                renderActionButton("Back to reader", "entry", "onTapReader", undefined, "ghost"),
+              ],
+            })}
+            ${renderInfoPanel({
+              label: "Reading center controls",
+              copy: "Continuity, reminders, digest cadence, sync posture, and shelf order now live here as stored reading-center preferences instead of static copy.",
+              actions: [
+                renderActionButton("Cycle resume mode", "entry", "onTapCycleResumeMode", undefined, "secondary"),
+                renderActionButton("Cycle shelf order", "entry", "onTapCycleShelfOrder", undefined, "secondary"),
+                renderActionButton("Cycle reminders", "entry", "onTapCycleReminderMode", undefined, "secondary"),
+                renderActionButton("Cycle digest", "entry", "onTapCycleDigestMode", undefined, "secondary"),
+                renderActionButton("Cycle sync", "entry", "onTapCycleSyncMode", undefined, "secondary"),
+              ],
+            })}
           </div>
         </aside>
       </section>
@@ -223,23 +226,23 @@ export function renderSettingsPage(state: SettingsPageModel): string {
                         ${account.items
                           .map(
                             (item) => `
-                              <article class="nh-panel">
-                                <p class="nh-meta-label">${escapeHtml(item.label)}</p>
-                                <p class="nh-item-copy">${escapeHtml(String(item.value ?? "Not set"))}</p>
-                              </article>
+                              ${renderInfoPanel({
+                                label: item.label,
+                                copy: String(item.value ?? "Not set"),
+                              })}
                             `,
                           )
                           .join("")}
-                        <article class="nh-panel">
-                          <p class="nh-meta-label">Quick navigation</p>
-                          <p class="nh-item-copy">Settings should support return to discovery and active reading faster than browser back controls.</p>
-                          <div class="nh-actions">
-                            ${renderActionButton("Home", "entry", "onTapOverview", undefined, "secondary")}
-                            ${renderActionButton("Reader", "entry", "onTapReader", undefined, "secondary")}
-                            ${renderActionButton("Shelf", "entry", "onTapPlan", undefined, "ghost")}
-                            ${renderActionButton("Sign out", "entry", "onTapLogout", undefined, "primary")}
-                          </div>
-                        </article>
+                        ${renderInfoPanel({
+                          label: "Quick navigation",
+                          copy: "Settings should support return to discovery and active reading faster than browser back controls.",
+                          actions: [
+                            renderActionButton("Home", "entry", "onTapOverview", undefined, "secondary"),
+                            renderActionButton("Reader", "entry", "onTapReader", undefined, "secondary"),
+                            renderActionButton("Shelf", "entry", "onTapPlan", undefined, "ghost"),
+                            renderActionButton("Sign out", "entry", "onTapLogout", undefined, "primary"),
+                          ],
+                        })}
                       </div>
                     </aside>
                   `

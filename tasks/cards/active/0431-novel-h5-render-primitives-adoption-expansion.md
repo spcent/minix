@@ -80,12 +80,23 @@ Reduce remaining repeated `nh-actions` and `nh-panel` markup in common Novel H5 
 - final verifier handoff:
   - helper adoption must preserve escaping, button actions, and existing UI class names.
 
+## Implementation Notes
+
+- Adopted `renderActionRow` for account and settings navigation/action clusters.
+- Adopted `renderInfoPanel` for account workflow/session panels and settings continuity, display, and account action panels.
+- Left reader/bookshelf/membership-heavy surfaces untouched because they already have separate active adoption cards.
+
+## Verification Notes
+
+- Ran `pnpm verify:host novel-h5`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

@@ -1,5 +1,7 @@
 import type { AccountState } from "@minix/feature-account";
 
+import { renderActionRow } from "../components/action-row";
+import { renderInfoPanel } from "../components/info-panel";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
@@ -36,12 +38,12 @@ export function renderAccountPage(state: AccountState): string {
                   ])
             }
           </div>
-          <div class="nh-actions">
-            ${renderActionButton("Refresh account", "entry", "onShow", undefined, "primary")}
-            ${renderActionButton("Copy user id", "controller", "copyUserId", undefined, "secondary")}
-            ${renderActionButton("Open preferences", "controller", "goToSettings", undefined, "secondary")}
-            ${renderActionButton("Back home", "controller", "goToOverview", undefined, "ghost")}
-          </div>
+          ${renderActionRow([
+            renderActionButton("Refresh account", "entry", "onShow", undefined, "primary"),
+            renderActionButton("Copy user id", "controller", "copyUserId", undefined, "secondary"),
+            renderActionButton("Open preferences", "controller", "goToSettings", undefined, "secondary"),
+            renderActionButton("Back home", "controller", "goToOverview", undefined, "ghost"),
+          ])}
           ${state.copyFeedback ? `<p class="nh-item-copy">${escapeHtml(state.copyFeedback)}</p>` : ""}
           ${state.errorText ? `<p class="nh-item-copy">${escapeHtml(state.errorText)}</p>` : ""}
         </div>
@@ -51,16 +53,13 @@ export function renderAccountPage(state: AccountState): string {
             <h2 class="nh-cover-title">${escapeHtml(state.nickname ?? "Guest reader")}</h2>
             <p class="nh-cover-copy">${escapeHtml(state.authStatusLabel ?? state.sessionLabel ?? "Shared account posture is attached to the reader session here.")}</p>
           </div>
-          <article class="nh-panel nh-issue-panel">
-            <p class="nh-meta-label">Workflow posture</p>
-            <p class="nh-item-copy">
-              ${escapeHtml(
-                state.identityWorkflows?.canBindPhone
-                  ? "Phone binding is still available if the novel host needs to lift a weaker identity into a stronger recovery state."
-                  : "Identity upgrades are quiet right now, which means the current reader session is already stable enough for ordinary reading and support recovery.",
-              )}
-            </p>
-          </article>
+          ${renderInfoPanel({
+            label: "Workflow posture",
+            copy: state.identityWorkflows?.canBindPhone
+              ? "Phone binding is still available if the novel host needs to lift a weaker identity into a stronger recovery state."
+              : "Identity upgrades are quiet right now, which means the current reader session is already stable enough for ordinary reading and support recovery.",
+            className: "nh-panel nh-issue-panel",
+          })}
         </aside>
       </section>
       <section class="nh-sidebar-grid">
@@ -95,21 +94,21 @@ export function renderAccountPage(state: AccountState): string {
             ${(sessionSection?.items ?? [])
               .map(
                 (item) => `
-                  <article class="nh-panel">
-                    <p class="nh-meta-label">${escapeHtml(item.label)}</p>
-                    <p class="nh-item-copy">${escapeHtml(String(item.value ?? "Not set"))}</p>
-                  </article>
+                  ${renderInfoPanel({
+                    label: item.label,
+                    copy: String(item.value ?? "Not set"),
+                  })}
                 `,
               )
               .join("")}
-            <article class="nh-panel">
-              <p class="nh-meta-label">Next stop</p>
-              <p class="nh-item-copy">Use Account for identity and recovery posture, then return to Preferences, Discover, or the active title without changing hosts.</p>
-              <div class="nh-actions">
-                ${renderRouteLink("Open support", routePath("feedback"), "button")}
-                ${renderRouteLink("Reader tools", routePath("mediaTools"), "ghost")}
-              </div>
-            </article>
+            ${renderInfoPanel({
+              label: "Next stop",
+              copy: "Use Account for identity and recovery posture, then return to Preferences, Discover, or the active title without changing hosts.",
+              actions: [
+                renderRouteLink("Open support", routePath("feedback"), "button"),
+                renderRouteLink("Reader tools", routePath("mediaTools"), "ghost"),
+              ],
+            })}
           </div>
         </aside>
       </section>
