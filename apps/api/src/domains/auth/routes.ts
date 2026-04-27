@@ -10,9 +10,8 @@ import type {
 } from "@minix/contracts";
 
 import { jsonError } from "../../http/response";
-import { parseJsonBody } from "../../http/parsing";
 import { resolveBearerToken } from "../../http/auth";
-import { getRouteTraceId } from "../../http/route-context";
+import { getRouteTraceId, parseRouteBody } from "../../http/route-context";
 import { resolveProviderPostureMode } from "../provider-posture";
 import type { ApiRouteBaseOptions } from "../route-options";
 import type { AuthOAuthProvider, AuthSmsDeliveryProvider } from "./provider";
@@ -237,7 +236,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
 
   app.post("/auth/verification-code/request", async (c) => {
     const traceId = getRouteTraceId(c);
-    const payload = await parseJsonBody(c.req.raw, phoneVerificationRequestSchema, traceId);
+    const payload = await parseRouteBody(c, phoneVerificationRequestSchema);
     if (payload instanceof Response) {
       return payload;
     }
@@ -402,7 +401,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
 
   app.post("/auth/password/register", async (c) => {
     const traceId = getRouteTraceId(c);
-    const payload = await parseJsonBody(c.req.raw, passwordCredentialSchema, traceId);
+    const payload = await parseRouteBody(c, passwordCredentialSchema);
     if (payload instanceof Response) {
       return payload;
     }
@@ -471,7 +470,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
 
   app.post("/auth/password/reset", async (c) => {
     const traceId = getRouteTraceId(c);
-    const payload = await parseJsonBody(c.req.raw, passwordCredentialSchema, traceId);
+    const payload = await parseRouteBody(c, passwordCredentialSchema);
     if (payload instanceof Response) {
       return payload;
     }
@@ -531,7 +530,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
 
   app.post("/auth/oauth/authorize", async (c) => {
     const traceId = getRouteTraceId(c);
-    const payload = await parseJsonBody(c.req.raw, oauthAuthorizeSchema, traceId);
+    const payload = await parseRouteBody(c, oauthAuthorizeSchema);
     if (payload instanceof Response) {
       return payload;
     }
@@ -625,7 +624,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
 
   app.post("/auth/oauth/callback", async (c) => {
     const traceId = getRouteTraceId(c);
-    const payload = await parseJsonBody(c.req.raw, oauthCallbackSchema, traceId);
+    const payload = await parseRouteBody(c, oauthCallbackSchema);
     if (payload instanceof Response) {
       return payload;
     }
@@ -697,7 +696,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
 
   app.post("/auth/login", async (c) => {
     const traceId = getRouteTraceId(c);
-    const payload = await parseJsonBody(c.req.raw, loginRequestSchema, traceId);
+    const payload = await parseRouteBody(c, loginRequestSchema);
     if (payload instanceof Response) {
       return payload;
     }
@@ -1004,7 +1003,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
 
   app.post("/auth/refresh", async (c) => {
     const traceId = getRouteTraceId(c);
-    const payload = await parseJsonBody(c.req.raw, refreshTokenRequestSchema, traceId);
+    const payload = await parseRouteBody(c, refreshTokenRequestSchema);
     if (payload instanceof Response) {
       return payload;
     }
@@ -1095,7 +1094,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
 
   app.post("/auth/identity/upgrade", async (c) => {
     const traceId = getRouteTraceId(c);
-    const payload = await parseJsonBody(c.req.raw, identityUpgradeSchema, traceId);
+    const payload = await parseRouteBody(c, identityUpgradeSchema);
     if (payload instanceof Response) {
       return payload;
     }
@@ -1299,7 +1298,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
 
   app.post("/auth/identity/bind-phone", async (c) => {
     const traceId = getRouteTraceId(c);
-    const payload = await parseJsonBody(c.req.raw, identityBindPhoneSchema, traceId);
+    const payload = await parseRouteBody(c, identityBindPhoneSchema);
     if (payload instanceof Response) {
       return payload;
     }
@@ -1475,7 +1474,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
 
   app.post("/auth/identity/bind-oauth", async (c) => {
     const traceId = getRouteTraceId(c);
-    const payload = await parseJsonBody(c.req.raw, identityBindOAuthSchema, traceId);
+    const payload = await parseRouteBody(c, identityBindOAuthSchema);
     if (payload instanceof Response) {
       return payload;
     }
@@ -1719,7 +1718,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
 
   app.post("/auth/identity/merge", async (c) => {
     const traceId = getRouteTraceId(c);
-    const payload = await parseJsonBody(c.req.raw, identityMergeSchema, traceId);
+    const payload = await parseRouteBody(c, identityMergeSchema);
     if (payload instanceof Response) {
       return payload;
     }
