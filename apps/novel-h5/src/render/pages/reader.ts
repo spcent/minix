@@ -1,6 +1,7 @@
 import type { ReaderState } from "@minix/feature-reader";
 
 import type { NovelH5PageRenderContext } from "../types";
+import { renderChipRow } from "../components/chip-row";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, formatDate, renderActionButton, renderParagraphs, splitParagraphs } from "../utils";
 
@@ -105,12 +106,12 @@ export function renderReaderPage(context: NovelH5PageRenderContext, state: Reade
             <p class="nh-meta-label">Reading trail</p>
             <h2 class="nh-title-small">${escapeHtml(readingTrailCopy)}</h2>
             <p class="nh-item-copy">${escapeHtml(state.activeProgramSummary ?? "The reader now keeps the live chapter aligned with the in-session continuation trail.")}</p>
-            <div class="nh-chip-row">
-              <span class="nh-chip">${escapeHtml(readTrailCountLabel)} chapters in trail</span>
-              <span class="nh-chip">${escapeHtml(volumeProgressLabel)}</span>
-              ${state.continueChapterId ? `<span class="nh-chip">Resume point is live</span>` : ""}
-              ${state.sessionElapsedLabel ? `<span class="nh-chip">${escapeHtml(state.sessionElapsedLabel)}</span>` : ""}
-            </div>
+            ${renderChipRow([
+              `${readTrailCountLabel} chapters in trail`,
+              volumeProgressLabel,
+              state.continueChapterId ? "Resume point is live" : undefined,
+              state.sessionElapsedLabel,
+            ])}
           </article>
           <article class="nh-reader-sequence-card">
             <p class="nh-meta-label">Next up</p>
@@ -139,7 +140,7 @@ export function renderReaderPage(context: NovelH5PageRenderContext, state: Reade
                   <p class="nh-meta-label">Volume milestone</p>
                   <h2 class="nh-title-small">${escapeHtml(state.programMilestoneTitle)}</h2>
                   <p class="nh-item-copy">${escapeHtml(state.programMilestoneCopy ?? "Completed volumes should remain visible as stable milestones, not disappear behind chapter-level cues.")}</p>
-                  ${state.programMilestoneMeta ? `<div class="nh-chip-row"><span class="nh-chip">${escapeHtml(state.programMilestoneMeta)}</span></div>` : ""}
+                  ${renderChipRow([state.programMilestoneMeta])}
                 </article>
               </section>
             `
@@ -155,7 +156,7 @@ export function renderReaderPage(context: NovelH5PageRenderContext, state: Reade
                   <p class="nh-item-copy">${escapeHtml(completionSummaryCopy ?? completionMessage)}</p>
                   ${
                     completionSummaryMeta
-                      ? `<div class="nh-chip-row"><span class="nh-chip">${escapeHtml(completionSummaryMeta)}</span><span class="nh-chip">${escapeHtml(sessionCopy)}</span><span class="nh-chip">${escapeHtml(state.saveStatusLabel ?? "Progress saved")}</span></div>`
+                      ? renderChipRow([completionSummaryMeta, sessionCopy, state.saveStatusLabel ?? "Progress saved"])
                       : ""
                   }
                   <div class="nh-actions">
@@ -217,12 +218,12 @@ export function renderReaderPage(context: NovelH5PageRenderContext, state: Reade
                     <div class="nh-kicker">Membership boundary</div>
                     <h3 class="nh-title-small">${escapeHtml(accessHeadline)}</h3>
                     <p class="nh-copy">${escapeHtml(accessCopy)}</p>
-                    <div class="nh-chip-row">
-                      <span class="nh-chip">${escapeHtml(state.accessBadgeLabel ?? state.accessState)}</span>
-                      <span class="nh-chip">${progressPercentLabel} retained</span>
-                      ${state.readingStateLabel ? `<span class="nh-chip">${escapeHtml(state.readingStateLabel)}</span>` : ""}
-                      ${chapter?.trialEndOffset ? `<span class="nh-chip">Preview cut at ${chapter.trialEndOffset} chars</span>` : ""}
-                    </div>
+                    ${renderChipRow([
+                      state.accessBadgeLabel ?? state.accessState,
+                      `${progressPercentLabel} retained`,
+                      state.readingStateLabel,
+                      chapter?.trialEndOffset ? `Preview cut at ${chapter.trialEndOffset} chars` : undefined,
+                    ])}
                     <div class="nh-actions">
                       ${renderActionButton(state.membershipActionLabel ?? "Unlock membership", "controller", "goToMembership", undefined, "primary")}
                       ${renderActionButton("Back to detail", "controller", "goToNovelDetail", undefined, "ghost")}
@@ -322,11 +323,7 @@ export function renderReaderPage(context: NovelH5PageRenderContext, state: Reade
                 <article class="nh-panel">
                   <p class="nh-meta-label">Current state</p>
                   <p class="nh-copy">${escapeHtml(state.accessMessage ?? "Open chapter with no membership boundary.")}</p>
-                  <div class="nh-chip-row">
-                    <span class="nh-chip">${escapeHtml(state.accessBadgeLabel ?? state.accessState)}</span>
-                    <span class="nh-chip">${escapeHtml(chapter?.title ?? state.title)}</span>
-                    ${state.saveStatusLabel ? `<span class="nh-chip">${escapeHtml(state.saveStatusLabel)}</span>` : ""}
-                  </div>
+                  ${renderChipRow([state.accessBadgeLabel ?? state.accessState, chapter?.title ?? state.title, state.saveStatusLabel])}
                 </article>
                 <article class="nh-panel">
                   <p class="nh-meta-label">Unlock outcome</p>
