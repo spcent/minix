@@ -12,8 +12,14 @@ import type {
 } from "@minix/contracts";
 
 import { DEFAULT_MEMBERSHIP_OVERVIEW } from "../../content";
-import { loadRouteUserState, parseRouteBody, parseRouteQuery } from "../../http/route-context";
+import {
+  loadRouteClientContext,
+  loadRouteUserState,
+  parseRouteBody,
+  parseRouteQuery,
+} from "../../http/route-context";
 import { jsonError } from "../../http/response";
+import { pickDefinedApiFields } from "../schema-helpers";
 import { createMembershipOverview, createPaymentCatalogResponse } from "./catalog";
 import {
   appendPaymentAssetLedgerEntries,
@@ -62,26 +68,26 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
     }
     const purchasePayload: PurchaseMembershipRequest = {
       planId: payload.planId,
-      ...(payload.channel ? { channel: payload.channel } : {}),
-      ...(payload.providerMode ? { providerMode: payload.providerMode } : {}),
-      ...(payload.paymentScenario ? { paymentScenario: payload.paymentScenario } : {}),
-      ...(payload.idempotencyKey ? { idempotencyKey: payload.idempotencyKey } : {}),
-      ...(payload.source ? { source: payload.source } : {}),
-      ...(payload.novelId ? { novelId: payload.novelId } : {}),
-      ...(payload.chapterId ? { chapterId: payload.chapterId } : {}),
+      ...pickDefinedApiFields(payload, [
+        "channel",
+        "providerMode",
+        "paymentScenario",
+        "idempotencyKey",
+        "source",
+        "novelId",
+        "chapterId",
+      ]),
     };
 
     const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
-    const clientId = resolveClientId(c.req.raw);
-    const deviceId = resolveRequestDeviceId(c);
+    const clientContext = loadRouteClientContext(c, resolveClientId, resolveRequestDeviceId);
     const rateLimitGuard = await guardPaymentRateLimit({
       c,
       store,
       userId: session.userId,
       userState,
       platform: session.platform,
-      clientId,
-      ...(deviceId ? { deviceId } : {}),
+      ...clientContext,
       traceId,
     });
     if (!rateLimitGuard.allowed) {
@@ -160,8 +166,7 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
     appendPaymentAudit({
       userState,
       actorUserId: session.userId,
-      clientId,
-      ...(deviceId ? { deviceId } : {}),
+      ...clientContext,
       platform: session.platform,
       traceId,
       action: "membership_purchase",
@@ -197,14 +202,16 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
     }
     const purchasePayload: PurchaseOrderRequest = {
       skuId: payload.skuId,
-      ...(payload.channel ? { channel: payload.channel } : {}),
-      ...(payload.providerMode ? { providerMode: payload.providerMode } : {}),
-      ...(payload.paymentScenario ? { paymentScenario: payload.paymentScenario } : {}),
-      ...(payload.idempotencyKey ? { idempotencyKey: payload.idempotencyKey } : {}),
-      ...(payload.source ? { source: payload.source } : {}),
-      ...(payload.novelId ? { novelId: payload.novelId } : {}),
-      ...(payload.chapterId ? { chapterId: payload.chapterId } : {}),
-      ...(payload.subscriptionId ? { subscriptionId: payload.subscriptionId } : {}),
+      ...pickDefinedApiFields(payload, [
+        "channel",
+        "providerMode",
+        "paymentScenario",
+        "idempotencyKey",
+        "source",
+        "novelId",
+        "chapterId",
+        "subscriptionId",
+      ]),
     };
 
     const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
@@ -284,12 +291,12 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
     if (query instanceof Response) {
       return query;
     }
-    const request: ListOrdersRequest = {
-      ...(query.page ? { page: query.page } : {}),
-      ...(query.pageSize ? { pageSize: query.pageSize } : {}),
-      ...(query.status ? { status: query.status } : {}),
-      ...(query.productType ? { productType: query.productType } : {}),
-    };
+    const request: ListOrdersRequest = pickDefinedApiFields(query, [
+      "page",
+      "pageSize",
+      "status",
+      "productType",
+    ]);
     const { userState } = await loadRouteUserState(c, resolveStore);
     return c.json(listOrders(userState, request) satisfies OrderListResponse);
   });
@@ -360,9 +367,7 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
         skuId: payload.skuId ?? existing.sku.skuId,
         subscriptionId: payload.subscriptionId,
         paymentScenario: "instant_success",
-        ...(existing.order.source ? { source: existing.order.source } : {}),
-        ...(existing.order.novelId ? { novelId: existing.order.novelId } : {}),
-        ...(existing.order.chapterId ? { chapterId: existing.order.chapterId } : {}),
+        ...pickDefinedApiFields(existing.order, ["source", "novelId", "chapterId"]),
       },
       Boolean(userState.latestPaidOrderId),
     );
