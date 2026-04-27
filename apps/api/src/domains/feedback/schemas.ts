@@ -7,6 +7,7 @@ import {
   apiPaginationQueryShape,
   apiSourceContextSchema,
   normalizeApiContextSnapshots,
+  pickDefinedApiFields,
 } from "../schema-helpers";
 
 const FEEDBACK_TICKET_STATE_FILTERS = [...FEEDBACK_TICKET_STATES, "all"] as const;
@@ -89,18 +90,13 @@ export function normalizeSubmitFeedbackRequest(payload: z.infer<typeof submitFee
     categoryKey: payload.categoryKey,
     title: payload.title,
     description: payload.description,
-    ...(payload.priority !== undefined ? { priority: payload.priority } : {}),
-    ...(payload.labels !== undefined ? { labels: payload.labels } : {}),
-    ...(payload.revisitRequested !== undefined ? { revisitRequested: payload.revisitRequested } : {}),
-    ...(payload.satisfactionScore !== undefined ? { satisfactionScore: payload.satisfactionScore } : {}),
+    ...pickDefinedApiFields(payload, ["priority", "labels", "revisitRequested", "satisfactionScore"]),
     context: {
       sourcePage: payload.context.sourcePage,
-      ...(payload.context.sourceRouteId !== undefined ? { sourceRouteId: payload.context.sourceRouteId } : {}),
-      ...(payload.context.sourceLabel !== undefined ? { sourceLabel: payload.context.sourceLabel } : {}),
-      ...(payload.context.userId !== undefined ? { userId: payload.context.userId } : {}),
+      ...pickDefinedApiFields(payload.context, ["sourceRouteId", "sourceLabel", "userId"]),
       platform: payload.context.platform,
       appVersion: payload.context.appVersion,
-      ...(payload.context.deviceSummary !== undefined ? { deviceSummary: payload.context.deviceSummary } : {}),
+      ...pickDefinedApiFields(payload.context, ["deviceSummary"]),
       ...contextSnapshots,
       screenshotAssets: payload.context.screenshotAssets.map(normalizeUploadAsset),
       attachmentAssets: payload.context.attachmentAssets.map(normalizeUploadAsset),
@@ -111,21 +107,17 @@ export function normalizeSubmitFeedbackRequest(payload: z.infer<typeof submitFee
 export function normalizeFeedbackTicketActionRequest(payload: z.infer<typeof feedbackTicketActionSchema>) {
   return {
     ticketId: payload.ticketId,
-    ...(payload.state !== undefined ? { state: payload.state } : {}),
-    ...(payload.priority !== undefined ? { priority: payload.priority } : {}),
-    ...(payload.labels !== undefined ? { labels: payload.labels } : {}),
+    ...pickDefinedApiFields(payload, ["state", "priority", "labels"]),
     ...(payload.assignee !== undefined
       ? {
           assignee: {
             userId: payload.assignee.userId,
             label: payload.assignee.label,
-            ...(payload.assignee.teamLabel !== undefined ? { teamLabel: payload.assignee.teamLabel } : {}),
-            ...(payload.assignee.assignedAt !== undefined ? { assignedAt: payload.assignee.assignedAt } : {}),
+            ...pickDefinedApiFields(payload.assignee, ["teamLabel", "assignedAt"]),
           },
         }
       : {}),
-    ...(payload.queueKey !== undefined ? { queueKey: payload.queueKey } : {}),
-    ...(payload.queueLabel !== undefined ? { queueLabel: payload.queueLabel } : {}),
+    ...pickDefinedApiFields(payload, ["queueKey", "queueLabel"]),
     ...(payload.sla !== undefined
       ? {
           sla: {
@@ -133,11 +125,10 @@ export function normalizeFeedbackTicketActionRequest(payload: z.infer<typeof fee
             label: payload.sla.label,
             deadlineAt: payload.sla.deadlineAt,
             breached: payload.sla.breached,
-            ...(payload.sla.updatedAt !== undefined ? { updatedAt: payload.sla.updatedAt } : {}),
+            ...pickDefinedApiFields(payload.sla, ["updatedAt"]),
           },
         }
       : {}),
-    ...(payload.note !== undefined ? { note: payload.note } : {}),
-    ...(payload.supportReply !== undefined ? { supportReply: payload.supportReply } : {}),
+    ...pickDefinedApiFields(payload, ["note", "supportReply"]),
   };
 }
