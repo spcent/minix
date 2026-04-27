@@ -18,6 +18,7 @@ import {
   apiActorContextSchema,
   apiSourceContextSchema,
   normalizeApiContextSnapshots,
+  pickDefinedApiFields,
 } from "../schema-helpers";
 import { cloneUploadAsset } from "./assets";
 import { cloneUploadError, cloneUploadTask, cloneUploadTransferPayload } from "./tasks";
@@ -186,11 +187,13 @@ export function normalizeUploadAsset(asset: z.infer<typeof uploadAssetSchema>): 
 }
 
 export function normalizeUploadSelectionResult(payload: z.infer<typeof uploadSelectionResultSchema>) {
+  const uploadAsset = payload.uploadAsset !== undefined ? normalizeUploadAsset(payload.uploadAsset) : undefined;
+  const uploadError = payload.uploadError !== undefined ? cloneUploadError(payload.uploadError) : undefined;
+  const transfer = payload.transfer !== undefined ? cloneUploadTransferPayload(payload.transfer) : undefined;
+
   return {
     uploadTask: cloneUploadTask(payload.uploadTask),
-    ...(payload.uploadAsset !== undefined ? { uploadAsset: normalizeUploadAsset(payload.uploadAsset) } : {}),
-    ...(payload.uploadError !== undefined ? { uploadError: cloneUploadError(payload.uploadError) } : {}),
-    ...(payload.transfer !== undefined ? { transfer: cloneUploadTransferPayload(payload.transfer) } : {}),
+    ...pickDefinedApiFields({ uploadAsset, uploadError, transfer }, ["uploadAsset", "uploadError", "transfer"]),
   };
 }
 
@@ -207,8 +210,7 @@ export function normalizeUploadAttachRequest(payload: z.infer<typeof uploadAttac
   const contextSnapshots = normalizeApiContextSnapshots(payload.reference);
 
   return {
-    ...(payload.taskId !== undefined ? { taskId: payload.taskId } : {}),
-    ...(payload.assetId !== undefined ? { assetId: payload.assetId } : {}),
+    ...pickDefinedApiFields(payload, ["taskId", "assetId"]),
     reference: {
       ownerType: payload.reference.ownerType,
       ownerId: payload.reference.ownerId,

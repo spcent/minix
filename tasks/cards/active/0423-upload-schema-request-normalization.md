@@ -78,18 +78,21 @@ Use the API defined-field helper in upload schema normalizers so selection and a
 
 ## Implementation Notes
 
-- Pending.
+- Imported `pickDefinedApiFields` into upload schema normalizers.
+- Normalized optional `uploadAsset`, `uploadError`, and `transfer` selection result fields through the shared API helper after their existing clone/normalization steps.
+- Normalized optional attach request identifiers through the same helper while keeping reference context normalization explicit.
 
 ## Verification Notes
 
-- Pending.
+- `pnpm verify:api` passed.
+- `pnpm typecheck` passed.
 
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
