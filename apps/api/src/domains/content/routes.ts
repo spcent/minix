@@ -8,7 +8,6 @@ import type {
   SaveContentDraftRequest,
   SaveContentDraftResponse,
 } from "@minix/contracts";
-import type { Hono, MiddlewareHandler } from "hono";
 
 import {
   createBookshelf,
@@ -27,7 +26,7 @@ import { listFeed } from "./feed";
 import { CHAPTER_CONTENT, CHAPTER_LISTS, NOVELS } from "../../content";
 import { parseJsonBody, parseQuery } from "../../http/parsing";
 import { jsonError } from "../../http/response";
-import type { ApiBindings, ApiStore } from "../../types";
+import type { ApiRouteBaseOptions } from "../route-options";
 import { pickDefinedApiFields } from "../schema-helpers";
 import {
   bookshelfMutationSchema,
@@ -42,11 +41,7 @@ import {
   saveReadingProgressSchema,
 } from "./schemas";
 
-export interface RegisterContentRoutesOptions {
-  app: Hono<{ Bindings: ApiBindings }>;
-  requireSession: MiddlewareHandler<any>;
-  resolveStore: (env: ApiBindings | undefined) => ApiStore;
-}
+export interface RegisterContentRoutesOptions extends ApiRouteBaseOptions {}
 
 export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   const { app, requireSession, resolveStore } = options;

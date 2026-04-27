@@ -1,14 +1,18 @@
 import type {
-  AuthRateLimitState,
   UploadCancelRequest,
   UploadChunkRequest,
   UploadRetryRequest,
 } from "@minix/contracts";
-import type { Context, Hono, MiddlewareHandler } from "hono";
 
 import { loadRouteUserState, parseRouteBody } from "../../http/route-context";
 import { jsonError } from "../../http/response";
-import type { ApiBindings, ApiStore, UserState } from "../../types";
+import type { ApiStore, UserState } from "../../types";
+import type {
+  ApiClientContextRouteOptions,
+  ApiClientStampedRateLimitGuardResult,
+  ApiRateLimitGuardInput,
+  ApiRouteBaseOptions,
+} from "../route-options";
 import { pickDefinedApiFields } from "../schema-helpers";
 import {
   appendUploadChunkRecord,
@@ -34,36 +38,8 @@ import {
   uploadSessionRequestSchema,
 } from "./schemas";
 
-export interface RegisterUploadRoutesOptions {
-  app: Hono<{ Bindings: ApiBindings }>;
-  requireSession: MiddlewareHandler<any>;
-  resolveStore: (env: ApiBindings | undefined) => ApiStore;
-  resolveClientId: (request: Request) => string;
-  resolveRequestDeviceId: (c: Context<any>) => string | undefined;
-  guardUploadSessionRateLimit: (input: {
-    c: Context<any>;
-    store: ApiStore;
-    userId: string;
-    userState: UserState;
-    platform: string;
-    clientId: string;
-    deviceId?: string;
-    traceId: string;
-  }) => Promise<
-    | {
-        allowed: true;
-        clientId: string;
-        nowIso: string;
-        rateLimitState: AuthRateLimitState;
-      }
-    | {
-        allowed: false;
-        clientId: string;
-        nowIso: string;
-        rateLimitState: AuthRateLimitState;
-        response: Response;
-      }
-  >;
+export interface RegisterUploadRoutesOptions extends ApiRouteBaseOptions, ApiClientContextRouteOptions {
+  guardUploadSessionRateLimit: (input: ApiRateLimitGuardInput) => ApiClientStampedRateLimitGuardResult;
   appendUploadSessionAudit: (input: {
     userState: UserState;
     actorUserId: string;

@@ -1,15 +1,19 @@
 import type {
-  AuthRateLimitState,
   ShareAttributionReportRequest,
   ShareAttributionReportResponse,
   ShareReturnRecognitionRequest,
   ShareShortLinkResolveResponse,
 } from "@minix/contracts";
-import type { Context, Hono, MiddlewareHandler } from "hono";
 
 import { jsonError } from "../../http/response";
 import { loadRouteUserState, parseRouteBody, parseRouteQuery } from "../../http/route-context";
-import type { ApiBindings, ApiStore, UserState } from "../../types";
+import type { UserState } from "../../types";
+import type {
+  ApiClientContextRouteOptions,
+  ApiClientStampedRateLimitGuardResult,
+  ApiRateLimitGuardInput,
+  ApiRouteBaseOptions,
+} from "../route-options";
 import { pickDefinedApiFields } from "../schema-helpers";
 import {
   createShareAttributionReport,
@@ -25,36 +29,8 @@ import {
   shareReturnRecognitionSchema,
 } from "./schemas";
 
-export interface RegisterShareRoutesOptions {
-  app: Hono<{ Bindings: ApiBindings }>;
-  requireSession: MiddlewareHandler<any>;
-  resolveStore: (env: ApiBindings | undefined) => ApiStore;
-  resolveClientId: (request: Request) => string;
-  resolveRequestDeviceId: (c: Context<any>) => string | undefined;
-  guardSharePrepareRateLimit: (input: {
-    c: Context<any>;
-    store: ApiStore;
-    userId: string;
-    userState: UserState;
-    platform: string;
-    clientId: string;
-    deviceId?: string;
-    traceId: string;
-  }) => Promise<
-    | {
-        allowed: true;
-        clientId: string;
-        nowIso: string;
-        rateLimitState: AuthRateLimitState;
-      }
-    | {
-        allowed: false;
-        clientId: string;
-        nowIso: string;
-        rateLimitState: AuthRateLimitState;
-        response: Response;
-      }
-  >;
+export interface RegisterShareRoutesOptions extends ApiRouteBaseOptions, ApiClientContextRouteOptions {
+  guardSharePrepareRateLimit: (input: ApiRateLimitGuardInput) => ApiClientStampedRateLimitGuardResult;
   appendSharePrepareAudit: (input: {
     userState: UserState;
     actorUserId: string;

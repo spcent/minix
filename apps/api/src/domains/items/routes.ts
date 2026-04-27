@@ -1,14 +1,9 @@
-import type { Hono, MiddlewareHandler } from "hono";
-
 import { listItems } from "../../data";
 import { parseQuery } from "../../http/parsing";
-import type { ApiBindings } from "../../types";
+import type { ApiSessionRouteOptions } from "../route-options";
 import { itemsQuerySchema } from "./schemas";
 
-export interface RegisterItemRoutesOptions {
-  app: Hono<{ Bindings: ApiBindings }>;
-  requireSession: MiddlewareHandler<any>;
-}
+export interface RegisterItemRoutesOptions extends ApiSessionRouteOptions {}
 
 export function registerItemRoutes(options: RegisterItemRoutesOptions) {
   const { app, requireSession } = options;

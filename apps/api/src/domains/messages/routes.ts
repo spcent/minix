@@ -1,5 +1,4 @@
 import type {
-  AuthRateLimitState,
   CreateMessageThreadResponse,
   ListMessageThreadsRequest,
   MarkThreadReadRequest,
@@ -9,7 +8,6 @@ import type {
   SendMessageResponse,
   SyncMessageThreadRequest,
 } from "@minix/contracts";
-import type { Context, Hono, MiddlewareHandler } from "hono";
 
 import {
   loadRouteClientContext,
@@ -18,7 +16,13 @@ import {
   parseRouteQuery,
 } from "../../http/route-context";
 import { jsonError } from "../../http/response";
-import type { ApiBindings, ApiStore, UserState } from "../../types";
+import type { ApiStore, UserState } from "../../types";
+import type {
+  ApiClientContextRouteOptions,
+  ApiClientStampedRateLimitGuardResult,
+  ApiRateLimitGuardInput,
+  ApiRouteBaseOptions,
+} from "../route-options";
 import { pickDefinedApiFields } from "../schema-helpers";
 import { getUnreadBadge, listNotifications, markNotificationsRead } from "./notifications";
 import { withMessageRouteUnreadBadge } from "./route-responses";
@@ -43,37 +47,12 @@ import {
   threadIdQuerySchema,
 } from "./schemas";
 
-export interface RegisterMessageRoutesOptions {
-  app: Hono<{ Bindings: ApiBindings }>;
-  requireSession: MiddlewareHandler<any>;
-  resolveStore: (env: ApiBindings | undefined) => ApiStore;
-  resolveClientId: (request: Request) => string;
-  resolveRequestDeviceId: (c: Context<any>) => string | undefined;
-  guardMessageRateLimit: (input: {
-    c: Context<any>;
-    store: ApiStore;
-    userId: string;
-    userState: UserState;
-    action: "thread_create" | "thread_send";
-    platform: string;
-    clientId: string;
-    deviceId?: string;
-    traceId: string;
-  }) => Promise<
-    | {
-        allowed: true;
-        clientId: string;
-        nowIso: string;
-        rateLimitState: AuthRateLimitState;
-      }
-    | {
-        allowed: false;
-        clientId: string;
-        nowIso: string;
-        rateLimitState: AuthRateLimitState;
-        response: Response;
-      }
-  >;
+export interface RegisterMessageRoutesOptions extends ApiRouteBaseOptions, ApiClientContextRouteOptions {
+  guardMessageRateLimit: (
+    input: ApiRateLimitGuardInput & {
+      action: "thread_create" | "thread_send";
+    },
+  ) => ApiClientStampedRateLimitGuardResult;
   appendMessageAudit: (input: {
     userState: UserState;
     actorUserId: string;

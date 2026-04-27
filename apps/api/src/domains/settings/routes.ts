@@ -1,15 +1,12 @@
 import type { UpdateSettingsRequest } from "@minix/contracts";
-import type { Hono, MiddlewareHandler } from "hono";
 
 import { parseJsonBody } from "../../http/parsing";
-import type { ApiBindings, ApiStore, SessionRecord } from "../../types";
+import type { ApiStore, SessionRecord } from "../../types";
+import type { ApiRouteBaseOptions } from "../route-options";
 import type { NotificationChannelProviderRuntimeEnv } from "./state";
 import { settingsUpdateSchema } from "./schemas";
 
-export interface RegisterSettingsRoutesOptions {
-  app: Hono<{ Bindings: ApiBindings }>;
-  requireSession: MiddlewareHandler<any>;
-  resolveStore: (env: ApiBindings | undefined) => ApiStore;
+export interface RegisterSettingsRoutesOptions extends ApiRouteBaseOptions {
   createSettingsResponse: (
     session: SessionRecord,
     userState: Awaited<ReturnType<ApiStore["getUserState"]>>,

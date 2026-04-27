@@ -1,34 +1,13 @@
-import type { AuthRateLimitState } from "@minix/contracts";
-import type { Context, Hono, MiddlewareHandler } from "hono";
-
 import type { ApiBindings, ApiStore, UserState } from "../../types";
+import type {
+  ApiClientContextRouteOptions,
+  ApiRateLimitGuardInput,
+  ApiRateLimitGuardResult,
+  ApiRouteBaseOptions,
+} from "../route-options";
 
-export interface RegisterPaymentRoutesOptions {
-  app: Hono<{ Bindings: ApiBindings }>;
-  requireSession: MiddlewareHandler<any>;
-  resolveStore: (env: ApiBindings | undefined) => ApiStore;
-  resolveClientId: (request: Request) => string;
-  resolveRequestDeviceId: (c: Context<any>) => string | undefined;
-  guardPaymentRateLimit: (input: {
-    c: Context<any>;
-    store: ApiStore;
-    userId: string;
-    userState: UserState;
-    platform: string;
-    clientId: string;
-    deviceId?: string;
-    traceId: string;
-  }) => Promise<
-    | {
-        allowed: true;
-        rateLimitState: AuthRateLimitState;
-      }
-    | {
-        allowed: false;
-        rateLimitState: AuthRateLimitState;
-        response: Response;
-      }
-  >;
+export interface RegisterPaymentRoutesOptions extends ApiRouteBaseOptions, ApiClientContextRouteOptions {
+  guardPaymentRateLimit: (input: ApiRateLimitGuardInput) => ApiRateLimitGuardResult;
   appendPaymentAudit: (input: {
     userState: UserState;
     actorUserId: string;

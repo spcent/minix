@@ -1,54 +1,33 @@
 import type {
   AccountOperationResponse,
   AuthCredentialProtection,
-  AuthRateLimitState,
   AuthVerificationPurpose,
   LoginPlatformKind,
 } from "@minix/contracts";
-import type { Context, Hono, MiddlewareHandler } from "hono";
 
 import type {
-  ApiBindings,
   ApiStore,
   AuthOAuthCredentialRecord,
   AuthSecurityState,
   SessionRecord,
   UserState,
 } from "../../types";
+import type {
+  ApiClientContextRouteOptions,
+  ApiClientStampedRateLimitGuardResult,
+  ApiRateLimitGuardInput,
+  ApiRouteBaseOptions,
+} from "../route-options";
 
-export interface RegisterAccountRoutesOptions {
-  app: Hono<{ Bindings: ApiBindings }>;
-  requireSession: MiddlewareHandler<any>;
-  resolveStore: (env: ApiBindings | undefined) => ApiStore;
-  resolveClientId: (request: Request) => string;
-  resolveRequestDeviceId: (c: Context<any>) => string | undefined;
-  guardSecurityRateLimit: (input: {
-    c: Context<any>;
-    store: ApiStore;
-    userId: string;
-    userState: UserState;
-    action: "account";
-    scope: "account";
-    platform: LoginPlatformKind;
-    clientId: string;
-    deviceId?: string;
-    actorUserId: string;
-    traceId: string;
-  }) => Promise<
-    | {
-        allowed: true;
-        clientId: string;
-        nowIso: string;
-        rateLimitState: AuthRateLimitState;
-      }
-    | {
-        allowed: false;
-        clientId: string;
-        nowIso: string;
-        rateLimitState: AuthRateLimitState;
-        response: Response;
-      }
-  >;
+export interface RegisterAccountRoutesOptions extends ApiRouteBaseOptions, ApiClientContextRouteOptions {
+  guardSecurityRateLimit: (
+    input: ApiRateLimitGuardInput & {
+      action: "account";
+      scope: "account";
+      platform: LoginPlatformKind;
+      actorUserId: string;
+    },
+  ) => ApiClientStampedRateLimitGuardResult;
   appendSecurityAuditEvent: (input: {
     userState: UserState;
     scope: "auth" | "account" | "payment" | "upload" | "feedback" | "messages" | "share";

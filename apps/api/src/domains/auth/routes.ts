@@ -8,14 +8,14 @@ import type {
   RefreshTokenResponse,
   ProviderPostureMode,
 } from "@minix/contracts";
-import type { Hono, MiddlewareHandler } from "hono";
 
 import { jsonError } from "../../http/response";
 import { parseJsonBody } from "../../http/parsing";
 import { resolveBearerToken } from "../../http/auth";
 import { resolveProviderPostureMode } from "../provider-posture";
+import type { ApiRouteBaseOptions } from "../route-options";
 import type { AuthOAuthProvider, AuthSmsDeliveryProvider } from "./provider";
-import type { ApiBindings, ApiStore, SessionRecord, UserState } from "../../types";
+import type { ApiBindings, SessionRecord, UserState } from "../../types";
 import {
   createIdentityAuditRecord,
   createIdentityWorkflow,
@@ -77,10 +77,7 @@ import {
   refreshTokenRequestSchema,
 } from "./schemas";
 
-export interface RegisterAuthRoutesOptions {
-  app: Hono<{ Bindings: ApiBindings }>;
-  requireSession: MiddlewareHandler<any>;
-  resolveStore: (env: ApiBindings | undefined) => ApiStore;
+export interface RegisterAuthRoutesOptions extends ApiRouteBaseOptions {
   authRateLimitConfig?: import("../../rate-limit").AuthRateLimitConfig | Partial<import("../../rate-limit").AuthRateLimitConfig>;
   authRateLimitStore?: import("../../rate-limit").RateLimitCounterStore;
   authSmsProvider?: AuthSmsDeliveryProvider;

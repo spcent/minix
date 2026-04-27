@@ -1,11 +1,9 @@
 import type {
-  AuthRateLimitState,
   FeedbackRevisitResponse,
   FeedbackTicketActionResponse,
   ListFeedbackTicketsRequest,
   ListFeedbackTicketsResponse,
 } from "@minix/contracts";
-import type { Context, Hono, MiddlewareHandler } from "hono";
 
 import {
   loadRouteClientContext,
@@ -14,8 +12,14 @@ import {
   parseRouteQuery,
 } from "../../http/route-context";
 import { jsonError } from "../../http/response";
+import type { UserState } from "../../types";
+import type {
+  ApiClientContextRouteOptions,
+  ApiClientStampedRateLimitGuardResult,
+  ApiRateLimitGuardInput,
+  ApiRouteBaseOptions,
+} from "../route-options";
 import { pickDefinedApiFields } from "../schema-helpers";
-import type { ApiBindings, ApiStore, UserState } from "../../types";
 import { createFeedbackBootstrapResponse } from "./support";
 import {
   applyFeedbackTicketAction,
@@ -34,36 +38,8 @@ import {
   submitFeedbackSchema,
 } from "./schemas";
 
-export interface RegisterFeedbackRoutesOptions {
-  app: Hono<{ Bindings: ApiBindings }>;
-  requireSession: MiddlewareHandler<any>;
-  resolveStore: (env: ApiBindings | undefined) => ApiStore;
-  resolveClientId: (request: Request) => string;
-  resolveRequestDeviceId: (c: Context<any>) => string | undefined;
-  guardFeedbackSubmitRateLimit: (input: {
-    c: Context<any>;
-    store: ApiStore;
-    userId: string;
-    userState: UserState;
-    platform: string;
-    clientId: string;
-    deviceId?: string;
-    traceId: string;
-  }) => Promise<
-    | {
-        allowed: true;
-        clientId: string;
-        nowIso: string;
-        rateLimitState: AuthRateLimitState;
-      }
-    | {
-        allowed: false;
-        clientId: string;
-        nowIso: string;
-        rateLimitState: AuthRateLimitState;
-        response: Response;
-      }
-  >;
+export interface RegisterFeedbackRoutesOptions extends ApiRouteBaseOptions, ApiClientContextRouteOptions {
+  guardFeedbackSubmitRateLimit: (input: ApiRateLimitGuardInput) => ApiClientStampedRateLimitGuardResult;
   appendFeedbackSubmitAudit: (input: {
     userState: UserState;
     actorUserId: string;

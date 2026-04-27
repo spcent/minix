@@ -1,8 +1,8 @@
-import type { Hono, MiddlewareHandler } from "hono";
 import { z } from "zod";
 
 import { parseJsonBody, parseQuery } from "../../http/parsing";
-import { OPERATIONAL_JOB_KINDS, type ApiBindings, type ApiStore, type OperationalJobKind } from "../../types";
+import { OPERATIONAL_JOB_KINDS, type ApiStore, type OperationalJobKind } from "../../types";
+import type { ApiRouteBaseOptions } from "../route-options";
 import { pickDefinedApiFields } from "../schema-helpers";
 import {
   createProviderReadinessEnvironmentSummary,
@@ -27,10 +27,7 @@ const opsRunJobsRequestSchema = z.object({
   limit: z.coerce.number().int().positive().max(50).optional(),
 });
 
-export interface RegisterOpsRoutesOptions {
-  app: Hono<{ Bindings: ApiBindings }>;
-  requireSession: MiddlewareHandler<any>;
-  resolveStore: (env: ApiBindings | undefined) => ApiStore;
+export interface RegisterOpsRoutesOptions extends ApiRouteBaseOptions {
   authSmsProviderConfigured: boolean;
   authOAuthProviderConfigured: boolean;
   runOperationalJobs: (

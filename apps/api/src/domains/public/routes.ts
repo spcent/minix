@@ -1,12 +1,8 @@
-import type { Hono } from "hono";
-
 import { renderSampleCoverAssetSvg, renderSampleProfileAssetSvg, renderSharePosterSvg } from "../../sample-assets";
 import { createSvgResponse, jsonError, parseSvgAssetId } from "../../http/response";
-import type { ApiBindings } from "../../types";
+import type { ApiRouteAppOptions } from "../route-options";
 
-export interface RegisterPublicRoutesOptions {
-  app: Hono<{ Bindings: ApiBindings }>;
-}
+export interface RegisterPublicRoutesOptions extends ApiRouteAppOptions {}
 
 export function registerPublicRoutes(options: RegisterPublicRoutesOptions) {
   const { app } = options;
