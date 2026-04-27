@@ -1,6 +1,5 @@
 import type {
   BookshelfMutationResponse,
-  ContentActorRole,
   ContentDetailResponse,
   ContentLifecycleMutationResponse,
   ContentReviewQueueResponse,
@@ -29,6 +28,7 @@ import { CHAPTER_CONTENT, CHAPTER_LISTS, NOVELS } from "../../content";
 import { parseJsonBody, parseQuery } from "../../http/parsing";
 import { jsonError } from "../../http/response";
 import type { ApiBindings, ApiStore } from "../../types";
+import { pickDefinedApiFields } from "../schema-helpers";
 import {
   bookshelfMutationSchema,
   chapterIdQuerySchema,
@@ -85,7 +85,7 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
     const response = getManagedContentDetail(
       {
         contentId: query.contentId,
-        ...(query.actorRole ? { actorRole: query.actorRole as ContentActorRole } : {}),
+        ...pickDefinedApiFields(query, ["actorRole"]),
       },
       userState,
     );
@@ -106,12 +106,12 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
     const session = c.get("session");
     const store = resolveStore(c.env);
     const userState = await store.getUserState(session.userId);
-    const request: ListContentReviewQueueRequest = {
-      ...(query.page !== undefined ? { page: query.page } : {}),
-      ...(query.pageSize !== undefined ? { pageSize: query.pageSize } : {}),
-      ...(query.state !== undefined ? { state: query.state } : {}),
-      ...(query.actorRole !== undefined ? { actorRole: query.actorRole } : {}),
-    };
+    const request: ListContentReviewQueueRequest = pickDefinedApiFields(query, [
+      "page",
+      "pageSize",
+      "state",
+      "actorRole",
+    ]);
     return c.json(listManagedContentReviewQueue(userState, request) satisfies ContentReviewQueueResponse);
   });
 
@@ -133,12 +133,14 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
       categoryKey: payload.categoryKey,
       categoryLabel: payload.categoryLabel,
       tags: payload.tags,
-      ...(payload.contentId ? { contentId: payload.contentId } : {}),
-      ...(payload.subtitle ? { subtitle: payload.subtitle } : {}),
-      ...(payload.bodyPreview ? { bodyPreview: payload.bodyPreview } : {}),
-      ...(payload.coverAssetId ? { coverAssetId: payload.coverAssetId } : {}),
-      ...(payload.attachmentAssetIds ? { attachmentAssetIds: payload.attachmentAssetIds } : {}),
-      ...(payload.actorRole ? { actorRole: payload.actorRole } : {}),
+      ...pickDefinedApiFields(payload, [
+        "contentId",
+        "subtitle",
+        "bodyPreview",
+        "coverAssetId",
+        "attachmentAssetIds",
+        "actorRole",
+      ]),
     };
     const response = saveManagedContentDraft(userState, request);
     if (!response.ok) {
@@ -162,9 +164,7 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
     const response = applyManagedContentLifecycle(userState, {
       contentId: payload.contentId,
       action: payload.action,
-      ...(payload.visibility ? { visibility: payload.visibility } : {}),
-      ...(payload.reviewMessage ? { reviewMessage: payload.reviewMessage } : {}),
-      ...(payload.actorRole ? { actorRole: payload.actorRole } : {}),
+      ...pickDefinedApiFields(payload, ["visibility", "reviewMessage", "actorRole"]),
     });
     if (!response.ok) {
       return jsonError(response.code, response.message, response.code === "FORBIDDEN" ? 403 : 404, traceId);
@@ -337,9 +337,8 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
       chapterId: payload.chapterId,
       progressPercent: payload.progressPercent,
       updatedAt,
-      ...(payload.scrollOffset !== undefined ? { scrollOffset: payload.scrollOffset } : {}),
-      ...(payload.pageIndex !== undefined ? { pageIndex: payload.pageIndex } : {}),
-      ...(chapter?.title ? { chapterTitle: chapter.title } : {}),
+      ...pickDefinedApiFields(payload, ["scrollOffset", "pageIndex"]),
+      ...pickDefinedApiFields({ chapterTitle: chapter?.title }, ["chapterTitle"]),
     };
     await store.saveUserState(session.userId, userState);
     return c.json({

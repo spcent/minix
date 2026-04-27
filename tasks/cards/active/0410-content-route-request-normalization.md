@@ -78,18 +78,21 @@ Replace repeated optional-field spreads in content review, draft, lifecycle, and
 
 ## Implementation Notes
 
-- Pending.
+- Adopted `pickDefinedApiFields` for content detail, review queue, draft save, lifecycle, and reading progress request assembly.
+- Kept required draft and lifecycle fields explicit while optional fields use shared defined-field omission.
+- Preserved numeric optional reading-progress fields, including zero-valued `scrollOffset` and `pageIndex`.
 
 ## Verification Notes
 
-- Pending.
+- Ran `pnpm verify:api`.
+- Ran `pnpm typecheck`.
 
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
