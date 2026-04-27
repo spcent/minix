@@ -83,12 +83,23 @@ Replace remaining simple `c.get("traceId")` lookups in public, account identity,
 - final verifier handoff:
   - public SVG and upload asset not-found paths should keep trace-aware responses.
 
+## Implementation Notes
+
+- Adopted `getRouteTraceId` in public sample asset and share-poster routes.
+- Adopted `getRouteTraceId` in account identity unauthorized checks.
+- Reused `loadRouteUserState` trace output in upload asset and thumbnail not-found paths.
+
+## Verification Notes
+
+- Ran `pnpm verify:api`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

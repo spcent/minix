@@ -1,4 +1,5 @@
 import { renderSampleCoverAssetSvg, renderSampleProfileAssetSvg, renderSharePosterSvg } from "../../sample-assets";
+import { getRouteTraceId } from "../../http/route-context";
 import { createSvgResponse, jsonError, parseSvgAssetId } from "../../http/response";
 import type { ApiRouteAppOptions } from "../route-options";
 
@@ -16,7 +17,7 @@ export function registerPublicRoutes(options: RegisterPublicRoutesOptions) {
   );
 
   app.get("/sample-assets/covers/:assetName", (c) => {
-    const traceId = c.get("traceId");
+    const traceId = getRouteTraceId(c);
     const assetId = parseSvgAssetId(c.req.param("assetName"));
     if (!assetId) {
       return jsonError("NOT_FOUND", "Sample cover asset not found.", 404, traceId);
@@ -31,7 +32,7 @@ export function registerPublicRoutes(options: RegisterPublicRoutesOptions) {
   });
 
   app.get("/sample-assets/profiles/:assetName", (c) => {
-    const traceId = c.get("traceId");
+    const traceId = getRouteTraceId(c);
     const assetId = parseSvgAssetId(c.req.param("assetName"));
     if (!assetId) {
       return jsonError("NOT_FOUND", "Sample profile asset not found.", 404, traceId);
@@ -46,7 +47,7 @@ export function registerPublicRoutes(options: RegisterPublicRoutesOptions) {
   });
 
   app.get("/share-posters/:shortCode.svg", (c) => {
-    const traceId = c.get("traceId");
+    const traceId = getRouteTraceId(c);
     const svg = renderSharePosterSvg({
       title: "MiniX Share Poster",
       summary: "Open the short link to continue into the attributed share flow.",

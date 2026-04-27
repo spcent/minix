@@ -290,11 +290,11 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
   });
 
   app.get("/uploads/assets/:assetId", async (c) => {
-    const { userState } = await loadRouteUserState(c, resolveStore);
+    const { traceId, userState } = await loadRouteUserState(c, resolveStore);
     const assetId = c.req.param("assetId");
     const binary = readUploadedAssetBinary(userState, assetId);
     if (!binary) {
-      return jsonError("NOT_FOUND", "Upload asset not found.", 404, c.get("traceId"));
+      return jsonError("NOT_FOUND", "Upload asset not found.", 404, traceId);
     }
     return new Response(Buffer.from(binary.body), {
       headers: {
@@ -305,11 +305,11 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
   });
 
   app.get("/uploads/assets/:assetId/thumb", async (c) => {
-    const { userState } = await loadRouteUserState(c, resolveStore);
+    const { traceId, userState } = await loadRouteUserState(c, resolveStore);
     const assetId = c.req.param("assetId");
     const asset = resolveUploadAssetForUser(userState, assetId);
     if (!asset) {
-      return jsonError("NOT_FOUND", "Upload asset not found.", 404, c.get("traceId"));
+      return jsonError("NOT_FOUND", "Upload asset not found.", 404, traceId);
     }
     const title = encodeURIComponent(asset.fileName);
     return new Response(
