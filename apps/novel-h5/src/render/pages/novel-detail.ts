@@ -1,7 +1,9 @@
 import type { NovelDetailState } from "@minix/feature-novel-detail";
 
 import type { NovelH5PageRenderContext } from "../types";
+import { renderActionRow } from "../components/action-row";
 import { renderChipRow } from "../components/chip-row";
+import { renderInfoPanel } from "../components/info-panel";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, formatCompactNumber, formatDate, renderActionButton, renderRouteLink, routePath } from "../utils";
@@ -37,17 +39,15 @@ export function renderNovelDetailPage(context: NovelH5PageRenderContext, state: 
             ])}
             ${state.membershipMessage ? `<div class="nh-lock-banner"><p class="nh-note">${escapeHtml(state.membershipMessage)}</p></div>` : ""}
             ${state.bookshelfNotice ? `<div class="nh-lock-banner"><p class="nh-note">${escapeHtml(state.bookshelfNotice)}</p></div>` : ""}
-            <div class="nh-actions">
-              ${renderActionButton(state.primaryActionLabel ?? "Continue reading", "controller", "continueReading", undefined, "primary")}
-              ${renderActionButton("Open directory", "controller", "goToToc", undefined, "secondary")}
-              ${
-                detail.inBookshelf
-                  ? renderActionButton(state.bookshelfBusy ? "Removing..." : "Remove from shelf", "controller", "removeFromBookshelf", undefined, "ghost")
-                  : renderActionButton(state.bookshelfBusy ? "Adding..." : "Add to shelf", "controller", "addToBookshelf", undefined, "ghost")
-              }
-              ${renderActionButton(state.summaryExpanded ? "Collapse summary" : "Expand summary", "controller", "toggleSummary", undefined, "ghost")}
-              ${renderActionButton("Library", "controller", "goToCatalog", undefined, "ghost")}
-            </div>
+            ${renderActionRow([
+              renderActionButton(state.primaryActionLabel ?? "Continue reading", "controller", "continueReading", undefined, "primary"),
+              renderActionButton("Open directory", "controller", "goToToc", undefined, "secondary"),
+              detail.inBookshelf
+                ? renderActionButton(state.bookshelfBusy ? "Removing..." : "Remove from shelf", "controller", "removeFromBookshelf", undefined, "ghost")
+                : renderActionButton(state.bookshelfBusy ? "Adding..." : "Add to shelf", "controller", "addToBookshelf", undefined, "ghost"),
+              renderActionButton(state.summaryExpanded ? "Collapse summary" : "Expand summary", "controller", "toggleSummary", undefined, "ghost"),
+              renderActionButton("Library", "controller", "goToCatalog", undefined, "ghost"),
+            ])}
           </div>
           <aside class="nh-grid">
             <div class="nh-cover">
@@ -71,16 +71,14 @@ export function renderNovelDetailPage(context: NovelH5PageRenderContext, state: 
                       : "Open titles still surface continuation, update cadence, and reading depth like a premium storefront."),
                 )}
               </p>
-              <div class="nh-actions">
-                ${
-                  state.membershipLocked
-                    ? renderActionButton(state.membershipActionLabel ?? "Unlock membership", "controller", "goToMembership", undefined, "primary")
-                    : detail.inBookshelf
-                      ? renderActionButton(state.bookshelfBusy ? "Removing..." : "Remove from shelf", "controller", "removeFromBookshelf", undefined, "ghost")
-                      : renderActionButton(state.bookshelfBusy ? "Adding..." : "Add to shelf", "controller", "addToBookshelf", undefined, "primary")
-                }
-                ${renderRouteLink("Open shelf", routePath("bookshelf"), "ghost")}
-              </div>
+              ${renderActionRow([
+                state.membershipLocked
+                  ? renderActionButton(state.membershipActionLabel ?? "Unlock membership", "controller", "goToMembership", undefined, "primary")
+                  : detail.inBookshelf
+                    ? renderActionButton(state.bookshelfBusy ? "Removing..." : "Remove from shelf", "controller", "removeFromBookshelf", undefined, "ghost")
+                    : renderActionButton(state.bookshelfBusy ? "Adding..." : "Add to shelf", "controller", "addToBookshelf", undefined, "primary"),
+                renderRouteLink("Open shelf", routePath("bookshelf"), "ghost"),
+              ])}
             </article>
           </aside>
         </div>
@@ -112,26 +110,26 @@ export function renderNovelDetailPage(context: NovelH5PageRenderContext, state: 
               copy: "These cues make the title feel like part of a real storefront instead of a single content object.",
             })}
             <div class="nh-detail-action-grid">
-              <article class="nh-panel">
-                <p class="nh-meta-label">Reader reputation</p>
-                <h3 class="nh-item-title">${detail.ratingScore !== undefined ? `${detail.ratingScore.toFixed(1)} / 5.0` : "Editorial feature"}</h3>
-                <p class="nh-item-copy">${escapeHtml(state.reputationSummary ?? (detail.ratingCount !== undefined ? `${formatCompactNumber(detail.ratingCount)} reader ratings with ${formatCompactNumber(detail.favoriteCount)} favorites on file.` : "Rating and favorite signals can be surfaced here once the title begins collecting reader sentiment."))}</p>
-              </article>
-              <article class="nh-panel">
-                <p class="nh-meta-label">Update cadence</p>
-                <h3 class="nh-item-title">${escapeHtml(detail.updateCadenceLabel ?? "Release pattern pending")}</h3>
-                <p class="nh-item-copy">${escapeHtml(state.cadenceSummary ?? detail.updateHistoryLabel ?? "A title dossier should tell the reader when this story tends to move, not just what the latest chapter is called.")}</p>
-              </article>
-              <article class="nh-panel">
-                <p class="nh-meta-label">Trial rule</p>
-                <h3 class="nh-item-title">${escapeHtml(detail.trialRuleLabel ?? "Access rules update here once trial and premium logic diverge.")}</h3>
-                <p class="nh-item-copy">${escapeHtml(state.trialSummary ?? detail.accessRuleSummaryLabel ?? "This keeps access expectations explicit before the reader opens or the membership flow starts.")}</p>
-              </article>
-              <article class="nh-panel">
-                <p class="nh-meta-label">Author presence</p>
-                <h3 class="nh-item-title">${escapeHtml(detail.author.name)}</h3>
-                <p class="nh-item-copy">${escapeHtml(detail.authorPresenceLabel ?? detail.author.bio ?? "Author voice, catalog trust, and title posture should all be legible before the first chapter opens.")}</p>
-              </article>
+              ${renderInfoPanel({
+                label: "Reader reputation",
+                title: detail.ratingScore !== undefined ? `${detail.ratingScore.toFixed(1)} / 5.0` : "Editorial feature",
+                copy: state.reputationSummary ?? (detail.ratingCount !== undefined ? `${formatCompactNumber(detail.ratingCount)} reader ratings with ${formatCompactNumber(detail.favoriteCount)} favorites on file.` : "Rating and favorite signals can be surfaced here once the title begins collecting reader sentiment."),
+              })}
+              ${renderInfoPanel({
+                label: "Update cadence",
+                title: detail.updateCadenceLabel ?? "Release pattern pending",
+                copy: state.cadenceSummary ?? detail.updateHistoryLabel ?? "A title dossier should tell the reader when this story tends to move, not just what the latest chapter is called.",
+              })}
+              ${renderInfoPanel({
+                label: "Trial rule",
+                title: detail.trialRuleLabel ?? "Access rules update here once trial and premium logic diverge.",
+                copy: state.trialSummary ?? detail.accessRuleSummaryLabel ?? "This keeps access expectations explicit before the reader opens or the membership flow starts.",
+              })}
+              ${renderInfoPanel({
+                label: "Author presence",
+                title: detail.author.name,
+                copy: detail.authorPresenceLabel ?? detail.author.bio ?? "Author voice, catalog trust, and title posture should all be legible before the first chapter opens.",
+              })}
             </div>
           </section>
           ${
@@ -153,9 +151,9 @@ export function renderNovelDetailPage(context: NovelH5PageRenderContext, state: 
                       ? `<p class="nh-copy">${escapeHtml(state.latestMilestoneReturnHint)}</p>`
                       : ""
                   }
-                  <div class="nh-actions">
-                    ${renderActionButton(state.latestMilestoneReturnLabel ?? "Resume milestone", "controller", "openLatestMilestone", undefined, "primary")}
-                  </div>
+                  ${renderActionRow([
+                    renderActionButton(state.latestMilestoneReturnLabel ?? "Resume milestone", "controller", "openLatestMilestone", undefined, "primary"),
+                  ])}
                 </section>
               `
               : ""
@@ -167,49 +165,45 @@ export function renderNovelDetailPage(context: NovelH5PageRenderContext, state: 
               copy: "A real detail page should be both a merch page and a control surface.",
             })}
             <div class="nh-detail-action-grid">
-              <article class="nh-panel">
-                <p class="nh-meta-label">Continue</p>
-                <h3 class="nh-item-title">Resume the active session.</h3>
-                <p class="nh-item-copy">Jump back to ${escapeHtml(detail.continueChapterId ?? detail.firstChapterId ?? "the opening chapter")} without re-scanning the directory.</p>
-                <div class="nh-actions">
-                  ${renderActionButton(state.primaryActionLabel ?? "Continue", "controller", "continueReading", undefined, "primary")}
-                </div>
-              </article>
-              <article class="nh-panel">
-                <p class="nh-meta-label">Directory</p>
-                <h3 class="nh-item-title">Inspect the release structure.</h3>
-                <p class="nh-item-copy">Volumes, membership labels, and the last-read chapter should remain visible before reading.</p>
-                <div class="nh-actions">
-                  ${renderActionButton("Open TOC", "controller", "goToToc", undefined, "secondary")}
-                </div>
-              </article>
-              <article class="nh-panel">
-                <p class="nh-meta-label">Bookshelf</p>
-                <h3 class="nh-item-title">${detail.inBookshelf ? "Already on the active shelf." : "Pin this title for faster return."}</h3>
-                <p class="nh-item-copy">
-                  ${escapeHtml(
-                    state.bookshelfSummary ??
-                      (detail.inBookshelf
-                        ? "The shelf route can now resume this title directly from its saved chapter."
-                        : "Adding from detail turns the page into a real collection action instead of a passive storefront."),
-                  )}
-                </p>
-                <div class="nh-actions">
-                  ${
-                    detail.inBookshelf
-                      ? renderActionButton(state.bookshelfBusy ? "Removing..." : "Remove from shelf", "controller", "removeFromBookshelf", undefined, "secondary")
-                      : renderActionButton(state.bookshelfBusy ? "Adding..." : "Add to shelf", "controller", "addToBookshelf", undefined, "secondary")
-                  }
-                </div>
-              </article>
-              <article class="nh-panel">
-                <p class="nh-meta-label">Latest chapter</p>
-                <h3 class="nh-item-title">${escapeHtml(detail.latestChapter?.title ?? "New release pending")}</h3>
-                <p class="nh-item-copy">${escapeHtml(detail.updateHistoryLabel ?? `Updated ${formatDate(detail.latestChapter?.updatedAt)} · ${detail.updateCadenceLabel ?? "keeps the detail page feeling alive."}`)}</p>
-                <div class="nh-actions">
-                  ${state.membershipLocked ? renderActionButton(state.membershipActionLabel ?? "Open membership", "controller", "goToMembership", undefined, "ghost") : renderRouteLink("Back to library", routePath("catalog"), "ghost")}
-                </div>
-              </article>
+              ${renderInfoPanel({
+                label: "Continue",
+                title: "Resume the active session.",
+                copy: `Jump back to ${detail.continueChapterId ?? detail.firstChapterId ?? "the opening chapter"} without re-scanning the directory.`,
+                actions: [
+                  renderActionButton(state.primaryActionLabel ?? "Continue", "controller", "continueReading", undefined, "primary"),
+                ],
+              })}
+              ${renderInfoPanel({
+                label: "Directory",
+                title: "Inspect the release structure.",
+                copy: "Volumes, membership labels, and the last-read chapter should remain visible before reading.",
+                actions: [
+                  renderActionButton("Open TOC", "controller", "goToToc", undefined, "secondary"),
+                ],
+              })}
+              ${renderInfoPanel({
+                label: "Bookshelf",
+                title: detail.inBookshelf ? "Already on the active shelf." : "Pin this title for faster return.",
+                copy: state.bookshelfSummary ??
+                  (detail.inBookshelf
+                    ? "The shelf route can now resume this title directly from its saved chapter."
+                    : "Adding from detail turns the page into a real collection action instead of a passive storefront."),
+                actions: [
+                  detail.inBookshelf
+                    ? renderActionButton(state.bookshelfBusy ? "Removing..." : "Remove from shelf", "controller", "removeFromBookshelf", undefined, "secondary")
+                    : renderActionButton(state.bookshelfBusy ? "Adding..." : "Add to shelf", "controller", "addToBookshelf", undefined, "secondary"),
+                ],
+              })}
+              ${renderInfoPanel({
+                label: "Latest chapter",
+                title: detail.latestChapter?.title ?? "New release pending",
+                copy: detail.updateHistoryLabel ?? `Updated ${formatDate(detail.latestChapter?.updatedAt)} · ${detail.updateCadenceLabel ?? "keeps the detail page feeling alive."}`,
+                actions: [
+                  state.membershipLocked
+                    ? renderActionButton(state.membershipActionLabel ?? "Open membership", "controller", "goToMembership", undefined, "ghost")
+                    : renderRouteLink("Back to library", routePath("catalog"), "ghost"),
+                ],
+              })}
             </div>
           </section>
           <section class="nh-card">
@@ -227,9 +221,9 @@ export function renderNovelDetailPage(context: NovelH5PageRenderContext, state: 
                       <h3 class="nh-item-title">${escapeHtml(item.title)}</h3>
                       <p class="nh-item-subtitle">${escapeHtml(item.authorName)}</p>
                       <p class="nh-item-copy">${escapeHtml(item.highlight)}</p>
-                      <div class="nh-actions">
-                        ${renderActionButton("Open detail", "controller", "goToRelatedNovel", item.id, "ghost")}
-                      </div>
+                      ${renderActionRow([
+                        renderActionButton("Open detail", "controller", "goToRelatedNovel", item.id, "ghost"),
+                      ])}
                     </article>
                   `,
                 )
@@ -246,20 +240,16 @@ export function renderNovelDetailPage(context: NovelH5PageRenderContext, state: 
               compact: true,
             })}
             <div class="nh-grid">
-              <article class="nh-panel">
-                <p class="nh-meta-label">Author profile</p>
-                <p class="nh-item-copy">${escapeHtml(detail.author.bio ?? "The author rail should make the title feel like part of a catalog, not a standalone mock object.")}</p>
-              </article>
-              <article class="nh-panel">
-                <p class="nh-meta-label">Why this title</p>
-                <p class="nh-item-copy">
-                  ${escapeHtml(
-                    detail.requiresMembership
-                      ? "Premium positioning, update cadence, and continuation need to feel deliberate before the paywall ever appears."
-                      : "Open-access titles still need a strong editorial frame so they feel curated rather than merely available.",
-                  )}
-                </p>
-              </article>
+              ${renderInfoPanel({
+                label: "Author profile",
+                copy: detail.author.bio ?? "The author rail should make the title feel like part of a catalog, not a standalone mock object.",
+              })}
+              ${renderInfoPanel({
+                label: "Why this title",
+                copy: detail.requiresMembership
+                  ? "Premium positioning, update cadence, and continuation need to feel deliberate before the paywall ever appears."
+                  : "Open-access titles still need a strong editorial frame so they feel curated rather than merely available.",
+              })}
             </div>
           </section>
           <section class="nh-card">

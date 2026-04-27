@@ -1,5 +1,6 @@
 import type { AuthPageState } from "@minix/feature-auth";
 
+import { renderActionRow } from "../components/action-row";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, renderActionButton, renderRouteLink, routePath } from "../utils";
 
@@ -20,11 +21,11 @@ export function renderLoginPage(state: AuthPageState): string {
           </p>
           ${state.noticeMessage ? `<div class="nh-lock-banner"><p class="nh-note">${escapeHtml(state.noticeMessage)}</p></div>` : ""}
           ${state.errorMessage ? `<div class="nh-lock-banner"><p class="nh-note">${escapeHtml(state.errorMessage)}</p></div>` : ""}
-          <div class="nh-actions">
-            ${renderActionButton(state.loading ? "Signing in..." : "Sign in", "entry", "onTapLogin", undefined, "primary")}
-            ${renderRouteLink("Continue as guest", routePath("home"), "button")}
-            ${renderRouteLink("Browse library", routePath("catalog"), "ghost")}
-          </div>
+          ${renderActionRow([
+            renderActionButton(state.loading ? "Signing in..." : "Sign in", "entry", "onTapLogin", undefined, "primary"),
+            renderRouteLink("Continue as guest", routePath("home"), "button"),
+            renderRouteLink("Browse library", routePath("catalog"), "ghost"),
+          ])}
         </div>
         <aside class="nh-cover">
           <p class="nh-cover-kicker">Reading continuity</p>

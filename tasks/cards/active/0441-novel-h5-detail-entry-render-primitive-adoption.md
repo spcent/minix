@@ -81,12 +81,24 @@ Reduce repeated action-row and simple panel markup on entry/detail surfaces so t
 - final verifier handoff:
   - Login and detail buttons should preserve existing data attributes and route links.
 
+## Implementation Notes
+
+- Adopted `renderActionRow` for login entry actions.
+- Adopted `renderActionRow` for novel detail hero, access, milestone, related-read, and panel actions.
+- Adopted `renderInfoPanel` for simple title signal, reading action, and author note panels.
+- Kept issue-style access and release rail markup local because those blocks carry chips, metadata, or custom emphasis.
+
+## Verification Notes
+
+- Ran `pnpm verify:host novel-h5`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
