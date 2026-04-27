@@ -1,6 +1,7 @@
 import type { ReaderState } from "@minix/feature-reader";
 
 import type { NovelH5PageRenderContext } from "../types";
+import { renderActionRow } from "../components/action-row";
 import { renderChipRow } from "../components/chip-row";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, formatDate, renderActionButton, renderParagraphs, splitParagraphs } from "../utils";
@@ -117,11 +118,11 @@ export function renderReaderPage(context: NovelH5PageRenderContext, state: Reade
             <p class="nh-meta-label">Next up</p>
             <h2 class="nh-title-small">${escapeHtml(state.nextChapterTitle ?? "Latest available chapter")}</h2>
             <p class="nh-item-copy">${escapeHtml(state.chapterCompletionState === "continued" ? (state.chapterCompletionMessage ?? nextUpCopy) : nextUpCopy)}</p>
-            <div class="nh-actions">
-              ${renderActionButton(completionButtonLabel, "controller", "completeChapterAndContinue", undefined, "primary")}
-              ${state.nextChapterTitle ? renderActionButton(nextChapterButtonLabel, "controller", "goToNextChapter", undefined, "secondary") : renderActionButton("Open directory", "controller", "goToToc", undefined, "secondary")}
-              <button class="nh-button nh-button-ghost" type="button" data-ui-open="toc">Review queue in TOC</button>
-            </div>
+            ${renderActionRow([
+              renderActionButton(completionButtonLabel, "controller", "completeChapterAndContinue", undefined, "primary"),
+              state.nextChapterTitle ? renderActionButton(nextChapterButtonLabel, "controller", "goToNextChapter", undefined, "secondary") : renderActionButton("Open directory", "controller", "goToToc", undefined, "secondary"),
+              `<button class="nh-button nh-button-ghost" type="button" data-ui-open="toc">Review queue in TOC</button>`,
+            ])}
           </article>
         </section>
         <section class="nh-reader-sequence-strip">
@@ -159,10 +160,10 @@ export function renderReaderPage(context: NovelH5PageRenderContext, state: Reade
                       ? renderChipRow([completionSummaryMeta, sessionCopy, state.saveStatusLabel ?? "Progress saved"])
                       : ""
                   }
-                  <div class="nh-actions">
-                    ${state.nextChapterTitle ? renderActionButton("Open next step", "controller", "goToNextChapter", undefined, "primary") : renderActionButton("Back to title dossier", "controller", "goToNovelDetail", undefined, "secondary")}
-                    ${renderActionButton("Review directory", "controller", "goToToc", undefined, "ghost")}
-                  </div>
+                  ${renderActionRow([
+                    state.nextChapterTitle ? renderActionButton("Open next step", "controller", "goToNextChapter", undefined, "primary") : renderActionButton("Back to title dossier", "controller", "goToNovelDetail", undefined, "secondary"),
+                    renderActionButton("Review directory", "controller", "goToToc", undefined, "ghost"),
+                  ])}
                 </article>
               </section>
             `
@@ -176,10 +177,10 @@ export function renderReaderPage(context: NovelH5PageRenderContext, state: Reade
                   <p class="nh-meta-label">Chapter complete</p>
                   <h2 class="nh-title-small">${escapeHtml(chapter?.title ?? state.title)}</h2>
                   <p class="nh-item-copy">${escapeHtml(completionMessage)}</p>
-                  <div class="nh-actions">
-                    ${state.nextChapterTitle ? renderActionButton("Open next chapter", "controller", "goToNextChapter", undefined, "primary") : renderActionButton("Back to detail", "controller", "goToNovelDetail", undefined, "secondary")}
-                    ${renderActionButton("Open TOC", "controller", "goToToc", undefined, "ghost")}
-                  </div>
+                  ${renderActionRow([
+                    state.nextChapterTitle ? renderActionButton("Open next chapter", "controller", "goToNextChapter", undefined, "primary") : renderActionButton("Back to detail", "controller", "goToNovelDetail", undefined, "secondary"),
+                    renderActionButton("Open TOC", "controller", "goToToc", undefined, "ghost"),
+                  ])}
                 </article>
               </section>
             `
@@ -224,10 +225,10 @@ export function renderReaderPage(context: NovelH5PageRenderContext, state: Reade
                       state.readingStateLabel,
                       chapter?.trialEndOffset ? `Preview cut at ${chapter.trialEndOffset} chars` : undefined,
                     ])}
-                    <div class="nh-actions">
-                      ${renderActionButton(state.membershipActionLabel ?? "Unlock membership", "controller", "goToMembership", undefined, "primary")}
-                      ${renderActionButton("Back to detail", "controller", "goToNovelDetail", undefined, "ghost")}
-                    </div>
+                    ${renderActionRow([
+                      renderActionButton(state.membershipActionLabel ?? "Unlock membership", "controller", "goToMembership", undefined, "primary"),
+                      renderActionButton("Back to detail", "controller", "goToNovelDetail", undefined, "ghost"),
+                    ])}
                   </div>
                 </aside>
               `
@@ -282,18 +283,18 @@ export function renderReaderPage(context: NovelH5PageRenderContext, state: Reade
               <div class="nh-reader-settings-grid">
                 <article class="nh-panel">
                   <p class="nh-meta-label">Type scale</p>
-                  <div class="nh-actions">
-                    ${renderActionButton("A-", "controller", "decreaseFontScale", undefined, "ghost")}
-                    <span class="nh-reader-setting-value">${Math.round(state.fontScale * 100)}%</span>
-                    ${renderActionButton("A+", "controller", "increaseFontScale", undefined, "ghost")}
-                  </div>
+                  ${renderActionRow([
+                    renderActionButton("A-", "controller", "decreaseFontScale", undefined, "ghost"),
+                    `<span class="nh-reader-setting-value">${Math.round(state.fontScale * 100)}%</span>`,
+                    renderActionButton("A+", "controller", "increaseFontScale", undefined, "ghost"),
+                  ])}
                 </article>
                 <article class="nh-panel">
                   <p class="nh-meta-label">Theme and mode</p>
-                  <div class="nh-actions">
-                    ${renderActionButton(`Theme · ${state.theme}`, "controller", "cycleTheme", undefined, "secondary")}
-                    ${renderActionButton(`Mode · ${state.mode}`, "controller", "cycleMode", undefined, "secondary")}
-                  </div>
+                  ${renderActionRow([
+                    renderActionButton(`Theme · ${state.theme}`, "controller", "cycleTheme", undefined, "secondary"),
+                    renderActionButton(`Mode · ${state.mode}`, "controller", "cycleMode", undefined, "secondary"),
+                  ])}
                 </article>
                 <article class="nh-panel">
                   <p class="nh-meta-label">Progress</p>
@@ -301,9 +302,9 @@ export function renderReaderPage(context: NovelH5PageRenderContext, state: Reade
                     <input type="range" min="0" max="100" value="${Math.round(state.progressPercent * 100)}" data-input="reader-progress" />
                     <span class="nh-reader-setting-value">${progressPercentLabel}</span>
                   </label>
-                  <div class="nh-actions">
-                    ${renderActionButton("Save now", "controller", "saveProgress", undefined, "primary")}
-                  </div>
+                  ${renderActionRow([
+                    renderActionButton("Save now", "controller", "saveProgress", undefined, "primary"),
+                  ])}
                 </article>
               </div>
             </div>
@@ -328,10 +329,10 @@ export function renderReaderPage(context: NovelH5PageRenderContext, state: Reade
                 <article class="nh-panel">
                   <p class="nh-meta-label">Unlock outcome</p>
                   <p class="nh-copy">Membership should return the reader to this chapter, preserve progress, and keep the top-level story context intact.</p>
-                  <div class="nh-actions">
-                    ${renderActionButton(state.membershipActionLabel ?? "Open membership", "controller", "goToMembership", undefined, "primary")}
-                    ${renderActionButton("Back to detail", "controller", "goToNovelDetail", undefined, "ghost")}
-                  </div>
+                  ${renderActionRow([
+                    renderActionButton(state.membershipActionLabel ?? "Open membership", "controller", "goToMembership", undefined, "primary"),
+                    renderActionButton("Back to detail", "controller", "goToNovelDetail", undefined, "ghost"),
+                  ])}
                 </article>
               </div>
             </div>
