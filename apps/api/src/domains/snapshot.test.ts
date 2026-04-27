@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { cloneDomainSnapshot, cloneDomainSnapshotArray, cloneOptionalDomainSnapshot } from "./snapshot";
+import {
+  cloneDefinedDomainFields,
+  cloneDomainSnapshot,
+  cloneDomainSnapshotArray,
+  cloneOptionalDomainSnapshot,
+} from "./snapshot";
 
 test("domain snapshot helpers deep clone values", () => {
   const source = { nested: { value: "original" } };
@@ -32,4 +37,38 @@ test("domain snapshot helpers deep clone arrays", () => {
   source[0]!.nested.value = "changed";
 
   assert.deepEqual(snapshot, [{ nested: { value: "original" } }]);
+});
+
+test("cloneDefinedDomainFields preserves falsy defined fields and omits undefined", () => {
+  const snapshot = cloneDefinedDomainFields(
+    {
+      count: 0,
+      label: "",
+      enabled: false,
+      missing: undefined as string | undefined,
+    },
+    ["count", "label", "enabled", "missing"] as const,
+  );
+
+  assert.deepEqual(snapshot, {
+    count: 0,
+    label: "",
+    enabled: false,
+  });
+});
+
+test("cloneDefinedDomainFields deep clones selected fields", () => {
+  const source = {
+    nested: { value: "original" },
+    list: [{ label: "first" }],
+  };
+  const snapshot = cloneDefinedDomainFields(source, ["nested", "list"] as const);
+
+  source.nested.value = "changed";
+  source.list[0]!.label = "changed";
+
+  assert.deepEqual(snapshot, {
+    nested: { value: "original" },
+    list: [{ label: "first" }],
+  });
 });
