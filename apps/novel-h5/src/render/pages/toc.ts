@@ -1,5 +1,6 @@
 import type { TocState } from "@minix/feature-toc";
 
+import { renderChipRow } from "../components/chip-row";
 import { describeChapterFlow, findNextChapter } from "../components/chapter-flow";
 import type { NovelH5PageRenderContext } from "../types";
 import { renderAppShell } from "../layout/app-shell";
@@ -72,7 +73,7 @@ export function renderTocPage(context: NovelH5PageRenderContext, state: TocState
                 <div class="nh-kicker">Volume milestone</div>
                 <h2 class="nh-title-small">${escapeHtml(state.programMilestoneTitle)}</h2>
                 <p class="nh-item-copy">${escapeHtml(state.programMilestoneCopy ?? "Completed volumes should remain first-class milestones inside the directory.")}</p>
-                ${state.programMilestoneMeta ? `<div class="nh-chip-row"><span class="nh-chip">${escapeHtml(state.programMilestoneMeta)}</span></div>` : ""}
+                ${renderChipRow([state.programMilestoneMeta])}
               </div>
             </section>
           `
@@ -110,10 +111,10 @@ export function renderTocPage(context: NovelH5PageRenderContext, state: TocState
                       return `
                         <article class="nh-item${state.selectedChapterId === chapter.id || state.highlightedChapterId === chapter.id ? " nh-item-active" : ""}">
                           <h3 class="nh-item-title">${escapeHtml(chapter.title)}</h3>
-                          <div class="nh-chip-row">
-                            ${descriptor.chips.map((chip) => `<span class="nh-chip">${escapeHtml(chip)}</span>`).join("")}
-                            ${state.highlightedChapterId === chapter.id ? `<span class="nh-chip">Pinned highlight</span>` : ""}
-                          </div>
+                          ${renderChipRow([
+                            ...descriptor.chips,
+                            state.highlightedChapterId === chapter.id ? "Pinned highlight" : undefined,
+                          ])}
                           <p class="nh-item-copy">${escapeHtml(descriptor.copy)}</p>
                           <div class="nh-actions">
                             ${renderActionButton("Select", "controller", "selectChapter", chapter.id)}

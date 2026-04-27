@@ -79,18 +79,21 @@ Replace repeated hand-authored reader and directory chip markup with the shared 
 
 ## Implementation Notes
 
-- Pending.
+- Adopted `renderChipRow` in reader panel summary and chapter rows.
+- Adopted `renderChipRow` in TOC milestone and chapter rows.
+- Preserved chapter descriptor labels and optional pinned-highlight behavior while moving escaping into the shared component.
 
 ## Verification Notes
 
-- Pending.
+- Ran `pnpm verify:host novel-h5`.
+- Ran `pnpm typecheck`.
 
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

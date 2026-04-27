@@ -2,6 +2,7 @@ import type { ChapterListResponse } from "@minix/contracts";
 import type { ReaderState } from "@minix/feature-reader";
 
 import { describeChapterFlow, findNextChapter } from "./chapter-flow";
+import { renderChipRow } from "./chip-row";
 import { escapeHtml, formatDate, formatCompactNumber, renderActionButton } from "../utils";
 
 export function renderReaderTocPanelBody(toc: ChapterListResponse, state: ReaderState): string {
@@ -17,12 +18,12 @@ export function renderReaderTocPanelBody(toc: ChapterListResponse, state: Reader
         ${state.chapter?.id ? renderActionButton("Back to current chapter", "controller", "goToChapter", state.chapter.id, "secondary") : ""}
         ${state.nextChapterTitle ? renderActionButton(`Next · ${state.nextChapterTitle}`, "controller", "goToNextChapter", undefined, "ghost") : ""}
       </div>
-      <div class="nh-chip-row">
-        <span class="nh-chip">Current ${escapeHtml(state.chapter?.title ?? state.title)}</span>
-        ${state.currentVolumeTitle ? `<span class="nh-chip">${escapeHtml(state.currentVolumeTitle)}</span>` : ""}
-        ${state.nextChapterTitle ? `<span class="nh-chip">Next ${escapeHtml(state.nextChapterTitle)}</span>` : ""}
-        <span class="nh-chip">${state.readChapterIds.length} chapters in trail</span>
-      </div>
+      ${renderChipRow([
+        `Current ${state.chapter?.title ?? state.title}`,
+        state.currentVolumeTitle,
+        state.nextChapterTitle ? `Next ${state.nextChapterTitle}` : undefined,
+        `${state.readChapterIds.length} chapters in trail`,
+      ])}
       ${
         nextChapter
           ? `<p class="nh-item-copy">Next up in the live queue: ${escapeHtml(nextChapter.title)}.</p>`
@@ -54,10 +55,7 @@ export function renderReaderTocPanelBody(toc: ChapterListResponse, state: Reader
                       return `
                       <article class="nh-reader-chapter-item${chapter.id === state.chapter?.id ? " nh-reader-chapter-item-active" : ""}">
                         <div class="nh-grid">
-                          <div class="nh-chip-row">
-                            <span class="nh-chip">Ch. ${chapter.order}</span>
-                            ${descriptor.chips.map((chip) => `<span class="nh-chip">${escapeHtml(chip)}</span>`).join("")}
-                          </div>
+                          ${renderChipRow([`Ch. ${chapter.order}`, ...descriptor.chips])}
                           <h4 class="nh-reader-chapter-title">${escapeHtml(chapter.title)}</h4>
                           <p class="nh-item-copy">
                             ${formatCompactNumber(chapter.wordCount)} words · ${escapeHtml(formatDate(chapter.updatedAt))}
