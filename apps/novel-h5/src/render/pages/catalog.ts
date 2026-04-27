@@ -2,6 +2,7 @@ import type { CatalogState } from "@minix/feature-catalog";
 
 import type { NovelH5PageRenderContext } from "../types";
 import { renderChipRow } from "../components/chip-row";
+import { renderEmptyState } from "../components/empty-state";
 import { renderNovelCard } from "../components/novel-card";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderStatPanels } from "../components/stat-panel";
@@ -13,6 +14,11 @@ export function renderCatalogPage(context: NovelH5PageRenderContext, state: Cata
   const serialCount = state.items.filter((item) => item.status === "serializing").length;
   const premiumCount = state.items.filter((item) => item.requiresMembership).length;
   const hasSearchKeyword = state.query.keyword.trim().length > 0;
+  const emptyResultCopy = state.errorText
+    ? state.errorText
+    : hasSearchKeyword
+      ? `No titles matched "${state.query.keyword}". Try a recent search, a hot keyword, or clear the query.`
+      : state.emptyText ?? "No novels available.";
   const resultCards =
     state.items.length > 0
       ? state.items
@@ -30,30 +36,17 @@ export function renderCatalogPage(context: NovelH5PageRenderContext, state: Cata
             }),
           )
               .join("")
-      : `
-        <div class="nh-empty-state">
-          <p class="nh-copy">
-            ${
-              state.errorText
-                ? escapeHtml(state.errorText)
-                : hasSearchKeyword
-                  ? escapeHtml(`No titles matched "${state.query.keyword}". Try a recent search, a hot keyword, or clear the query.`)
-                  : escapeHtml(state.emptyText ?? "No novels available.")
-            }
-          </p>
-          ${
-            hasSearchKeyword
-              ? `<div class="nh-actions">
-                  ${renderActionButton("Clear search", "controller", "clearSearch", undefined, "secondary")}
-                  ${
-                    state.hotKeywords[0]
-                      ? renderActionButton(`Try ${state.hotKeywords[0]}`, "controller", "applySearchKeyword", state.hotKeywords[0], "ghost")
-                      : ""
-                  }
-                </div>`
-              : ""
-          }
-        </div>`;
+      : renderEmptyState(
+          emptyResultCopy,
+          hasSearchKeyword
+            ? [
+                renderActionButton("Clear search", "controller", "clearSearch", undefined, "secondary"),
+                state.hotKeywords[0]
+                  ? renderActionButton(`Try ${state.hotKeywords[0]}`, "controller", "applySearchKeyword", state.hotKeywords[0], "ghost")
+                  : undefined,
+              ]
+            : [],
+        );
 
   const sortButtons = [
     { label: "Recommended", value: "recommended" },

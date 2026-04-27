@@ -1,5 +1,7 @@
 import type { MediaToolsState } from "@minix/feature-media-tools";
 
+import { renderActionRow } from "../components/action-row";
+import { renderInfoPanel } from "../components/info-panel";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
@@ -33,12 +35,12 @@ export function renderMediaToolsPage(state: MediaToolsState): string {
               },
             ])}
           </div>
-          <div class="nh-actions">
-            ${renderActionButton(state.primaryActionLabel, "controller", "startUpload", undefined, "primary")}
-            ${renderActionButton(state.secondaryActionLabel, "controller", "startShare", undefined, "secondary")}
-            ${renderActionButton("Refresh report", "controller", "loadShareReport", state.shareAttribution.attributionId, "ghost")}
-            ${renderActionButton("Open preferences", "controller", "goToSettings", undefined, "ghost")}
-          </div>
+          ${renderActionRow([
+            renderActionButton(state.primaryActionLabel, "controller", "startUpload", undefined, "primary"),
+            renderActionButton(state.secondaryActionLabel, "controller", "startShare", undefined, "secondary"),
+            renderActionButton("Refresh report", "controller", "loadShareReport", state.shareAttribution.attributionId, "ghost"),
+            renderActionButton("Open preferences", "controller", "goToSettings", undefined, "ghost"),
+          ])}
           ${state.lastResult ? `<p class="nh-item-copy">${escapeHtml(`${state.lastResult.message}${state.lastResult.detail ? ` · ${state.lastResult.detail}` : ""}`)}</p>` : ""}
           ${state.errorText ? `<p class="nh-item-copy">${escapeHtml(state.errorText)}</p>` : ""}
         </div>
@@ -48,10 +50,11 @@ export function renderMediaToolsPage(state: MediaToolsState): string {
             <h2 class="nh-cover-title">${escapeHtml(state.resultLabel)}</h2>
             <p class="nh-cover-copy">${escapeHtml(state.capabilityHint)}</p>
           </div>
-          <article class="nh-panel nh-issue-panel">
-            <p class="nh-meta-label">Usage examples</p>
-            <p class="nh-item-copy">${escapeHtml(state.usageExamples.join(" · "))}</p>
-          </article>
+          ${renderInfoPanel({
+            label: "Usage examples",
+            copy: state.usageExamples.join(" · "),
+            className: "nh-panel nh-issue-panel",
+          })}
         </aside>
       </section>
       <section class="nh-sidebar-grid">
@@ -62,18 +65,18 @@ export function renderMediaToolsPage(state: MediaToolsState): string {
             copy: "This keeps screenshots, attachments, and asset governance inspectable without hiding the shared upload contract behind another app shell.",
           })}
           <div class="nh-grid">
-            <article class="nh-panel">
-              <p class="nh-meta-label">Governance</p>
-              <p class="nh-item-copy">${escapeHtml(`${state.uploadTask.governance.acceptedFileTypes.join(", ")} · max ${String(state.uploadTask.governance.maxSizeBytes)} bytes`)}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Provider</p>
-              <p class="nh-item-copy">${escapeHtml(state.uploadProviderSummary)}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Latest asset</p>
-              <p class="nh-item-copy">${escapeHtml(state.uploadAsset ? `${state.uploadAsset.fileName} -> ${state.uploadAsset.url}` : "No asset selected yet.")}</p>
-            </article>
+            ${renderInfoPanel({
+              label: "Governance",
+              copy: `${state.uploadTask.governance.acceptedFileTypes.join(", ")} · max ${String(state.uploadTask.governance.maxSizeBytes)} bytes`,
+            })}
+            ${renderInfoPanel({
+              label: "Provider",
+              copy: state.uploadProviderSummary,
+            })}
+            ${renderInfoPanel({
+              label: "Latest asset",
+              copy: state.uploadAsset ? `${state.uploadAsset.fileName} -> ${state.uploadAsset.url}` : "No asset selected yet.",
+            })}
           </div>
         </section>
         <aside class="nh-card">
@@ -84,22 +87,22 @@ export function renderMediaToolsPage(state: MediaToolsState): string {
             compact: true,
           })}
           <div class="nh-grid">
-            <article class="nh-panel">
-              <p class="nh-meta-label">Payload</p>
-              <p class="nh-item-copy">${escapeHtml(`${state.sharePayload.title} · ${state.sharePayload.shortLink ?? state.sharePayload.landingUrl ?? "No link"}`)}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Provider</p>
-              <p class="nh-item-copy">${escapeHtml(state.shareProviderSummary)}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Navigation</p>
-              <div class="nh-actions">
-                ${renderActionButton("Retry primary action", "controller", "retryPrimaryAction", undefined, "secondary")}
-                ${renderActionButton("Clear result", "controller", "clearLastResult", undefined, "ghost")}
-                ${renderRouteLink("Open support", routePath("feedback"), "ghost")}
-              </div>
-            </article>
+            ${renderInfoPanel({
+              label: "Payload",
+              copy: `${state.sharePayload.title} · ${state.sharePayload.shortLink ?? state.sharePayload.landingUrl ?? "No link"}`,
+            })}
+            ${renderInfoPanel({
+              label: "Provider",
+              copy: state.shareProviderSummary,
+            })}
+            ${renderInfoPanel({
+              label: "Navigation",
+              actions: [
+                renderActionButton("Retry primary action", "controller", "retryPrimaryAction", undefined, "secondary"),
+                renderActionButton("Clear result", "controller", "clearLastResult", undefined, "ghost"),
+                renderRouteLink("Open support", routePath("feedback"), "ghost"),
+              ],
+            })}
           </div>
         </aside>
       </section>

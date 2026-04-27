@@ -1,5 +1,7 @@
 import type { FeedState } from "@minix/feature-feed";
 
+import { renderActionRow } from "../components/action-row";
+import { renderInfoPanel } from "../components/info-panel";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
@@ -38,11 +40,11 @@ export function renderFeedPage(state: FeedState): string {
               },
             ])}
           </div>
-          <div class="nh-actions">
-            ${renderActionButton("Refresh discover", "entry", "onShow", undefined, "primary")}
-            ${renderActionButton("Open preferences", "entry", "onTapSettings", undefined, "secondary")}
-            ${renderRouteLink("Back to library", routePath("catalog"), "ghost")}
-          </div>
+          ${renderActionRow([
+            renderActionButton("Refresh discover", "entry", "onShow", undefined, "primary"),
+            renderActionButton("Open preferences", "entry", "onTapSettings", undefined, "secondary"),
+            renderRouteLink("Back to library", routePath("catalog"), "ghost"),
+          ])}
         </div>
         <aside class="nh-grid">
           <div class="nh-cover">
@@ -50,10 +52,11 @@ export function renderFeedPage(state: FeedState): string {
             <h2 class="nh-cover-title">Novel reading stays on the catalog and reader extension layer.</h2>
             <p class="nh-cover-copy">Discover carries shared editorial search and managed-content entry so the standalone novel hosts do not bury cross-domain content behind library-only routes.</p>
           </div>
-          <article class="nh-panel nh-issue-panel">
-            <p class="nh-meta-label">CMS boundary</p>
-            <p class="nh-item-copy">Drafting, lifecycle actions, and review queue state still live in the shared feed controller. This host only exposes the entry surface deliberately.</p>
-          </article>
+          ${renderInfoPanel({
+            label: "CMS boundary",
+            copy: "Drafting, lifecycle actions, and review queue state still live in the shared feed controller. This host only exposes the entry surface deliberately.",
+            className: "nh-panel nh-issue-panel",
+          })}
         </aside>
       </section>
       <section class="nh-sidebar-grid">
@@ -100,27 +103,27 @@ export function renderFeedPage(state: FeedState): string {
             compact: true,
           })}
           <div class="nh-grid">
-            <article class="nh-panel">
-              <p class="nh-meta-label">Draft workflow</p>
-              <p class="nh-item-copy">${escapeHtml(state.contentDraftForm.subtitle ?? "Authoring workflow for managed content.")}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Draft recovery</p>
-              <p class="nh-item-copy">${escapeHtml(state.contentDraftForm.workflow.draft ? "Local draft recovery is available on this host." : "No local draft snapshot is saved yet.")}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Search posture</p>
-              <p class="nh-item-copy">${escapeHtml(state.query.keyword ? `Current keyword: ${state.query.keyword}` : "No keyword applied yet. The bounded discover route is ready for editorial and recommendation search.")}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Return path</p>
-              <p class="nh-item-copy">Use Discover for shared editorial search, then return to Library, Detail, or Reader for the novel-specific extension flow.</p>
-            </article>
+            ${renderInfoPanel({
+              label: "Draft workflow",
+              copy: state.contentDraftForm.subtitle ?? "Authoring workflow for managed content.",
+            })}
+            ${renderInfoPanel({
+              label: "Draft recovery",
+              copy: state.contentDraftForm.workflow.draft ? "Local draft recovery is available on this host." : "No local draft snapshot is saved yet.",
+            })}
+            ${renderInfoPanel({
+              label: "Search posture",
+              copy: state.query.keyword ? `Current keyword: ${state.query.keyword}` : "No keyword applied yet. The bounded discover route is ready for editorial and recommendation search.",
+            })}
+            ${renderInfoPanel({
+              label: "Return path",
+              copy: "Use Discover for shared editorial search, then return to Library, Detail, or Reader for the novel-specific extension flow.",
+            })}
           </div>
-          <div class="nh-actions">
-            ${renderActionButton("Refresh review queue", "controller", "loadReviewQueue", undefined, "secondary")}
-            ${renderActionButton("Save local draft snapshot", "controller", "saveContentDraftSnapshot", undefined, "ghost")}
-          </div>
+          ${renderActionRow([
+            renderActionButton("Refresh review queue", "controller", "loadReviewQueue", undefined, "secondary"),
+            renderActionButton("Save local draft snapshot", "controller", "saveContentDraftSnapshot", undefined, "ghost"),
+          ])}
           ${
             reviewPreview.length > 0
               ? `

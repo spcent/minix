@@ -82,12 +82,25 @@ Reduce repeated escaped markup across Novel H5 pages while keeping UI compositio
 - final verifier handoff:
   - helper adoption must preserve escaping, button data attributes, and existing class names.
 
+## Implementation Notes
+
+- Added `renderActionRow`, `renderInfoPanel`, and `renderEmptyState` as Novel H5 host-local render primitives.
+- Adopted action-row and info-panel helpers in feed, feedback, messages, and media tools where repeated `nh-actions` and `nh-panel` markup was concentrated.
+- Adopted the empty-state helper in catalog search results so searchable empty states share the same escaping and action filtering behavior.
+- Added focused render primitive tests for action filtering and escaping.
+
+## Verification Notes
+
+- Ran `node --import tsx --test apps/novel-h5/src/render/components/render-primitives.test.ts apps/novel-h5/src/render/page-registry.test.ts`.
+- Ran `pnpm verify:host novel-h5`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

@@ -1,5 +1,7 @@
 import type { MessagesState } from "@minix/feature-messages";
 
+import { renderActionRow } from "../components/action-row";
+import { renderInfoPanel } from "../components/info-panel";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
@@ -39,12 +41,12 @@ export function renderMessagesPage(state: MessagesState): string {
               },
             ])}
           </div>
-          <div class="nh-actions">
-            ${renderActionButton("Refresh inbox", "entry", "onShow", undefined, "primary")}
-            ${renderActionButton("Mark visible read", "entry", "onTapMarkVisibleRead", undefined, "secondary")}
-            ${renderActionButton("Open preferences", "entry", "onTapSettings", undefined, "secondary")}
-            ${renderRouteLink("Back to discover", routePath("feed"), "ghost")}
-          </div>
+          ${renderActionRow([
+            renderActionButton("Refresh inbox", "entry", "onShow", undefined, "primary"),
+            renderActionButton("Mark visible read", "entry", "onTapMarkVisibleRead", undefined, "secondary"),
+            renderActionButton("Open preferences", "entry", "onTapSettings", undefined, "secondary"),
+            renderRouteLink("Back to discover", routePath("feed"), "ghost"),
+          ])}
           ${state.lastActionMessage ? `<p class="nh-item-copy">${escapeHtml(state.lastActionMessage)}</p>` : ""}
           ${state.errorText ? `<p class="nh-item-copy">${escapeHtml(state.errorText)}</p>` : ""}
         </div>
@@ -54,10 +56,11 @@ export function renderMessagesPage(state: MessagesState): string {
             <h2 class="nh-cover-title">${escapeHtml(syncState?.modeLabel ?? "Polling-first inbox")}</h2>
             <p class="nh-cover-copy">${escapeHtml(syncState?.providerSummary ?? "No realtime transport is provisioned here; the host reflects the shared polling posture directly.")}</p>
           </div>
-          <article class="nh-panel nh-issue-panel">
-            <p class="nh-meta-label">Route recovery</p>
-            <p class="nh-item-copy">Inbox state preserves unread badge, selected thread, and recovery-safe navigation through shared list and detail status instead of a novel-only message model.</p>
-          </article>
+          ${renderInfoPanel({
+            label: "Route recovery",
+            copy: "Inbox state preserves unread badge, selected thread, and recovery-safe navigation through shared list and detail status instead of a novel-only message model.",
+            className: "nh-panel nh-issue-panel",
+          })}
         </aside>
       </section>
       <section class="nh-sidebar-grid">
@@ -100,22 +103,22 @@ export function renderMessagesPage(state: MessagesState): string {
             compact: true,
           })}
           <div class="nh-grid">
-            <article class="nh-panel">
-              <p class="nh-meta-label">Participants</p>
-              <p class="nh-item-copy">${escapeHtml(selectedThread?.participantLabels.join(", ") ?? "No active participants")}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Latest message</p>
-              <p class="nh-item-copy">${escapeHtml(state.messageItems[0]?.body ?? selectedThread?.lastMessagePreview ?? "Thread detail loads after the inbox selects a reserved thread.")}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Actions</p>
-              <div class="nh-actions">
-                ${renderActionButton("Refresh inbox", "entry", "onShow", undefined, "secondary")}
-                ${renderActionButton("Mark visible read", "entry", "onTapMarkVisibleRead", undefined, "ghost")}
-                ${renderRouteLink("Open support", routePath("feedback"), "ghost")}
-              </div>
-            </article>
+            ${renderInfoPanel({
+              label: "Participants",
+              copy: selectedThread?.participantLabels.join(", ") ?? "No active participants",
+            })}
+            ${renderInfoPanel({
+              label: "Latest message",
+              copy: state.messageItems[0]?.body ?? selectedThread?.lastMessagePreview ?? "Thread detail loads after the inbox selects a reserved thread.",
+            })}
+            ${renderInfoPanel({
+              label: "Actions",
+              actions: [
+                renderActionButton("Refresh inbox", "entry", "onShow", undefined, "secondary"),
+                renderActionButton("Mark visible read", "entry", "onTapMarkVisibleRead", undefined, "ghost"),
+                renderRouteLink("Open support", routePath("feedback"), "ghost"),
+              ],
+            })}
           </div>
         </aside>
       </section>
