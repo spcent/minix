@@ -7,8 +7,14 @@ import type {
 } from "@minix/contracts";
 import type { Context, Hono, MiddlewareHandler } from "hono";
 
-import { loadRouteUserState, parseRouteBody, parseRouteQuery } from "../../http/route-context";
+import {
+  loadRouteClientContext,
+  loadRouteUserState,
+  parseRouteBody,
+  parseRouteQuery,
+} from "../../http/route-context";
 import { jsonError } from "../../http/response";
+import { pickDefinedApiFields } from "../schema-helpers";
 import type { ApiBindings, ApiStore, UserState } from "../../types";
 import { createFeedbackBootstrapResponse } from "./support";
 import {
@@ -110,13 +116,13 @@ export function registerFeedbackRoutes(options: RegisterFeedbackRoutesOptions) {
     }
 
     const { userState } = await loadRouteUserState(c, resolveStore);
-    const request: ListFeedbackTicketsRequest = {
-      ...(query.page !== undefined ? { page: query.page } : {}),
-      ...(query.pageSize !== undefined ? { pageSize: query.pageSize } : {}),
-      ...(query.state !== undefined ? { state: query.state } : {}),
-      ...(query.categoryKey !== undefined ? { categoryKey: query.categoryKey } : {}),
-      ...(query.keyword !== undefined ? { keyword: query.keyword } : {}),
-    };
+    const request: ListFeedbackTicketsRequest = pickDefinedApiFields(query, [
+      "page",
+      "pageSize",
+      "state",
+      "categoryKey",
+      "keyword",
+    ]);
     return c.json(listFeedbackTickets(userState, request) satisfies ListFeedbackTicketsResponse);
   });
 
@@ -129,7 +135,7 @@ export function registerFeedbackRoutes(options: RegisterFeedbackRoutesOptions) {
     const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
     const response = revisitFeedbackTicket(userState, {
       ticketId: payload.ticketId,
-      ...(payload.userMessage !== undefined ? { userMessage: payload.userMessage } : {}),
+      ...pickDefinedApiFields(payload, ["userMessage"]),
     });
     if (!response) {
       return jsonError("NOT_FOUND", "Feedback ticket not found.", 404, traceId);
@@ -162,16 +168,14 @@ export function registerFeedbackRoutes(options: RegisterFeedbackRoutesOptions) {
     }
 
     const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
-    const clientId = resolveClientId(c.req.raw);
-    const deviceId = resolveRequestDeviceId(c);
+    const clientContext = loadRouteClientContext(c, resolveClientId, resolveRequestDeviceId);
     const rateLimitGuard = await guardFeedbackSubmitRateLimit({
       c,
       store,
       userId: session.userId,
       userState,
       platform: session.platform,
-      clientId,
-      ...(deviceId ? { deviceId } : {}),
+      ...clientContext,
       traceId,
     });
     if (!rateLimitGuard.allowed) {
@@ -182,8 +186,7 @@ export function registerFeedbackRoutes(options: RegisterFeedbackRoutesOptions) {
     appendFeedbackSubmitAudit({
       userState,
       actorUserId: session.userId,
-      clientId,
-      ...(deviceId ? { deviceId } : {}),
+      ...clientContext,
       platform: session.platform,
       traceId,
       ticketId: response.feedbackTicket.ticketId,
