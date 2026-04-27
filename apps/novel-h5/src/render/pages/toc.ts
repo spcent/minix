@@ -1,5 +1,6 @@
 import type { TocState } from "@minix/feature-toc";
 
+import { renderActionRow } from "../components/action-row";
 import { renderChipRow } from "../components/chip-row";
 import { describeChapterFlow, findNextChapter } from "../components/chapter-flow";
 import { renderStatPanels } from "../components/stat-panel";
@@ -46,11 +47,11 @@ export function renderTocPage(context: NovelH5PageRenderContext, state: TocState
           ${state.currentVolumeProgressLabel ? `<div class="nh-lock-banner"><p class="nh-note">${escapeHtml(state.currentVolumeProgressLabel)}</p></div>` : ""}
           ${state.currentVolumeSummary ? `<p class="nh-item-copy">${escapeHtml(state.currentVolumeSummary)}</p>` : ""}
         </div>
-        <div class="nh-actions">
-          ${renderActionButton("Open selected chapter", "controller", "openSelectedChapter", undefined, "primary")}
-          ${state.currentChapterId ? renderActionButton("Back to current chapter", "controller", "jumpToCurrentChapter", undefined, "secondary") : ""}
-          ${renderActionButton("Back to detail", "controller", "goToNovelDetail", undefined, "ghost")}
-        </div>
+        ${renderActionRow([
+          renderActionButton("Open selected chapter", "controller", "openSelectedChapter", undefined, "primary"),
+          state.currentChapterId ? renderActionButton("Back to current chapter", "controller", "jumpToCurrentChapter", undefined, "secondary") : undefined,
+          renderActionButton("Back to detail", "controller", "goToNovelDetail", undefined, "ghost"),
+        ])}
       </section>
       <section class="nh-sidebar-grid">
         <section class="nh-card">
@@ -87,16 +88,16 @@ export function renderTocPage(context: NovelH5PageRenderContext, state: TocState
           .map(
             (volume) => `
               <article class="nh-panel">
-                <div class="nh-actions">
-                  <div class="nh-grid">
+                ${renderActionRow([
+                  `<div class="nh-grid">
                     <div class="nh-kicker">${escapeHtml(volume.title)}</div>
                     <p class="nh-item-copy">
                       ${volume.id === state.currentVolumeId ? "Current reading volume" : "Secondary volume lane"}
                       ${state.expandedVolumeId === volume.id ? " · expanded" : " · collapsed"}
                     </p>
-                  </div>
-                  ${renderActionButton(state.expandedVolumeId === volume.id ? "Collapse volume" : "Expand volume", "controller", "toggleVolume", volume.id, "ghost")}
-                </div>
+                  </div>`,
+                  renderActionButton(state.expandedVolumeId === volume.id ? "Collapse volume" : "Expand volume", "controller", "toggleVolume", volume.id, "ghost"),
+                ])}
                 ${
                   state.expandedVolumeId !== volume.id
                     ? `<p class="nh-item-copy">Collapsed to keep the live reading lane quiet during longer sessions.</p>`
@@ -119,10 +120,10 @@ export function renderTocPage(context: NovelH5PageRenderContext, state: TocState
                             state.highlightedChapterId === chapter.id ? "Pinned highlight" : undefined,
                           ])}
                           <p class="nh-item-copy">${escapeHtml(descriptor.copy)}</p>
-                          <div class="nh-actions">
-                            ${renderActionButton("Select", "controller", "selectChapter", chapter.id)}
-                            ${renderActionButton(chapter.id === state.currentChapterId ? "Resume" : descriptor.actionLabel, "controller", "goToReader", chapter.id, "ghost")}
-                          </div>
+                          ${renderActionRow([
+                            renderActionButton("Select", "controller", "selectChapter", chapter.id),
+                            renderActionButton(chapter.id === state.currentChapterId ? "Resume" : descriptor.actionLabel, "controller", "goToReader", chapter.id, "ghost"),
+                          ])}
                         </article>
                       `;
                     })
