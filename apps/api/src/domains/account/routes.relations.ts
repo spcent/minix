@@ -7,6 +7,7 @@ import type {
 
 import { loadRouteUserState, parseRouteBody, parseRouteQuery } from "../../http/route-context";
 import { jsonError } from "../../http/response";
+import { pickDefinedApiFields } from "../schema-helpers";
 import { createCurrentUserResponse, listUserAssetHistory } from "./current-user";
 import { applyRelationAction, listUserRelations } from "./relations";
 import type { RegisterAccountRoutesOptions } from "./route-options";
@@ -33,9 +34,7 @@ export function registerAccountRelationsRoutes(options: RegisterAccountRoutesOpt
       accountWorkspaceSummary: current.accountWorkspaceSummary,
       relationList: listUserRelations(userState, current.userStatus.availability, {
         kind: query.kind,
-        ...(query.page ? { page: query.page } : {}),
-        ...(query.pageSize ? { pageSize: query.pageSize } : {}),
-        ...(query.keyword ? { keyword: query.keyword } : {}),
+        ...pickDefinedApiFields(query, ["page", "pageSize", "keyword"]),
       }),
     };
     return c.json(response);
@@ -49,9 +48,7 @@ export function registerAccountRelationsRoutes(options: RegisterAccountRoutesOpt
 
     const { session, userState } = await loadRouteUserState(c, resolveStore);
     const response: UserAssetHistoryResponse = listUserAssetHistory(session, userState, {
-      ...(query.page ? { page: query.page } : {}),
-      ...(query.pageSize ? { pageSize: query.pageSize } : {}),
-      ...(query.subject ? { subject: query.subject } : {}),
+      ...pickDefinedApiFields(query, ["page", "pageSize", "subject"]),
     } satisfies ListUserAssetHistoryRequest);
     return c.json(response);
   });
@@ -70,7 +67,7 @@ export function registerAccountRelationsRoutes(options: RegisterAccountRoutesOpt
         kind: payload.listKind ?? "following",
         page: 1,
         pageSize: 100,
-        ...(payload.keyword ? { keyword: payload.keyword } : {}),
+        ...pickDefinedApiFields(payload, ["keyword"]),
       }).items.find((item) => item.targetUserId === payload.targetUserId);
     if (!target) {
       return jsonError("NOT_FOUND", "Relation target not found.", 404, traceId);
@@ -97,7 +94,7 @@ export function registerAccountRelationsRoutes(options: RegisterAccountRoutesOpt
     const transitionMessage = applyRelationAction(userState, {
       targetUserId: payload.targetUserId,
       action: payload.action,
-      ...(payload.remarkName ? { remarkName: payload.remarkName } : {}),
+      ...pickDefinedApiFields(payload, ["remarkName"]),
     });
     if (!transitionMessage) {
       return jsonError("NOT_FOUND", "Relation target not found.", 404, traceId);
@@ -114,9 +111,7 @@ export function registerAccountRelationsRoutes(options: RegisterAccountRoutesOpt
         ? {
             relationList: listUserRelations(userState, next.userStatus.availability, {
               kind: payload.listKind,
-              ...(payload.page ? { page: payload.page } : {}),
-              ...(payload.pageSize ? { pageSize: payload.pageSize } : {}),
-              ...(payload.keyword ? { keyword: payload.keyword } : {}),
+              ...pickDefinedApiFields(payload, ["page", "pageSize", "keyword"]),
             }),
           }
         : {}),

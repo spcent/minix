@@ -79,18 +79,21 @@ Replace repeated optional-field spreads in account relation and asset history ro
 
 ## Implementation Notes
 
-- Pending.
+- Adopted `pickDefinedApiFields` for relation list, asset history, relation target fallback lookup, relation action, and mutation refresh request assembly.
+- Kept required relation kind and default fallback pagination explicit.
+- Preserved relation mutation behavior and response shape.
 
 ## Verification Notes
 
-- Pending.
+- Ran `pnpm verify:api`.
+- Ran `pnpm typecheck`.
 
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
