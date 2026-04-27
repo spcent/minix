@@ -3,6 +3,7 @@ import type { BookshelfState } from "@minix/feature-bookshelf";
 import type { NovelH5PageRenderContext } from "../types";
 import { renderChipRow } from "../components/chip-row";
 import { renderSectionHeading } from "../components/section-heading";
+import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, formatDate, renderActionButton } from "../utils";
 
@@ -48,26 +49,28 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
           <h1 class="nh-title">${escapeHtml(state.title)}</h1>
           <p class="nh-copy">The shelf should feel like a calm command center: what to resume, what updated, and what deserves another session right now.</p>
           <div class="nh-stat-strip">
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Active titles</p>
-              <p class="nh-stat-value">${String(state.activeCount).padStart(2, "0")}</p>
-              <p class="nh-item-copy">Still moving through active reading</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">With updates</p>
-              <p class="nh-stat-value">${String(state.updatedCount).padStart(2, "0")}</p>
-              <p class="nh-item-copy">Need attention now</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Average progress</p>
-              <p class="nh-stat-value">${averageProgress}%</p>
-              <p class="nh-item-copy">Across the active stack</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Completed</p>
-              <p class="nh-stat-value">${String(state.completedCount).padStart(2, "0")}</p>
-              <p class="nh-item-copy">Finished and ready to revisit</p>
-            </article>
+            ${renderStatPanels([
+              {
+                label: "Active titles",
+                value: String(state.activeCount).padStart(2, "0"),
+                note: "Still moving through active reading",
+              },
+              {
+                label: "With updates",
+                value: String(state.updatedCount).padStart(2, "0"),
+                note: "Need attention now",
+              },
+              {
+                label: "Average progress",
+                value: `${averageProgress}%`,
+                note: "Across the active stack",
+              },
+              {
+                label: "Completed",
+                value: String(state.completedCount).padStart(2, "0"),
+                note: "Finished and ready to revisit",
+              },
+            ])}
           </div>
           ${state.statusText ? `<div class="nh-lock-banner"><p class="nh-note">${escapeHtml(state.statusText)}</p></div>` : ""}
           <div class="nh-actions">
@@ -189,21 +192,23 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
             copy: "These lanes turn the shelf into a reading workspace instead of a static collection dump.",
           })}
           <div class="nh-stat-strip">
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Resume-first</p>
-              <p class="nh-stat-value">${String(state.activeCount).padStart(2, "0")}</p>
-              <p class="nh-item-copy">Titles still in active progress</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Update watch</p>
-              <p class="nh-stat-value">${String(state.updatedCount).padStart(2, "0")}</p>
-              <p class="nh-item-copy">Stories with fresh chapter movement</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Archive</p>
-              <p class="nh-stat-value">${String(state.completedCount).padStart(2, "0")}</p>
-              <p class="nh-item-copy">Finished runs ready for re-entry</p>
-            </article>
+            ${renderStatPanels([
+              {
+                label: "Resume-first",
+                value: String(state.activeCount).padStart(2, "0"),
+                note: "Titles still in active progress",
+              },
+              {
+                label: "Update watch",
+                value: String(state.updatedCount).padStart(2, "0"),
+                note: "Stories with fresh chapter movement",
+              },
+              {
+                label: "Archive",
+                value: String(state.completedCount).padStart(2, "0"),
+                note: "Finished runs ready for re-entry",
+              },
+            ])}
           </div>
         </section>
         <aside class="nh-card">

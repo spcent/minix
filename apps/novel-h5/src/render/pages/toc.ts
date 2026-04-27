@@ -2,6 +2,7 @@ import type { TocState } from "@minix/feature-toc";
 
 import { renderChipRow } from "../components/chip-row";
 import { describeChapterFlow, findNextChapter } from "../components/chapter-flow";
+import { renderStatPanels } from "../components/stat-panel";
 import type { NovelH5PageRenderContext } from "../types";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, renderActionButton } from "../utils";
@@ -19,26 +20,28 @@ export function renderTocPage(context: NovelH5PageRenderContext, state: TocState
           <h1 class="nh-title-small">${escapeHtml(state.title)}</h1>
           <p class="nh-copy">The TOC should show not just structure, but reading position: what is current, what is already read, and where the membership boundary starts.</p>
           <div class="nh-stat-strip">
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Volumes</p>
-              <p class="nh-stat-value">${String(state.volumes.length).padStart(2, "0")}</p>
-              <p class="nh-item-copy">Story arcs in view</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Read</p>
-              <p class="nh-stat-value">${String(totalRead).padStart(2, "0")}</p>
-              <p class="nh-item-copy">Chapters completed or in progress</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Current</p>
-              <p class="nh-stat-value">${escapeHtml(state.currentChapterId ?? "None")}</p>
-              <p class="nh-item-copy">Persistent reader highlight carried into the directory</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Next up</p>
-              <p class="nh-stat-value">${escapeHtml(nextChapter?.title ?? "Latest")}</p>
-              <p class="nh-item-copy">${nextChapter ? "Immediate continuation from the current trail" : "No later chapter in the active queue"}</p>
-            </article>
+            ${renderStatPanels([
+              {
+                label: "Volumes",
+                value: String(state.volumes.length).padStart(2, "0"),
+                note: "Story arcs in view",
+              },
+              {
+                label: "Read",
+                value: String(totalRead).padStart(2, "0"),
+                note: "Chapters completed or in progress",
+              },
+              {
+                label: "Current",
+                value: state.currentChapterId ?? "None",
+                note: "Persistent reader highlight carried into the directory",
+              },
+              {
+                label: "Next up",
+                value: nextChapter?.title ?? "Latest",
+                note: nextChapter ? "Immediate continuation from the current trail" : "No later chapter in the active queue",
+              },
+            ])}
           </div>
           ${state.currentVolumeProgressLabel ? `<div class="nh-lock-banner"><p class="nh-note">${escapeHtml(state.currentVolumeProgressLabel)}</p></div>` : ""}
           ${state.currentVolumeSummary ? `<p class="nh-item-copy">${escapeHtml(state.currentVolumeSummary)}</p>` : ""}

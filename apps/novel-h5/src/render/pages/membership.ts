@@ -3,6 +3,7 @@ import type { SubscriptionState } from "@minix/feature-subscription";
 import type { NovelH5PageRenderContext } from "../types";
 import { renderChipRow } from "../components/chip-row";
 import { renderSectionHeading } from "../components/section-heading";
+import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, renderActionButton } from "../utils";
 
@@ -118,26 +119,28 @@ export function renderMembershipPage(context: NovelH5PageRenderContext, state: S
           ${renderChipRow(["Instant unlock", "Reader progress preserved", isUnlocked ? "Membership active" : "Cancel anytime"])}
           ${state.lockedMessage ? `<div class="nh-lock-banner"><p class="nh-note">${escapeHtml(state.lockedMessage)}</p></div>` : ""}
           <div class="nh-stat-strip">
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Tier</p>
-              <p class="nh-stat-value">${escapeHtml(state.overview?.tier ?? "guest")}</p>
-              <p class="nh-item-copy">Current access state</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Entitlement</p>
-              <p class="nh-stat-value">${escapeHtml(state.overview?.entitlementScope ?? "none")}</p>
-              <p class="nh-item-copy">${escapeHtml(state.entitlementSummary ?? state.overview?.statusLabel ?? "No premium entitlement is active.")}</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Benefits</p>
-              <p class="nh-stat-value">${String(benefits.length).padStart(2, "0")}</p>
-              <p class="nh-item-copy">Reader-facing value props</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Entry source</p>
-              <p class="nh-stat-value">${escapeHtml(sourceLabel)}</p>
-              <p class="nh-item-copy">Where this unlock flow began</p>
-            </article>
+            ${renderStatPanels([
+              {
+                label: "Tier",
+                value: state.overview?.tier ?? "guest",
+                note: "Current access state",
+              },
+              {
+                label: "Entitlement",
+                value: state.overview?.entitlementScope ?? "none",
+                note: state.entitlementSummary ?? state.overview?.statusLabel ?? "No premium entitlement is active.",
+              },
+              {
+                label: "Benefits",
+                value: String(benefits.length).padStart(2, "0"),
+                note: "Reader-facing value props",
+              },
+              {
+                label: "Entry source",
+                value: sourceLabel,
+                note: "Where this unlock flow began",
+              },
+            ])}
           </div>
           <div class="nh-actions">
             ${isUnlocked ? renderActionButton(continueLabel, "controller", "continueAfterPurchase", undefined, "primary") : renderActionButton("Back to library", "controller", "goToCatalog", undefined, "primary")}
