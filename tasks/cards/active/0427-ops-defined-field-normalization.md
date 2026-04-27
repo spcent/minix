@@ -82,18 +82,21 @@ Use existing defined-field helpers in operational jobs and routes so diagnostics
 
 ## Implementation Notes
 
-- Pending.
+- Imported `cloneDefinedDomainFields` into operational job helpers for domain-state optional fields.
+- Imported `pickDefinedApiFields` into ops routes for diagnostics and manual job-run option assembly.
+- Kept provider readiness evidence construction and audit metadata explicit.
 
 ## Verification Notes
 
-- Pending.
+- `pnpm verify:api` passed.
+- `pnpm typecheck` passed.
 
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

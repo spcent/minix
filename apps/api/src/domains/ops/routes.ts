@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { parseJsonBody, parseQuery } from "../../http/parsing";
 import { OPERATIONAL_JOB_KINDS, type ApiBindings, type ApiStore, type OperationalJobKind } from "../../types";
+import { pickDefinedApiFields } from "../schema-helpers";
 import {
   createProviderReadinessEnvironmentSummary,
   createProviderReadinessEvidencePack,
@@ -90,8 +91,7 @@ export function registerOpsRoutes(options: RegisterOpsRoutesOptions) {
     await store.saveOperationalState(operationalState);
     return c.json(
       createOperationalDiagnosticsResponse(userState, operationalState, {
-        ...(query.limit !== undefined ? { limit: query.limit } : {}),
-        ...(query.includeCompletedJobs !== undefined ? { includeCompletedJobs: query.includeCompletedJobs } : {}),
+        ...pickDefinedApiFields(query, ["limit", "includeCompletedJobs"]),
         providerReadiness,
         environmentSummary,
         evidencePack,
@@ -110,8 +110,7 @@ export function registerOpsRoutes(options: RegisterOpsRoutesOptions) {
     const store = resolveStore(c.env);
     const result = await runOperationalJobs(store, {
       userId: session.userId,
-      ...(payload.kind ? { kind: payload.kind } : {}),
-      ...(payload.limit !== undefined ? { limit: payload.limit } : {}),
+      ...pickDefinedApiFields(payload, ["kind", "limit"]),
     });
     appendOperationalAuditRecord(result.operationalState, {
       category: "governance",

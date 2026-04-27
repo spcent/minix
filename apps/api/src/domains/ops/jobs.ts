@@ -8,7 +8,7 @@ import type {
   OperationalState,
   UserState,
 } from "../../types";
-import { cloneDomainSnapshot } from "../snapshot";
+import { cloneDefinedDomainFields, cloneDomainSnapshot } from "../snapshot";
 
 const OPERATIONAL_STATE_SCHEMA_VERSION = 1;
 
@@ -107,7 +107,7 @@ export function upsertOperationalDomainSchema(
     schemaVersion: 1,
     recordCount: input.recordCount,
     lastBackfilledAt: input.nowIso,
-    ...(input.lastRecordId !== undefined ? { lastRecordId: input.lastRecordId } : {}),
+    ...cloneDefinedDomainFields(input, ["lastRecordId"]),
   });
 }
 
@@ -272,8 +272,7 @@ export async function scheduleOperationalJobForUser(
     userId: input.userId,
     dedupeKey: input.dedupeKey,
     scheduledAt,
-    ...(input.relatedRecordId ? { relatedRecordId: input.relatedRecordId } : {}),
-    ...(input.maxAttempts !== undefined ? { maxAttempts: input.maxAttempts } : {}),
+    ...cloneDefinedDomainFields(input, ["relatedRecordId", "maxAttempts"]),
   });
   await store.saveOperationalState(operationalState);
   return job;
