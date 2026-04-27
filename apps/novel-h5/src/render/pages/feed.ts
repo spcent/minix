@@ -1,6 +1,7 @@
 import type { FeedState } from "@minix/feature-feed";
 
 import { renderSectionHeading } from "../components/section-heading";
+import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, renderActionButton, renderRouteLink, routePath } from "../utils";
 
@@ -19,21 +20,23 @@ export function renderFeedPage(state: FeedState): string {
           <h1 class="nh-title">${escapeHtml(state.title)}</h1>
           <p class="nh-copy">${escapeHtml(state.subtitle)}</p>
           <div class="nh-stat-strip">
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Visible results</p>
-              <p class="nh-stat-value">${String(resultCount).padStart(2, "0")}</p>
-              <p class="nh-item-copy">Shared discovery results returned through the feed contract.</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Active lane</p>
-              <p class="nh-stat-value">${escapeHtml(state.query.domain)}</p>
-              <p class="nh-item-copy">Discovery stays bounded instead of hiding inside the novel-only storefront.</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Review queue</p>
-              <p class="nh-stat-value">${String(reviewCount).padStart(2, "0")}</p>
-              <p class="nh-item-copy">Managed-content lifecycle remains owned by the shared feed feature.</p>
-            </article>
+            ${renderStatPanels([
+              {
+                label: "Visible results",
+                value: String(resultCount).padStart(2, "0"),
+                note: "Shared discovery results returned through the feed contract.",
+              },
+              {
+                label: "Active lane",
+                value: state.query.domain,
+                note: "Discovery stays bounded instead of hiding inside the novel-only storefront.",
+              },
+              {
+                label: "Review queue",
+                value: String(reviewCount).padStart(2, "0"),
+                note: "Managed-content lifecycle remains owned by the shared feed feature.",
+              },
+            ])}
           </div>
           <div class="nh-actions">
             ${renderActionButton("Refresh discover", "entry", "onShow", undefined, "primary")}

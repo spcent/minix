@@ -88,18 +88,21 @@ Replace repeated utility-page stat panel markup with `renderStatPanels` so accou
 
 ## Implementation Notes
 
-- Pending.
+- Adopted `renderStatPanels` on account, feed, feedback, media tools, and settings hero stat strips.
+- Preserved existing labels, values, fallback values, and notes.
+- Moved stat escaping and panel structure into the shared component.
 
 ## Verification Notes
 
-- Pending.
+- Ran `pnpm verify:host novel-h5`.
+- Ran `pnpm typecheck`.
 
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

@@ -1,6 +1,7 @@
 import type { SettingsPageModel } from "@minix/core";
 
 import { renderSectionHeading } from "../components/section-heading";
+import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, renderActionButton } from "../utils";
 
@@ -28,21 +29,23 @@ export function renderSettingsPage(state: SettingsPageModel): string {
           <h1 class="nh-title">${escapeHtml(state.title)}</h1>
           <p class="nh-copy">A real novel reading center should read like a calm operational profile: how the reader prefers to consume chapters, how continuity works, and what account state the session is carrying.</p>
           <div class="nh-stat-strip">
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Sections</p>
-              <p class="nh-stat-value">${String(state.sections.length).padStart(2, "0")}</p>
-              <p class="nh-item-copy">Configured reading-center groups</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Preference items</p>
-              <p class="nh-stat-value">${String(totalItems).padStart(2, "0")}</p>
-              <p class="nh-item-copy">Display, continuity, reminder, and account controls</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Primary area</p>
-              <p class="nh-stat-value">${escapeHtml(readingProfile?.title ?? readingProfile?.key ?? "general")}</p>
-              <p class="nh-item-copy">Current reading profile focus</p>
-            </article>
+            ${renderStatPanels([
+              {
+                label: "Sections",
+                value: String(state.sections.length).padStart(2, "0"),
+                note: "Configured reading-center groups",
+              },
+              {
+                label: "Preference items",
+                value: String(totalItems).padStart(2, "0"),
+                note: "Display, continuity, reminder, and account controls",
+              },
+              {
+                label: "Primary area",
+                value: readingProfile?.title ?? readingProfile?.key ?? "general",
+                note: "Current reading profile focus",
+              },
+            ])}
           </div>
           <div class="nh-actions">
             ${renderActionButton("Back home", "entry", "onTapOverview", undefined, "secondary")}

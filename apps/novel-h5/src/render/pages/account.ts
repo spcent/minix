@@ -1,6 +1,7 @@
 import type { AccountState } from "@minix/feature-account";
 
 import { renderSectionHeading } from "../components/section-heading";
+import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, renderActionButton, renderRouteLink, routePath } from "../utils";
 
@@ -19,25 +20,20 @@ export function renderAccountPage(state: AccountState): string {
           <div class="nh-stat-strip">
             ${
               state.stats.length > 0
-                ? state.stats
-                    .slice(0, 3)
-                    .map(
-                      (stat) => `
-                        <article class="nh-stat-panel">
-                          <p class="nh-meta-label">${escapeHtml(stat.label)}</p>
-                          <p class="nh-stat-value">${escapeHtml(stat.value)}</p>
-                          <p class="nh-item-copy">${escapeHtml(stat.tone ?? "neutral")}</p>
-                        </article>
-                      `,
-                    )
-                    .join("")
-                : `
-                  <article class="nh-stat-panel">
-                    <p class="nh-meta-label">State</p>
-                    <p class="nh-stat-value">--</p>
-                    <p class="nh-item-copy">Account data will appear after the shared controller finishes hydrating.</p>
-                  </article>
-                `
+                ? renderStatPanels(
+                    state.stats.slice(0, 3).map((stat) => ({
+                      label: stat.label,
+                      value: stat.value,
+                      note: stat.tone ?? "neutral",
+                    })),
+                  )
+                : renderStatPanels([
+                    {
+                      label: "State",
+                      value: "--",
+                      note: "Account data will appear after the shared controller finishes hydrating.",
+                    },
+                  ])
             }
           </div>
           <div class="nh-actions">

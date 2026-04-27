@@ -1,6 +1,7 @@
 import type { FeedbackState } from "@minix/feature-feedback";
 
 import { renderSectionHeading } from "../components/section-heading";
+import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, renderActionButton, renderRouteLink, routePath } from "../utils";
 
@@ -19,21 +20,23 @@ export function renderFeedbackPage(state: FeedbackState): string {
           <h1 class="nh-title">${escapeHtml(state.title)}</h1>
           <p class="nh-copy">${escapeHtml(state.subtitle ?? "Report issues and continue support follow-up inside the novel host.")}</p>
           <div class="nh-stat-strip">
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Category</p>
-              <p class="nh-stat-value">${escapeHtml(selectedCategory?.label ?? "Unset")}</p>
-              <p class="nh-item-copy">Bound to the shared feedback category system.</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Latest status</p>
-              <p class="nh-stat-value">${escapeHtml(latestStatusLabel)}</p>
-              <p class="nh-item-copy">Support state remains visible without moving to another host.</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Follow-up</p>
-              <p class="nh-stat-value">${escapeHtml(state.values.revisitRequested ? "Requested" : "Optional")}</p>
-              <p class="nh-item-copy">Reader can keep service-loop context attached to the ticket.</p>
-            </article>
+            ${renderStatPanels([
+              {
+                label: "Category",
+                value: selectedCategory?.label ?? "Unset",
+                note: "Bound to the shared feedback category system.",
+              },
+              {
+                label: "Latest status",
+                value: latestStatusLabel,
+                note: "Support state remains visible without moving to another host.",
+              },
+              {
+                label: "Follow-up",
+                value: state.values.revisitRequested ? "Requested" : "Optional",
+                note: "Reader can keep service-loop context attached to the ticket.",
+              },
+            ])}
           </div>
         </div>
         <aside class="nh-grid">

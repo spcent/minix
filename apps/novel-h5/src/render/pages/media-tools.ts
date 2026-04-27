@@ -1,6 +1,7 @@
 import type { MediaToolsState } from "@minix/feature-media-tools";
 
 import { renderSectionHeading } from "../components/section-heading";
+import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, renderActionButton, renderRouteLink, routePath } from "../utils";
 
@@ -14,21 +15,23 @@ export function renderMediaToolsPage(state: MediaToolsState): string {
           <h1 class="nh-title">${escapeHtml(state.title)}</h1>
           <p class="nh-copy">${escapeHtml(state.subtitle)}</p>
           <div class="nh-stat-strip">
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Upload</p>
-              <p class="nh-stat-value">${escapeHtml(state.uploadAvailable ? "Ready" : "Reserved")}</p>
-              <p class="nh-item-copy">${escapeHtml(state.uploadTask.stage)}</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Share</p>
-              <p class="nh-stat-value">${escapeHtml(state.shareAvailable ? "Ready" : "Reserved")}</p>
-              <p class="nh-item-copy">${escapeHtml(state.shareChannel.label)}</p>
-            </article>
-            <article class="nh-stat-panel">
-              <p class="nh-meta-label">Attribution</p>
-              <p class="nh-stat-value">${escapeHtml(String(state.shareAttribution.shareCount))}</p>
-              <p class="nh-item-copy">Share count tracked through the shared attribution model.</p>
-            </article>
+            ${renderStatPanels([
+              {
+                label: "Upload",
+                value: state.uploadAvailable ? "Ready" : "Reserved",
+                note: state.uploadTask.stage,
+              },
+              {
+                label: "Share",
+                value: state.shareAvailable ? "Ready" : "Reserved",
+                note: state.shareChannel.label,
+              },
+              {
+                label: "Attribution",
+                value: state.shareAttribution.shareCount,
+                note: "Share count tracked through the shared attribution model.",
+              },
+            ])}
           </div>
           <div class="nh-actions">
             ${renderActionButton(state.primaryActionLabel, "controller", "startUpload", undefined, "primary")}
