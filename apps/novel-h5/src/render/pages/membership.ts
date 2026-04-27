@@ -1,7 +1,9 @@
 import type { SubscriptionState } from "@minix/feature-subscription";
 
 import type { NovelH5PageRenderContext } from "../types";
+import { renderActionRow } from "../components/action-row";
 import { renderChipRow } from "../components/chip-row";
+import { renderInfoPanel } from "../components/info-panel";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
@@ -142,10 +144,10 @@ export function renderMembershipPage(context: NovelH5PageRenderContext, state: S
               },
             ])}
           </div>
-          <div class="nh-actions">
-            ${isUnlocked ? renderActionButton(continueLabel, "controller", "continueAfterPurchase", undefined, "primary") : renderActionButton("Back to library", "controller", "goToCatalog", undefined, "primary")}
-            ${isUnlocked ? renderActionButton("Back to library", "controller", "goToCatalog", undefined, "ghost") : ""}
-          </div>
+          ${renderActionRow([
+            isUnlocked ? renderActionButton(continueLabel, "controller", "continueAfterPurchase", undefined, "primary") : renderActionButton("Back to library", "controller", "goToCatalog", undefined, "primary"),
+            isUnlocked ? renderActionButton("Back to library", "controller", "goToCatalog", undefined, "ghost") : undefined,
+          ])}
         </div>
         <aside class="nh-grid">
           <div class="nh-cover">
@@ -204,8 +206,7 @@ export function renderMembershipPage(context: NovelH5PageRenderContext, state: S
                         ${plan.checkpoints.map((checkpoint) => `<li>${escapeHtml(checkpoint)}</li>`).join("")}
                       </ul>
                     </div>
-                    <div class="nh-actions">
-                      ${
+                    ${renderActionRow([
                         isUnlocked
                           ? renderActionButton(continueLabel, "controller", "continueAfterPurchase", undefined, plan.accent ? "primary" : "secondary")
                           : renderActionButton(
@@ -215,8 +216,7 @@ export function renderMembershipPage(context: NovelH5PageRenderContext, state: S
                               plan.id,
                               plan.accent ? "primary" : "secondary",
                             )
-                      }
-                    </div>
+                      ])}
                   </article>
                 `,
               )
@@ -232,22 +232,22 @@ export function renderMembershipPage(context: NovelH5PageRenderContext, state: S
               : "This is where the paywall earns trust: immediate unlock, clear return path, and no ambiguity about what changes.",
           })}
           <div class="nh-grid nh-promise-stack">
-            <article class="nh-panel">
-              <p class="nh-meta-label">Immediate effect</p>
-              <p class="nh-item-copy">${escapeHtml(isUnlocked ? "Membership is already active. The next action should take the reader back into the flow without another decision layer." : unlockOutcomeLabel)}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Current status</p>
-              <p class="nh-item-copy">${escapeHtml(state.entitlementSummary ?? state.overview?.statusLabel ?? "Signed in with standard access. Premium continuation is still locked.")}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Return path</p>
-              <p class="nh-item-copy">${escapeHtml(isUnlocked ? returnContextLabel : returnContextLabel)}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Recommendation logic</p>
-              <p class="nh-item-copy">${escapeHtml(recommendationLogic)}</p>
-            </article>
+            ${renderInfoPanel({
+              label: "Immediate effect",
+              copy: isUnlocked ? "Membership is already active. The next action should take the reader back into the flow without another decision layer." : unlockOutcomeLabel,
+            })}
+            ${renderInfoPanel({
+              label: "Current status",
+              copy: state.entitlementSummary ?? state.overview?.statusLabel ?? "Signed in with standard access. Premium continuation is still locked.",
+            })}
+            ${renderInfoPanel({
+              label: "Return path",
+              copy: returnContextLabel,
+            })}
+            ${renderInfoPanel({
+              label: "Recommendation logic",
+              copy: recommendationLogic,
+            })}
           </div>
         </aside>
       </section>
@@ -288,9 +288,9 @@ export function renderMembershipPage(context: NovelH5PageRenderContext, state: S
                         ? `<p class="nh-item-copy">${escapeHtml(state.latestMilestoneReturnHint)}</p>`
                         : ""
                     }
-                    <div class="nh-actions">
-                      ${renderActionButton(state.latestMilestoneReturnLabel ?? "Resume milestone", "controller", "openLatestMilestone", undefined, "secondary")}
-                    </div>
+                    ${renderActionRow([
+                      renderActionButton(state.latestMilestoneReturnLabel ?? "Resume milestone", "controller", "openLatestMilestone", undefined, "secondary"),
+                    ])}
                   </article>
                 `
                 : ""
@@ -310,14 +310,14 @@ export function renderMembershipPage(context: NovelH5PageRenderContext, state: S
             compact: true,
           })}
           <div class="nh-grid">
-            <article class="nh-panel">
-              <p class="nh-meta-label">Benefit posture</p>
-              <p class="nh-item-copy">${escapeHtml(benefits.length > 0 ? `${benefits.length} membership benefits are visible here so value stays legible after the first unlock.` : "Benefits should stay visible after conversion so value does not disappear behind a successful payment state.")}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Best next move</p>
-              <p class="nh-item-copy">${escapeHtml(isUnlocked ? `${continueLabel} should be the main path now, because the selling work is already done.` : "Pick the plan that removes the most renewal friction for the kind of reading rhythm you actually keep.")}</p>
-            </article>
+            ${renderInfoPanel({
+              label: "Benefit posture",
+              copy: benefits.length > 0 ? `${benefits.length} membership benefits are visible here so value stays legible after the first unlock.` : "Benefits should stay visible after conversion so value does not disappear behind a successful payment state.",
+            })}
+            ${renderInfoPanel({
+              label: "Best next move",
+              copy: isUnlocked ? `${continueLabel} should be the main path now, because the selling work is already done.` : "Pick the plan that removes the most renewal friction for the kind of reading rhythm you actually keep.",
+            })}
           </div>
         </aside>
       </section>
@@ -394,9 +394,9 @@ export function renderMembershipPage(context: NovelH5PageRenderContext, state: S
                         <p class="nh-item-copy">${escapeHtml(item.copy)}</p>
                         ${renderChipRow([item.sourceLabel, item.recencyLabel, item.meta])}
                         <p class="nh-item-copy">${escapeHtml(item.returnHint)}</p>
-                        <div class="nh-actions">
-                          ${renderActionButton(item.returnLabel, "controller", "openMilestoneHistoryItem", index, "ghost")}
-                        </div>
+                        ${renderActionRow([
+                          renderActionButton(item.returnLabel, "controller", "openMilestoneHistoryItem", index, "ghost"),
+                        ])}
                       </article>
                     `,
                   )

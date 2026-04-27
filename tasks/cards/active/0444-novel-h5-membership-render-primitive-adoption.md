@@ -78,12 +78,23 @@ Reduce repeated membership page action rows and simple explanation panels so pre
 - final verifier handoff:
   - Membership purchase, continue, catalog, and milestone buttons should preserve data attributes.
 
+## Implementation Notes
+
+- Adopted `renderActionRow` for membership hero, plan cards, milestone, and milestone history actions.
+- Adopted `renderInfoPanel` for simple trust and after-purchase explanation panels.
+- Kept plan cards, comparison rows, and issue-style promise panels local because those blocks carry membership-specific structure.
+
+## Verification Notes
+
+- Ran `pnpm verify:host novel-h5`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
