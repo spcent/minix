@@ -78,12 +78,24 @@ Reduce repeated bookshelf action containers so shelf filters, title actions, mil
 - final verifier handoff:
   - Bookshelf filter, sort, selection, pin, continue, detail, and remove buttons should preserve data attributes.
 
+## Implementation Notes
+
+- Adopted `renderActionRow` for hero, filter, and sort actions.
+- Adopted `renderActionRow` for pinned and selected shelf title controls.
+- Adopted `renderActionRow` for milestone, inventory, active stack, and completed archive actions.
+- Kept shelf-specific panels and lane cards local because those blocks carry custom collection structure.
+
+## Verification Notes
+
+- Ran `pnpm verify:host novel-h5`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

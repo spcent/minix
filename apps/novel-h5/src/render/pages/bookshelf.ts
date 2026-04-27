@@ -1,6 +1,7 @@
 import type { BookshelfState } from "@minix/feature-bookshelf";
 
 import type { NovelH5PageRenderContext } from "../types";
+import { renderActionRow } from "../components/action-row";
 import { renderChipRow } from "../components/chip-row";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderStatPanels } from "../components/stat-panel";
@@ -73,14 +74,14 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
             ])}
           </div>
           ${state.statusText ? `<div class="nh-lock-banner"><p class="nh-note">${escapeHtml(state.statusText)}</p></div>` : ""}
-          <div class="nh-actions">
-            ${renderActionButton("Continue reading", "controller", "continueSelectedNovel", undefined, "primary")}
-            ${renderActionButton("Open detail", "controller", "openSelectedNovel", undefined, "ghost")}
-            ${selected && state.pinnedNovelId !== selected.novelId ? renderActionButton("Pin to top", "controller", "pinNovel", selected.novelId, "ghost") : ""}
-            ${state.pinnedNovelId ? renderActionButton("Clear pin", "controller", "clearPinnedNovel", undefined, "ghost") : ""}
-            ${selected ? renderActionButton(state.mutatingNovelId === selected.novelId ? "Removing..." : "Remove from shelf", "controller", "removeNovel", selected.novelId, "ghost") : ""}
-            ${renderActionButton("Preferences", "controller", "goToSettings", undefined, "ghost")}
-          </div>
+          ${renderActionRow([
+            renderActionButton("Continue reading", "controller", "continueSelectedNovel", undefined, "primary"),
+            renderActionButton("Open detail", "controller", "openSelectedNovel", undefined, "ghost"),
+            selected && state.pinnedNovelId !== selected.novelId ? renderActionButton("Pin to top", "controller", "pinNovel", selected.novelId, "ghost") : undefined,
+            state.pinnedNovelId ? renderActionButton("Clear pin", "controller", "clearPinnedNovel", undefined, "ghost") : undefined,
+            selected ? renderActionButton(state.mutatingNovelId === selected.novelId ? "Removing..." : "Remove from shelf", "controller", "removeNovel", selected.novelId, "ghost") : undefined,
+            renderActionButton("Preferences", "controller", "goToSettings", undefined, "ghost"),
+          ])}
         </div>
         <aside class="nh-grid">
           <div class="nh-cover">
@@ -101,16 +102,16 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
             title: "One selected title anchors the next session.",
             copy: "Sort and filter the shelf without losing the dominant return path.",
           })}
-          <div class="nh-actions">
-            ${renderActionButton("All titles", "controller", "setFilter", "all", state.activeFilterKey === "all" ? "secondary" : "ghost")}
-            ${renderActionButton("Updated", "controller", "setFilter", "updates", state.activeFilterKey === "updates" ? "secondary" : "ghost")}
-            ${renderActionButton("Completed", "controller", "setFilter", "completed", state.activeFilterKey === "completed" ? "secondary" : "ghost")}
-          </div>
-          <div class="nh-actions">
-            ${renderActionButton("Recent first", "controller", "setSort", "recent", state.activeSortKey === "recent" ? "secondary" : "ghost")}
-            ${renderActionButton("Updated first", "controller", "setSort", "updated", state.activeSortKey === "updated" ? "secondary" : "ghost")}
-            ${renderActionButton("Most progress", "controller", "setSort", "progress", state.activeSortKey === "progress" ? "secondary" : "ghost")}
-          </div>
+          ${renderActionRow([
+            renderActionButton("All titles", "controller", "setFilter", "all", state.activeFilterKey === "all" ? "secondary" : "ghost"),
+            renderActionButton("Updated", "controller", "setFilter", "updates", state.activeFilterKey === "updates" ? "secondary" : "ghost"),
+            renderActionButton("Completed", "controller", "setFilter", "completed", state.activeFilterKey === "completed" ? "secondary" : "ghost"),
+          ])}
+          ${renderActionRow([
+            renderActionButton("Recent first", "controller", "setSort", "recent", state.activeSortKey === "recent" ? "secondary" : "ghost"),
+            renderActionButton("Updated first", "controller", "setSort", "updated", state.activeSortKey === "updated" ? "secondary" : "ghost"),
+            renderActionButton("Most progress", "controller", "setSort", "progress", state.activeSortKey === "progress" ? "secondary" : "ghost"),
+          ])}
           ${
             pinnedItem
               ? `
@@ -118,10 +119,10 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
                   <p class="nh-meta-label">Pinned lane</p>
                   <h2 class="nh-title-small">${escapeHtml(pinnedItem.title)}</h2>
                   <p class="nh-item-copy">${escapeHtml(pinnedItem.continueChapterTitle ?? pinnedItem.latestChapterTitle ?? "Saved continuation available")} · because you pinned it above the rest of the shelf lane.</p>
-                  <div class="nh-actions">
-                    ${renderActionButton("Continue", "controller", "continueNovel", pinnedItem.novelId, "primary")}
-                    ${renderActionButton("Clear pin", "controller", "clearPinnedNovel", undefined, "ghost")}
-                  </div>
+                  ${renderActionRow([
+                    renderActionButton("Continue", "controller", "continueNovel", pinnedItem.novelId, "primary"),
+                    renderActionButton("Clear pin", "controller", "clearPinnedNovel", undefined, "ghost"),
+                  ])}
                 </article>
               `
               : ""
@@ -143,12 +144,12 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
                     </p>
                     <p class="nh-item-copy">${escapeHtml(resumeCueReason)}</p>
                     <p class="nh-item-copy">Visible set: ${escapeHtml(state.activeFilterKey)} filter · ${escapeHtml(state.activeSortKey)} sort</p>
-                    <div class="nh-actions">
-                      ${renderActionButton("Resume", "controller", "continueSelectedNovel", undefined, "primary")}
-                      ${state.pinnedNovelId === selected.novelId ? renderActionButton("Clear pin", "controller", "clearPinnedNovel", undefined, "ghost") : renderActionButton("Pin to top", "controller", "pinNovel", selected.novelId, "ghost")}
-                      ${renderActionButton("Open detail", "controller", "openSelectedNovel", undefined, "ghost")}
-                      ${renderActionButton(state.mutatingNovelId === selected.novelId ? "Removing..." : "Remove from shelf", "controller", "removeNovel", selected.novelId, "ghost")}
-                    </div>
+                    ${renderActionRow([
+                      renderActionButton("Resume", "controller", "continueSelectedNovel", undefined, "primary"),
+                      state.pinnedNovelId === selected.novelId ? renderActionButton("Clear pin", "controller", "clearPinnedNovel", undefined, "ghost") : renderActionButton("Pin to top", "controller", "pinNovel", selected.novelId, "ghost"),
+                      renderActionButton("Open detail", "controller", "openSelectedNovel", undefined, "ghost"),
+                      renderActionButton(state.mutatingNovelId === selected.novelId ? "Removing..." : "Remove from shelf", "controller", "removeNovel", selected.novelId, "ghost"),
+                    ])}
                   </div>
                 </article>
               `
@@ -300,7 +301,9 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
                         ${
                           item.source === "bookshelf"
                             ? ""
-                            : `<div class="nh-actions">${renderActionButton(item.returnLabel, "controller", "openMilestoneHistoryItem", index, "ghost")}</div>`
+                            : renderActionRow([
+                                renderActionButton(item.returnLabel, "controller", "openMilestoneHistoryItem", index, "ghost"),
+                              ])
                         }
                       </article>
                     `,
@@ -332,13 +335,13 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
                       <h2 class="nh-item-title">${escapeHtml(item.title)}</h2>
                       <p class="nh-item-subtitle">${escapeHtml(item.authorName)}</p>
                       <p class="nh-item-copy">Continue at ${escapeHtml(item.continueChapterTitle ?? item.latestChapterTitle ?? "the latest chapter")} · ${escapeHtml(formatDate(item.updatedAt))}</p>
-                      <div class="nh-actions">
-                        ${renderActionButton("Focus", "controller", "selectNovel", item.novelId)}
-                        ${state.pinnedNovelId === item.novelId ? renderActionButton("Clear pin", "controller", "clearPinnedNovel", undefined, "ghost") : renderActionButton("Pin", "controller", "pinNovel", item.novelId, "ghost")}
-                        ${renderActionButton("Continue", "controller", "continueNovel", item.novelId, "primary")}
-                        ${renderActionButton("Detail", "controller", "openNovel", item.novelId, "ghost")}
-                        ${renderActionButton(state.mutatingNovelId === item.novelId ? "Removing..." : "Remove", "controller", "removeNovel", item.novelId, "ghost")}
-                      </div>
+                      ${renderActionRow([
+                        renderActionButton("Focus", "controller", "selectNovel", item.novelId),
+                        state.pinnedNovelId === item.novelId ? renderActionButton("Clear pin", "controller", "clearPinnedNovel", undefined, "ghost") : renderActionButton("Pin", "controller", "pinNovel", item.novelId, "ghost"),
+                        renderActionButton("Continue", "controller", "continueNovel", item.novelId, "primary"),
+                        renderActionButton("Detail", "controller", "openNovel", item.novelId, "ghost"),
+                        renderActionButton(state.mutatingNovelId === item.novelId ? "Removing..." : "Remove", "controller", "removeNovel", item.novelId, "ghost"),
+                      ])}
                     </article>
                   `,
                 )
@@ -361,9 +364,9 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
                   <p class="nh-meta-label">${escapeHtml(item.title)}</p>
                   <p class="nh-item-copy">${escapeHtml(item.continueChapterTitle ?? item.latestChapterTitle ?? "Saved continuation available")}${state.pinnedNovelId === item.novelId ? " · because you pinned it" : ""}</p>
                   <p class="nh-item-copy">${escapeHtml(item.continueChapterTitle ? `Because you paused at ${item.continueChapterTitle}, this title stays warm in the active stack.` : "This title stays warm because it still has unfinished reading momentum.")}</p>
-                  <div class="nh-actions">
-                    ${renderActionButton("Continue", "controller", "continueNovel", item.novelId, "primary")}
-                  </div>
+                  ${renderActionRow([
+                    renderActionButton("Continue", "controller", "continueNovel", item.novelId, "primary"),
+                  ])}
                 </article>
               `).join("")
               : '<p class="nh-copy">No active in-progress titles right now.</p>'}
@@ -383,9 +386,9 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
                 <article class="nh-panel">
                   <p class="nh-meta-label">${escapeHtml(item.title)}</p>
                   <p class="nh-item-copy">Completed and available for detail re-entry or archive browsing.</p>
-                  <div class="nh-actions">
-                    ${renderActionButton("Open detail", "controller", "openNovel", item.novelId, "secondary")}
-                  </div>
+                  ${renderActionRow([
+                    renderActionButton("Open detail", "controller", "openNovel", item.novelId, "secondary"),
+                  ])}
                 </article>
               `).join("")
               : '<p class="nh-copy">Completed titles will collect here once longer runs finish.</p>'}
