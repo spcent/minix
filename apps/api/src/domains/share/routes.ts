@@ -10,6 +10,7 @@ import type { Context, Hono, MiddlewareHandler } from "hono";
 import { jsonError } from "../../http/response";
 import { loadRouteUserState, parseRouteBody, parseRouteQuery } from "../../http/route-context";
 import type { ApiBindings, ApiStore, UserState } from "../../types";
+import { pickDefinedApiFields } from "../schema-helpers";
 import {
   createShareAttributionReport,
   createSharePrepareResponse,
@@ -161,8 +162,7 @@ export function registerShareRoutes(options: RegisterShareRoutesOptions) {
     const request: ShareReturnRecognitionRequest = {
       attributionId: payload.attributionId,
       outcome: payload.outcome,
-      ...(payload.recognizedPath !== undefined ? { recognizedPath: payload.recognizedPath } : {}),
-      ...(payload.recognizedUserId !== undefined ? { recognizedUserId: payload.recognizedUserId } : {}),
+      ...pickDefinedApiFields(payload, ["recognizedPath", "recognizedUserId"]),
     };
     const response = recognizeShareReturn(existing, request);
     userState.sharePreparesById[payload.attributionId] = {

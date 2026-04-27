@@ -9,6 +9,7 @@ import type { Context, Hono, MiddlewareHandler } from "hono";
 import { loadRouteUserState, parseRouteBody } from "../../http/route-context";
 import { jsonError } from "../../http/response";
 import type { ApiBindings, ApiStore, UserState } from "../../types";
+import { pickDefinedApiFields } from "../schema-helpers";
 import {
   appendUploadChunkRecord,
   attachUploadRecord,
@@ -300,7 +301,7 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
 
     const request: UploadCancelRequest = {
       taskId: payload.taskId,
-      ...(payload.reason !== undefined ? { reason: payload.reason } : {}),
+      ...pickDefinedApiFields(payload, ["reason"]),
     };
     const record = cancelUploadPipeline(existing, request, undefined, c.env);
     userState.uploadsByTaskId[payload.taskId] = record;
