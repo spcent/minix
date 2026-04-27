@@ -1,8 +1,10 @@
 import type { CatalogState } from "@minix/feature-catalog";
 
 import type { NovelH5PageRenderContext } from "../types";
+import { renderActionRow } from "../components/action-row";
 import { renderChipRow } from "../components/chip-row";
 import { renderEmptyState } from "../components/empty-state";
+import { renderInfoPanel } from "../components/info-panel";
 import { renderNovelCard } from "../components/novel-card";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderStatPanels } from "../components/stat-panel";
@@ -84,17 +86,17 @@ export function renderCatalogPage(context: NovelH5PageRenderContext, state: Cata
                     : "Open detail when there is no saved reading session yet."),
               )}
             </p>
-            <div class="nh-actions">
-              ${renderActionButton(
+            ${renderActionRow([
+              renderActionButton(
                 selected.continueChapterId ? "Continue reading" : "Open detail",
                 "controller",
                 selected.continueChapterId ? "continueReading" : "goToNovelDetail",
                 selected.id,
                 "primary",
-              )}
-              ${renderRouteLink("Editorial discover", routePath("feed"), "button")}
-              ${renderRouteLink("Membership", routePath("membership"), "ghost")}
-            </div>
+              ),
+              renderRouteLink("Editorial discover", routePath("feed"), "button"),
+              renderRouteLink("Membership", routePath("membership"), "ghost"),
+            ])}
           </div>
         </article>
       `
@@ -214,18 +216,18 @@ export function renderCatalogPage(context: NovelH5PageRenderContext, state: Cata
               </p>
               ${state.selectedReason ? `<p class="nh-item-copy">${escapeHtml(state.selectedReason)}</p>` : ""}
             </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Because you read...</p>
-              <p class="nh-item-copy">${escapeHtml(state.continueReason ?? "Once reading progress exists, the catalog should surface the strongest return path before cold browsing.")}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Recently updated on your shelf</p>
-              <p class="nh-item-copy">${escapeHtml(state.updateReason ?? "Fresh serial movement should stay visible as a dedicated lane, not disappear into result metadata.")}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Frontlist note</p>
-              <p class="nh-item-copy">${escapeHtml(state.frontlistReason ?? "One title should still anchor the frontlist even when the library is filtered or searched.")}</p>
-            </article>
+            ${renderInfoPanel({
+              label: "Because you read...",
+              copy: state.continueReason ?? "Once reading progress exists, the catalog should surface the strongest return path before cold browsing.",
+            })}
+            ${renderInfoPanel({
+              label: "Recently updated on your shelf",
+              copy: state.updateReason ?? "Fresh serial movement should stay visible as a dedicated lane, not disappear into result metadata.",
+            })}
+            ${renderInfoPanel({
+              label: "Frontlist note",
+              copy: state.frontlistReason ?? "One title should still anchor the frontlist even when the library is filtered or searched.",
+            })}
           </div>
         </aside>
         <div class="nh-grid">
@@ -244,18 +246,18 @@ export function renderCatalogPage(context: NovelH5PageRenderContext, state: Cata
               copy: "Use shared recommendation reasons so search, home, and catalog stay aligned on the meaning of each lane.",
             })}
             <div class="nh-grid">
-              <article class="nh-panel">
-                <p class="nh-meta-label">Because you read...</p>
-                <p class="nh-item-copy">${escapeHtml(state.continueReason ?? "Saved progress will promote the fastest route back into a live reading session.")}</p>
-              </article>
-              <article class="nh-panel">
-                <p class="nh-meta-label">Recently updated on your shelf</p>
-                <p class="nh-item-copy">${escapeHtml(state.updateReason ?? "Recent chapter movement should stay visible without scanning the whole result set.")}</p>
-              </article>
-              <article class="nh-panel">
-                <p class="nh-meta-label">Membership lane</p>
-                <p class="nh-item-copy">${escapeHtml(state.membershipReason ?? "Premium discovery should remain quiet, legible, and clearly separate from core return paths.")}</p>
-              </article>
+              ${renderInfoPanel({
+                label: "Because you read...",
+                copy: state.continueReason ?? "Saved progress will promote the fastest route back into a live reading session.",
+              })}
+              ${renderInfoPanel({
+                label: "Recently updated on your shelf",
+                copy: state.updateReason ?? "Recent chapter movement should stay visible without scanning the whole result set.",
+              })}
+              ${renderInfoPanel({
+                label: "Membership lane",
+                copy: state.membershipReason ?? "Premium discovery should remain quiet, legible, and clearly separate from core return paths.",
+              })}
             </div>
           </section>
           <section class="nh-card">

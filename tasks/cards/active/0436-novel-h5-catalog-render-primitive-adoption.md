@@ -78,12 +78,24 @@ Reduce repeated catalog page panel and action-row markup so the catalog remains 
 - final verifier handoff:
   - catalog actions, labels, and copy should preserve existing escaping and data attributes.
 
+## Implementation Notes
+
+- Adopted `renderActionRow` for the selected title spotlight actions.
+- Adopted `renderInfoPanel` for repeated filter rail guidance panels.
+- Adopted `renderInfoPanel` for recommendation lane explanation panels.
+- Kept keyword chip panels and current query markup local because they carry additional nested control and multi-paragraph structure.
+
+## Verification Notes
+
+- Ran `pnpm verify:host novel-h5`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
