@@ -6,7 +6,12 @@ import type {
 } from "@minix/contracts";
 
 import { jsonError } from "../../http/response";
-import { loadRouteUserState, parseRouteBody, parseRouteQuery } from "../../http/route-context";
+import {
+  loadRouteClientContext,
+  loadRouteUserState,
+  parseRouteBody,
+  parseRouteQuery,
+} from "../../http/route-context";
 import type { UserState } from "../../types";
 import type {
   ApiClientContextRouteOptions,
@@ -62,16 +67,14 @@ export function registerShareRoutes(options: RegisterShareRoutesOptions) {
     }
 
     const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
-    const clientId = resolveClientId(c.req.raw);
-    const deviceId = resolveRequestDeviceId(c);
+    const clientContext = loadRouteClientContext(c, resolveClientId, resolveRequestDeviceId);
     const rateLimitGuard = await guardSharePrepareRateLimit({
       c,
       store,
       userId: session.userId,
       userState,
       platform: session.platform,
-      clientId,
-      ...(deviceId ? { deviceId } : {}),
+      ...clientContext,
       traceId,
     });
     if (!rateLimitGuard.allowed) {
@@ -84,8 +87,7 @@ export function registerShareRoutes(options: RegisterShareRoutesOptions) {
     appendSharePrepareAudit({
       userState,
       actorUserId: session.userId,
-      clientId,
-      ...(deviceId ? { deviceId } : {}),
+      ...clientContext,
       platform: session.platform,
       traceId,
     });

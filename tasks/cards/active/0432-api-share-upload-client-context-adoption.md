@@ -81,12 +81,23 @@ Make rate-limit and audit context assembly consistent across API domains by repl
 - final verifier handoff:
   - rate-limit and audit calls still receive the same `clientId` and optional `deviceId`.
 
+## Implementation Notes
+
+- Replaced hand-built share prepare `clientId`/`deviceId` blocks with `loadRouteClientContext`.
+- Replaced hand-built upload session `clientId`/`deviceId` blocks with `loadRouteClientContext`.
+- Preserved spreading the same context into rate-limit and audit calls.
+
+## Verification Notes
+
+- Ran `pnpm verify:api`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
