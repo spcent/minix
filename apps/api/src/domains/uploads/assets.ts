@@ -6,6 +6,8 @@ import type {
   UploadFileType,
 } from "@minix/contracts";
 
+import { cloneDefinedDomainFields } from "../snapshot";
+
 type UploadAssetVariantInput = {
   kind: UploadDerivedAssetVariant["kind"];
   url: string;
@@ -44,10 +46,7 @@ export function createUploadAssetVariant(input: UploadAssetVariantInput): Upload
     kind: input.kind,
     url: input.url,
     label: input.label,
-    ...(input.width !== undefined ? { width: input.width } : {}),
-    ...(input.height !== undefined ? { height: input.height } : {}),
-    ...(input.durationSeconds !== undefined ? { durationSeconds: input.durationSeconds } : {}),
-    ...(input.pageCount !== undefined ? { pageCount: input.pageCount } : {}),
+    ...cloneDefinedDomainFields(input, ["width", "height", "durationSeconds", "pageCount"]),
   };
 }
 
@@ -58,13 +57,15 @@ export function cloneUploadAssetVariant(variant: UploadDerivedAssetVariant): Upl
 export function cloneUploadAssetMetadata(metadata: UploadAssetMetadataInput): UploadAssetMetadata {
   return {
     sizeBytes: metadata.sizeBytes,
-    ...(metadata.mimeType !== undefined ? { mimeType: metadata.mimeType } : {}),
-    ...(metadata.checksum !== undefined ? { checksum: metadata.checksum } : {}),
-    ...(metadata.checksumAlgorithm !== undefined ? { checksumAlgorithm: metadata.checksumAlgorithm } : {}),
-    ...(metadata.width !== undefined ? { width: metadata.width } : {}),
-    ...(metadata.height !== undefined ? { height: metadata.height } : {}),
-    ...(metadata.durationSeconds !== undefined ? { durationSeconds: metadata.durationSeconds } : {}),
-    ...(metadata.pageCount !== undefined ? { pageCount: metadata.pageCount } : {}),
+    ...cloneDefinedDomainFields(metadata, [
+      "mimeType",
+      "checksum",
+      "checksumAlgorithm",
+      "width",
+      "height",
+      "durationSeconds",
+      "pageCount",
+    ]),
     ...(metadata.variants !== undefined ? { variants: metadata.variants.map(createUploadAssetVariant) } : {}),
     ...(metadata.reviewAnnotations !== undefined ? { reviewAnnotations: [...metadata.reviewAnnotations] } : {}),
   };
@@ -76,10 +77,8 @@ export function cloneUploadAsset(asset: UploadAssetInput): UploadAsset {
     fileType: asset.fileType,
     fileName: asset.fileName,
     url: asset.url,
-    ...(asset.thumbnailUrl !== undefined ? { thumbnailUrl: asset.thumbnailUrl } : {}),
-    ...(asset.coverImageUrl !== undefined ? { coverImageUrl: asset.coverImageUrl } : {}),
+    ...cloneDefinedDomainFields(asset, ["thumbnailUrl", "coverImageUrl"]),
     metadata: cloneUploadAssetMetadata(asset.metadata),
-    ...(asset.derivedAssetSummary !== undefined ? { derivedAssetSummary: asset.derivedAssetSummary } : {}),
-    ...(asset.ownershipSummary !== undefined ? { ownershipSummary: asset.ownershipSummary } : {}),
+    ...cloneDefinedDomainFields(asset, ["derivedAssetSummary", "ownershipSummary"]),
   };
 }
