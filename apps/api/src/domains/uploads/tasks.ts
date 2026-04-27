@@ -15,6 +15,8 @@ import type {
   UploadTransferPayload,
 } from "@minix/contracts";
 
+import { cloneDefinedDomainFields } from "../snapshot";
+
 type UploadGovernanceInput = {
   maxSizeBytes: number;
   acceptedFileTypes: readonly UploadFileType[];
@@ -88,8 +90,7 @@ export function cloneUploadGovernance(governance: UploadGovernanceInput): Upload
     maxSizeBytes: governance.maxSizeBytes,
     acceptedFileTypes: [...governance.acceptedFileTypes],
     sensitiveReviewRequired: governance.sensitiveReviewRequired,
-    ...(governance.expiresInDays !== undefined ? { expiresInDays: governance.expiresInDays } : {}),
-    ...(governance.governanceSummary !== undefined ? { governanceSummary: governance.governanceSummary } : {}),
+    ...cloneDefinedDomainFields(governance, ["expiresInDays", "governanceSummary"]),
   };
 }
 
@@ -100,10 +101,12 @@ export function cloneUploadLifecycle(lifecycle: UploadLifecycleInput): UploadLif
     retryCount: lifecycle.retryCount,
     canRetry: lifecycle.canRetry,
     canCancel: lifecycle.canCancel,
-    ...(lifecycle.lastTransitionAt !== undefined ? { lastTransitionAt: lifecycle.lastTransitionAt } : {}),
-    ...(lifecycle.expiresAt !== undefined ? { expiresAt: lifecycle.expiresAt } : {}),
-    ...(lifecycle.retentionSummary !== undefined ? { retentionSummary: lifecycle.retentionSummary } : {}),
-    ...(lifecycle.cleanupSummary !== undefined ? { cleanupSummary: lifecycle.cleanupSummary } : {}),
+    ...cloneDefinedDomainFields(lifecycle, [
+      "lastTransitionAt",
+      "expiresAt",
+      "retentionSummary",
+      "cleanupSummary",
+    ]),
   };
 }
 
@@ -121,19 +124,21 @@ export function cloneUploadTask(task: UploadTaskInput): UploadTask {
     scenario: task.scenario,
     fileType: task.fileType,
     stage: task.stage,
-    ...(task.fileName !== undefined ? { fileName: task.fileName } : {}),
+    ...cloneDefinedDomainFields(task, ["fileName"]),
     progress: cloneUploadProgress(task.progress),
     chunkingReserved: task.chunkingReserved,
-    ...(task.transferMode !== undefined ? { transferMode: task.transferMode } : {}),
-    ...(task.sessionId !== undefined ? { sessionId: task.sessionId } : {}),
-    ...(task.chunkCount !== undefined ? { chunkCount: task.chunkCount } : {}),
-    ...(task.uploadedChunkCount !== undefined ? { uploadedChunkCount: task.uploadedChunkCount } : {}),
+    ...cloneDefinedDomainFields(task, [
+      "transferMode",
+      "sessionId",
+      "chunkCount",
+      "uploadedChunkCount",
+    ]),
     ...(task.integrity !== undefined ? { integrity: cloneUploadIntegrity(task.integrity) } : {}),
     governance: cloneUploadGovernance(task.governance),
     reviewStatus: task.reviewStatus,
-    ...(task.reviewMessage !== undefined ? { reviewMessage: task.reviewMessage } : {}),
+    ...cloneDefinedDomainFields(task, ["reviewMessage"]),
     lifecycle: cloneUploadLifecycle(task.lifecycle),
-    ...(task.ownershipSummary !== undefined ? { ownershipSummary: task.ownershipSummary } : {}),
+    ...cloneDefinedDomainFields(task, ["ownershipSummary"]),
   };
 }
 

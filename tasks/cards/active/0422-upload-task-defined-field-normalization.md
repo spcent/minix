@@ -79,18 +79,21 @@ Use the shared domain snapshot helper in upload task cloning so governance, life
 
 ## Implementation Notes
 
-- Pending.
+- Imported `cloneDefinedDomainFields` into the upload task snapshot helpers.
+- Replaced repeated optional spreads for governance, lifecycle, and task scalar fields with grouped helper calls.
+- Kept `integrity` on `cloneUploadIntegrity` because it maps a narrowed input shape into the public contract shape.
 
 ## Verification Notes
 
-- Pending.
+- `pnpm verify:api` passed.
+- `pnpm typecheck` passed.
 
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
