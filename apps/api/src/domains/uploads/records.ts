@@ -8,7 +8,7 @@ import type {
 } from "@minix/contracts";
 
 import type { StoredUploadRecord } from "../../types";
-import { cloneOptionalDomainSnapshot } from "../snapshot";
+import { cloneDefinedDomainFields } from "../snapshot";
 import { cloneUploadAsset } from "./assets";
 import { cloneUploadError, cloneUploadTask, cloneUploadTransferPayload } from "./tasks";
 
@@ -44,39 +44,38 @@ export function cloneUploadReviewRecord(reviewRecord: UploadReviewRecord): Uploa
   return {
     status: reviewRecord.status,
     provider: reviewRecord.provider,
-    ...(reviewRecord.providerMode !== undefined ? { providerMode: reviewRecord.providerMode } : {}),
-    ...(reviewRecord.storageProvider !== undefined ? { storageProvider: reviewRecord.storageProvider } : {}),
-    ...(reviewRecord.reviewedAt !== undefined ? { reviewedAt: reviewRecord.reviewedAt } : {}),
-    ...(reviewRecord.message !== undefined ? { message: reviewRecord.message } : {}),
-    ...(reviewRecord.reasonCodes !== undefined ? { reasonCodes: [...reviewRecord.reasonCodes] } : {}),
-    ...(reviewRecord.annotationSummary !== undefined ? { annotationSummary: reviewRecord.annotationSummary } : {}),
+    ...cloneDefinedDomainFields(reviewRecord, [
+      "providerMode",
+      "storageProvider",
+      "reviewedAt",
+      "message",
+      "reasonCodes",
+      "annotationSummary",
+    ]),
   };
 }
 
 export function cloneUploadCleanupRecord(cleanupRecord: UploadCleanupRecord): UploadCleanupRecord {
   return {
     retentionStatus: cleanupRecord.retentionStatus,
-    ...(cleanupRecord.cleanupScheduledAt !== undefined ? { cleanupScheduledAt: cleanupRecord.cleanupScheduledAt } : {}),
-    ...(cleanupRecord.cleanupReason !== undefined ? { cleanupReason: cleanupRecord.cleanupReason } : {}),
+    ...cloneDefinedDomainFields(cleanupRecord, ["cleanupScheduledAt", "cleanupReason"]),
     referenced: cleanupRecord.referenced,
-    ...(cleanupRecord.ownershipSummary !== undefined ? { ownershipSummary: cleanupRecord.ownershipSummary } : {}),
-    ...(cleanupRecord.retentionSummary !== undefined ? { retentionSummary: cleanupRecord.retentionSummary } : {}),
-    ...(cleanupRecord.cleanupSummary !== undefined ? { cleanupSummary: cleanupRecord.cleanupSummary } : {}),
+    ...cloneDefinedDomainFields(cleanupRecord, [
+      "ownershipSummary",
+      "retentionSummary",
+      "cleanupSummary",
+    ]),
   };
 }
 
 export function cloneUploadReference(reference: UploadReference): UploadReference {
-  const sourceContext = cloneOptionalDomainSnapshot(reference.sourceContext);
-  const actorContext = cloneOptionalDomainSnapshot(reference.actorContext);
-
   return {
     ownerType: reference.ownerType,
     ownerId: reference.ownerId,
     role: reference.role,
-    ...(sourceContext !== undefined ? { sourceContext } : {}),
-    ...(actorContext !== undefined ? { actorContext } : {}),
+    ...cloneDefinedDomainFields(reference, ["sourceContext", "actorContext"]),
     attachedAt: reference.attachedAt,
-    ...(reference.ownerSummary !== undefined ? { ownerSummary: reference.ownerSummary } : {}),
+    ...cloneDefinedDomainFields(reference, ["ownerSummary"]),
   };
 }
 
@@ -106,6 +105,6 @@ export function cloneStoredUploadRecord(record: StoredUploadRecord): StoredUploa
       Object.entries(record.chunksByIndex).map(([key, value]) => [key, cloneUploadChunkReceipt(value)]),
     ),
     binaryByChunkIndex: { ...record.binaryByChunkIndex },
-    ...(record.binaryObjectKey !== undefined ? { binaryObjectKey: record.binaryObjectKey } : {}),
+    ...cloneDefinedDomainFields(record, ["binaryObjectKey"]),
   };
 }

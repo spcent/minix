@@ -80,18 +80,21 @@ Use shared domain snapshot helpers in upload record cloning so review, cleanup, 
 
 ## Implementation Notes
 
-- Pending.
+- Imported `cloneDefinedDomainFields` into upload record helpers.
+- Replaced repeated optional spreads for review records, cleanup records, reference contexts, owner summaries, and stored binary object keys.
+- Kept upload artifacts such as assets, errors, transfers, sessions, receipts, review records, and cleanup records on dedicated clone helpers.
 
 ## Verification Notes
 
-- Pending.
+- `pnpm verify:api` passed.
+- `pnpm typecheck` passed.
 
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
