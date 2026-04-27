@@ -8,6 +8,7 @@ import {
   apiSourceContextSchema,
   normalizeApiAuthRedirectTarget,
   normalizeApiContextSnapshots,
+  pickDefinedApiFields,
 } from "../schema-helpers";
 
 export const shareRedirectTargetSchema = apiAuthRedirectTargetSchema;
@@ -96,22 +97,16 @@ export function normalizeSharePrepareRequest(payload: z.infer<typeof sharePrepar
   const landingAuthRedirect = normalizeApiAuthRedirectTarget(payload.sharePayload.landingTarget?.authRedirect);
   const landingTarget = payload.sharePayload.landingTarget
     ? {
-        ...(payload.sharePayload.landingTarget.routeId !== undefined
-          ? { routeId: payload.sharePayload.landingTarget.routeId }
-          : {}),
-        ...(payload.sharePayload.landingTarget.path !== undefined ? { path: payload.sharePayload.landingTarget.path } : {}),
-        ...(payload.sharePayload.landingTarget.url !== undefined ? { url: payload.sharePayload.landingTarget.url } : {}),
-        ...(payload.sharePayload.landingTarget.shortLink !== undefined
-          ? { shortLink: payload.sharePayload.landingTarget.shortLink }
-          : {}),
-        ...(payload.sharePayload.landingTarget.shortCode !== undefined
-          ? { shortCode: payload.sharePayload.landingTarget.shortCode }
-          : {}),
-        ...(payload.sharePayload.landingTarget.params !== undefined ? { params: payload.sharePayload.landingTarget.params } : {}),
-        ...(payload.sharePayload.landingTarget.channelMarker !== undefined
-          ? { channelMarker: payload.sharePayload.landingTarget.channelMarker }
-          : {}),
-        ...(landingAuthRedirect !== undefined ? { authRedirect: landingAuthRedirect } : {}),
+        ...pickDefinedApiFields(payload.sharePayload.landingTarget, [
+          "routeId",
+          "path",
+          "url",
+          "shortLink",
+          "shortCode",
+          "params",
+          "channelMarker",
+        ]),
+        ...pickDefinedApiFields({ authRedirect: landingAuthRedirect }, ["authRedirect"]),
       }
     : undefined;
   const { sourceContext, actorContext } = normalizeApiContextSnapshots({
@@ -126,54 +121,48 @@ export function normalizeSharePrepareRequest(payload: z.infer<typeof sharePrepar
     sharePayload: {
       scenario: payload.sharePayload.scenario,
       title: payload.sharePayload.title,
-      ...(payload.sharePayload.summary !== undefined ? { summary: payload.sharePayload.summary } : {}),
-      ...(payload.sharePayload.coverUrl !== undefined ? { coverUrl: payload.sharePayload.coverUrl } : {}),
-      ...(payload.sharePayload.landingPath !== undefined ? { landingPath: payload.sharePayload.landingPath } : {}),
-      ...(payload.sharePayload.landingUrl !== undefined ? { landingUrl: payload.sharePayload.landingUrl } : {}),
-      ...(payload.sharePayload.shortLink !== undefined ? { shortLink: payload.sharePayload.shortLink } : {}),
-      ...(payload.sharePayload.posterImageUrl !== undefined
-        ? { posterImageUrl: payload.sharePayload.posterImageUrl }
-        : {}),
+      ...pickDefinedApiFields(payload.sharePayload, [
+        "summary",
+        "coverUrl",
+        "landingPath",
+        "landingUrl",
+        "shortLink",
+        "posterImageUrl",
+      ]),
       trackingParams: payload.sharePayload.trackingParams,
-      ...(payload.sharePayload.channelMarker !== undefined ? { channelMarker: payload.sharePayload.channelMarker } : {}),
-      ...(payload.sharePayload.contentId !== undefined ? { contentId: payload.sharePayload.contentId } : {}),
-      ...(payload.sharePayload.inviteCode !== undefined ? { inviteCode: payload.sharePayload.inviteCode } : {}),
-      ...(payload.sharePayload.shareToken !== undefined ? { shareToken: payload.sharePayload.shareToken } : {}),
-      ...(sourceContext !== undefined ? { sourceContext } : {}),
-      ...(landingTarget !== undefined ? { landingTarget } : {}),
-      ...(returnTarget !== undefined ? { returnTarget } : {}),
+      ...pickDefinedApiFields(payload.sharePayload, ["channelMarker", "contentId", "inviteCode", "shareToken"]),
+      ...pickDefinedApiFields({ sourceContext, landingTarget, returnTarget }, [
+        "sourceContext",
+        "landingTarget",
+        "returnTarget",
+      ]),
     },
     shareChannel: {
       kind: payload.shareChannel.kind,
       label: payload.shareChannel.label,
       executable: payload.shareChannel.executable,
-      ...(payload.shareChannel.channelMarker !== undefined ? { channelMarker: payload.shareChannel.channelMarker } : {}),
+      ...pickDefinedApiFields(payload.shareChannel, ["channelMarker"]),
     },
     shareAttribution: {
-      ...(payload.shareAttribution.attributionId !== undefined ? { attributionId: payload.shareAttribution.attributionId } : {}),
-      ...(payload.shareAttribution.channelMarker !== undefined ? { channelMarker: payload.shareAttribution.channelMarker } : {}),
-      ...(actorContext !== undefined ? { actorContext } : {}),
+      ...pickDefinedApiFields(payload.shareAttribution, ["attributionId", "channelMarker"]),
+      ...pickDefinedApiFields({ actorContext }, ["actorContext"]),
       inviteBindingEnabled: payload.shareAttribution.inviteBindingEnabled,
       returnFlowRecognized: payload.shareAttribution.returnFlowRecognized,
       shareCount: payload.shareAttribution.shareCount,
       clickCount: payload.shareAttribution.clickCount,
       returnCount: payload.shareAttribution.returnCount,
       conversionCount: payload.shareAttribution.conversionCount,
-      ...(payload.shareAttribution.preparedAt !== undefined ? { preparedAt: payload.shareAttribution.preparedAt } : {}),
-      ...(payload.shareAttribution.lastSharedAt !== undefined ? { lastSharedAt: payload.shareAttribution.lastSharedAt } : {}),
-      ...(payload.shareAttribution.lastClickAt !== undefined ? { lastClickAt: payload.shareAttribution.lastClickAt } : {}),
-      ...(payload.shareAttribution.lastConversionAt !== undefined
-        ? { lastConversionAt: payload.shareAttribution.lastConversionAt }
-        : {}),
-      ...(payload.shareAttribution.lastReturnAt !== undefined ? { lastReturnAt: payload.shareAttribution.lastReturnAt } : {}),
-      ...(payload.shareAttribution.lastLandingPath !== undefined
-        ? { lastLandingPath: payload.shareAttribution.lastLandingPath }
-        : {}),
-      ...(payload.shareAttribution.inviteBoundUserId !== undefined
-        ? { inviteBoundUserId: payload.shareAttribution.inviteBoundUserId }
-        : {}),
-      ...(attributionReturnTarget !== undefined ? { returnTarget: attributionReturnTarget } : {}),
+      ...pickDefinedApiFields(payload.shareAttribution, [
+        "preparedAt",
+        "lastSharedAt",
+        "lastClickAt",
+        "lastConversionAt",
+        "lastReturnAt",
+        "lastLandingPath",
+        "inviteBoundUserId",
+      ]),
+      ...pickDefinedApiFields({ returnTarget: attributionReturnTarget }, ["returnTarget"]),
     },
-    ...(redirectTarget !== undefined ? { redirectTarget } : {}),
+    ...pickDefinedApiFields({ redirectTarget }, ["redirectTarget"]),
   };
 }
