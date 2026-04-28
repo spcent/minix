@@ -1,5 +1,11 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, mergeFeaturePageState, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
+import {
+  defineFeatureManifest,
+  defineSharedHostBehavior,
+  mergeFeaturePageState,
+  pickDefinedManifestOptions,
+  type AppKernel,
+} from "@minix/core";
 
 import { createTocController } from "./controller";
 import { createInitialTocState, type TocState } from "./model";
@@ -38,34 +44,17 @@ export const tocFeatureManifest = defineFeatureManifest<
       initialState: mergeFeaturePageState(pageData, options.initialState),
     });
   },
-  hosts: {
-    wechat: {
-      entryActions: {
-        onShow: "load",
-        onTapOpenSelected: "openSelectedChapter",
-        onTapNovelDetail: "goToNovelDetail",
-        onTapCatalog: "goToCatalog",
-        onTapSelectChapter: "selectChapter",
-        onTapToggleVolume: "toggleVolume",
-        onTapCurrentChapter: "jumpToCurrentChapter",
-        onTapReadChapter: "goToReader",
-        onTapMembership: "goToMembership",
-      },
-    },
-    h5: {
-      entryActions: {
-        onShow: "load",
-        onTapOpenSelected: "openSelectedChapter",
-        onTapNovelDetail: "goToNovelDetail",
-        onTapCatalog: "goToCatalog",
-        onTapSelectChapter: "selectChapter",
-        onTapToggleVolume: "toggleVolume",
-        onTapCurrentChapter: "jumpToCurrentChapter",
-        onTapReadChapter: "goToReader",
-        onTapMembership: "goToMembership",
-      },
-    },
-  },
+  hosts: defineSharedHostBehavior<ReturnType<typeof createTocController>>()({
+    onShow: "load",
+    onTapOpenSelected: "openSelectedChapter",
+    onTapNovelDetail: "goToNovelDetail",
+    onTapCatalog: "goToCatalog",
+    onTapSelectChapter: "selectChapter",
+    onTapToggleVolume: "toggleVolume",
+    onTapCurrentChapter: "jumpToCurrentChapter",
+    onTapReadChapter: "goToReader",
+    onTapMembership: "goToMembership",
+  }),
 });
 
 export { createInitialTocState };

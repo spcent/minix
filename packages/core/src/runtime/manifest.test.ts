@@ -9,6 +9,7 @@ import { readAuthRedirectTarget } from "./auth-redirect";
 import type { AppKernel } from "./app";
 import {
   createManifestPageRegistry,
+  defineSharedHostBehavior,
   defineHostPageDefinitions,
   mergeFeaturePageState,
   pickDefinedManifestOptions,
@@ -65,6 +66,24 @@ const argumentActionBehavior: HostFeatureBehavior<TypedManifestController> = {
 };
 
 void argumentActionBehavior;
+
+const sharedTypedManifestBehavior = defineSharedHostBehavior<TypedManifestController>()(
+  {
+    onShow: "loadInitial",
+  },
+  {
+    wechat: {
+      onPullDownRefresh: "refresh",
+    },
+  },
+);
+
+void sharedTypedManifestBehavior;
+
+defineSharedHostBehavior<TypedManifestController>()({
+  // @ts-expect-error shared entry actions must reference controller methods that exist
+  onShow: "missingAction",
+});
 
 test("defineHostPageDefinitions keeps valid definitions unchanged", () => {
   const definitions = defineHostPageDefinitions({
@@ -134,6 +153,31 @@ test("mergeFeaturePageState preserves shallow precedence across defaults page da
     title: "Host page",
     pageSize: 20,
     emptyText: "No data",
+  });
+});
+
+test("defineSharedHostBehavior merges common and host-specific entry actions", () => {
+  const behavior = defineSharedHostBehavior<TypedManifestController>()(
+    {
+      onShow: "loadInitial",
+    },
+    {
+      wechat: {
+        onPullDownRefresh: "refresh",
+      },
+      h5: {
+        onTapRename: "rename",
+      },
+    },
+  );
+
+  assert.deepEqual(behavior.wechat.entryActions, {
+    onShow: "loadInitial",
+    onPullDownRefresh: "refresh",
+  });
+  assert.deepEqual(behavior.h5.entryActions, {
+    onShow: "loadInitial",
+    onTapRename: "rename",
   });
 });
 

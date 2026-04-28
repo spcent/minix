@@ -78,10 +78,24 @@ Reduce manifest duplication and keep cross-host entry action parity explicit so 
 
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+## Implementation Notes
+
+- Added `defineSharedHostBehavior` in `@minix/core` for shared H5/Wechat entry action maps with host-specific additions.
+- Adopted the helper in `account`, `feed`, `items`, `messages`, `reader`, and `toc` feature manifests.
+- Added core coverage for action merge behavior and controller method typing.
+
+## Verification Notes
+
+- Ran `node --import tsx --test packages/core/src/runtime/manifest.test.ts packages/features/**/*.test.ts`.
+- Ran `pnpm typecheck`.
+- Ran `node --import tsx scripts/sync-host-manifests.ts --check`.
+
+## Acceptance
+
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

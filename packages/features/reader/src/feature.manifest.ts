@@ -1,5 +1,11 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, mergeFeaturePageState, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
+import {
+  defineFeatureManifest,
+  defineSharedHostBehavior,
+  mergeFeaturePageState,
+  pickDefinedManifestOptions,
+  type AppKernel,
+} from "@minix/core";
 
 import { createReaderController } from "./controller";
 import { createInitialReaderState, type ReaderState } from "./model";
@@ -44,34 +50,17 @@ export const readerFeatureManifest = defineFeatureManifest<
       initialState: mergeFeaturePageState(pageData, options.initialState),
     });
   },
-  hosts: {
-    wechat: {
-      entryActions: {
-        onShow: "load",
-        onTapNextChapter: "goToNextChapter",
-        onTapPreviousChapter: "goToPreviousChapter",
-        onTapCompleteChapter: "completeChapter",
-        onTapCompleteNext: "completeChapterAndContinue",
-        onTapToc: "goToToc",
-        onTapNovelDetail: "goToNovelDetail",
-        onTapMembership: "goToMembership",
-        onTapBookshelf: "goToBookshelf",
-      },
-    },
-    h5: {
-      entryActions: {
-        onShow: "load",
-        onTapNextChapter: "goToNextChapter",
-        onTapPreviousChapter: "goToPreviousChapter",
-        onTapCompleteChapter: "completeChapter",
-        onTapCompleteNext: "completeChapterAndContinue",
-        onTapToc: "goToToc",
-        onTapNovelDetail: "goToNovelDetail",
-        onTapMembership: "goToMembership",
-        onTapBookshelf: "goToBookshelf",
-      },
-    },
-  },
+  hosts: defineSharedHostBehavior<ReturnType<typeof createReaderController>>()({
+    onShow: "load",
+    onTapNextChapter: "goToNextChapter",
+    onTapPreviousChapter: "goToPreviousChapter",
+    onTapCompleteChapter: "completeChapter",
+    onTapCompleteNext: "completeChapterAndContinue",
+    onTapToc: "goToToc",
+    onTapNovelDetail: "goToNovelDetail",
+    onTapMembership: "goToMembership",
+    onTapBookshelf: "goToBookshelf",
+  }),
 });
 
 export { createInitialReaderState };

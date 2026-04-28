@@ -1,5 +1,5 @@
 import type { AppRouteId, ItemsListItem } from "@minix/contracts";
-import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
+import { defineFeatureManifest, defineSharedHostBehavior, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
 
 import { createItemsController } from "./controller";
 import type { ItemsPageModel } from "./model";
@@ -37,26 +37,19 @@ export const itemsFeatureManifest = defineFeatureManifest<
       ...pickDefinedManifestOptions(options, ["requestPath"] as const),
     });
   },
-  hosts: {
-    wechat: {
-      entryActions: {
-        onShow: "loadInitial",
+  hosts: defineSharedHostBehavior<ReturnType<typeof createItemsController<ItemsListItem>>>()(
+    {
+      onShow: "loadInitial",
+      onTapLoadMore: "loadMore",
+      onTapOverview: "goToOverview",
+      onTapPlan: "goToPlan",
+      onTapSettings: "goToSettings",
+    },
+    {
+      wechat: {
         onPullDownRefresh: "refresh",
         onReachBottom: "loadMore",
-        onTapLoadMore: "loadMore",
-        onTapOverview: "goToOverview",
-        onTapPlan: "goToPlan",
-        onTapSettings: "goToSettings",
       },
     },
-    h5: {
-      entryActions: {
-        onShow: "loadInitial",
-        onTapLoadMore: "loadMore",
-        onTapOverview: "goToOverview",
-        onTapPlan: "goToPlan",
-        onTapSettings: "goToSettings",
-      },
-    },
-  },
+  ),
 });

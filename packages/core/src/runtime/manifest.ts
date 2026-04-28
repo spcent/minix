@@ -72,6 +72,40 @@ export function defineFeatureManifest<
   };
 }
 
+type EmptyHostEntryActions = Record<string, never>;
+
+export function defineSharedHostBehavior<TController>() {
+  return function <
+    TCommon extends HostEntryActions<TController>,
+    TWechat extends HostEntryActions<TController> = EmptyHostEntryActions,
+    TH5 extends HostEntryActions<TController> = EmptyHostEntryActions,
+  >(
+    commonEntryActions: TCommon,
+    hostEntryActions: {
+      wechat?: TWechat;
+      h5?: TH5;
+    } = {},
+  ): {
+    wechat: HostFeatureBehavior<TController, TCommon & TWechat>;
+    h5: HostFeatureBehavior<TController, TCommon & TH5>;
+  } {
+    return {
+      wechat: {
+        entryActions: {
+          ...commonEntryActions,
+          ...(hostEntryActions.wechat ?? {}),
+        } as TCommon & TWechat,
+      },
+      h5: {
+        entryActions: {
+          ...commonEntryActions,
+          ...(hostEntryActions.h5 ?? {}),
+        } as TCommon & TH5,
+      },
+    };
+  };
+}
+
 export function pickDefinedManifestOptions<TOptions extends object, TKey extends keyof TOptions>(
   options: TOptions,
   keys: readonly TKey[],

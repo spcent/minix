@@ -1,6 +1,7 @@
 import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
 import {
   defineFeatureManifest,
+  defineSharedHostBehavior,
   mergeFeaturePageState,
   pickDefinedManifestOptions,
   type AppKernel,
@@ -60,26 +61,20 @@ export const messagesFeatureManifest = defineFeatureManifest<
       initialState: mergeFeaturePageState(createDefaultMessagesState(), pageData, options.initialState),
     });
   },
-  hosts: {
-    wechat: {
-      entryActions: {
-        onShow: "loadInitial",
+  hosts: defineSharedHostBehavior<ReturnType<typeof createMessagesController>>()(
+    {
+      onShow: "loadInitial",
+      onTapLoadMore: "loadMore",
+      onTapMarkVisibleRead: "markVisibleRead",
+      onTapSettings: "goToSettings",
+    },
+    {
+      wechat: {
         onPullDownRefresh: "refresh",
         onReachBottom: "loadMore",
-        onTapLoadMore: "loadMore",
-        onTapMarkVisibleRead: "markVisibleRead",
-        onTapSettings: "goToSettings",
       },
     },
-    h5: {
-      entryActions: {
-        onShow: "loadInitial",
-        onTapLoadMore: "loadMore",
-        onTapMarkVisibleRead: "markVisibleRead",
-        onTapSettings: "goToSettings",
-      },
-    },
-  },
+  ),
 });
 
 export { createDefaultMessagesState };

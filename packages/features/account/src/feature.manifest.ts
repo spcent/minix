@@ -1,6 +1,7 @@
 import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
 import {
   defineFeatureManifest,
+  defineSharedHostBehavior,
   mergeFeaturePageState,
   pickDefinedManifestOptions,
   type AppKernel,
@@ -65,33 +66,23 @@ export const accountFeatureManifest = defineFeatureManifest<
       initialState: mergeFeaturePageState(createDefaultAccountState(), pageData, options.initialState),
     });
   },
-  hosts: {
-    wechat: {
-      entryActions: {
-        onShow: "loadInitial",
+  hosts: defineSharedHostBehavior<ReturnType<typeof createAccountController>>()(
+    {
+      onShow: "loadInitial",
+      onTapCopyUserId: "copyUserId",
+      onTapSettings: "goToSettings",
+      onTapOverview: "goToOverview",
+      onTapLogin: "goToLogin",
+      onTapIdentityUpgrade: "goToIdentityUpgrade",
+      onTapPhoneBinding: "goToPhoneBinding",
+      onTapIdentityMerge: "goToIdentityMerge",
+    },
+    {
+      wechat: {
         onPullDownRefresh: "refresh",
-        onTapCopyUserId: "copyUserId",
-        onTapSettings: "goToSettings",
-        onTapOverview: "goToOverview",
-        onTapLogin: "goToLogin",
-        onTapIdentityUpgrade: "goToIdentityUpgrade",
-        onTapPhoneBinding: "goToPhoneBinding",
-        onTapIdentityMerge: "goToIdentityMerge",
       },
     },
-    h5: {
-      entryActions: {
-        onShow: "loadInitial",
-        onTapCopyUserId: "copyUserId",
-        onTapSettings: "goToSettings",
-        onTapOverview: "goToOverview",
-        onTapLogin: "goToLogin",
-        onTapIdentityUpgrade: "goToIdentityUpgrade",
-        onTapPhoneBinding: "goToPhoneBinding",
-        onTapIdentityMerge: "goToIdentityMerge",
-      },
-    },
-  },
+  ),
 });
 
 export { createDefaultAccountState };

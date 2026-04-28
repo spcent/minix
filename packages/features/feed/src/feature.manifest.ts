@@ -1,6 +1,7 @@
 import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
 import {
   defineFeatureManifest,
+  defineSharedHostBehavior,
   mergeFeaturePageState,
   pickDefinedManifestOptions,
   type AppKernel,
@@ -54,32 +55,23 @@ export const feedFeatureManifest = defineFeatureManifest<
       initialState: mergeFeaturePageState(createDefaultFeedState(), pageData, options.initialState),
     });
   },
-  hosts: {
-    wechat: {
-      entryActions: {
-        onShow: "loadInitial",
+  hosts: defineSharedHostBehavior<ReturnType<typeof createFeedController>>()(
+    {
+      onShow: "loadInitial",
+      onTapRefreshReviewQueue: "loadReviewQueue",
+      onTapLoadMore: "loadMore",
+      onTapSearch: "submitSearch",
+      onTapClearSearch: "clearSearch",
+      onTapOpenItem: "openItem",
+      onTapSettings: "goToSettings",
+    },
+    {
+      wechat: {
         onPullDownRefresh: "refresh",
         onReachBottom: "loadMore",
-        onTapRefreshReviewQueue: "loadReviewQueue",
-        onTapLoadMore: "loadMore",
-        onTapSearch: "submitSearch",
-        onTapClearSearch: "clearSearch",
-        onTapOpenItem: "openItem",
-        onTapSettings: "goToSettings",
       },
     },
-    h5: {
-      entryActions: {
-        onShow: "loadInitial",
-        onTapRefreshReviewQueue: "loadReviewQueue",
-        onTapLoadMore: "loadMore",
-        onTapSearch: "submitSearch",
-        onTapClearSearch: "clearSearch",
-        onTapOpenItem: "openItem",
-        onTapSettings: "goToSettings",
-      },
-    },
-  },
+  ),
 });
 
 export { createDefaultFeedState };
