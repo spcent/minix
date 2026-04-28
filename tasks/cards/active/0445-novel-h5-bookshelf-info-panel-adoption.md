@@ -78,12 +78,23 @@ Reduce repeated bookshelf explanation-panel markup so shelf curation, active-lan
 - final verifier handoff:
   - Bookshelf panel copy and actions should preserve escaping and controller data attributes.
 
+## Implementation Notes
+
+- Adopted `renderInfoPanel` for pinned lane, curator note, current run, and completed archive panels.
+- Kept backlog and active stack panels local because they currently carry multiple body paragraphs.
+- Preserved existing bookshelf controller actions and values through `renderInfoPanel` actions.
+
+## Verification Notes
+
+- Ran `pnpm verify:host novel-h5`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

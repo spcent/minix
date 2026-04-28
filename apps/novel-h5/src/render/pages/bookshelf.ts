@@ -3,6 +3,7 @@ import type { BookshelfState } from "@minix/feature-bookshelf";
 import type { NovelH5PageRenderContext } from "../types";
 import { renderActionRow } from "../components/action-row";
 import { renderChipRow } from "../components/chip-row";
+import { renderInfoPanel } from "../components/info-panel";
 import { renderSectionHeading } from "../components/section-heading";
 import { renderStatPanels } from "../components/stat-panel";
 import { renderAppShell } from "../layout/app-shell";
@@ -114,17 +115,15 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
           ])}
           ${
             pinnedItem
-              ? `
-                <article class="nh-panel">
-                  <p class="nh-meta-label">Pinned lane</p>
-                  <h2 class="nh-title-small">${escapeHtml(pinnedItem.title)}</h2>
-                  <p class="nh-item-copy">${escapeHtml(pinnedItem.continueChapterTitle ?? pinnedItem.latestChapterTitle ?? "Saved continuation available")} · because you pinned it above the rest of the shelf lane.</p>
-                  ${renderActionRow([
+              ? renderInfoPanel({
+                  label: "Pinned lane",
+                  title: pinnedItem.title,
+                  copy: `${pinnedItem.continueChapterTitle ?? pinnedItem.latestChapterTitle ?? "Saved continuation available"} · because you pinned it above the rest of the shelf lane.`,
+                  actions: [
                     renderActionButton("Continue", "controller", "continueNovel", pinnedItem.novelId, "primary"),
                     renderActionButton("Clear pin", "controller", "clearPinnedNovel", undefined, "ghost"),
-                  ])}
-                </article>
-              `
+                  ],
+                })
               : ""
           }
           ${
@@ -220,14 +219,14 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
             compact: true,
           })}
           <div class="nh-grid">
-            <article class="nh-panel">
-              <p class="nh-meta-label">Why this title</p>
-              <p class="nh-item-copy">${escapeHtml(state.selectionReason ?? "No title is currently surfaced in this shelf view.")}</p>
-            </article>
-            <article class="nh-panel">
-              <p class="nh-meta-label">Because you paused here</p>
-              <p class="nh-item-copy">${escapeHtml(resumeCueReason)}</p>
-            </article>
+            ${renderInfoPanel({
+              label: "Why this title",
+              copy: state.selectionReason ?? "No title is currently surfaced in this shelf view.",
+            })}
+            ${renderInfoPanel({
+              label: "Because you paused here",
+              copy: resumeCueReason,
+            })}
           </div>
         </aside>
       </section>
@@ -239,10 +238,10 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
             copy: "A real reading workspace should distinguish current momentum from archive re-entry.",
           })}
           <div class="nh-grid">
-            <article class="nh-panel">
-              <p class="nh-meta-label">Current run</p>
-              <p class="nh-item-copy">${escapeHtml(state.activeLaneReason ?? "Active titles should remain warm between sessions.")}</p>
-            </article>
+            ${renderInfoPanel({
+              label: "Current run",
+              copy: state.activeLaneReason ?? "Active titles should remain warm between sessions.",
+            })}
             <article class="nh-panel">
               <p class="nh-meta-label">Backlog lane</p>
               <p class="nh-item-copy">${escapeHtml(backlogCueReason)}</p>
@@ -382,15 +381,15 @@ export function renderBookshelfPage(context: NovelH5PageRenderContext, state: Bo
           <div class="nh-grid">
             <p class="nh-item-copy">${escapeHtml(state.archiveReason ?? "Completed titles should remain visible as part of the collection story.")}</p>
             ${completedItems.length > 0
-              ? completedItems.slice(0, 3).map((item) => `
-                <article class="nh-panel">
-                  <p class="nh-meta-label">${escapeHtml(item.title)}</p>
-                  <p class="nh-item-copy">Completed and available for detail re-entry or archive browsing.</p>
-                  ${renderActionRow([
+              ? completedItems.slice(0, 3).map((item) =>
+                renderInfoPanel({
+                  label: item.title,
+                  copy: "Completed and available for detail re-entry or archive browsing.",
+                  actions: [
                     renderActionButton("Open detail", "controller", "openNovel", item.novelId, "secondary"),
-                  ])}
-                </article>
-              `).join("")
+                  ],
+                }),
+              ).join("")
               : '<p class="nh-copy">Completed titles will collect here once longer runs finish.</p>'}
           </div>
         </aside>
