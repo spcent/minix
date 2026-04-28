@@ -25,6 +25,7 @@ import type {
 import { HOST_ITEMS } from "../../content";
 import { bindUploadAssetsToOwner, resolveUploadAssetForUser } from "../uploads/pipeline";
 import { cloneDomainSnapshotArray } from "../snapshot";
+import { createApiPaginationWindow } from "../pagination";
 import type { UserState } from "../../types";
 import {
   cloneManagedContentAuditHistory,
@@ -681,18 +682,19 @@ function createManagedContentQueue(
       ...(entry.reviewRecord.reviewerLabel ? { reviewerLabel: entry.reviewRecord.reviewerLabel } : {}),
       moderationSummary: createManagedContentModerationSummary(entry),
     }));
-  const page = input.page ?? 1;
-  const pageSize = input.pageSize ?? 10;
-  const start = (page - 1) * pageSize;
-  const pagedItems = items.slice(start, start + pageSize);
+  const pageWindow = createApiPaginationWindow(items, {
+    page: input.page,
+    pageSize: input.pageSize,
+    defaultPageSize: 10,
+  });
 
   return {
-    items: pagedItems,
-    page,
-    pageSize,
-    total: items.length,
-    hasMore: start + pageSize < items.length,
-    ...(pagedItems[0] ? { selectedContentId: pagedItems[0].contentId } : {}),
+    items: pageWindow.items,
+    page: pageWindow.page,
+    pageSize: pageWindow.pageSize,
+    total: pageWindow.total,
+    hasMore: pageWindow.hasMore,
+    ...(pageWindow.items[0] ? { selectedContentId: pageWindow.items[0].contentId } : {}),
   };
 }
 

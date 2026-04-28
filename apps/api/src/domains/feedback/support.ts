@@ -23,6 +23,7 @@ import type {
 import { APP_ROUTE_IDS } from "@minix/contracts";
 
 import type { SessionRecord, UserState } from "../../types";
+import { createApiPaginationWindow } from "../pagination";
 import {
   createMessageThread,
   createSharedSupportLoopSummary,
@@ -630,8 +631,6 @@ export function createFeedbackTicketList(
   } = {},
 ): FeedbackTicketList {
   ensureFeedbackRuntimeState(userState);
-  const page = input.page ?? 1;
-  const pageSize = input.pageSize ?? 10;
   const keyword = input.keyword?.trim().toLowerCase();
   const filteredIds = userState.feedbackTicketIds.filter((ticketId) => {
     const detail = userState.feedbackDetailsById[ticketId];
@@ -653,18 +652,20 @@ export function createFeedbackTicketList(
     }
     return true;
   });
-  const total = filteredIds.length;
-  const start = Math.max(0, (page - 1) * pageSize);
-  const items = filteredIds
-    .slice(start, start + pageSize)
+  const pageWindow = createApiPaginationWindow(filteredIds, {
+    page: input.page,
+    pageSize: input.pageSize,
+    defaultPageSize: 10,
+  });
+  const items = pageWindow.items
     .map((ticketId) => createFeedbackTicketSummary(userState.feedbackDetailsById[ticketId]!));
 
   return {
     items,
-    page,
-    pageSize,
-    total,
-    hasMore: start + items.length < total,
+    page: pageWindow.page,
+    pageSize: pageWindow.pageSize,
+    total: pageWindow.total,
+    hasMore: pageWindow.hasMore,
     ...(userState.latestFeedbackTicketId ? { selectedTicketId: userState.latestFeedbackTicketId } : {}),
   };
 }

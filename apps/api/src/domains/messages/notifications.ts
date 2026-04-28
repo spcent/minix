@@ -11,6 +11,7 @@ import type {
 } from "@minix/contracts";
 
 import type { UserState } from "../../types";
+import { createApiPaginationWindow } from "../pagination";
 import type { NotificationChannelProviderRuntimeEnv } from "../settings/state";
 import { cloneTouchpoints, DEFAULT_MESSAGE_TOUCHPOINTS } from "./touchpoints";
 import { createMessageDeliveryPosture, deriveThreadState, listMessageThreads } from "./threads";
@@ -269,8 +270,6 @@ function createNotificationList(
   const allItems = sortNotifications(
     NOTIFICATION_SEEDS.map((seed) => createNotificationItem(seed, userState, runtimeEnv)),
   );
-  const page = input.page ?? 1;
-  const pageSize = input.pageSize ?? 6;
   const activeType = input.type && input.type !== "all" ? input.type : undefined;
   const activeGroupKey = input.groupKey && input.groupKey !== "all" ? input.groupKey : undefined;
   const onlyUnread = Boolean(input.onlyUnread);
@@ -286,20 +285,23 @@ function createNotificationList(
     filteredItems = filteredItems.filter((item) => !item.receipt.read);
   }
 
-  const start = (page - 1) * pageSize;
-  const items = filteredItems.slice(start, start + pageSize);
+  const pageWindow = createApiPaginationWindow(filteredItems, {
+    page: input.page,
+    pageSize: input.pageSize,
+    defaultPageSize: 6,
+  });
 
   return {
-    items,
-    page,
-    pageSize,
-    total: filteredItems.length,
-    hasMore: start + pageSize < filteredItems.length,
+    items: pageWindow.items,
+    page: pageWindow.page,
+    pageSize: pageWindow.pageSize,
+    total: pageWindow.total,
+    hasMore: pageWindow.hasMore,
     grouping: "type",
     groups: createNotificationGroups(filteredItems),
     filters: createNotificationFilters(allItems, activeType, activeGroupKey, onlyUnread),
     onlyUnread,
-    ...(items[0] ? { selectedNotificationId: items[0].id } : {}),
+    ...(pageWindow.items[0] ? { selectedNotificationId: pageWindow.items[0].id } : {}),
   };
 }
 

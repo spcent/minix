@@ -18,6 +18,7 @@ import type {
 import { CHAPTER_CONTENT, DEFAULT_BOOKSHELF_NOVEL_IDS, NOVELS } from "../../content";
 import { resolveSampleMediaUrl } from "../../sample-assets";
 import type { UserState } from "../../types";
+import { createApiPaginationWindow } from "../pagination";
 import { createNovelSearchFilters, createNovelSearchResults } from "./search";
 
 function isPurchasedByMembership(
@@ -346,9 +347,9 @@ export function listNovels(
     cards.sort((left, right) => right.wordCount - left.wordCount);
   }
 
-  const start = (page - 1) * pageSize;
-  const items = cards.slice(start, start + pageSize);
-  const hasMore = start + pageSize < cards.length;
+  const pageWindow = createApiPaginationWindow(cards, { page, pageSize, defaultPageSize: pageSize });
+  const items = pageWindow.items;
+  const hasMore = pageWindow.hasMore;
   const hotKeywords = ["lantern", "brocade", "sword", "orchid"];
   return {
     items,

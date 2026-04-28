@@ -19,6 +19,7 @@ import type {
 } from "@minix/contracts";
 
 import { deriveReturnTarget } from "../content/novels";
+import { createApiPaginationWindow } from "../pagination";
 import { isProductionProviderMode, isSampleProviderMode } from "../provider-posture";
 import type { SessionRecord, UserState } from "../../types";
 import {
@@ -653,24 +654,25 @@ export function listOrders(
   userState: UserState,
   request: ListOrdersRequest = {},
 ): OrderListResponse {
-  const page = Math.max(1, request.page ?? 1);
-  const pageSize = Math.max(1, Math.min(request.pageSize ?? 20, 100));
   const filtered = Object.values(userState.ordersById)
     .filter((detail) => !request.status || detail.order.status === request.status)
     .filter(
       (detail) => !request.productType || detail.order.productType === request.productType,
     )
     .sort((left, right) => right.order.updatedAt.localeCompare(left.order.updatedAt));
-  const start = (page - 1) * pageSize;
-  const items = filtered
-    .slice(start, start + pageSize)
-    .map((detail) => createOrderSummary(detail));
+  const pageWindow = createApiPaginationWindow(filtered, {
+    page: request.page,
+    pageSize: request.pageSize,
+    defaultPageSize: 20,
+    maxPageSize: 100,
+  });
+  const items = pageWindow.items.map((detail) => createOrderSummary(detail));
   const orderList: OrderList = {
     items,
-    total: filtered.length,
-    page,
-    pageSize,
-    hasMore: start + pageSize < filtered.length,
+    total: pageWindow.total,
+    page: pageWindow.page,
+    pageSize: pageWindow.pageSize,
+    hasMore: pageWindow.hasMore,
     ...(items[0]?.orderId ? { selectedOrderId: items[0].orderId } : {}),
   };
   return {

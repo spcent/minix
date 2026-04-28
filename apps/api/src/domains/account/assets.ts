@@ -6,6 +6,7 @@ import type {
 } from "@minix/contracts";
 
 import { createMembershipOverview } from "../payment/catalog";
+import { createApiPaginationWindow } from "../pagination";
 import type { UserState } from "../../types";
 
 export function createAssetLedgerEntry(
@@ -136,23 +137,25 @@ export function listUserAssetLedgerEntries(
     total: number;
   };
 } {
-  const page = request.page ?? 1;
-  const pageSize = request.pageSize ?? 20;
   const filteredEntries = (userState.assetLedgerEntries ?? [])
     .filter((entry) =>
       request.subject && request.subject !== "all" ? entry.subject === request.subject : true,
     )
     .slice()
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
-  const startIndex = (page - 1) * pageSize;
+  const pageWindow = createApiPaginationWindow(filteredEntries, {
+    page: request.page,
+    pageSize: request.pageSize,
+    defaultPageSize: 20,
+  });
 
   return {
-    ledgerEntries: filteredEntries.slice(startIndex, startIndex + pageSize),
+    ledgerEntries: pageWindow.items,
     pagination: {
-      page,
-      pageSize,
-      hasMore: startIndex + pageSize < filteredEntries.length,
-      total: filteredEntries.length,
+      page: pageWindow.page,
+      pageSize: pageWindow.pageSize,
+      hasMore: pageWindow.hasMore,
+      total: pageWindow.total,
     },
   };
 }

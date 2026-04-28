@@ -28,6 +28,7 @@ import type {
 } from "@minix/contracts";
 
 import type { StoredMessageThreadRecord, UserState } from "../../types";
+import { createApiPaginationWindow } from "../pagination";
 import { isProductionProviderMode, isSampleProviderMode, resolveProviderPostureMode } from "../provider-posture";
 import type { NotificationChannelProviderRuntimeEnv } from "../settings/state";
 import { cloneDomainSnapshot } from "../snapshot";
@@ -699,21 +700,22 @@ export function listMessageThreads(
         right.unreadCount - left.unreadCount
       );
     });
-  const page = input.page ?? 1;
-  const pageSize = input.pageSize ?? 20;
-  const start = (page - 1) * pageSize;
-  const items = filtered.slice(start, start + pageSize);
+  const pageWindow = createApiPaginationWindow(filtered, {
+    page: input.page,
+    pageSize: input.pageSize,
+    defaultPageSize: 20,
+  });
   const latestUpdatedAt =
     filtered[0]?.syncState?.lastSyncedAt ??
     filtered[0]?.lastMessageAt ??
     new Date().toISOString();
   return {
-    items,
-    page,
-    pageSize,
-    total: filtered.length,
-    hasMore: start + pageSize < filtered.length,
-    ...(items[0] ? { selectedThreadId: items[0].threadId } : {}),
+    items: pageWindow.items,
+    page: pageWindow.page,
+    pageSize: pageWindow.pageSize,
+    total: pageWindow.total,
+    hasMore: pageWindow.hasMore,
+    ...(pageWindow.items[0] ? { selectedThreadId: pageWindow.items[0].threadId } : {}),
     syncState: createThreadSyncState(
       `${filtered.length}:${filtered[0]?.syncState?.cursor ?? "none"}`,
       latestUpdatedAt,

@@ -8,6 +8,7 @@ import type {
   UserRelationTarget,
 } from "@minix/contracts";
 
+import { createApiPaginationWindow } from "../pagination";
 import type { UserState } from "../../types";
 
 export function ensureRelationRecords(
@@ -155,8 +156,6 @@ export function listUserRelations(
   availability: UserAvailabilityStatus,
   request: ListUserRelationsRequest,
 ): UserRelationList {
-  const page = request.page ?? 1;
-  const pageSize = request.pageSize ?? 10;
   const keyword = request.keyword?.trim().toLowerCase();
   const records = Object.values(ensureRelationRecords(userState));
   const filtered = records
@@ -215,8 +214,12 @@ export function listUserRelations(
     }),
   ) as ListUserRelationsRequest["kind"][];
 
-  const startIndex = (page - 1) * pageSize;
-  const items = filtered.slice(startIndex, startIndex + pageSize).map(
+  const pageWindow = createApiPaginationWindow(filtered, {
+    page: request.page,
+    pageSize: request.pageSize,
+    defaultPageSize: 10,
+  });
+  const items = pageWindow.items.map(
     (record): UserRelationListItem => ({
       ...createRelationTarget(record, availability),
       listKind: request.kind,
@@ -228,10 +231,10 @@ export function listUserRelations(
     kind: request.kind,
     items,
     pagination: {
-      page,
-      pageSize,
-      hasMore: startIndex + pageSize < filtered.length,
-      total: filtered.length,
+      page: pageWindow.page,
+      pageSize: pageWindow.pageSize,
+      hasMore: pageWindow.hasMore,
+      total: pageWindow.total,
     },
     summaryLabel:
       filtered.length > 0

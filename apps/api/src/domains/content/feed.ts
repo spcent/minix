@@ -7,6 +7,7 @@ import type {
 
 import { HOST_ITEMS, NOVELS } from "../../content";
 import type { UserState } from "../../types";
+import { createApiPaginationWindow } from "../pagination";
 import {
   createManagedContentAccess,
   createManagedContentCard,
@@ -205,9 +206,11 @@ function createUnifiedFeedResults(
               : [{ domain: "feed" as const, label: "Feed", items: feedItems }];
 
   const flattened = requestedDomain === "all" ? interleaveSearchGroups(scopedGroups) : scopedGroups.flatMap((group) => group.items);
-  const start = (input.page - 1) * input.pageSize;
-  const pagedItems = flattened.slice(start, start + input.pageSize);
-  const hasMore = start + input.pageSize < flattened.length;
+  const pageWindow = createApiPaginationWindow(flattened, {
+    page: input.page,
+    pageSize: input.pageSize,
+    defaultPageSize: input.pageSize,
+  });
   const activeDomain =
     requestedDomain === "all"
       ? searchMode === "user"
@@ -230,12 +233,12 @@ function createUnifiedFeedResults(
   const grouping = createSearchGroupingSummary(scopedGroups, requestedDomain);
   const zeroResultGuidance = createSearchZeroResultGuidance(input.keyword, flattened.length, correctionKeyword, hotKeywords);
   return {
-    items: pagedItems,
+    items: pageWindow.items,
     page: input.page,
     pageSize: input.pageSize,
-    hasMore,
+    hasMore: pageWindow.hasMore,
     tags,
-    ...(pagedItems[0]?.recommendedReason ? { featuredReason: pagedItems[0].recommendedReason } : {}),
+    ...(pageWindow.items[0]?.recommendedReason ? { featuredReason: pageWindow.items[0].recommendedReason } : {}),
     searchQuery: {
       keyword: input.keyword,
       mode: searchMode,
@@ -254,16 +257,16 @@ function createUnifiedFeedResults(
       }),
     ],
     searchResults: {
-      items: pagedItems,
+      items: pageWindow.items,
       total: flattened.length,
-      hasMore,
+      hasMore: pageWindow.hasMore,
       emptyText:
         searchMode === "user" || requestedDomain === "user"
           ? "No user results matched this search."
           : searchMode === "content" || requestedDomain === "content"
             ? "No content results matched this search."
             : "No cross-domain results matched this search.",
-      ...(pagedItems[0]?.recommendedReason ? { featuredReason: pagedItems[0].recommendedReason } : {}),
+      ...(pageWindow.items[0]?.recommendedReason ? { featuredReason: pageWindow.items[0].recommendedReason } : {}),
       suggestionTerms: createSuggestionTerms(input.keyword, hotKeywords),
       hotKeywords,
       recentKeywords: [],
@@ -352,9 +355,9 @@ export function listFeed(input: {
 
   filteredItems = decorateSearchItems(sortFeedItems(filteredItems, activeSortKey, keyword), activeSortKey, keyword);
 
-  const start = (page - 1) * pageSize;
-  const items = filteredItems.slice(start, start + pageSize);
-  const hasMore = start + pageSize < filteredItems.length;
+  const pageWindow = createApiPaginationWindow(filteredItems, { page, pageSize, defaultPageSize: pageSize });
+  const items = pageWindow.items;
+  const hasMore = pageWindow.hasMore;
   const correctionKeyword = filteredItems.length === 0 ? createCorrectionKeyword(keyword, hotKeywords) : undefined;
 
   return {
