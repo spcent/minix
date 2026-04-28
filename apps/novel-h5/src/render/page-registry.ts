@@ -35,6 +35,7 @@ import { renderReaderPage } from "./pages/reader";
 import { renderSettingsPage } from "./pages/settings";
 import { renderTocPage } from "./pages/toc";
 import { renderReaderTocPanelBody } from "./components/reader-panels";
+import { bindClicks, bindInputValue, queryElement, readDataValue } from "./dom-bindings";
 import { ensureNovelH5Styles } from "./theme/styles";
 import {
   getEntryState,
@@ -113,33 +114,29 @@ async function invokeAction(context: NovelH5PageRenderContext, target: "entry" |
 }
 
 function bindRouteLinks(context: NovelH5PageRenderContext) {
-  context.root.querySelectorAll<HTMLElement>("[data-route-path]").forEach((element) => {
-    element.addEventListener("click", async (event) => {
-      event.preventDefault();
-      const routePath = element.dataset.routePath;
-      if (!routePath) {
-        return;
-      }
+  bindClicks(context.root, "[data-route-path]", async (element, event) => {
+    event.preventDefault();
+    const routePath = readDataValue(element, "routePath");
+    if (!routePath) {
+      return;
+    }
 
-      await context.runtime.kernel.router.to(routePath);
-      context.sync();
-    });
+    await context.runtime.kernel.router.to(routePath);
+    context.sync();
   });
 }
 
 function bindActionButtons(context: NovelH5PageRenderContext, scope: ParentNode = context.root) {
-  scope.querySelectorAll<HTMLButtonElement>("[data-target][data-action]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const target = button.dataset.target;
-      const action = button.dataset.action;
+  bindClicks<HTMLButtonElement>(scope, "[data-target][data-action]", async (button) => {
+    const target = readDataValue(button, "target");
+    const action = readDataValue(button, "action");
 
-      if ((target !== "entry" && target !== "controller") || !action) {
-        return;
-      }
+    if ((target !== "entry" && target !== "controller") || !action) {
+      return;
+    }
 
-      await invokeAction(context, target, action, button.dataset.value);
-      context.sync();
-    });
+    await invokeAction(context, target, action, readDataValue(button, "value"));
+    context.sync();
   });
 }
 
@@ -152,7 +149,7 @@ function closeReaderPanels(root: HTMLElement) {
 
 function openReaderPanel(root: HTMLElement, panelKey: ReaderPanelKey) {
   closeReaderPanels(root);
-  const panel = root.querySelector<HTMLElement>(`[data-ui-panel="${panelKey}"]`);
+  const panel = queryElement<HTMLElement>(root, `[data-ui-panel="${panelKey}"]`);
   if (!panel) {
     return;
   }
@@ -163,7 +160,7 @@ function openReaderPanel(root: HTMLElement, panelKey: ReaderPanelKey) {
 
 async function loadReaderTocPanel(context: NovelH5PageRenderContext, state: ReaderState) {
   const novelId = state.novelId ?? state.chapter?.novelId;
-  const body = context.root.querySelector<HTMLElement>("[data-reader-panel-body='toc']");
+  const body = queryElement<HTMLElement>(context.root, "[data-reader-panel-body='toc']");
   if (!novelId || !body) {
     return;
   }
@@ -191,13 +188,8 @@ async function loadReaderTocPanel(context: NovelH5PageRenderContext, state: Read
 }
 
 function bindReaderProgressInput(context: NovelH5PageRenderContext) {
-  const input = context.root.querySelector<HTMLInputElement>("[data-input='reader-progress']");
-  if (!input) {
-    return;
-  }
-
-  input.addEventListener("input", () => {
-    const value = Number(input.value);
+  bindInputValue<HTMLInputElement>(context.root, "[data-input='reader-progress']", (rawValue) => {
+    const value = Number(rawValue);
     if (!Number.isFinite(value)) {
       return;
     }
@@ -214,38 +206,32 @@ function bindReaderPanels(context: NovelH5PageRenderContext) {
 
   const state = getEntryState(context.entry) as ReaderState;
 
-  context.root.querySelectorAll<HTMLElement>("[data-ui-open]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const panelKey = button.dataset.uiOpen as ReaderPanelKey | undefined;
-      if (!panelKey) {
-        return;
-      }
+  bindClicks(context.root, "[data-ui-open]", async (button) => {
+    const panelKey = readDataValue(button, "uiOpen") as ReaderPanelKey | undefined;
+    if (!panelKey) {
+      return;
+    }
 
-      readerUiState.openPanel = panelKey;
-      openReaderPanel(context.root, panelKey);
+    readerUiState.openPanel = panelKey;
+    openReaderPanel(context.root, panelKey);
 
-      if (panelKey === "toc") {
-        await loadReaderTocPanel(context, state);
-      }
-    });
+    if (panelKey === "toc") {
+      await loadReaderTocPanel(context, state);
+    }
   });
 
-  context.root.querySelectorAll<HTMLElement>("[data-ui-close]").forEach((button) => {
-    button.addEventListener("click", () => {
-      readerUiState.openPanel = null;
-      closeReaderPanels(context.root);
-    });
+  bindClicks(context.root, "[data-ui-close]", () => {
+    readerUiState.openPanel = null;
+    closeReaderPanels(context.root);
   });
 
-  context.root.querySelectorAll<HTMLElement>("[data-ui-panel]").forEach((panel) => {
-    panel.addEventListener("click", (event) => {
-      if (event.target !== panel) {
-        return;
-      }
+  bindClicks(context.root, "[data-ui-panel]", (panel, event) => {
+    if (event.target !== panel) {
+      return;
+    }
 
-      readerUiState.openPanel = null;
-      closeReaderPanels(context.root);
-    });
+    readerUiState.openPanel = null;
+    closeReaderPanels(context.root);
   });
 
   bindReaderProgressInput(context);
@@ -259,14 +245,12 @@ function bindReaderPanels(context: NovelH5PageRenderContext) {
 }
 
 function bindCatalogKeywordInput(context: NovelH5PageRenderContext) {
-  const input = context.root.querySelector<HTMLInputElement>("[data-input='catalog-keyword']");
+  const input = bindInputValue<HTMLInputElement>(context.root, "[data-input='catalog-keyword']", (value) => {
+    void invokeAction(context, "controller", "setKeyword", value);
+  });
   if (!input) {
     return;
   }
-
-  input.addEventListener("input", () => {
-    void invokeAction(context, "controller", "setKeyword", input.value);
-  });
 
   input.addEventListener("keydown", async (event) => {
     if (event.key !== "Enter") {
@@ -284,8 +268,8 @@ function bindFeedbackDraftInputs(context: NovelH5PageRenderContext) {
     return;
   }
 
-  const titleInput = context.root.querySelector<HTMLInputElement>("[data-feedback-input='title']");
-  const descriptionInput = context.root.querySelector<HTMLTextAreaElement>("[data-feedback-input='description']");
+  const titleInput = queryElement<HTMLInputElement>(context.root, "[data-feedback-input='title']");
+  const descriptionInput = queryElement<HTMLTextAreaElement>(context.root, "[data-feedback-input='description']");
   if (!titleInput || !descriptionInput) {
     return;
   }
