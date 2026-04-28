@@ -11,7 +11,8 @@ import type {
 
 import { jsonError } from "../../http/response";
 import { resolveBearerToken } from "../../http/auth";
-import { getRouteTraceId, parseRouteBody } from "../../http/route-context";
+import { getRouteTraceId, loadRouteClientContext, parseRouteBody } from "../../http/route-context";
+import { resolveClientId } from "../../rate-limit";
 import { resolveProviderPostureMode } from "../provider-posture";
 import type { ApiRouteBaseOptions } from "../route-options";
 import type { AuthOAuthProvider, AuthSmsDeliveryProvider } from "./provider";
@@ -242,7 +243,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
     }
 
     const store = resolveStore(c.env);
-    const clientId = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous";
+    const { clientId } = loadRouteClientContext(c, resolveClientId, resolveRequestDeviceId);
     let userId = createUserIdFromCredential({
       method: "phone_code",
       phoneNumber: payload.phoneNumber,
@@ -701,7 +702,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
       return payload;
     }
 
-    const clientId = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous";
+    const { clientId } = loadRouteClientContext(c, resolveClientId, resolveRequestDeviceId);
     const loginMethod = resolveLoginMethod(payload);
 
     if (loginMethod === "wechat_code" && !payload.credential.code && !payload.credential.authCode) {
@@ -1008,7 +1009,7 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
       return payload;
     }
 
-    const clientId = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous";
+    const { clientId } = loadRouteClientContext(c, resolveClientId, resolveRequestDeviceId);
     const store = resolveStore(c.env);
     const refreshStateKey = `refresh_${sanitizeUserKey(clientId)}`;
     const refreshUserState = await store.getUserState(refreshStateKey);
