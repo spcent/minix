@@ -2,12 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { ok, type AppKernel } from "@minix/core";
+import { createBaseKernelStub } from "@minix/testkit";
 
 import { createHostH5PageEntry } from "../registrations/page-entries";
 import { createHostH5Runtime } from "../manifest/app.manifest";
 
 function createKernelStub(): AppKernel {
-  return {
+  return createBaseKernelStub("h5", {
     env: {
       appId: "host-h5",
       appName: "host-h5",
@@ -15,38 +16,6 @@ function createKernelStub(): AppKernel {
       debug: true,
       platform: "h5",
       version: "1.0.0",
-    },
-    features: {
-      enableAutoLogin: false,
-      enableRouteGuard: false,
-    },
-    storage: {
-      async get() {
-        return ok(null);
-      },
-      async set() {
-        return ok(undefined);
-      },
-      async remove() {
-        return ok(undefined);
-      },
-      async clear() {
-        return ok(undefined);
-      },
-    },
-    session: {
-      async get() {
-        return ok(null);
-      },
-      async set() {
-        return ok(undefined);
-      },
-      async clear() {
-        return ok(undefined);
-      },
-      async isLoggedIn() {
-        return ok(false);
-      },
     },
     request: {
       async get<T>(path: string) {
@@ -437,15 +406,6 @@ function createKernelStub(): AppKernel {
           accessToken: "mock-h5-access-token",
         } as T);
       },
-      async put() {
-        throw new Error("not implemented");
-      },
-      async patch() {
-        throw new Error("not implemented");
-      },
-      async delete() {
-        throw new Error("not implemented");
-      },
     },
     auth: {
       async ensureLogin() {
@@ -500,18 +460,7 @@ function createKernelStub(): AppKernel {
         return ok({ path: "/login" });
       },
     },
-    ui: {
-      async toast() {
-        return ok(undefined);
-      },
-      async loading() {
-        return ok(undefined);
-      },
-      async modal() {
-        return ok(true);
-      },
-    },
-  };
+  });
 }
 
 test("host h5 runtime creates page controllers on a shared kernel", () => {

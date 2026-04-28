@@ -78,10 +78,23 @@ Make host runtime tests clearer and easier to extend when additional product hos
 
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+## Implementation Notes
+
+- Expanded `createBaseKernelStub` with default storage, request, auth, router, and UI ports plus typed override options.
+- Migrated official H5 runtime tests to reuse the base kernel stub and keep only host/domain request fixtures local.
+- Documented the helper in the testkit module guide.
+
+## Verification Notes
+
+- Ran `node --import tsx --test apps/host-h5/src/bootstrap/runtime.test.ts apps/novel-h5/src/bootstrap/runtime.test.ts`.
+- Ran `pnpm typecheck`.
+
+## Acceptance
+
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { APP_ROUTE_IDS } from "@minix/contracts";
 import { ok, type AppKernel } from "@minix/core";
+import { createBaseKernelStub } from "@minix/testkit";
 
 import { createNovelH5PageEntry } from "../registrations/page-entries";
 import { createNovelH5Runtime } from "../manifest/app.manifest";
@@ -16,7 +17,7 @@ async function invokeEntryAction(entry: unknown, action: string) {
 function createKernelStub(): AppKernel {
   let currentLocation: { path: string; params?: Record<string, string | number | boolean> } | null = { path: "/" };
 
-  return {
+  return createBaseKernelStub("h5", {
     env: {
       appId: "novel-h5",
       appName: "novel-h5",
@@ -24,24 +25,6 @@ function createKernelStub(): AppKernel {
       debug: true,
       platform: "h5",
       version: "1.0.0",
-    },
-    features: {
-      enableAutoLogin: false,
-      enableRouteGuard: false,
-    },
-    storage: {
-      async get() {
-        return ok(null);
-      },
-      async set() {
-        return ok(undefined);
-      },
-      async remove() {
-        return ok(undefined);
-      },
-      async clear() {
-        return ok(undefined);
-      },
     },
     session: {
       async get() {
@@ -663,15 +646,6 @@ function createKernelStub(): AppKernel {
           accessToken: "mock-novel-h5-access-token",
         } as T);
       },
-      async put() {
-        throw new Error("not implemented");
-      },
-      async patch() {
-        throw new Error("not implemented");
-      },
-      async delete() {
-        throw new Error("not implemented");
-      },
     },
     auth: {
       async ensureLogin() {
@@ -734,18 +708,7 @@ function createKernelStub(): AppKernel {
         return ok(currentLocation);
       },
     },
-    ui: {
-      async toast() {
-        return ok(undefined);
-      },
-      async loading() {
-        return ok(undefined);
-      },
-      async modal() {
-        return ok(true);
-      },
-    },
-  };
+  });
 }
 
 test("novel h5 runtime creates page controllers on a shared kernel", () => {

@@ -1,20 +1,76 @@
-import { ok, type AppKernel, type BootstrapRuntimeEnvOverride } from "@minix/core";
+import {
+  createError,
+  fail,
+  ok,
+  type AppKernel,
+  type BootstrapRuntimeEnvOverride,
+  type Result,
+} from "@minix/core";
 
-export function createBaseKernelStub(platform: AppKernel["env"]["platform"]): AppKernel {
+export interface CreateBaseKernelStubOptions {
+  env?: Partial<AppKernel["env"]>;
+  features?: Partial<AppKernel["features"]>;
+  storage?: Partial<AppKernel["storage"]>;
+  session?: Partial<AppKernel["session"]>;
+  request?: Partial<AppKernel["request"]>;
+  auth?: Partial<AppKernel["auth"]>;
+  router?: Partial<AppKernel["router"]>;
+  ui?: Partial<AppKernel["ui"]>;
+}
+
+function unavailableRequest<T>(method: string): Promise<Result<T>> {
+  return Promise.resolve(
+    fail(
+      createError("PLATFORM_UNSUPPORTED", `test request ${method} is not configured`, {
+        recoverable: false,
+      }),
+    ),
+  );
+}
+
+export function createBaseKernelStub(
+  platform: AppKernel["env"]["platform"],
+  options: CreateBaseKernelStubOptions = {},
+): AppKernel {
+  const env: AppKernel["env"] = {
+    appId: `test-${platform}`,
+    appName: `test-${platform}`,
+    apiBaseUrl: "https://mock.minix.local",
+    debug: true,
+    platform,
+    version: "1.0.0",
+    ...options.env,
+  };
+
+  const defaultSession = {
+    identity: { userId: `${env.appId}-user` },
+    loggedIn: true,
+    platform: env.platform,
+    token: { accessToken: `${env.appId}-access-token` },
+  };
+
   return {
-    env: {
-      appId: `test-${platform}`,
-      appName: `test-${platform}`,
-      apiBaseUrl: "https://mock.minix.local",
-      debug: true,
-      platform,
-      version: "1.0.0",
-    },
+    env,
     features: {
       enableAutoLogin: false,
       enableRouteGuard: false,
+      ...options.features,
     },
-    storage: {} as AppKernel["storage"],
+    storage: {
+      async get() {
+        return ok(null);
+      },
+      async set() {
+        return ok(undefined);
+      },
+      async remove() {
+        return ok(undefined);
+      },
+      async clear() {
+        return ok(undefined);
+      },
+      ...options.storage,
+    },
     session: {
       async get() {
         return ok(null);
@@ -28,9 +84,47 @@ export function createBaseKernelStub(platform: AppKernel["env"]["platform"]): Ap
       async isLoggedIn() {
         return ok(false);
       },
+      ...options.session,
     },
-    request: {} as AppKernel["request"],
-    auth: {} as AppKernel["auth"],
+    request: {
+      get<T>() {
+        return unavailableRequest<T>("GET");
+      },
+      post<T>() {
+        return unavailableRequest<T>("POST");
+      },
+      put<T>() {
+        return unavailableRequest<T>("PUT");
+      },
+      patch<T>() {
+        return unavailableRequest<T>("PATCH");
+      },
+      delete<T>() {
+        return unavailableRequest<T>("DELETE");
+      },
+      ...options.request,
+    },
+    auth: {
+      async ensureLogin() {
+        return ok(defaultSession);
+      },
+      async recoverSession() {
+        return ok(null);
+      },
+      async login() {
+        return ok(defaultSession);
+      },
+      async logout() {
+        return ok(undefined);
+      },
+      async exchangeToken() {
+        return ok(defaultSession);
+      },
+      async refreshSession() {
+        return ok(defaultSession);
+      },
+      ...options.auth,
+    },
     router: {
       async to() {
         return ok(undefined);
@@ -53,6 +147,7 @@ export function createBaseKernelStub(platform: AppKernel["env"]["platform"]): Ap
       current() {
         return ok(null);
       },
+      ...options.router,
     },
     ui: {
       async toast() {
@@ -64,6 +159,7 @@ export function createBaseKernelStub(platform: AppKernel["env"]["platform"]): Ap
       async modal() {
         return ok(true);
       },
+      ...options.ui,
     },
   };
 }
