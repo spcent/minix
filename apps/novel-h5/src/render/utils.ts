@@ -1,29 +1,15 @@
-import { escapeHtml } from "@minix/core";
+import { escapeHtml, formatCompactDisplayNumber, formatDisplayDate } from "@minix/core";
 
 import { NOVEL_H5_ROUTES } from "../manifest/routes";
 
 export { escapeHtml };
 
 export function formatDate(value?: string): string {
-  if (!value) {
-    return "Recently";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-  }).format(new Date(value));
+  return formatDisplayDate(value);
 }
 
 export function formatCompactNumber(value?: number): string {
-  if (typeof value !== "number") {
-    return "0";
-  }
-
-  return new Intl.NumberFormat("en-US", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
+  return formatCompactDisplayNumber(value);
 }
 
 export function splitParagraphs(content?: string): [string[], string[]] {

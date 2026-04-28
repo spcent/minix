@@ -81,14 +81,25 @@ Make future H5 product hosts reuse resilient display formatting primitives inste
 
 ## Acceptance
 
-- [ ] novel H5 date and compact number utilities delegate to shared core helpers
-- [ ] invalid date inputs fall back to stable copy instead of throwing
-- [ ] invalid number inputs fall back to stable copy
-- [ ] helper behavior is covered by focused tests
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] novel H5 date and compact number utilities delegate to shared core helpers
+- [x] invalid date inputs fall back to stable copy instead of throwing
+- [x] invalid number inputs fall back to stable copy
+- [x] helper behavior is covered by focused tests
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added core display helpers for short date and compact number formatting.
+- Kept existing novel H5 utility exports stable while delegating to the shared helpers.
+- Added invalid date and invalid number fallbacks so display formatting cannot throw on malformed values.
+
+## Verification Notes
+
+- `node --import tsx --test packages/core/src/runtime/display-format.test.ts`
+- `pnpm verify:host novel-h5`
