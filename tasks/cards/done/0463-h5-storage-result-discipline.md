@@ -79,7 +79,18 @@ Keep browser storage behavior aligned with the repo-wide Result discipline so sh
 
 ## Acceptance
 
-- [ ] malformed JSON reads return `STORAGE_ERROR`
-- [ ] storage mutation exceptions return `STORAGE_ERROR`
-- [ ] namespace clear behavior is preserved
-- [ ] targeted tests pass
+- [x] malformed JSON reads return `STORAGE_ERROR`
+- [x] storage mutation exceptions return `STORAGE_ERROR`
+- [x] namespace clear behavior is preserved
+- [x] targeted tests pass
+
+## Implementation Notes
+
+- Wrapped H5 storage reads, writes, removes, and clears in Result-returning error handling.
+- Preserved existing unsupported-storage and namespace clear behavior.
+- Added focused tests for malformed JSON and storage mutation exceptions.
+
+## Verification Notes
+
+- `node --import tsx --test packages/platform-h5/src/adapters/storage.adapter.test.ts`
+- `pnpm typecheck`
