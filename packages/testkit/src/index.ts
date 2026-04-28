@@ -18,6 +18,11 @@ export interface CreateBaseKernelStubOptions {
   ui?: Partial<AppKernel["ui"]>;
 }
 
+export interface RuntimePageKeySurface {
+  registry: Record<string, unknown>;
+  pages: Record<string, unknown>;
+}
+
 function unavailableRequest<T>(method: string): Promise<Result<T>> {
   return Promise.resolve(
     fail(
@@ -162,6 +167,36 @@ export function createBaseKernelStub(
       ...options.ui,
     },
   };
+}
+
+function formatPageKeyMismatch(label: string, actual: readonly string[], expected: readonly string[]): string {
+  return `${label} keys mismatch: expected ${JSON.stringify(expected)}, received ${JSON.stringify(actual)}`;
+}
+
+export function assertRuntimePageKeys(runtime: RuntimePageKeySurface, expectedPageKeys: readonly string[]): void {
+  const registryKeys = Object.keys(runtime.registry);
+  const pageKeys = Object.keys(runtime.pages);
+
+  if (JSON.stringify(registryKeys) !== JSON.stringify(expectedPageKeys)) {
+    throw new Error(formatPageKeyMismatch("registry", registryKeys, expectedPageKeys));
+  }
+
+  if (JSON.stringify(pageKeys) !== JSON.stringify(expectedPageKeys)) {
+    throw new Error(formatPageKeyMismatch("pages", pageKeys, expectedPageKeys));
+  }
+}
+
+export async function invokeTestEntryAction<TResult = unknown>(
+  entry: unknown,
+  action: string,
+  ...args: unknown[]
+): Promise<TResult> {
+  const handler = (entry as Record<string, unknown>)[action];
+  if (typeof handler !== "function") {
+    throw new Error(`entry action "${action}" is not implemented`);
+  }
+
+  return (await handler(...args)) as TResult;
 }
 
 export function withBootstrapEnvOverride<TOverride extends BootstrapRuntimeEnvOverride, TResult>(

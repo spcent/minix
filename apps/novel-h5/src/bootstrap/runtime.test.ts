@@ -3,16 +3,10 @@ import assert from "node:assert/strict";
 
 import { APP_ROUTE_IDS } from "@minix/contracts";
 import { ok, type AppKernel } from "@minix/core";
-import { createBaseKernelStub } from "@minix/testkit";
+import { assertRuntimePageKeys, createBaseKernelStub, invokeTestEntryAction } from "@minix/testkit";
 
 import { createNovelH5PageEntry } from "../registrations/page-entries";
 import { createNovelH5Runtime } from "../manifest/app.manifest";
-
-async function invokeEntryAction(entry: unknown, action: string) {
-  const handler = (entry as Record<string, unknown>)[action];
-  assert.equal(typeof handler, "function");
-  return (handler as () => Promise<unknown>)();
-}
 
 function createKernelStub(): AppKernel {
   let currentLocation: { path: string; params?: Record<string, string | number | boolean> } | null = { path: "/" };
@@ -714,10 +708,10 @@ function createKernelStub(): AppKernel {
 test("novel h5 runtime creates page controllers on a shared kernel", () => {
   const kernel = createKernelStub();
   const runtime = createNovelH5Runtime(kernel);
+  const expectedPages = ["home", "login", "catalog", "feed", "account", "feedback", "messages", "mediaTools", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"];
 
   assert.equal(runtime.kernel, kernel);
-  assert.deepEqual(Object.keys(runtime.registry), ["home", "login", "catalog", "feed", "account", "feedback", "messages", "mediaTools", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"]);
-  assert.deepEqual(Object.keys(runtime.pages), ["home", "login", "catalog", "feed", "account", "feedback", "messages", "mediaTools", "novelDetail", "toc", "reader", "bookshelf", "settings", "membership"]);
+  assertRuntimePageKeys(runtime, expectedPages);
 });
 
 test("novel h5 page entries delegate to runtime controllers", async () => {
@@ -737,20 +731,20 @@ test("novel h5 page entries delegate to runtime controllers", async () => {
   const settingsEntry = createNovelH5PageEntry(runtime, "settings");
   const membershipEntry = createNovelH5PageEntry(runtime, "membership");
 
-  const homeResult = await invokeEntryAction(homeEntry, "onShow");
-  const loginResult = await invokeEntryAction(loginEntry, "onTapLogin");
-  const catalogResult = await invokeEntryAction(catalogEntry, "onShow");
-  const feedResult = await invokeEntryAction(feedEntry, "onShow");
-  const accountResult = await invokeEntryAction(accountEntry, "onShow");
-  const feedbackResult = await invokeEntryAction(feedbackEntry, "onShow");
-  const messagesResult = await invokeEntryAction(messagesEntry, "onShow");
-  const mediaToolsResult = await invokeEntryAction(mediaToolsEntry, "onShow");
-  const detailResult = await invokeEntryAction(detailEntry, "onShow");
-  const tocResult = await invokeEntryAction(tocEntry, "onShow");
-  const readerResult = await invokeEntryAction(readerEntry, "onShow");
-  const bookshelfResult = await invokeEntryAction(bookshelfEntry, "onShow");
-  const settingsResult = await invokeEntryAction(settingsEntry, "onTapLogout");
-  const membershipResult = await invokeEntryAction(membershipEntry, "onShow");
+  const homeResult = await invokeTestEntryAction(homeEntry, "onShow");
+  const loginResult = await invokeTestEntryAction(loginEntry, "onTapLogin");
+  const catalogResult = await invokeTestEntryAction(catalogEntry, "onShow");
+  const feedResult = await invokeTestEntryAction(feedEntry, "onShow");
+  const accountResult = await invokeTestEntryAction(accountEntry, "onShow");
+  const feedbackResult = await invokeTestEntryAction(feedbackEntry, "onShow");
+  const messagesResult = await invokeTestEntryAction(messagesEntry, "onShow");
+  const mediaToolsResult = await invokeTestEntryAction(mediaToolsEntry, "onShow");
+  const detailResult = await invokeTestEntryAction(detailEntry, "onShow");
+  const tocResult = await invokeTestEntryAction(tocEntry, "onShow");
+  const readerResult = await invokeTestEntryAction(readerEntry, "onShow");
+  const bookshelfResult = await invokeTestEntryAction(bookshelfEntry, "onShow");
+  const settingsResult = await invokeTestEntryAction(settingsEntry, "onTapLogout");
+  const membershipResult = await invokeTestEntryAction(membershipEntry, "onShow");
 
   assert.equal((homeResult as { ok?: boolean }).ok, true);
   assert.deepEqual(loginResult, { ok: true, value: undefined });

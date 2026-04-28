@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { ok, type AppKernel } from "@minix/core";
-import { createBaseKernelStub } from "@minix/testkit";
+import { assertRuntimePageKeys, createBaseKernelStub } from "@minix/testkit";
 
 import { createHostH5PageEntry } from "../registrations/page-entries";
 import { createHostH5Runtime } from "../manifest/app.manifest";
@@ -484,8 +484,7 @@ test("host h5 runtime creates page controllers on a shared kernel", () => {
   ];
 
   assert.equal(runtime.kernel, kernel);
-  assert.deepEqual(Object.keys(runtime.registry), expectedPages);
-  assert.deepEqual(Object.keys(runtime.pages), expectedPages);
+  assertRuntimePageKeys(runtime, expectedPages);
 });
 
 test("host h5 page entries delegate to runtime controllers", async () => {
