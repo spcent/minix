@@ -1,4 +1,5 @@
-import type { ResponseData } from "../ports/request";
+import { createError } from "../error/errors";
+import type { RequestOptions, ResponseData } from "../ports/request";
 
 export type MockQueryValue = string | number | boolean | undefined;
 
@@ -41,6 +42,24 @@ export function resolveMockRequestPath(url: string): string {
   } catch {
     return url;
   }
+}
+
+export function matchesMockRequestRoute(
+  options: Pick<RequestOptions, "url" | "method">,
+  path: string,
+  method?: RequestOptions["method"],
+): boolean {
+  if (resolveMockRequestPath(options.url) !== path) {
+    return false;
+  }
+
+  return method === undefined || options.method === method;
+}
+
+export function createMockRouteNotFoundError(pathname: string, messagePrefix = "Mock route not found") {
+  return createError("NOT_FOUND", `${messagePrefix}: ${pathname}`, {
+    recoverable: true,
+  });
 }
 
 export function coerceMockQueryNumber(value: MockQueryValue, fallback: number): number {

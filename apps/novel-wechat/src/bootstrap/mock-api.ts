@@ -1,10 +1,11 @@
 import {
   coerceMockQueryString,
-  createError,
   createJsonMockResponse,
+  createMockRouteNotFoundError,
   createMockSvgCoverDataUrl,
   fail,
   matchesMockBearerAuthorizationHeader,
+  matchesMockRequestRoute,
   ok,
   paginateMockItems,
   resolveMockRequestPath,
@@ -453,7 +454,7 @@ export function createNovelWechatMockApiAdapter(): RequestAdapter {
     async request<T = unknown>(options: RequestOptions) {
       const pathname = resolveMockRequestPath(options.url);
 
-      if (pathname === "/auth/login") {
+      if (matchesMockRequestRoute(options, "/auth/login")) {
         return ok(createJsonMockResponse(200, {
           userId: "novel-wechat-user",
           accessToken: ACCESS_TOKEN,
@@ -466,10 +467,10 @@ export function createNovelWechatMockApiAdapter(): RequestAdapter {
         return ok(createJsonMockResponse(401, { code: "UNAUTHORIZED", message: "Novel session expired. Please sign in again." } as T));
       }
 
-      if (pathname === "/novels") {
+      if (matchesMockRequestRoute(options, "/novels")) {
         return ok(createJsonMockResponse(200, listNovels(options.query) as T));
       }
-      if (pathname === "/novels/detail") {
+      if (matchesMockRequestRoute(options, "/novels/detail")) {
         const novelId = coerceMockQueryString(options.query?.novelId);
         const detail = NOVELS.find((item) => item.id === novelId);
         if (!detail) {
@@ -477,7 +478,7 @@ export function createNovelWechatMockApiAdapter(): RequestAdapter {
         }
         return ok(createJsonMockResponse(200, detail as T));
       }
-      if (pathname === "/chapters") {
+      if (matchesMockRequestRoute(options, "/chapters")) {
         const novelId = coerceMockQueryString(options.query?.novelId);
         const response = novelId ? CHAPTER_LISTS[novelId] : undefined;
         if (!response) {
@@ -485,7 +486,7 @@ export function createNovelWechatMockApiAdapter(): RequestAdapter {
         }
         return ok(createJsonMockResponse(200, response as T));
       }
-      if (pathname === "/chapters/content") {
+      if (matchesMockRequestRoute(options, "/chapters/content")) {
         const chapterId = coerceMockQueryString(options.query?.chapterId);
         const response = chapterId ? CHAPTER_CONTENT[chapterId] : undefined;
         if (!response) {
@@ -493,19 +494,19 @@ export function createNovelWechatMockApiAdapter(): RequestAdapter {
         }
         return ok(createJsonMockResponse(200, response as T));
       }
-      if (pathname === "/bookshelf") {
+      if (matchesMockRequestRoute(options, "/bookshelf")) {
         return ok(createJsonMockResponse(200, createBookshelf() as T));
       }
-      if (pathname === "/membership") {
+      if (matchesMockRequestRoute(options, "/membership")) {
         return ok(createJsonMockResponse(200, MEMBERSHIP_OVERVIEW as T));
       }
-      if (pathname === "/reading-progress" && options.method === "GET") {
+      if (matchesMockRequestRoute(options, "/reading-progress", "GET")) {
         const novelId = coerceMockQueryString(options.query?.novelId);
         const progress = novelId ? progressByNovelId[novelId] ?? null : null;
         const response: LoadReadingProgressResponse = { progress };
         return ok(createJsonMockResponse(200, response as T));
       }
-      if (pathname === "/reading-progress" && options.method === "POST") {
+      if (matchesMockRequestRoute(options, "/reading-progress", "POST")) {
         const payload = options.body as SaveReadingProgressRequest;
         const chapter = CHAPTER_CONTENT[payload.chapterId];
         const updatedAt = new Date().toISOString();
@@ -525,7 +526,7 @@ export function createNovelWechatMockApiAdapter(): RequestAdapter {
         } as T));
       }
 
-      return fail(createError("NOT_FOUND", `Novel WeChat mock route not found: ${pathname}`, { recoverable: true }));
+      return fail(createMockRouteNotFoundError(pathname, "Novel WeChat mock route not found"));
     },
   };
 }

@@ -1,8 +1,10 @@
 import {
   createError,
   createJsonMockResponse,
+  createMockRouteNotFoundError,
   fail,
   matchesMockBearerAuthorizationHeader,
+  matchesMockRequestRoute,
   ok,
   paginateMockItems,
   resolveMockRequestPath,
@@ -79,7 +81,7 @@ export function createHostWechatMockApiAdapter(): RequestAdapter {
     async request<T = unknown>(options: RequestOptions) {
       const pathname = resolveMockRequestPath(options.url);
 
-      if (pathname === "/auth/login") {
+      if (matchesMockRequestRoute(options, "/auth/login")) {
         const body = (options.body ?? {}) as {
           credential?: { code?: string };
           platform?: string;
@@ -107,7 +109,7 @@ export function createHostWechatMockApiAdapter(): RequestAdapter {
         );
       }
 
-      if (pathname === "/items") {
+      if (matchesMockRequestRoute(options, "/items")) {
         const authHeader = options.headers?.Authorization;
         if (!matchesMockBearerAuthorizationHeader(authHeader, ACCESS_TOKEN)) {
           return ok(
@@ -121,11 +123,7 @@ export function createHostWechatMockApiAdapter(): RequestAdapter {
         return ok(createJsonMockResponse(200, listItems(options.query) as T));
       }
 
-      return fail(
-        createError("NOT_FOUND", `Mock route not found: ${pathname}`, {
-          recoverable: true,
-        }),
-      );
+      return fail(createMockRouteNotFoundError(pathname));
     },
   };
 }

@@ -1,8 +1,9 @@
 import {
-  createError,
   createJsonMockResponse,
+  createMockRouteNotFoundError,
   fail,
   matchesMockBearerAuthorizationHeader,
+  matchesMockRequestRoute,
   ok,
   paginateMockItems,
   resolveMockRequestPath,
@@ -79,7 +80,7 @@ export function createHostH5MockApiAdapter(): RequestAdapter {
     async request<T = unknown>(options: RequestOptions) {
       const pathname = resolveMockRequestPath(options.url);
 
-      if (pathname === "/auth/login") {
+      if (matchesMockRequestRoute(options, "/auth/login")) {
         return ok(
           createJsonMockResponse(200, {
             userId: "host-h5-user",
@@ -92,7 +93,7 @@ export function createHostH5MockApiAdapter(): RequestAdapter {
         );
       }
 
-      if (pathname === "/items") {
+      if (matchesMockRequestRoute(options, "/items")) {
         const authHeader = options.headers?.Authorization;
         if (!matchesMockBearerAuthorizationHeader(authHeader, ACCESS_TOKEN)) {
           return ok(
@@ -106,11 +107,7 @@ export function createHostH5MockApiAdapter(): RequestAdapter {
         return ok(createJsonMockResponse(200, listItems(options.query) as T));
       }
 
-      return fail(
-        createError("NOT_FOUND", `H5 mock route not found: ${pathname}`, {
-          recoverable: true,
-        }),
-      );
+      return fail(createMockRouteNotFoundError(pathname, "H5 mock route not found"));
     },
   };
 }

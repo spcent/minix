@@ -1,10 +1,11 @@
 import {
   coerceMockQueryString,
-  createError,
   createJsonMockResponse,
+  createMockRouteNotFoundError,
   createMockSvgCoverDataUrl,
   fail,
   matchesMockBearerAuthorizationHeader,
+  matchesMockRequestRoute,
   ok,
   paginateMockItems,
   resolveMockRequestPath,
@@ -903,7 +904,7 @@ export function createNovelH5MockApiAdapter(): RequestAdapter {
     async request<T = unknown>(options: RequestOptions) {
       const pathname = resolveMockRequestPath(options.url);
 
-      if (pathname === "/auth/login") {
+      if (matchesMockRequestRoute(options, "/auth/login")) {
         return ok(
           createJsonMockResponse(200, {
             userId: "novel-h5-user",
@@ -925,11 +926,11 @@ export function createNovelH5MockApiAdapter(): RequestAdapter {
         );
       }
 
-      if (pathname === "/novels") {
+      if (matchesMockRequestRoute(options, "/novels")) {
         return ok(createJsonMockResponse(200, listNovels(options.query, Boolean(activeMembershipPlanId), bookshelfNovelIds) as T));
       }
 
-      if (pathname === "/novels/detail") {
+      if (matchesMockRequestRoute(options, "/novels/detail")) {
         const novelId = coerceMockQueryString(options.query?.novelId);
         const detail = NOVELS.find((item) => item.id === novelId);
         if (!detail) {
@@ -939,7 +940,7 @@ export function createNovelH5MockApiAdapter(): RequestAdapter {
         return ok(createJsonMockResponse(200, toMembershipAwareNovelDetail(detail, Boolean(activeMembershipPlanId), bookshelfNovelIds) as T));
       }
 
-      if (pathname === "/chapters") {
+      if (matchesMockRequestRoute(options, "/chapters")) {
         const novelId = coerceMockQueryString(options.query?.novelId);
         const response = novelId ? CHAPTER_LISTS[novelId] : undefined;
         if (!response) {
@@ -949,7 +950,7 @@ export function createNovelH5MockApiAdapter(): RequestAdapter {
         return ok(createJsonMockResponse(200, toMembershipAwareChapterList(response, Boolean(activeMembershipPlanId)) as T));
       }
 
-      if (pathname === "/chapters/content") {
+      if (matchesMockRequestRoute(options, "/chapters/content")) {
         const chapterId = coerceMockQueryString(options.query?.chapterId);
         const response = chapterId ? CHAPTER_CONTENT[chapterId] : undefined;
         if (!response) {
@@ -959,7 +960,7 @@ export function createNovelH5MockApiAdapter(): RequestAdapter {
         return ok(createJsonMockResponse(200, toMembershipAwareChapterContent(response, Boolean(activeMembershipPlanId)) as T));
       }
 
-      if (pathname === "/bookshelf" && options.method === "POST") {
+      if (matchesMockRequestRoute(options, "/bookshelf", "POST")) {
         const payload = (options.body ?? {}) as AddToBookshelfRequest;
         const detail = NOVELS.find((item) => item.id === payload.novelId);
         if (!detail) {
@@ -978,11 +979,11 @@ export function createNovelH5MockApiAdapter(): RequestAdapter {
         return ok(createJsonMockResponse(200, response as T));
       }
 
-      if (pathname === "/bookshelf" && options.method === "GET") {
+      if (matchesMockRequestRoute(options, "/bookshelf", "GET")) {
         return ok(createJsonMockResponse(200, createBookshelf(bookshelfNovelIds, progressByNovelId, Boolean(activeMembershipPlanId)) as T));
       }
 
-      if (pathname === "/bookshelf" && options.method === "DELETE") {
+      if (matchesMockRequestRoute(options, "/bookshelf", "DELETE")) {
         const payload = (options.body ?? {}) as RemoveFromBookshelfRequest;
         const detail = NOVELS.find((item) => item.id === payload.novelId);
         if (!detail) {
@@ -1001,11 +1002,11 @@ export function createNovelH5MockApiAdapter(): RequestAdapter {
         return ok(createJsonMockResponse(200, response as T));
       }
 
-      if (pathname === "/membership" && options.method === "GET") {
+      if (matchesMockRequestRoute(options, "/membership", "GET")) {
         return ok(createJsonMockResponse(200, createMembershipOverview(activeMembershipPlanId) as T));
       }
 
-      if (pathname === "/membership/purchase" && options.method === "POST") {
+      if (matchesMockRequestRoute(options, "/membership/purchase", "POST")) {
         const payload = (options.body ?? {}) as PurchaseMembershipRequest;
         activeMembershipPlanId = payload.planId;
         const overview = createMembershipOverview(activeMembershipPlanId);
@@ -1068,14 +1069,14 @@ export function createNovelH5MockApiAdapter(): RequestAdapter {
         return ok(createJsonMockResponse(200, response as T));
       }
 
-      if (pathname === "/reading-progress" && options.method === "GET") {
+      if (matchesMockRequestRoute(options, "/reading-progress", "GET")) {
         const novelId = coerceMockQueryString(options.query?.novelId);
         const progress = novelId ? progressByNovelId[novelId] ?? null : null;
         const response: LoadReadingProgressResponse = { progress };
         return ok(createJsonMockResponse(200, response as T));
       }
 
-      if (pathname === "/reading-progress" && options.method === "POST") {
+      if (matchesMockRequestRoute(options, "/reading-progress", "POST")) {
         const payload = options.body as SaveReadingProgressRequest;
         const chapter = CHAPTER_CONTENT[payload.chapterId];
         const updatedAt = new Date().toISOString();
@@ -1100,11 +1101,7 @@ export function createNovelH5MockApiAdapter(): RequestAdapter {
         );
       }
 
-      return fail(
-        createError("NOT_FOUND", `Novel H5 mock route not found: ${pathname}`, {
-          recoverable: true,
-        }),
-      );
+      return fail(createMockRouteNotFoundError(pathname, "Novel H5 mock route not found"));
     },
   };
 }

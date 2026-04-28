@@ -6,8 +6,10 @@ import {
   coerceMockQueryString,
   createJsonMockResponse,
   createMockBearerAuthorizationHeader,
+  createMockRouteNotFoundError,
   createMockSvgCoverDataUrl,
   matchesMockBearerAuthorizationHeader,
+  matchesMockRequestRoute,
   paginateMockItems,
   resolveMockRequestPath,
 } from "./mock-request";
@@ -26,6 +28,21 @@ test("createJsonMockResponse returns the canonical mock response envelope", () =
 test("resolveMockRequestPath keeps absolute and relative mock paths stable", () => {
   assert.equal(resolveMockRequestPath("https://mock.minix.local/items?page=1"), "/items");
   assert.equal(resolveMockRequestPath("/items"), "/items");
+});
+
+test("matchesMockRequestRoute checks normalized path and optional method", () => {
+  assert.equal(matchesMockRequestRoute({ url: "https://mock.minix.local/items?page=1" }, "/items"), true);
+  assert.equal(matchesMockRequestRoute({ url: "/items", method: "GET" }, "/items", "GET"), true);
+  assert.equal(matchesMockRequestRoute({ url: "/items", method: "POST" }, "/items", "GET"), false);
+  assert.equal(matchesMockRequestRoute({ url: "/other", method: "GET" }, "/items", "GET"), false);
+});
+
+test("createMockRouteNotFoundError returns the canonical recoverable mock error", () => {
+  assert.deepEqual(createMockRouteNotFoundError("/items", "Host mock route not found"), {
+    code: "NOT_FOUND",
+    message: "Host mock route not found: /items",
+    recoverable: true,
+  });
 });
 
 test("mock bearer auth helpers build and match authorization headers", () => {
