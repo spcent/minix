@@ -13,8 +13,8 @@ import type {
 } from "@minix/contracts";
 
 import {
+  buildProviderUrl,
   isProductionProviderMode,
-  normalizeProviderBaseUrl,
   resolveProviderName,
   resolveProviderPostureMode,
   resolveUrlHost,
@@ -59,12 +59,12 @@ const buildShareShortLinkUrl = (
   requestUrl: string,
   runtimeEnv?: ShareProviderRuntimeEnv,
 ): string => {
-  const configuredBaseUrl = runtimeEnv?.MINIX_SHARE_SHORT_LINK_BASE_URL?.trim();
-  if (configuredBaseUrl) {
-    return new URL(shortCode, normalizeProviderBaseUrl(configuredBaseUrl)).toString();
-  }
-
-  return new URL(`/share/resolve?shortCode=${shortCode}`, requestUrl).toString();
+  return buildProviderUrl({
+    path: shortCode,
+    requestUrl,
+    configuredBaseUrl: runtimeEnv?.MINIX_SHARE_SHORT_LINK_BASE_URL,
+    fallbackPath: `/share/resolve?shortCode=${shortCode}`,
+  });
 };
 
 function resolveSharePosterAssetUrl(
@@ -72,12 +72,12 @@ function resolveSharePosterAssetUrl(
   requestUrl: string,
   runtimeEnv?: ShareProviderRuntimeEnv,
 ): string {
-  const configuredBaseUrl = runtimeEnv?.MINIX_SHARE_POSTER_BASE_URL?.trim();
-  if (configuredBaseUrl) {
-    return new URL(`${shortCode}.svg`, normalizeProviderBaseUrl(configuredBaseUrl)).toString();
-  }
-
-  return new URL(`/share-posters/${shortCode}.svg`, requestUrl).toString();
+  return buildProviderUrl({
+    path: `${shortCode}.svg`,
+    requestUrl,
+    configuredBaseUrl: runtimeEnv?.MINIX_SHARE_POSTER_BASE_URL,
+    fallbackPath: `/share-posters/${shortCode}.svg`,
+  });
 }
 
 function createSharePayloadReadinessSummary(input: {

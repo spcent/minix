@@ -82,15 +82,26 @@ Reduce provider rollout drift by using shared API provider URL helpers for trimm
 
 ## Acceptance
 
-- [ ] upload and share URL builders reuse provider URL helpers
-- [ ] invalid configured base URLs fall back to request URLs where applicable
-- [ ] configured base URLs normalize consistently with trailing slashes
-- [ ] response field names and posture semantics stay unchanged
-- [ ] helper behavior is covered by focused tests
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] upload and share URL builders reuse provider URL helpers
+- [x] invalid configured base URLs fall back to request URLs where applicable
+- [x] configured base URLs normalize consistently with trailing slashes
+- [x] response field names and posture semantics stay unchanged
+- [x] helper behavior is covered by focused tests
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added provider URL helpers for configured base validation, trailing-slash normalization, and fallback URL construction.
+- Adopted the helper in upload asset/thumbnail URL generation and share short-link/poster URL generation.
+- Kept provider posture summaries and response field names unchanged.
+
+## Verification Notes
+
+- `node --import tsx --test apps/api/src/domains/provider-posture.test.ts`
+- `pnpm verify:api`

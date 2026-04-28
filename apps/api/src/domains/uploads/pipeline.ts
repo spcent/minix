@@ -22,6 +22,7 @@ import type {
 } from "@minix/contracts";
 
 import {
+  buildProviderUrl,
   isProductionProviderMode,
   resolveProviderName,
   resolveProviderPostureMode,
@@ -97,23 +98,20 @@ function createUploadProviderPosture(record: StoredUploadRecord): UploadProvider
   };
 }
 
-function resolveUploadAssetBaseUrl(requestUrl: string, runtimeEnv?: UploadProviderRuntimeEnv): string {
-  if (!runtimeEnv?.MINIX_UPLOAD_ASSET_BASE_URL) {
-    return requestUrl;
-  }
-  try {
-    return new URL(runtimeEnv.MINIX_UPLOAD_ASSET_BASE_URL).toString();
-  } catch {
-    return requestUrl;
-  }
-}
-
 function buildUploadedAssetUrl(assetId: string, requestUrl: string, runtimeEnv?: UploadProviderRuntimeEnv): string {
-  return new URL(`/uploads/assets/${assetId}`, resolveUploadAssetBaseUrl(requestUrl, runtimeEnv)).toString();
+  return buildProviderUrl({
+    path: `/uploads/assets/${assetId}`,
+    requestUrl,
+    configuredBaseUrl: runtimeEnv?.MINIX_UPLOAD_ASSET_BASE_URL,
+  });
 }
 
 function buildUploadedThumbnailUrl(assetId: string, requestUrl: string, runtimeEnv?: UploadProviderRuntimeEnv): string {
-  return new URL(`/uploads/assets/${assetId}/thumb`, resolveUploadAssetBaseUrl(requestUrl, runtimeEnv)).toString();
+  return buildProviderUrl({
+    path: `/uploads/assets/${assetId}/thumb`,
+    requestUrl,
+    configuredBaseUrl: runtimeEnv?.MINIX_UPLOAD_ASSET_BASE_URL,
+  });
 }
 
 function createUploadHash(buffer: Uint8Array): string {

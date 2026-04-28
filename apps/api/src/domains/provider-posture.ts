@@ -39,5 +39,34 @@ export function resolveUrlHost(url: string | undefined): string | undefined {
 }
 
 export function normalizeProviderBaseUrl(baseUrl: string): string {
-  return baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  const trimmedBaseUrl = baseUrl.trim();
+  return trimmedBaseUrl.endsWith("/") ? trimmedBaseUrl : `${trimmedBaseUrl}/`;
+}
+
+export function resolveConfiguredProviderBaseUrl(baseUrl: string | undefined): string | undefined {
+  const trimmedBaseUrl = baseUrl?.trim();
+  if (!trimmedBaseUrl) {
+    return undefined;
+  }
+
+  try {
+    return normalizeProviderBaseUrl(new URL(trimmedBaseUrl).toString());
+  } catch {
+    return undefined;
+  }
+}
+
+export function buildProviderUrl(input: {
+  path: string;
+  requestUrl: string;
+  configuredBaseUrl?: string | undefined;
+  fallbackPath?: string | undefined;
+}): string {
+  const configuredBaseUrl = resolveConfiguredProviderBaseUrl(input.configuredBaseUrl);
+
+  if (configuredBaseUrl) {
+    return new URL(input.path, configuredBaseUrl).toString();
+  }
+
+  return new URL(input.fallbackPath ?? input.path, input.requestUrl).toString();
 }
