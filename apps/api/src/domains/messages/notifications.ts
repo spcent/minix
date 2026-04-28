@@ -12,6 +12,7 @@ import type {
 
 import type { UserState } from "../../types";
 import { createApiPaginationWindow } from "../pagination";
+import { formatTitleTokenLabel } from "../text";
 import type { NotificationChannelProviderRuntimeEnv } from "../settings/state";
 import { cloneTouchpoints, DEFAULT_MESSAGE_TOUCHPOINTS } from "./touchpoints";
 import { createMessageDeliveryPosture, deriveThreadState, listMessageThreads } from "./threads";
@@ -320,7 +321,7 @@ export function getUnreadBadge(
   const breakdown: Array<{ key: string; label: string; count: number }> = NOTIFICATION_TYPES
     .map((type) => ({
       key: type,
-      label: `${type.slice(0, 1).toUpperCase()}${type.slice(1)}`,
+      label: formatTitleTokenLabel(type),
       count: notifications.filter((item) => item.type === type && !item.receipt.read).length,
     }))
     .filter((entry) => entry.count > 0);

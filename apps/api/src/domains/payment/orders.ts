@@ -21,6 +21,7 @@ import type {
 import { deriveReturnTarget } from "../content/novels";
 import { createApiPaginationWindow } from "../pagination";
 import { isProductionProviderMode, isSampleProviderMode } from "../provider-posture";
+import { formatTokenLabel } from "../text";
 import type { SessionRecord, UserState } from "../../types";
 import {
   createGatewayExecution,
@@ -75,7 +76,7 @@ function createPaymentIntentExecutionSummary(input: {
   pending: boolean;
   channel: Order["channel"];
 }) {
-  const channelLabel = input.channel.replace("_", " ");
+  const channelLabel = formatTokenLabel(input.channel);
   if (input.pending) {
     return isSampleProviderMode(input.providerMode)
       ? `The sample ${channelLabel} execution is waiting for callback confirmation and later reconciliation.`

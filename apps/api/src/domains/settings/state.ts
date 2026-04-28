@@ -13,6 +13,7 @@ import type {
 
 import type { ApiBindings, UserState } from "../../types";
 import { isSampleProviderMode, resolveProviderPostureMode } from "../provider-posture";
+import { formatTokenLabel } from "../text";
 
 const DEFAULT_UPLOAD_CHUNK_SIZE_BYTES = 64 * 1024;
 const REDUCED_UPLOAD_CHUNK_SIZE_BYTES = 16 * 1024;
@@ -313,14 +314,14 @@ export function resolveSettingsState(
     const statusLabel = !preferences.notificationsEnabled
       ? "All notification delivery is disabled."
       : !toggleEnabled
-        ? `${channel.replace("_", " ")} delivery is disabled by the current account policy.`
+        ? `${formatTokenLabel(channel)} delivery is disabled by the current account policy.`
         : unsubscribed
-          ? `Unsubscribed from ${channel.replace("_", " ")} delivery.`
+          ? `Unsubscribed from ${formatTokenLabel(channel)} delivery.`
           : enabled
             ? isSampleProviderMode(providerConfig.providerMode)
-              ? `${providerConfig.providerLabel} is active in sample mode for ${channel.replace("_", " ")} delivery.`
-              : `${providerConfig.providerLabel} is active for ${channel.replace("_", " ")} delivery.`
-            : `${channel.replace("_", " ")} delivery is paused by user preference.`;
+              ? `${providerConfig.providerLabel} is active in sample mode for ${formatTokenLabel(channel)} delivery.`
+              : `${providerConfig.providerLabel} is active for ${formatTokenLabel(channel)} delivery.`
+            : `${formatTokenLabel(channel)} delivery is paused by user preference.`;
     return {
       channel,
       enabled,

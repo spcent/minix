@@ -32,6 +32,7 @@ import { createApiPaginationWindow } from "../pagination";
 import { isProductionProviderMode, isSampleProviderMode, resolveProviderPostureMode } from "../provider-posture";
 import type { NotificationChannelProviderRuntimeEnv } from "../settings/state";
 import { cloneDomainSnapshot } from "../snapshot";
+import { formatTitleTokenLabel, formatTokenLabel } from "../text";
 import { cloneMessageBodyItem, cloneMessageItems, cloneMessageThread } from "./snapshots";
 import { cloneTouchpoints, DEFAULT_MESSAGE_TOUCHPOINTS } from "./touchpoints";
 
@@ -483,14 +484,14 @@ function withDeliveryAttemptSummaries(message: MessageBodyItem): MessageBodyItem
         touchpoint.channel === "in_app"
           ? "Delivered through the shared in-app inbox lane."
           : touchpoint.receipt.status === "failed"
-            ? `${providerLabel} failed to deliver through ${touchpoint.channel.replace("_", " ")}; retry or operator intervention can restore the external lane.`
+            ? `${providerLabel} failed to deliver through ${formatTokenLabel(touchpoint.channel)}; retry or operator intervention can restore the external lane.`
             : touchpoint.receipt.status === "sent" || touchpoint.receipt.status === "queued"
-              ? `${providerLabel} accepted the ${touchpoint.channel.replace("_", " ")} dispatch and polling will finalize the receipt.`
+              ? `${providerLabel} accepted the ${formatTokenLabel(touchpoint.channel)} dispatch and polling will finalize the receipt.`
               : touchpoint.receipt.status === "opted_out"
-                ? `${providerLabel} did not deliver because the user opted out of ${touchpoint.channel.replace("_", " ")}.`
+                ? `${providerLabel} did not deliver because the user opted out of ${formatTokenLabel(touchpoint.channel)}.`
                 : touchpoint.receipt.status === "skipped"
-                  ? `${providerLabel} did not deliver because current policy disabled ${touchpoint.channel.replace("_", " ")}.`
-                  : `${providerLabel} delivered through ${touchpoint.channel.replace("_", " ")}.`;
+                  ? `${providerLabel} did not deliver because current policy disabled ${formatTokenLabel(touchpoint.channel)}.`
+                  : `${providerLabel} delivered through ${formatTokenLabel(touchpoint.channel)}.`;
       const attemptSummary =
         touchpoint.receipt.status === "failed"
           ? `${attemptCount} attempts; delivery failed${touchpoint.receipt.retryable ? " and can be retried" : ""}.`
@@ -544,7 +545,7 @@ function getThreadMessages(
             statusLabel:
               isSampleProviderMode(touchpoint.providerMode ?? "sample")
                 ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample delivery finalized after polling-only sync.`
-                : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} delivered through ${touchpoint.channel.replace("_", " ")}.`,
+                : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} delivered through ${formatTokenLabel(touchpoint.channel)}.`,
             receipt: {
               ...touchpoint.receipt,
               status: "delivered" as MessageTouchpointReceiptStatus,
@@ -736,7 +737,7 @@ export function createUnreadBadge(
   const breakdown: Array<{ key: string; label: string; count: number }> = NOTIFICATION_TYPES
     .map((type) => ({
       key: type,
-      label: `${type.slice(0, 1).toUpperCase()}${type.slice(1)}`,
+      label: formatTitleTokenLabel(type),
       count: 0,
     }))
     .filter((entry) => entry.count > 0);
@@ -1130,7 +1131,7 @@ export function retryThreadMessage(
         isSampleProviderMode(touchpoint.providerMode ?? "sample")
           ? `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} sample retry queued; polling-only sync will finalize the next receipt.`
           : `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} retry queued; polling-only sync will finalize the next receipt.`,
-      deliverySummary: `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} accepted the ${touchpoint.channel.replace("_", " ")} retry and polling will finalize the next receipt.`,
+      deliverySummary: `${touchpoint.providerLabel ?? touchpoint.providerKey ?? touchpoint.channel} accepted the ${formatTokenLabel(touchpoint.channel)} retry and polling will finalize the next receipt.`,
       receipt: {
         ...touchpoint.receipt,
         status: "sent" as MessageTouchpointReceiptStatus,

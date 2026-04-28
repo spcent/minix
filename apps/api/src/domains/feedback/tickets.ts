@@ -16,6 +16,7 @@ import type {
   SubmitFeedbackResponse,
 } from "@minix/contracts";
 
+import { formatTokenLabel } from "../text";
 import { bindUploadAssetsToOwner } from "../uploads/pipeline";
 import { cloneOptionalDomainSnapshot } from "../snapshot";
 import type { SessionRecord, UserState } from "../../types";
@@ -253,7 +254,7 @@ export function applyFeedbackTicketAction(
       actorLabel: request.assignee?.label ?? "Support Desk",
       actorRole: "support",
       ...(request.assignee?.userId ? { actorUserId: request.assignee.userId } : {}),
-      actionLabel: request.state ? `Ticket moved to ${request.state.replaceAll("_", " ")}` : "Ticket updated",
+      actionLabel: request.state ? `Ticket moved to ${formatTokenLabel(request.state)}` : "Ticket updated",
       ...(request.note ? { note: request.note } : {}),
       state: nextState,
     },

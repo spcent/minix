@@ -7,6 +7,7 @@ import type {
 } from "@minix/contracts";
 
 import { createDefaultUserState } from "../../data";
+import { formatTokenLabel } from "../text";
 import {
   NOTIFICATION_CHANNEL_PROVIDER_CONFIG,
   resolveNotificationChannelProviderConfig,
@@ -21,20 +22,22 @@ function createTouchpointTemplateKey(scope: string, channel: MessageTouchpointCh
 }
 
 function createTemplateGovernanceLabel(channel: MessageTouchpointChannel) {
+  const channelLabel = formatTokenLabel(channel);
   return channel === "in_app"
     ? "Shared in-app template"
-    : `Shared ${channel.replace("_", " ")} template`;
+    : `Shared ${channelLabel} template`;
 }
 
 function createTemplateOperatorActionSummary(
   channel: MessageTouchpointChannel,
   providerMode: MessageTouchpointProviderMode,
 ) {
+  const channelLabel = formatTokenLabel(channel);
   return channel === "in_app"
     ? "The in-app inbox template ships with the shared contract and does not require operator rollout."
     : isSampleProviderMode(providerMode)
-      ? `Operators can promote the shared ${channel.replace("_", " ")} template from sample posture to a production provider without changing host logic.`
-      : `Operators can rotate ${channel.replace("_", " ")} provider bindings while keeping the shared template key stable.`;
+      ? `Operators can promote the shared ${channelLabel} template from sample posture to a production provider without changing host logic.`
+      : `Operators can rotate ${channelLabel} provider bindings while keeping the shared template key stable.`;
 }
 
 function createFallbackSummary(channel: MessageTouchpointChannel, enabled: boolean) {
@@ -73,7 +76,7 @@ function createDeliverySummary(touchpoint: MessageTouchpoint) {
   if (touchpoint.channel === "in_app") {
     return "Delivered through the shared in-app inbox lane.";
   }
-  const channelLabel = touchpoint.channel.replace("_", " ");
+  const channelLabel = formatTokenLabel(touchpoint.channel);
   const providerLabel = touchpoint.providerLabel ?? touchpoint.providerKey ?? channelLabel;
   const status = touchpoint.receipt?.status;
   if (!touchpoint.enabled) {
@@ -158,12 +161,12 @@ function createBaseTouchpoint(
     enabled: provider.defaultEnabled,
     statusLabel:
       isSampleProviderMode(mode)
-        ? `${provider.providerLabel} is running in explicit sample mode for ${channel.replace("_", " ")} delivery.`
-        : `${provider.providerLabel} is available for ${channel.replace("_", " ")} delivery.`,
+        ? `${provider.providerLabel} is running in explicit sample mode for ${formatTokenLabel(channel)} delivery.`
+        : `${provider.providerLabel} is available for ${formatTokenLabel(channel)} delivery.`,
     deliverySummary:
       isSampleProviderMode(mode)
-        ? `${provider.providerLabel} exposes a sample ${channel.replace("_", " ")} delivery lane until operators wire a production provider.`
-        : `${provider.providerLabel} is ready for ${channel.replace("_", " ")} delivery through the shared template.`,
+        ? `${provider.providerLabel} exposes a sample ${formatTokenLabel(channel)} delivery lane until operators wire a production provider.`
+        : `${provider.providerLabel} is ready for ${formatTokenLabel(channel)} delivery through the shared template.`,
     fallbackSummary: createFallbackSummary(channel, provider.defaultEnabled),
     providerKey: provider.providerKey,
     providerLabel: provider.providerLabel,
@@ -321,11 +324,11 @@ function createDispatchTouchpoint(
       providerMode,
       delivered: false,
       statusLabel: preference?.unsubscribed
-        ? `Unsubscribed from ${touchpoint.channel.replace("_", " ")} delivery.`
-        : `Disabled by notification policy for ${touchpoint.channel.replace("_", " ")} delivery.`,
+        ? `Unsubscribed from ${formatTokenLabel(touchpoint.channel)} delivery.`
+        : `Disabled by notification policy for ${formatTokenLabel(touchpoint.channel)} delivery.`,
       deliverySummary: preference?.unsubscribed
-        ? `${providerLabel} did not deliver because the user opted out of ${touchpoint.channel.replace("_", " ")}.`
-        : `${providerLabel} did not deliver because current policy disabled ${touchpoint.channel.replace("_", " ")}.`,
+        ? `${providerLabel} did not deliver because the user opted out of ${formatTokenLabel(touchpoint.channel)}.`
+        : `${providerLabel} did not deliver because current policy disabled ${formatTokenLabel(touchpoint.channel)}.`,
       fallbackSummary: createFallbackSummary(touchpoint.channel, false),
       templateKey,
       template: {
@@ -364,8 +367,8 @@ function createDispatchTouchpoint(
           ? `${providerLabel} sample delivery is temporarily unavailable.`
           : `${providerLabel} is temporarily unavailable.`
         : isSampleProviderMode(providerMode)
-          ? `${providerLabel} sample delivery completed through ${touchpoint.channel.replace("_", " ")}.`
-          : `${providerLabel} delivered through ${touchpoint.channel.replace("_", " ")}.`,
+          ? `${providerLabel} sample delivery completed through ${formatTokenLabel(touchpoint.channel)}.`
+          : `${providerLabel} delivered through ${formatTokenLabel(touchpoint.channel)}.`,
     fallbackSummary: createFallbackSummary(touchpoint.channel, true),
     templateKey,
     template: {
