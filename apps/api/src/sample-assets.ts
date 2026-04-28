@@ -1,4 +1,5 @@
 import type { LoginProfile } from "./types";
+import { escapeXml } from "./http/response";
 
 type SampleCoverAssetId =
   | "novel-lantern"
@@ -83,15 +84,6 @@ const PROFILE_ASSETS: Record<SampleProfileAssetId, { initials: string; backgroun
       text: "#f8f4ed",
     },
   };
-
-function escapeXml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&apos;");
-}
 
 function buildMultilineTextLines(text: string) {
   return text.split("\n").map((line) => escapeXml(line));

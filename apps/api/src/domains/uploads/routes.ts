@@ -5,7 +5,7 @@ import type {
 } from "@minix/contracts";
 
 import { loadRouteClientContext, loadRouteUserState, parseRouteBody } from "../../http/route-context";
-import { jsonError } from "../../http/response";
+import { escapeXml, jsonError } from "../../http/response";
 import type { ApiStore, UserState } from "../../types";
 import type {
   ApiClientContextRouteOptions,
@@ -311,7 +311,7 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
     if (!asset) {
       return jsonError("NOT_FOUND", "Upload asset not found.", 404, traceId);
     }
-    const title = encodeURIComponent(asset.fileName);
+    const title = escapeXml(asset.fileName);
     return new Response(
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180"><rect width="320" height="180" fill="#0f172a"/><text x="24" y="84" fill="#f8fafc" font-size="22" font-family="sans-serif">Preview</text><text x="24" y="116" fill="#cbd5e1" font-size="14" font-family="sans-serif">${title}</text></svg>`,
       {

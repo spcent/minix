@@ -40,6 +40,15 @@ export function createSvgResponse(svg: string, traceId: string) {
   });
 }
 
+export function escapeXml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
 export function parseSvgAssetId(assetName: string): string | null {
   return assetName.endsWith(".svg") ? assetName.slice(0, -4) : null;
 }
