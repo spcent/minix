@@ -1,5 +1,11 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, mergeFeaturePageState, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
+import {
+  defineFeatureManifest,
+  defineSharedHostBehavior,
+  mergeFeaturePageState,
+  pickDefinedManifestOptions,
+  type AppKernel,
+} from "@minix/core";
 
 import { createBookshelfController } from "./controller";
 import { createInitialBookshelfState, type BookshelfState } from "./model";
@@ -38,17 +44,20 @@ export const bookshelfFeatureManifest = defineFeatureManifest<
       initialState: mergeFeaturePageState(pageData, options.initialState),
     });
   },
-  hosts: {
-    wechat: {
-      entryActions: {
-        onShow: "load",
-        onTapOpenSelected: "openSelectedNovel",
-        onTapContinueReading: "continueSelectedNovel",
-        onTapCatalog: "goToCatalog",
-        onTapSettings: "goToSettings",
+  hosts: defineSharedHostBehavior<ReturnType<typeof createBookshelfController>>()(
+    {
+      onShow: "load",
+      onTapOpenSelected: "openSelectedNovel",
+      onTapContinueReading: "continueSelectedNovel",
+      onTapCatalog: "goToCatalog",
+      onTapSettings: "goToSettings",
+      onTapPinNovel: "pinNovel",
+      onTapClearPinned: "clearPinnedNovel",
+      onTapMilestoneHistoryItem: "openMilestoneHistoryItem",
+    },
+    {
+      wechat: {
         onTapSelectNovel: "selectNovel",
-        onTapPinNovel: "pinNovel",
-        onTapClearPinned: "clearPinnedNovel",
         onTapOpenNovel: "openNovel",
         onTapContinueNovel: "continueNovel",
         onTapRemoveNovel: "removeNovel",
@@ -58,22 +67,9 @@ export const bookshelfFeatureManifest = defineFeatureManifest<
         onTapFilterAll: "setFilterAll",
         onTapFilterUpdates: "setFilterUpdates",
         onTapFilterCompleted: "setFilterCompleted",
-        onTapMilestoneHistoryItem: "openMilestoneHistoryItem",
       },
     },
-    h5: {
-      entryActions: {
-        onShow: "load",
-        onTapOpenSelected: "openSelectedNovel",
-        onTapContinueReading: "continueSelectedNovel",
-        onTapCatalog: "goToCatalog",
-        onTapSettings: "goToSettings",
-        onTapPinNovel: "pinNovel",
-        onTapClearPinned: "clearPinnedNovel",
-        onTapMilestoneHistoryItem: "openMilestoneHistoryItem",
-      },
-    },
-  },
+  ),
 });
 
 export { createInitialBookshelfState };

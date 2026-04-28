@@ -1,5 +1,11 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, mergeFeaturePageState, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
+import {
+  defineFeatureManifest,
+  defineSharedHostBehavior,
+  mergeFeaturePageState,
+  pickDefinedManifestOptions,
+  type AppKernel,
+} from "@minix/core";
 
 import { createNovelDetailController } from "./controller";
 import { createInitialNovelDetailState, type NovelDetailState } from "./model";
@@ -46,36 +52,26 @@ export const novelDetailFeatureManifest = defineFeatureManifest<
       initialState: mergeFeaturePageState(pageData, options.initialState),
     });
   },
-  hosts: {
-    wechat: {
-      entryActions: {
-        onShow: "load",
-        onTapRead: "startReading",
-        onTapContinue: "continueReading",
-        onTapToc: "goToToc",
-        onTapMembership: "goToMembership",
-        onTapCatalog: "goToCatalog",
-        onTapBookshelf: "goToBookshelf",
+  hosts: defineSharedHostBehavior<ReturnType<typeof createNovelDetailController>>()(
+    {
+      onShow: "load",
+      onTapRead: "startReading",
+      onTapContinue: "continueReading",
+      onTapToc: "goToToc",
+      onTapMembership: "goToMembership",
+      onTapCatalog: "goToCatalog",
+      onTapBookshelf: "goToBookshelf",
+      onTapLatestMilestone: "openLatestMilestone",
+    },
+    {
+      wechat: {
         onTapToggleSummary: "toggleSummary",
         onTapAddToBookshelf: "addToBookshelf",
         onTapRemoveFromBookshelf: "removeFromBookshelf",
         onTapRelatedNovel: "goToRelatedNovel",
-        onTapLatestMilestone: "openLatestMilestone",
       },
     },
-    h5: {
-      entryActions: {
-        onShow: "load",
-        onTapRead: "startReading",
-        onTapContinue: "continueReading",
-        onTapToc: "goToToc",
-        onTapMembership: "goToMembership",
-        onTapCatalog: "goToCatalog",
-        onTapBookshelf: "goToBookshelf",
-        onTapLatestMilestone: "openLatestMilestone",
-      },
-    },
-  },
+  ),
 });
 
 export { createInitialNovelDetailState };

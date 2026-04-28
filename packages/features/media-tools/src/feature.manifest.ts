@@ -1,6 +1,7 @@
 import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
 import {
   defineFeatureManifest,
+  defineSharedHostBehavior,
   mergeFeaturePageState,
   pickDefinedManifestOptions,
   type AppKernel,
@@ -52,30 +53,15 @@ export const mediaToolsFeatureManifest = defineFeatureManifest<
       initialState: mergeFeaturePageState(createDefaultMediaToolsState(), pageData, options.initialState),
     });
   },
-  hosts: {
-    wechat: {
-      entryActions: {
-        onShow: "loadInitial",
-        onTapUpload: "startUpload",
-        onTapRetryPrimary: "retryPrimaryAction",
-        onTapShare: "startShare",
-        onTapLoadShareReport: "loadShareReport",
-        onTapClearResult: "clearLastResult",
-        onTapSettings: "goToSettings",
-      },
-    },
-    h5: {
-      entryActions: {
-        onShow: "loadInitial",
-        onTapUpload: "startUpload",
-        onTapRetryPrimary: "retryPrimaryAction",
-        onTapShare: "startShare",
-        onTapLoadShareReport: "loadShareReport",
-        onTapClearResult: "clearLastResult",
-        onTapSettings: "goToSettings",
-      },
-    },
-  },
+  hosts: defineSharedHostBehavior<ReturnType<typeof createMediaToolsController>>()({
+    onShow: "loadInitial",
+    onTapUpload: "startUpload",
+    onTapRetryPrimary: "retryPrimaryAction",
+    onTapShare: "startShare",
+    onTapLoadShareReport: "loadShareReport",
+    onTapClearResult: "clearLastResult",
+    onTapSettings: "goToSettings",
+  }),
 });
 
 export { createDefaultMediaToolsState };

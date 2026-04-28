@@ -1,6 +1,7 @@
 import type { AppRouteId, CapabilityRequirement, GuardPolicy } from "@minix/contracts";
 import {
   defineFeatureManifest,
+  defineSharedHostBehavior,
   mergeFeaturePageState,
   pickDefinedManifestOptions,
   type AppKernel,
@@ -70,26 +71,13 @@ export const feedbackFeatureManifest = defineFeatureManifest<
       initialState: mergeFeaturePageState(createDefaultFeedbackState(), pageData, options.initialState),
     });
   },
-  hosts: {
-    wechat: {
-      entryActions: {
-        onShow: "loadInitial",
-        onTapRefreshLatestStatus: "refreshLatestStatus",
-        onTapSupportEntry: "openSupportEntry",
-        onTapFaq: "openFaq",
-        onTapSettings: "goToSettings",
-      },
-    },
-    h5: {
-      entryActions: {
-        onShow: "loadInitial",
-        onTapRefreshLatestStatus: "refreshLatestStatus",
-        onTapSupportEntry: "openSupportEntry",
-        onTapFaq: "openFaq",
-        onTapSettings: "goToSettings",
-      },
-    },
-  },
+  hosts: defineSharedHostBehavior<ReturnType<typeof createFeedbackController>>()({
+    onShow: "loadInitial",
+    onTapRefreshLatestStatus: "refreshLatestStatus",
+    onTapSupportEntry: "openSupportEntry",
+    onTapFaq: "openFaq",
+    onTapSettings: "goToSettings",
+  }),
 });
 
 export { createDefaultFeedbackState };

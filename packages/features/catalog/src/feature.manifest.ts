@@ -1,5 +1,11 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, mergeFeaturePageState, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
+import {
+  defineFeatureManifest,
+  defineSharedHostBehavior,
+  mergeFeaturePageState,
+  pickDefinedManifestOptions,
+  type AppKernel,
+} from "@minix/core";
 
 import { createCatalogController } from "./controller";
 import { createInitialCatalogState, type CatalogState } from "./model";
@@ -44,33 +50,24 @@ export const catalogFeatureManifest = defineFeatureManifest<
       initialState: mergeFeaturePageState(pageData, options.initialState),
     });
   },
-  hosts: {
-    wechat: {
-      entryActions: {
-        onShow: "loadInitial",
-        onTapLoadMore: "loadMore",
-        onTapOpenSelected: "openSelectedNovel",
+  hosts: defineSharedHostBehavior<ReturnType<typeof createCatalogController>>()(
+    {
+      onShow: "loadInitial",
+      onTapLoadMore: "loadMore",
+      onTapOpenSelected: "openSelectedNovel",
+      onTapLatestMilestone: "openLatestMilestone",
+      onTapMilestoneHistoryItem: "openMilestoneHistoryItem",
+      onTapBookshelf: "goToBookshelf",
+      onTapSettings: "goToSettings",
+    },
+    {
+      wechat: {
         onTapSelectNovel: "selectNovel",
         onTapOpenNovel: "goToNovelDetail",
         onTapContinueNovel: "continueReading",
-        onTapLatestMilestone: "openLatestMilestone",
-        onTapMilestoneHistoryItem: "openMilestoneHistoryItem",
-        onTapBookshelf: "goToBookshelf",
-        onTapSettings: "goToSettings",
       },
     },
-    h5: {
-      entryActions: {
-        onShow: "loadInitial",
-        onTapLoadMore: "loadMore",
-        onTapOpenSelected: "openSelectedNovel",
-        onTapLatestMilestone: "openLatestMilestone",
-        onTapMilestoneHistoryItem: "openMilestoneHistoryItem",
-        onTapBookshelf: "goToBookshelf",
-        onTapSettings: "goToSettings",
-      },
-    },
-  },
+  ),
 });
 
 export { createInitialCatalogState };

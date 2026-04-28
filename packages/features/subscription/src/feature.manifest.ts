@@ -1,5 +1,11 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, mergeFeaturePageState, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
+import {
+  defineFeatureManifest,
+  defineSharedHostBehavior,
+  mergeFeaturePageState,
+  pickDefinedManifestOptions,
+  type AppKernel,
+} from "@minix/core";
 
 import { createSubscriptionController } from "./controller";
 import { createInitialSubscriptionState, type SubscriptionState } from "./model";
@@ -46,50 +52,25 @@ export const subscriptionFeatureManifest = defineFeatureManifest<
       initialState: mergeFeaturePageState(pageData, options.initialState),
     });
   },
-  hosts: {
-    wechat: {
-      entryActions: {
-        onShow: "load",
-        onTapPurchaseMembership: "purchaseMembership",
-        onTapRefreshTransaction: "refreshTransaction",
-        onTapCancelOrder: "cancelOrder",
-        onTapRefundOrder: "refundOrder",
-        onTapReconcileOrder: "reconcileOrder",
-        onTapCancelSubscription: "cancelSubscription",
-        onTapRenewSubscription: "renewSubscription",
-        onTapAfterSalesDetail: "loadAfterSalesDetail",
-        onTapOpenOrder: "loadOrderDetail",
-        onTapOpenAfterSalesCase: "loadAfterSalesDetail",
-        onTapMembership: "goToMembership",
-        onTapOrders: "goToOrders",
-        onTapContinueAfterPurchase: "continueAfterPurchase",
-        onTapLatestMilestone: "openLatestMilestone",
-        onTapMilestoneHistoryItem: "openMilestoneHistoryItem",
-        onTapCatalog: "goToCatalog",
-      },
-    },
-    h5: {
-      entryActions: {
-        onShow: "load",
-        onTapPurchaseMembership: "purchaseMembership",
-        onTapRefreshTransaction: "refreshTransaction",
-        onTapCancelOrder: "cancelOrder",
-        onTapRefundOrder: "refundOrder",
-        onTapReconcileOrder: "reconcileOrder",
-        onTapCancelSubscription: "cancelSubscription",
-        onTapRenewSubscription: "renewSubscription",
-        onTapAfterSalesDetail: "loadAfterSalesDetail",
-        onTapOpenOrder: "loadOrderDetail",
-        onTapOpenAfterSalesCase: "loadAfterSalesDetail",
-        onTapMembership: "goToMembership",
-        onTapOrders: "goToOrders",
-        onTapContinueAfterPurchase: "continueAfterPurchase",
-        onTapLatestMilestone: "openLatestMilestone",
-        onTapMilestoneHistoryItem: "openMilestoneHistoryItem",
-        onTapCatalog: "goToCatalog",
-      },
-    },
-  },
+  hosts: defineSharedHostBehavior<ReturnType<typeof createSubscriptionController>>()({
+    onShow: "load",
+    onTapPurchaseMembership: "purchaseMembership",
+    onTapRefreshTransaction: "refreshTransaction",
+    onTapCancelOrder: "cancelOrder",
+    onTapRefundOrder: "refundOrder",
+    onTapReconcileOrder: "reconcileOrder",
+    onTapCancelSubscription: "cancelSubscription",
+    onTapRenewSubscription: "renewSubscription",
+    onTapAfterSalesDetail: "loadAfterSalesDetail",
+    onTapOpenOrder: "loadOrderDetail",
+    onTapOpenAfterSalesCase: "loadAfterSalesDetail",
+    onTapMembership: "goToMembership",
+    onTapOrders: "goToOrders",
+    onTapContinueAfterPurchase: "continueAfterPurchase",
+    onTapLatestMilestone: "openLatestMilestone",
+    onTapMilestoneHistoryItem: "openMilestoneHistoryItem",
+    onTapCatalog: "goToCatalog",
+  }),
 });
 
 export { createInitialSubscriptionState };

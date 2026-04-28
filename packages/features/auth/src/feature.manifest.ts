@@ -1,5 +1,5 @@
 import type { AppRouteId } from "@minix/contracts";
-import { defineFeatureManifest, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
+import { defineFeatureManifest, defineSharedHostBehavior, pickDefinedManifestOptions, type AppKernel } from "@minix/core";
 
 import { createAuthController } from "./controller";
 import type { AuthPageState } from "./model";
@@ -41,27 +41,19 @@ export const authFeatureManifest = defineFeatureManifest<
         : {}),
     });
   },
-  hosts: {
-    wechat: {
-      entryActions: {
-        onShow: "restoreSession",
-        onTapLogin: "submitLogin",
+  hosts: defineSharedHostBehavior<ReturnType<typeof createAuthController>>()(
+    {
+      onShow: "restoreSession",
+      onTapLogin: "submitLogin",
+      onTapContinueDestination: "goToRedirectTarget",
+      onTapOverview: "goToOverview",
+      onTapPlan: "goToPlan",
+      onTapSettings: "goToSettings",
+    },
+    {
+      wechat: {
         onTapEnsureLogin: "submitEnsureLogin",
-        onTapContinueDestination: "goToRedirectTarget",
-        onTapOverview: "goToOverview",
-        onTapPlan: "goToPlan",
-        onTapSettings: "goToSettings",
       },
     },
-    h5: {
-      entryActions: {
-        onShow: "restoreSession",
-        onTapLogin: "submitLogin",
-        onTapContinueDestination: "goToRedirectTarget",
-        onTapOverview: "goToOverview",
-        onTapPlan: "goToPlan",
-        onTapSettings: "goToSettings",
-      },
-    },
-  },
+  ),
 });
