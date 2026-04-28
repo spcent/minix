@@ -4,7 +4,7 @@ import type {
   UploadRetryRequest,
 } from "@minix/contracts";
 
-import { loadRouteClientContext, loadRouteUserState, parseRouteBody } from "../../http/route-context";
+import { getRouteParam, loadRouteClientContext, loadRouteUserState, parseRouteBody } from "../../http/route-context";
 import { escapeXml, jsonError } from "../../http/response";
 import type { ApiStore, UserState } from "../../types";
 import type {
@@ -291,7 +291,7 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
 
   app.get("/uploads/assets/:assetId", async (c) => {
     const { traceId, userState } = await loadRouteUserState(c, resolveStore);
-    const assetId = c.req.param("assetId");
+    const assetId = getRouteParam(c, "assetId");
     const binary = readUploadedAssetBinary(userState, assetId);
     if (!binary) {
       return jsonError("NOT_FOUND", "Upload asset not found.", 404, traceId);
@@ -306,7 +306,7 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
 
   app.get("/uploads/assets/:assetId/thumb", async (c) => {
     const { traceId, userState } = await loadRouteUserState(c, resolveStore);
-    const assetId = c.req.param("assetId");
+    const assetId = getRouteParam(c, "assetId");
     const asset = resolveUploadAssetForUser(userState, assetId);
     if (!asset) {
       return jsonError("NOT_FOUND", "Upload asset not found.", 404, traceId);

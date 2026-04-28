@@ -22,6 +22,10 @@ export function parseRouteQuery<SchemaOutput>(
   return parseQuery(new URL(c.req.url), schema, getRouteTraceId(c));
 }
 
+export function getRouteParam(c: Context<any>, name: string, fallback = ""): string {
+  return c.req.param(name) ?? fallback;
+}
+
 export function loadRouteSession(c: Context<any>): { traceId: string; session: SessionRecord } {
   return {
     traceId: getRouteTraceId(c),
