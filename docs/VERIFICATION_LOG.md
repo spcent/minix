@@ -30,6 +30,21 @@ Each release record should capture:
 - final signoff owner and decision
 - accepted deferred issues
 
+## Current Operator Evidence Blockers
+
+The active release cards `0241` through `0246` remain open because their acceptance depends on real external execution, not additional source-only refactoring. Do not mark these cards complete until the matching evidence is recorded in this log.
+
+| Card | Status | Evidence required before close |
+| --- | --- | --- |
+| `0241` auth provider rollout | pending external evidence | production SMS provider, OAuth provider, callback domain registration, target env mode confirmation, and login or identity validation notes |
+| `0242` message provider rollout | pending external evidence | touchpoint channel owners, deployed `providerReadiness.messages.touchpoints` posture, polling-only release decision, and inbox or notification validation notes |
+| `0243` payment rollout | pending external evidence | merchant owner, callback-secret confirmation, deployed callback posture, purchase or refund validation, and reconciliation notes |
+| `0244` upload rollout | pending external evidence | storage provider, review provider, asset host URL, deployed upload posture, and upload or attach validation notes |
+| `0245` share rollout | pending external evidence | short-link provider, poster provider, deployed URL posture, attribution or invite validation, and replay diagnostics notes |
+| `0246` release execution and signoff | pending external evidence | preview and production command evidence, deployed URLs, manual WeChat validator/date/result, final go or no-go owner, and explicit blockers or deferred issues |
+
+Source-only validation can confirm the runbook and evidence slots exist, but it cannot substitute for provider credentials, deployed target responses, Mini Program manual validation, or release ownership.
+
 ## Template
 
 ### v1.0.0-rc.N
