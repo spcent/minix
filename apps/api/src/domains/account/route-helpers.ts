@@ -4,7 +4,8 @@ import type {
 } from "@minix/contracts";
 import type { Context } from "hono";
 
-import { loadRouteClientContext, loadRouteUserState } from "../../http/route-context";
+import { getRouteTraceId, loadRouteClientContext, loadRouteUserState } from "../../http/route-context";
+import { jsonError } from "../../http/response";
 import type { ApiStore, SessionRecord, UserState } from "../../types";
 import { resolveAccountSecurityPhoneNumber } from "./operations";
 import type { RegisterAccountRoutesOptions } from "./route-options";
@@ -185,22 +186,10 @@ export function createAccountRouteHelpers(
   }) {
     const securityPhone = resolveAccountSecurityPhoneNumber(input.session, input.userState);
     if (!securityPhone) {
-      return Response.json(
-        {
-          code: "FORBIDDEN",
-          message: input.missingCredentialMessage,
-        },
-        { status: 409 },
-      );
+      return jsonError("FORBIDDEN", input.missingCredentialMessage, 409, getRouteTraceId(input.c));
     }
     if (!input.verificationCode) {
-      return Response.json(
-        {
-          code: "INVALID_ARGUMENT",
-          message: input.missingCodeMessage,
-        },
-        { status: 400 },
-      );
+      return jsonError("INVALID_ARGUMENT", input.missingCodeMessage, 400, getRouteTraceId(input.c));
     }
 
     const verified = await consumePhoneVerification({

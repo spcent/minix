@@ -191,8 +191,8 @@ export function registerPaymentCommerceRoutes(options: RegisterPaymentRoutesOpti
     );
   });
 
-  app.get("/orders/catalog", async () => {
-    return Response.json(createPaymentCatalogResponse() satisfies PaymentCatalogResponse);
+  app.get("/orders/catalog", async (c) => {
+    return c.json(createPaymentCatalogResponse() satisfies PaymentCatalogResponse);
   });
 
   app.post("/orders/purchase", async (c) => {
