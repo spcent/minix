@@ -71,6 +71,7 @@ import {
   identityMergeSchema,
   identityUpgradeSchema,
   loginRequestSchema,
+  logoutRequestSchema,
   oauthAuthorizeSchema,
   oauthCallbackSchema,
   passwordCredentialSchema,
@@ -1068,11 +1069,13 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
   app.post("/auth/logout", async (c) => {
     const store = resolveStore(c.env);
     const token = resolveBearerToken(c.req.header("authorization"));
-    const body = await c.req.json().catch(() => undefined);
-    const refreshToken = typeof body?.refreshToken === "string" ? body.refreshToken : undefined;
+    const body = await parseRouteBody(c, logoutRequestSchema);
+    if (body instanceof Response) {
+      return body;
+    }
     await store.revokeSession({
       ...(token ? { accessToken: token } : {}),
-      ...(refreshToken ? { refreshToken } : {}),
+      ...(body.refreshToken ? { refreshToken: body.refreshToken } : {}),
     });
     return c.json({ loggedOut: true });
   });

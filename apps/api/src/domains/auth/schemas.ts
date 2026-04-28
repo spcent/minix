@@ -49,6 +49,12 @@ export const refreshTokenRequestSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+export const logoutRequestSchema = z
+  .object({
+    refreshToken: z.string().min(1).optional(),
+  })
+  .catch({});
+
 export const phoneVerificationRequestSchema = z.object({
   phoneNumber: z.string().min(1),
   purpose: z.enum(AUTH_VERIFICATION_PURPOSES),
