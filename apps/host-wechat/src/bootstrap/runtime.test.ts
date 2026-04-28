@@ -2,12 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { ok, type AppKernel } from "@minix/core";
+import { createBaseKernelStub } from "@minix/testkit";
 
 import { createHostWechatPageEntry } from "../registrations/page-entries";
 import { createHostWechatRuntime } from "../manifest/app.manifest";
 
 function createKernelStub(): AppKernel {
-  return {
+  return createBaseKernelStub("wechat", {
     env: {
       appId: "host-wechat",
       appName: "host-wechat",
@@ -15,38 +16,6 @@ function createKernelStub(): AppKernel {
       debug: true,
       platform: "wechat",
       version: "1.0.0",
-    },
-    features: {
-      enableAutoLogin: false,
-      enableRouteGuard: false,
-    },
-    storage: {
-      async get() {
-        return ok(null);
-      },
-      async set() {
-        return ok(undefined);
-      },
-      async remove() {
-        return ok(undefined);
-      },
-      async clear() {
-        return ok(undefined);
-      },
-    },
-    session: {
-      async get() {
-        return ok(null);
-      },
-      async set() {
-        return ok(undefined);
-      },
-      async clear() {
-        return ok(undefined);
-      },
-      async isLoggedIn() {
-        return ok(false);
-      },
     },
     request: {
       async get<T>() {
@@ -62,15 +31,6 @@ function createKernelStub(): AppKernel {
           userId: "u_1",
           accessToken: "token-1",
         } as T);
-      },
-      async put() {
-        throw new Error("not implemented");
-      },
-      async patch() {
-        throw new Error("not implemented");
-      },
-      async delete() {
-        throw new Error("not implemented");
       },
     },
     auth: {
@@ -120,18 +80,7 @@ function createKernelStub(): AppKernel {
         return ok(null);
       },
     },
-    ui: {
-      async toast() {
-        return ok(undefined);
-      },
-      async loading() {
-        return ok(undefined);
-      },
-      async modal() {
-        return ok(true);
-      },
-    },
-  };
+  });
 }
 
 test("host runtime creates page controllers on a shared kernel", () => {

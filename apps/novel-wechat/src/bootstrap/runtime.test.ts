@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { APP_ROUTE_IDS } from "@minix/contracts";
 import { ok, type AppKernel } from "@minix/core";
+import { createBaseKernelStub } from "@minix/testkit";
 
 import { createNovelWechatPageEntry } from "../registrations/page-entries";
 import { createNovelWechatRuntime } from "../manifest/app.manifest";
@@ -18,7 +19,7 @@ function createKernelStub(): AppKernel {
     path: "/pages/login/index",
   };
 
-  return {
+  return createBaseKernelStub("wechat", {
     env: {
       appId: "novel-wechat",
       appName: "novel-wechat",
@@ -26,24 +27,6 @@ function createKernelStub(): AppKernel {
       debug: true,
       platform: "wechat",
       version: "1.0.0",
-    },
-    features: {
-      enableAutoLogin: false,
-      enableRouteGuard: false,
-    },
-    storage: {
-      async get() {
-        return ok(null);
-      },
-      async set() {
-        return ok(undefined);
-      },
-      async remove() {
-        return ok(undefined);
-      },
-      async clear() {
-        return ok(undefined);
-      },
     },
     session: {
       async get() {
@@ -665,15 +648,6 @@ function createKernelStub(): AppKernel {
           accessToken: "mock-novel-wechat-access-token",
         } as T);
       },
-      async put() {
-        throw new Error("not implemented");
-      },
-      async patch() {
-        throw new Error("not implemented");
-      },
-      async delete() {
-        throw new Error("not implemented");
-      },
     },
     auth: {
       async ensureLogin() {
@@ -730,18 +704,7 @@ function createKernelStub(): AppKernel {
         return ok(currentLocation);
       },
     },
-    ui: {
-      async toast() {
-        return ok(undefined);
-      },
-      async loading() {
-        return ok(undefined);
-      },
-      async modal() {
-        return ok(true);
-      },
-    },
-  };
+  });
 }
 
 test("novel wechat runtime creates page controllers on a shared kernel", () => {
