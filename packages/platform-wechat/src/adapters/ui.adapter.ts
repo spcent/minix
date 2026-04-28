@@ -1,6 +1,7 @@
 import { createError, fail, ok, type UIAdapter } from "@minix/core";
 
 import { resolveWechatRuntime } from "../runtime";
+import { createWechatCallbackResult } from "./callback-result";
 
 interface WechatUiRuntime {
   showToast?: (options: { title: string; icon?: string; duration?: number }) => void;
@@ -56,19 +57,20 @@ export function createWechatUiAdapter(runtime?: WechatUiRuntime): UIAdapter {
         );
       }
 
-      return new Promise((resolve) => {
+      return createWechatCallbackResult<boolean>((resolveValue, rejectValue) => {
         host.showModal?.({
           content: options.content,
           ...(options.title ? { title: options.title } : {}),
           ...(options.confirmText ? { confirmText: options.confirmText } : {}),
           ...(options.cancelText ? { cancelText: options.cancelText } : {}),
           success(response) {
-            resolve(ok(response.confirm));
+            resolveValue(response.confirm);
           },
-          fail(error) {
-            resolve(fail(createError("UNKNOWN", "wechat modal failed", { cause: error, recoverable: true })));
-          },
+          fail: rejectValue,
         });
+      }, {
+        code: "UNKNOWN",
+        message: "wechat modal failed",
       });
     },
   };

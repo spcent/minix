@@ -78,6 +78,17 @@ Reduce adapter boilerplate and make success/failure normalization easier to reus
 
 ## Acceptance
 
-- [ ] callback wrapper helper exists inside `packages/platform-wechat`
-- [ ] storage, request, and UI adapters use the helper where it improves clarity
-- [ ] targeted platform-wechat tests pass
+- [x] callback wrapper helper exists inside `packages/platform-wechat`
+- [x] storage, request, and UI adapters use the helper where it improves clarity
+- [x] targeted platform-wechat tests pass
+
+## Implementation Notes
+
+- Added `createWechatCallbackResult` as a platform-local adapter helper.
+- Replaced repeated callback success/failure Promise normalization in request, storage, and UI adapters.
+- Kept adapter-specific error codes and messages at each call site.
+
+## Verification Notes
+
+- `node --import tsx --test packages/platform-wechat/src/adapters/callback-result.test.ts packages/platform-wechat/src/adapters/request.adapter.test.ts packages/platform-wechat/src/adapters/storage.adapter.test.ts packages/platform-wechat/src/adapters/ui.adapter.test.ts packages/platform-wechat/src/adapters/capability.adapter.test.ts`
+- `pnpm typecheck`

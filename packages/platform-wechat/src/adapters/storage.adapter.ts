@@ -1,6 +1,7 @@
 import { createError, fail, ok, type StorageAdapter } from "@minix/core";
 
 import { resolveWechatRuntime } from "../runtime";
+import { createWechatCallbackResult } from "./callback-result";
 
 interface WechatStorageRuntime {
   getStorage?: (options: {
@@ -31,21 +32,22 @@ export function createWechatStorageAdapter(
         );
       }
 
-      return new Promise<import("@minix/core").Result<T | null>>((resolve) => {
+      return createWechatCallbackResult<T | null>((resolveValue, rejectValue) => {
         host.getStorage?.({
           key,
           success(response) {
             if (response.data === undefined) {
-              resolve({ ok: true, value: null });
+              resolveValue(null);
               return;
             }
 
-            resolve({ ok: true, value: response.data as T });
+            resolveValue(response.data as T);
           },
-          fail(error) {
-            resolve(fail(createError("STORAGE_ERROR", "wechat getStorage failed", { cause: error, recoverable: true })));
-          },
+          fail: rejectValue,
         });
+      }, {
+        code: "STORAGE_ERROR",
+        message: "wechat getStorage failed",
       });
     },
 
@@ -56,17 +58,18 @@ export function createWechatStorageAdapter(
         );
       }
 
-      return new Promise((resolve) => {
+      return createWechatCallbackResult<void>((resolveValue, rejectValue) => {
         host.setStorage?.({
           key,
           data: value,
           success() {
-            resolve(ok(undefined));
+            resolveValue(undefined);
           },
-          fail(error) {
-            resolve(fail(createError("STORAGE_ERROR", "wechat setStorage failed", { cause: error, recoverable: true })));
-          },
+          fail: rejectValue,
         });
+      }, {
+        code: "STORAGE_ERROR",
+        message: "wechat setStorage failed",
       });
     },
 
@@ -77,18 +80,17 @@ export function createWechatStorageAdapter(
         );
       }
 
-      return new Promise((resolve) => {
+      return createWechatCallbackResult<void>((resolveValue, rejectValue) => {
         host.removeStorage?.({
           key,
           success() {
-            resolve(ok(undefined));
+            resolveValue(undefined);
           },
-          fail(error) {
-            resolve(
-              fail(createError("STORAGE_ERROR", "wechat removeStorage failed", { cause: error, recoverable: true })),
-            );
-          },
+          fail: rejectValue,
         });
+      }, {
+        code: "STORAGE_ERROR",
+        message: "wechat removeStorage failed",
       });
     },
 
@@ -99,15 +101,16 @@ export function createWechatStorageAdapter(
         );
       }
 
-      return new Promise((resolve) => {
+      return createWechatCallbackResult<void>((resolveValue, rejectValue) => {
         host.clearStorage?.({
           success() {
-            resolve(ok(undefined));
+            resolveValue(undefined);
           },
-          fail(error) {
-            resolve(fail(createError("STORAGE_ERROR", "wechat clearStorage failed", { cause: error, recoverable: true })));
-          },
+          fail: rejectValue,
         });
+      }, {
+        code: "STORAGE_ERROR",
+        message: "wechat clearStorage failed",
       });
     },
   };

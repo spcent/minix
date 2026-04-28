@@ -8,6 +8,7 @@ import {
 } from "@minix/core";
 
 import { resolveWechatRuntime } from "../runtime";
+import { createWechatCallbackResult } from "./callback-result";
 
 interface WechatRequestTask {
   abort?: () => void;
@@ -40,7 +41,7 @@ export function createWechatRequestAdapter(runtime?: WechatRuntime): RequestAdap
         );
       }
 
-      return new Promise<import("@minix/core").Result<ResponseData<T>>>((resolve) => {
+      return createWechatCallbackResult<ResponseData<T>>((resolveValue, rejectValue) => {
         host.request?.({
           url: options.url,
           ...(options.method ? { method: options.method } : {}),
@@ -55,14 +56,13 @@ export function createWechatRequestAdapter(runtime?: WechatRuntime): RequestAdap
               raw: response,
             };
 
-            resolve({ ok: true, value: normalized });
+            resolveValue(normalized);
           },
-          fail(error) {
-            resolve(
-              fail(createError("NETWORK_ERROR", "wechat request failed", { cause: error, recoverable: true })),
-            );
-          },
+          fail: rejectValue,
         });
+      }, {
+        code: "NETWORK_ERROR",
+        message: "wechat request failed",
       });
     },
   };
