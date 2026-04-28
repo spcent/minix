@@ -259,16 +259,16 @@ export function renderNovelDetailPage(context: NovelH5PageRenderContext, state: 
               compact: true,
             })}
             <div class="nh-grid">
-              <article class="nh-panel">
-                <p class="nh-meta-label">Status</p>
-                <p class="nh-meta"><strong>${escapeHtml(detail.status)}</strong></p>
-                <p class="nh-item-copy">${escapeHtml(detail.accessRuleSummaryLabel ?? detail.trialRuleLabel ?? (detail.requiresMembership ? "Premium continuation after the trial boundary." : "Open title with standard chapter flow."))}</p>
-              </article>
-              <article class="nh-panel">
-                <p class="nh-meta-label">Current route</p>
-                <p class="nh-meta"><strong>${escapeHtml(detail.latestChapter?.title ?? "Fresh release pending")}</strong></p>
-                <p class="nh-item-copy">${escapeHtml(detail.updateHistoryLabel ?? `Latest update · ${formatDate(detail.latestChapter?.updatedAt)}`)}</p>
-              </article>
+              ${renderInfoPanel({
+                label: "Status",
+                title: detail.status,
+                copy: detail.accessRuleSummaryLabel ?? detail.trialRuleLabel ?? (detail.requiresMembership ? "Premium continuation after the trial boundary." : "Open title with standard chapter flow."),
+              })}
+              ${renderInfoPanel({
+                label: "Current route",
+                title: detail.latestChapter?.title ?? "Fresh release pending",
+                copy: detail.updateHistoryLabel ?? `Latest update · ${formatDate(detail.latestChapter?.updatedAt)}`,
+              })}
             </div>
           </section>
         </aside>

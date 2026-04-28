@@ -3,6 +3,7 @@ import type { ReaderState } from "@minix/feature-reader";
 import type { NovelH5PageRenderContext } from "../types";
 import { renderActionRow } from "../components/action-row";
 import { renderChipRow } from "../components/chip-row";
+import { renderInfoPanel } from "../components/info-panel";
 import { renderAppShell } from "../layout/app-shell";
 import { escapeHtml, formatDate, renderActionButton, renderParagraphs, splitParagraphs } from "../utils";
 
@@ -326,14 +327,14 @@ export function renderReaderPage(context: NovelH5PageRenderContext, state: Reade
                   <p class="nh-copy">${escapeHtml(state.accessMessage ?? "Open chapter with no membership boundary.")}</p>
                   ${renderChipRow([state.accessBadgeLabel ?? state.accessState, chapter?.title ?? state.title, state.saveStatusLabel])}
                 </article>
-                <article class="nh-panel">
-                  <p class="nh-meta-label">Unlock outcome</p>
-                  <p class="nh-copy">Membership should return the reader to this chapter, preserve progress, and keep the top-level story context intact.</p>
-                  ${renderActionRow([
+                ${renderInfoPanel({
+                  label: "Unlock outcome",
+                  copy: "Membership should return the reader to this chapter, preserve progress, and keep the top-level story context intact.",
+                  actions: [
                     renderActionButton(state.membershipActionLabel ?? "Open membership", "controller", "goToMembership", undefined, "primary"),
                     renderActionButton("Back to detail", "controller", "goToNovelDetail", undefined, "ghost"),
-                  ])}
-                </article>
+                  ],
+                })}
               </div>
             </div>
           </div>

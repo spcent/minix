@@ -80,12 +80,23 @@ Reduce remaining simple panel markup in detail and reader surfaces while leaving
 - final verifier handoff:
   - Detail release rail and reader access actions should preserve text escaping and data attributes.
 
+## Implementation Notes
+
+- Adopted `renderInfoPanel` for detail release profile status and current route panels.
+- Adopted `renderInfoPanel` for the reader access unlock outcome panel.
+- Kept reader access state and display setting panels local because they include chips, range inputs, or inline setting values.
+
+## Verification Notes
+
+- Ran `pnpm verify:host novel-h5`.
+- Ran `pnpm typecheck`.
+
 ## Acceptance
 
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
