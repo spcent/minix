@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import {
   createMemoryRateLimitCounterStore,
 } from "./rate-limit";
-import { createUnauthorizedResponse, resolveBearerToken } from "./http/auth";
+import { createUnauthorizedResponse, resolveBearerSession } from "./http/auth";
 import { applyCorsHeaders, buildAllowedCorsOrigins, createCorsPreflightResponse, resolveAllowedCorsOrigin } from "./http/cors";
 import { getRouteTraceId } from "./http/route-context";
 import { resolveTraceId } from "./http/response";
@@ -33,12 +33,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     next: Parameters<Parameters<typeof app.use>[1]>[1],
   ) => {
     const store = getStore(c.env, options.store);
-    const token = resolveBearerToken(c.req.header("authorization"));
-    if (!token) {
-      return createUnauthorizedResponse(getRouteTraceId(c));
-    }
-
-    const session = await store.getSessionByAccessToken(token);
+    const { session } = await resolveBearerSession(c.req.header("authorization"), store);
     if (!session) {
       return createUnauthorizedResponse(getRouteTraceId(c));
     }

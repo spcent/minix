@@ -1,4 +1,4 @@
-import { createUnauthorizedResponse, resolveBearerToken } from "../../http/auth";
+import { createUnauthorizedResponse, resolveBearerSession } from "../../http/auth";
 import { getRouteTraceId, loadRouteUserState, parseRouteBody } from "../../http/route-context";
 import { jsonError } from "../../http/response";
 import { ACCOUNT_OPERATION_COOLDOWN_MS, appendAccountOperationRecord, setAccountOperationCooldown, resolveAccountSecurityPhoneNumber } from "./operations";
@@ -28,12 +28,7 @@ export function registerAccountIdentityRoutes(
   app.get("/me", async (c) => {
     const traceId = getRouteTraceId(c);
     const store = resolveStore(c.env);
-    const token = resolveBearerToken(c.req.header("authorization"));
-    if (!token) {
-      return createUnauthorizedResponse(traceId);
-    }
-
-    const session = await store.getSessionByAccessToken(token);
+    const { session } = await resolveBearerSession(c.req.header("authorization"), store);
     if (!session) {
       return createUnauthorizedResponse(traceId);
     }

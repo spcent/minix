@@ -10,7 +10,7 @@ import type {
 } from "@minix/contracts";
 
 import { jsonError } from "../../http/response";
-import { resolveBearerToken } from "../../http/auth";
+import { resolveBearerSession, resolveBearerToken } from "../../http/auth";
 import { getRouteTraceId, loadRouteClientContext, parseRouteBody } from "../../http/route-context";
 import { resolveClientId } from "../../rate-limit";
 import { resolveProviderPostureMode } from "../provider-posture";
@@ -250,13 +250,10 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
     });
     let platform: LoginPlatformKind = "h5";
     if (payload.purpose === "account_security") {
-      const accessToken = resolveBearerToken(c.req.header("authorization"));
-      if (accessToken) {
-        const session = await store.getSessionByAccessToken(accessToken);
-        if (session) {
-          userId = session.userId;
-          platform = session.platform;
-        }
+      const { session } = await resolveBearerSession(c.req.header("authorization"), store);
+      if (session) {
+        userId = session.userId;
+        platform = session.platform;
       }
     }
     const userState = await store.getUserState(userId);
@@ -543,33 +540,22 @@ export function registerAuthRoutes(options: RegisterAuthRoutesOptions) {
     const stateUserId = `oauth_state_${providerKey}`;
     const stateStore = await store.getUserState(stateUserId);
     const redirectTarget = resolveRedirectTarget(payload.redirectTarget);
+    const bindSession =
+      payload.purpose === "bind"
+        ? await resolveBearerSession(c.req.header("authorization"), store)
+        : undefined;
     ensureAuthSecurityState(stateStore).oauthStatesByState[state] = {
       provider: payload.provider,
       state,
       ...(payload.purpose ? { purpose: payload.purpose } : {}),
-      ...(payload.purpose === "bind"
-        ? (() => {
-            const accessToken = resolveBearerToken(c.req.header("authorization"));
-            return accessToken ? { ownerUserId: "__deferred__" } : {};
-          })()
+      ...(bindSession?.accessToken
+        ? { ownerUserId: bindSession.session?.userId ?? "__deferred__" }
         : {}),
       expiresAt,
       createdAt: Date.now(),
       ...(payload.deviceId ? { deviceId: payload.deviceId } : {}),
       ...(redirectTarget ? { redirectTarget } : {}),
     };
-    if (payload.purpose === "bind") {
-      const accessToken = resolveBearerToken(c.req.header("authorization"));
-      if (accessToken) {
-        const session = await store.getSessionByAccessToken(accessToken);
-        if (session) {
-          const pendingState = ensureAuthSecurityState(stateStore).oauthStatesByState[state];
-          if (pendingState) {
-            pendingState.ownerUserId = session.userId;
-          }
-        }
-      }
-    }
     let response: AuthOAuthAuthorizeResponse;
     if (authOAuthProvider) {
       const authorized = await authOAuthProvider.authorize(
