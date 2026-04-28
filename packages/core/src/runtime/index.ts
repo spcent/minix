@@ -3,6 +3,7 @@ export * from "./auth-redirect";
 export * from "./auth";
 export * from "./bootstrap-env";
 export * from "./capability";
+export * from "./html";
 export * from "./manifest";
 export * from "./mock-request";
 export * from "./request";

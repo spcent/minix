@@ -85,13 +85,24 @@ Keep browser render helpers consistent and easier to reuse for future product ho
 
 ## Acceptance
 
-- [ ] both H5 hosts use one HTML escaping primitive
-- [ ] helper is exported through package entry points
-- [ ] helper behavior is covered by focused tests
-- [ ] change is local and reversible
-- [ ] write set matches ownership
-- [ ] boundaries still match specs
-- [ ] host wiring remains manifest- and registry-driven
-- [ ] generated files were regenerated, not manually authored as source
-- [ ] docs updated if behavior or workflow changed
-- [ ] `pnpm verify` run, or skipped with reason if docs-only
+- [x] both H5 hosts use one HTML escaping primitive
+- [x] helper is exported through package entry points
+- [x] helper behavior is covered by focused tests
+- [x] change is local and reversible
+- [x] write set matches ownership
+- [x] boundaries still match specs
+- [x] host wiring remains manifest- and registry-driven
+- [x] generated files were regenerated, not manually authored as source
+- [x] docs updated if behavior or workflow changed
+- [x] `pnpm verify` run, or skipped with reason if docs-only
+
+## Implementation Notes
+
+- Added `escapeHtml` to `packages/core` and exported it through the package entry point.
+- Replaced the host H5 local escape function with the shared core primitive.
+- Re-exported the shared primitive from the novel H5 render utils so existing page components keep their local utility import shape.
+
+## Verification Notes
+
+- `pnpm verify:host host-h5`
+- `pnpm verify:host novel-h5`

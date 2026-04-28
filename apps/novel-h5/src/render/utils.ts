@@ -1,13 +1,8 @@
+import { escapeHtml } from "@minix/core";
+
 import { NOVEL_H5_ROUTES } from "../manifest/routes";
 
-export function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
+export { escapeHtml };
 
 export function formatDate(value?: string): string {
   if (!value) {

@@ -6,7 +6,7 @@ import type { ItemsFilterValue, ItemsPageItem } from "@minix/feature-items";
 import type { MediaToolsState } from "@minix/feature-media-tools";
 import type { MessagesState } from "@minix/feature-messages";
 import type { SubscriptionState } from "@minix/feature-subscription";
-import type { SettingsPageModel, Store } from "@minix/core";
+import { escapeHtml, type SettingsPageModel, type Store } from "@minix/core";
 
 import type { HostH5Runtime } from "../manifest/app.manifest";
 import { HOST_H5_ROUTES } from "../manifest/routes";
@@ -1159,15 +1159,6 @@ const APP_STYLES = `
     }
   }
 `;
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
 
 function resolvePageLabel(pageKey: HostH5PageKey): string {
   switch (pageKey) {
