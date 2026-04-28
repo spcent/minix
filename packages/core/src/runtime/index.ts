@@ -6,6 +6,7 @@ export * from "./capability";
 export * from "./html";
 export * from "./manifest";
 export * from "./mock-request";
+export * from "./page-runtime";
 export * from "./request";
 export * from "./router";
 export * from "./search";

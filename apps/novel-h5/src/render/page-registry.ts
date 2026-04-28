@@ -1,5 +1,10 @@
 import type { ChapterListResponse } from "@minix/contracts";
-import type { SettingsPageModel } from "@minix/core";
+import {
+  activateShowablePageEntry,
+  resolvePageKeyFromRouteMap,
+  subscribeStoreBackedPages,
+  type SettingsPageModel,
+} from "@minix/core";
 import type { AccountState } from "@minix/feature-account";
 import type { AuthPageState } from "@minix/feature-auth";
 import type { BookshelfState } from "@minix/feature-bookshelf";
@@ -36,8 +41,6 @@ import {
   type NovelH5PageEntry,
   type NovelH5PageKey,
   type NovelH5PageRenderContext,
-  type PageEntryWithShow,
-  type PageWithStore,
 } from "./types";
 
 export type { NovelH5PageEntry, NovelH5PageKey } from "./types";
@@ -55,22 +58,6 @@ const readerUiState: {
   openPanel: null,
   tocCache: new Map<string, ChapterListResponse>(),
 };
-
-function normalizePath(pathname: string): string {
-  if (!pathname || pathname === "/") {
-    return "/";
-  }
-
-  return pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
-}
-
-function isStoreBackedPage(value: unknown): value is PageWithStore {
-  return typeof value === "object" && value !== null && "store" in value;
-}
-
-function isShowableEntry(value: unknown): value is PageEntryWithShow {
-  return typeof value === "object" && value !== null && "onShow" in value && typeof value.onShow === "function";
-}
 
 function renderByPageKey(context: NovelH5PageRenderContext): string {
   const state = getEntryState(context.entry);
@@ -315,79 +302,15 @@ function bindFeedbackDraftInputs(context: NovelH5PageRenderContext) {
 }
 
 export function resolveNovelH5PageKey(pathname: string): NovelH5PageKey {
-  const normalizedPath = normalizePath(pathname);
-
-  if (normalizedPath === NOVEL_H5_ROUTES.home) {
-    return "home";
-  }
-
-  if (normalizedPath === NOVEL_H5_ROUTES.login) {
-    return "login";
-  }
-
-  if (normalizedPath === NOVEL_H5_ROUTES.catalog) {
-    return "catalog";
-  }
-
-  if (normalizedPath === NOVEL_H5_ROUTES.feed) {
-    return "feed";
-  }
-
-  if (normalizedPath === NOVEL_H5_ROUTES.account) {
-    return "account";
-  }
-
-  if (normalizedPath === NOVEL_H5_ROUTES.feedback) {
-    return "feedback";
-  }
-
-  if (normalizedPath === NOVEL_H5_ROUTES.messages) {
-    return "messages";
-  }
-
-  if (normalizedPath === NOVEL_H5_ROUTES.mediaTools) {
-    return "mediaTools";
-  }
-
-  if (normalizedPath === NOVEL_H5_ROUTES.novelDetail) {
-    return "novelDetail";
-  }
-
-  if (normalizedPath === NOVEL_H5_ROUTES.toc) {
-    return "toc";
-  }
-
-  if (normalizedPath === NOVEL_H5_ROUTES.reader) {
-    return "reader";
-  }
-
-  if (normalizedPath === NOVEL_H5_ROUTES.bookshelf) {
-    return "bookshelf";
-  }
-
-  if (normalizedPath === NOVEL_H5_ROUTES.membership) {
-    return "membership";
-  }
-
-  if (normalizedPath === NOVEL_H5_ROUTES.settings) {
-    return "settings";
-  }
-
-  return "home";
+  return resolvePageKeyFromRouteMap(pathname, NOVEL_H5_ROUTES, "home") as NovelH5PageKey;
 }
 
 export async function activateNovelH5Page(entry: NovelH5PageEntry) {
-  if (!isShowableEntry(entry)) {
-    return;
-  }
-
-  await entry.onShow();
+  await activateShowablePageEntry(entry);
 }
 
 export function subscribeNovelH5Pages(runtime: NovelH5Runtime, sync: () => void) {
-  return Object.values(runtime.pages)
-    .filter(isStoreBackedPage)
-    .map((page) => page.store.subscribe(sync));
+  return subscribeStoreBackedPages(Object.values(runtime.pages), sync);
 }
 
 export function renderNovelH5Page(context: NovelH5PageRenderContext) {

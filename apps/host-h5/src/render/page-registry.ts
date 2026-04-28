@@ -6,7 +6,15 @@ import type { ItemsFilterValue, ItemsPageItem } from "@minix/feature-items";
 import type { MediaToolsState } from "@minix/feature-media-tools";
 import type { MessagesState } from "@minix/feature-messages";
 import type { SubscriptionState } from "@minix/feature-subscription";
-import { escapeHtml, type SettingsPageModel, type Store } from "@minix/core";
+import {
+  activateShowablePageEntry,
+  escapeHtml,
+  isStoreBackedPage,
+  resolvePageKeyFromRouteMap,
+  subscribeStoreBackedPages,
+  type SettingsPageModel,
+  type Store,
+} from "@minix/core";
 
 import type { HostH5Runtime } from "../manifest/app.manifest";
 import { HOST_H5_ROUTES } from "../manifest/routes";
@@ -22,20 +30,12 @@ export interface HostH5PageRenderContext {
   sync(): void;
 }
 
-interface PageWithStore {
-  store: Store<unknown>;
-}
-
 interface PageWithReadyAction {
   markReady(): unknown;
 }
 
 interface HostH5PageRenderer {
   render(context: HostH5PageRenderContext): void;
-}
-
-interface PageEntryWithShow {
-  onShow(): Promise<unknown>;
 }
 
 let completionAnimationTimer: number | null = null;
@@ -1486,20 +1486,12 @@ function bindButton(root: HTMLElement, id: string, handler: () => void) {
   root.querySelector<HTMLButtonElement>(`#${id}`)?.addEventListener("click", handler);
 }
 
-function isPageWithStore(value: unknown): value is PageWithStore {
-  return Boolean(value) && typeof (value as PageWithStore).store?.subscribe === "function";
-}
-
 function isPageWithReadyAction(value: unknown): value is PageWithReadyAction {
   return Boolean(value) && typeof (value as PageWithReadyAction).markReady === "function";
 }
 
 function buildGenericTitle(pageKey: string): string {
   return pageKey.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
-}
-
-function hasOnShow(entry: HostH5PageEntry): entry is HostH5PageEntry & PageEntryWithShow {
-  return typeof (entry as unknown as PageEntryWithShow).onShow === "function";
 }
 
 function filterItems(items: ItemsPageItem[], activeFilter: ItemsFilterValue): ItemsPageItem[] {
@@ -1676,7 +1668,7 @@ function createGenericRenderer(pageKey: HostH5PageKey): HostH5PageRenderer {
   return {
     render({ root, runtime, sync }) {
       const page = (runtime.pages as Record<string, unknown>)[pageKey];
-      const state = isPageWithStore(page) ? ((page.store.getState() ?? {}) as { ready?: unknown }) : {};
+      const state = isStoreBackedPage(page) ? ((page.store.getState() ?? {}) as { ready?: unknown }) : {};
       const title = buildGenericTitle(pageKey);
       const ready = Boolean(state.ready);
 
@@ -4172,14 +4164,11 @@ export const hostH5PageRenderers: Partial<Record<HostH5PageKey, HostH5PageRender
 };
 
 export function resolveHostH5PageKey(pathname: string): HostH5PageKey {
-  const pageEntry = Object.entries(HOST_H5_ROUTES).find(([, routePath]) => routePath === pathname);
-  return (pageEntry?.[0] ?? "login") as HostH5PageKey;
+  return resolvePageKeyFromRouteMap(pathname, HOST_H5_ROUTES, "login") as HostH5PageKey;
 }
 
 export async function activateHostH5Page(entry: HostH5PageEntry): Promise<void> {
-  if (hasOnShow(entry)) {
-    await entry.onShow();
-  }
+  await activateShowablePageEntry(entry);
 }
 
 export function renderHostH5Page(context: HostH5PageRenderContext): void {
@@ -4188,7 +4177,5 @@ export function renderHostH5Page(context: HostH5PageRenderContext): void {
 }
 
 export function subscribeHostH5Pages(runtime: HostH5Runtime, sync: () => void): Array<() => void> {
-  return Object.values(runtime.pages)
-    .filter(isPageWithStore)
-    .map((page) => page.store.subscribe(() => sync()));
+  return subscribeStoreBackedPages(Object.values(runtime.pages), sync);
 }

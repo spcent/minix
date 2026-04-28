@@ -10,6 +10,7 @@ test("resolveNovelH5PageKey resolves known routes and falls back to home", () =>
   assert.equal(resolveNovelH5PageKey("/"), "home");
   assert.equal(resolveNovelH5PageKey("/login"), "login");
   assert.equal(resolveNovelH5PageKey("/books"), "catalog");
+  assert.equal(resolveNovelH5PageKey("/books/"), "catalog");
   assert.equal(resolveNovelH5PageKey("/discover"), "feed");
   assert.equal(resolveNovelH5PageKey("/account"), "account");
   assert.equal(resolveNovelH5PageKey("/feedback"), "feedback");

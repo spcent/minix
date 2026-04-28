@@ -9,6 +9,7 @@ import { activateHostH5Page, resolveHostH5PageKey, subscribeHostH5Pages } from "
 test("resolveHostH5PageKey resolves known routes and falls back to login", () => {
   assert.equal(resolveHostH5PageKey("/"), "login");
   assert.equal(resolveHostH5PageKey("/overview"), "overview");
+  assert.equal(resolveHostH5PageKey("/overview/"), "overview");
   assert.equal(resolveHostH5PageKey("/plan"), "items");
   assert.equal(resolveHostH5PageKey("/discover"), "feed");
   assert.equal(resolveHostH5PageKey("/feedback"), "feedback");
