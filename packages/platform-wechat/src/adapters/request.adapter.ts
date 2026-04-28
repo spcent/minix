@@ -1,4 +1,5 @@
 import {
+  appendRequestQuery,
   createError,
   fail,
   ok,
@@ -43,7 +44,7 @@ export function createWechatRequestAdapter(runtime?: WechatRuntime): RequestAdap
 
       return createWechatCallbackResult<ResponseData<T>>((resolveValue, rejectValue) => {
         host.request?.({
-          url: options.url,
+          url: appendRequestQuery(options.url, options.query),
           ...(options.method ? { method: options.method } : {}),
           ...(options.headers ? { header: options.headers } : {}),
           ...(options.body === undefined ? {} : { data: options.body }),

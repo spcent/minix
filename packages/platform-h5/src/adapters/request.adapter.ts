@@ -1,28 +1,8 @@
-import { createError, fail, ok, type RequestAdapter, type RequestOptions } from "@minix/core";
+import { appendRequestQuery, createError, fail, ok, type RequestAdapter, type RequestOptions } from "@minix/core";
 
 export interface H5RequestAdapterOptions {
   fetcher?: typeof fetch;
   createAbortController?: () => AbortController;
-}
-
-function appendQuery(url: string, query?: RequestOptions["query"]): string {
-  if (!query || Object.keys(query).length === 0) {
-    return url;
-  }
-
-  const isAbsolute = /^https?:\/\//.test(url);
-  const next = new URL(url, isAbsolute ? undefined : "http://localhost");
-  for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined) {
-      next.searchParams.set(key, String(value));
-    }
-  }
-
-  if (isAbsolute) {
-    return next.toString();
-  }
-
-  return `${next.pathname}${next.search}`;
 }
 
 export function createH5RequestAdapter(options: H5RequestAdapterOptions = {}): RequestAdapter {
@@ -57,7 +37,7 @@ export function createH5RequestAdapter(options: H5RequestAdapterOptions = {}): R
           }, options.timeoutMs);
         }
 
-        const response = await fetcher(appendQuery(options.url, options.query), {
+        const response = await fetcher(appendRequestQuery(options.url, options.query), {
           ...(options.method ? { method: options.method } : {}),
           ...(options.headers ? { headers: options.headers } : {}),
           ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),

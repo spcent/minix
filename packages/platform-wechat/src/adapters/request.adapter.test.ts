@@ -20,10 +20,12 @@ test("wechat request adapter forwards body headers and timeout to the runtime ap
     url: "https://api.example.com/items",
     method: "POST",
     headers: { Authorization: "Bearer token" },
+    query: { page: 2, active: true, empty: undefined },
     body: { title: "First" },
     timeoutMs: 1500,
   });
 
+  assert.equal(receivedOptions?.url, "https://api.example.com/items?page=2&active=true");
   assert.equal(receivedOptions?.timeout, 1500);
   assert.deepEqual(receivedOptions?.header, { Authorization: "Bearer token" });
   assert.deepEqual(receivedOptions?.data, { title: "First" });

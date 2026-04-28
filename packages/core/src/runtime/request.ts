@@ -66,6 +66,26 @@ function normalizeUrl(baseUrl: string, path: string): string {
   return `${normalizedBase}${normalizedPath}`;
 }
 
+export function appendRequestQuery(url: string, query?: RequestOptions["query"]): string {
+  if (!query || Object.keys(query).length === 0) {
+    return url;
+  }
+
+  const isAbsolute = /^https?:\/\//.test(url);
+  const next = new URL(url, isAbsolute ? undefined : "http://localhost");
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined) {
+      next.searchParams.set(key, String(value));
+    }
+  }
+
+  if (isAbsolute) {
+    return next.toString();
+  }
+
+  return `${next.pathname}${next.search}`;
+}
+
 function toQueryRecord(query?: Record<string, unknown>): Record<string, string | number | boolean | undefined> | undefined {
   if (!query) {
     return undefined;

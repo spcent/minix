@@ -6,7 +6,25 @@ import type { RequestAdapter, RequestOptions, ResponseData } from "../ports/requ
 import type { StorageAdapter } from "../ports/storage";
 import { createCacheService } from "../store/cache";
 
-import { createRequestClient } from "./request";
+import { appendRequestQuery, createRequestClient } from "./request";
+
+test("appendRequestQuery appends defined query values to absolute and relative urls", () => {
+  assert.equal(
+    appendRequestQuery("https://api.example.com/items?sort=latest", {
+      page: 2,
+      active: true,
+      empty: undefined,
+    }),
+    "https://api.example.com/items?sort=latest&page=2&active=true",
+  );
+  assert.equal(
+    appendRequestQuery("/items", {
+      page: 1,
+      keyword: "novel",
+    }),
+    "/items?page=1&keyword=novel",
+  );
+});
 import { createSessionService } from "./session";
 
 function createMemoryAdapter(): StorageAdapter {
