@@ -6,7 +6,14 @@ import type {
   UploadFileType,
   UploadSelectionResult,
 } from "@minix/contracts";
-import { createError, fail, ok, type CapabilityAdapter } from "@minix/core";
+import {
+  createError,
+  fail,
+  ok,
+  resolveCapabilityPayloadText,
+  resolveShareTargetText,
+  type CapabilityAdapter,
+} from "@minix/core";
 
 interface H5Clipboard {
   writeText?: (text: string) => Promise<void>;
@@ -61,15 +68,6 @@ export interface H5CapabilityAdapterOptions {
   document?: H5DocumentLike;
   payment?: H5PaymentRuntime;
   upload?: H5UploadRuntime;
-}
-
-function requirePayloadText(input: CapabilityActionInput): string | null {
-  if (typeof input.payload !== "object" || input.payload === null || !("text" in input.payload)) {
-    return null;
-  }
-
-  const text = (input.payload as { text?: unknown }).text;
-  return typeof text === "string" ? text : null;
 }
 
 export function createH5CapabilityAdapter(options: H5CapabilityAdapterOptions = {}): CapabilityAdapter {
@@ -268,28 +266,6 @@ export function createH5CapabilityAdapter(options: H5CapabilityAdapterOptions = 
     });
   }
 
-  function resolveShareText(payload: Record<string, unknown>): string {
-    const sharePayload =
-      typeof payload.sharePayload === "object" && payload.sharePayload !== null
-        ? (payload.sharePayload as Record<string, unknown>)
-        : {};
-    const shareChannel =
-      typeof payload.shareChannel === "object" && payload.shareChannel !== null
-        ? (payload.shareChannel as Record<string, unknown>)
-        : {};
-    const shareKind = typeof shareChannel.kind === "string" ? shareChannel.kind : "";
-
-    if (shareKind === "poster_image" && typeof sharePayload.posterImageUrl === "string") {
-      return sharePayload.posterImageUrl;
-    }
-
-    return (
-      (typeof sharePayload.shortLink === "string" ? sharePayload.shortLink : undefined) ??
-      (typeof sharePayload.landingUrl === "string" ? sharePayload.landingUrl : undefined) ??
-      (typeof sharePayload.title === "string" ? sharePayload.title : "")
-    );
-  }
-
   return {
     status(capability) {
       switch (capability) {
@@ -383,7 +359,7 @@ export function createH5CapabilityAdapter(options: H5CapabilityAdapterOptions = 
       switch (input.capability) {
         case "clipboard": {
           try {
-            const text = requirePayloadText(input);
+            const text = resolveCapabilityPayloadText(input);
             if (text === null) {
               return fail(createError("INVALID_ARGUMENT", "clipboard.writeText requires a text payload", { recoverable: true }));
             }
@@ -416,7 +392,7 @@ export function createH5CapabilityAdapter(options: H5CapabilityAdapterOptions = 
               const browserSharePayload = {
                 ...(typeof sharePayload.title === "string" ? { title: sharePayload.title } : {}),
                 ...(typeof sharePayload.summary === "string" ? { text: sharePayload.summary } : {}),
-                url: resolveShareText(payload),
+                url: resolveShareTargetText(payload),
               };
               await navigator.share({
                 ...browserSharePayload,
@@ -430,7 +406,7 @@ export function createH5CapabilityAdapter(options: H5CapabilityAdapterOptions = 
             }
 
             if (navigator?.clipboard?.writeText) {
-              await navigator.clipboard.writeText(resolveShareText(payload));
+              await navigator.clipboard.writeText(resolveShareTargetText(payload));
               return ok({
                 capability: input.capability,
                 action: input.action,

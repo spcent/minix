@@ -4,7 +4,14 @@ import type {
   CapabilityKind,
   CapabilityStatus,
 } from "@minix/contracts";
-import { createError, fail, ok, type CapabilityAdapter } from "@minix/core";
+import {
+  createError,
+  fail,
+  ok,
+  resolveCapabilityPayloadText,
+  resolveShareTargetText,
+  type CapabilityAdapter,
+} from "@minix/core";
 
 import { resolveWechatRuntime } from "../runtime";
 
@@ -44,15 +51,6 @@ interface WechatCapabilityRuntime {
   }) => void;
 }
 
-function requirePayloadText(input: CapabilityActionInput): string | null {
-  if (typeof input.payload !== "object" || input.payload === null || !("text" in input.payload)) {
-    return null;
-  }
-
-  const text = (input.payload as { text?: unknown }).text;
-  return typeof text === "string" ? text : null;
-}
-
 function prefersVisualUpload(input: CapabilityActionInput): boolean {
   if (typeof input.payload !== "object" || input.payload === null) {
     return false;
@@ -72,28 +70,6 @@ function prefersVisualUpload(input: CapabilityActionInput): boolean {
   }
 
   return false;
-}
-
-function resolveWechatShareFallbackText(payload: Record<string, unknown>): string {
-  const sharePayload =
-    typeof payload.sharePayload === "object" && payload.sharePayload !== null
-      ? (payload.sharePayload as Record<string, unknown>)
-      : {};
-  const shareChannel =
-    typeof payload.shareChannel === "object" && payload.shareChannel !== null
-      ? (payload.shareChannel as Record<string, unknown>)
-      : {};
-  const shareKind = typeof shareChannel.kind === "string" ? shareChannel.kind : "";
-
-  if (shareKind === "poster_image" && typeof sharePayload.posterImageUrl === "string") {
-    return sharePayload.posterImageUrl;
-  }
-
-  return (
-    (typeof sharePayload.shortLink === "string" ? sharePayload.shortLink : undefined) ??
-    (typeof sharePayload.landingUrl === "string" ? sharePayload.landingUrl : undefined) ??
-    (typeof sharePayload.title === "string" ? sharePayload.title : "")
-  );
 }
 
 export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime): CapabilityAdapter {
@@ -211,7 +187,7 @@ export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime)
     execute<TResult = unknown>(input: CapabilityActionInput): Promise<import("@minix/core").Result<CapabilityActionResult<TResult>>> {
       switch (input.capability) {
         case "clipboard": {
-          const text = requirePayloadText(input);
+          const text = resolveCapabilityPayloadText(input);
           if (text === null) {
             return Promise.resolve(
               fail(createError("INVALID_ARGUMENT", "clipboard.writeText requires a text payload", { recoverable: true })),
@@ -300,7 +276,7 @@ export function createWechatCapabilityAdapter(runtime?: WechatCapabilityRuntime)
           return new Promise((resolve) => {
             const payload = typeof input.payload === "object" && input.payload !== null ? (input.payload as Record<string, unknown>) : {};
             host.setClipboardData?.({
-              data: resolveWechatShareFallbackText(payload),
+              data: resolveShareTargetText(payload),
               success() {
                 resolve(ok({
                   capability: input.capability,
