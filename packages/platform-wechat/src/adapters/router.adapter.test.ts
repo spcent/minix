@@ -37,3 +37,21 @@ test("wechat router adapter routes and tracks the current location", async () =>
     },
   });
 });
+
+test("wechat router adapter maps runtime failures to route errors", async () => {
+  const adapter = createWechatRouterAdapter({
+    navigateTo(options) {
+      options.fail?.({ errMsg: "navigateTo:fail" });
+    },
+  });
+
+  const result = await adapter.push({ path: "/pages/items/index" });
+
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.error.code, "ROUTE_ERROR");
+    assert.equal(result.error.message, "wechat navigateTo failed");
+    assert.equal(result.error.recoverable, true);
+  }
+  assert.deepEqual(adapter.current(), { ok: true, value: null });
+});

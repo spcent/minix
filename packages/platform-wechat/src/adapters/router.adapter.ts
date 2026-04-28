@@ -1,6 +1,7 @@
 import { createError, createRouteLocationUrl, fail, ok, type RouteLocation, type RouterAdapter } from "@minix/core";
 
 import { resolveWechatRuntime } from "../runtime";
+import { createWechatCallbackResult } from "./callback-result";
 
 interface WechatRouterRuntime {
   navigateTo?: (options: { url: string; success?: () => void; fail?: (error: unknown) => void }) => void;
@@ -22,17 +23,18 @@ export function createWechatRouterAdapter(
         );
       }
 
-      return new Promise((resolve) => {
+      return createWechatCallbackResult<void>((resolveValue, rejectValue) => {
         host.navigateTo?.({
           url: createRouteLocationUrl(location),
           success() {
             currentLocation = location;
-            resolve(ok(undefined));
+            resolveValue(undefined);
           },
-          fail(error) {
-            resolve(fail(createError("ROUTE_ERROR", "wechat navigateTo failed", { cause: error, recoverable: true })));
-          },
+          fail: rejectValue,
         });
+      }, {
+        code: "ROUTE_ERROR",
+        message: "wechat navigateTo failed",
       });
     },
 
@@ -43,17 +45,18 @@ export function createWechatRouterAdapter(
         );
       }
 
-      return new Promise((resolve) => {
+      return createWechatCallbackResult<void>((resolveValue, rejectValue) => {
         host.redirectTo?.({
           url: createRouteLocationUrl(location),
           success() {
             currentLocation = location;
-            resolve(ok(undefined));
+            resolveValue(undefined);
           },
-          fail(error) {
-            resolve(fail(createError("ROUTE_ERROR", "wechat redirectTo failed", { cause: error, recoverable: true })));
-          },
+          fail: rejectValue,
         });
+      }, {
+        code: "ROUTE_ERROR",
+        message: "wechat redirectTo failed",
       });
     },
 
@@ -64,16 +67,17 @@ export function createWechatRouterAdapter(
         );
       }
 
-      return new Promise((resolve) => {
+      return createWechatCallbackResult<void>((resolveValue, rejectValue) => {
         host.navigateBack?.({
           ...(delta !== undefined ? { delta } : {}),
           success() {
-            resolve(ok(undefined));
+            resolveValue(undefined);
           },
-          fail(error) {
-            resolve(fail(createError("ROUTE_ERROR", "wechat navigateBack failed", { cause: error, recoverable: true })));
-          },
+          fail: rejectValue,
         });
+      }, {
+        code: "ROUTE_ERROR",
+        message: "wechat navigateBack failed",
       });
     },
 

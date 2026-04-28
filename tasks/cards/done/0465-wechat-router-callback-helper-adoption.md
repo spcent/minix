@@ -79,7 +79,18 @@ Keep WeChat adapter callback handling consistent across request, storage, UI, an
 
 ## Acceptance
 
-- [ ] WeChat router adapter uses `createWechatCallbackResult`
-- [ ] route success still updates current location
-- [ ] route failure still returns `ROUTE_ERROR`
-- [ ] targeted tests pass
+- [x] WeChat router adapter uses `createWechatCallbackResult`
+- [x] route success still updates current location
+- [x] route failure still returns `ROUTE_ERROR`
+- [x] targeted tests pass
+
+## Implementation Notes
+
+- Replaced WeChat router adapter callback Promise wrappers with `createWechatCallbackResult`.
+- Preserved current-location updates only after successful push or replace.
+- Added failure coverage for `navigateTo` returning `ROUTE_ERROR`.
+
+## Verification Notes
+
+- `node --import tsx --test packages/platform-wechat/src/adapters/router.adapter.test.ts packages/platform-wechat/src/adapters/callback-result.test.ts`
+- `pnpm typecheck`
