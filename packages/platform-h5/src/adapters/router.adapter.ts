@@ -1,18 +1,4 @@
-import { createError, fail, ok, type RouteLocation, type RouterAdapter } from "@minix/core";
-
-function toQueryString(params?: RouteLocation["params"]): string {
-  if (!params) {
-    return "";
-  }
-
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    search.set(key, String(value));
-  }
-
-  const query = search.toString();
-  return query ? `?${query}` : "";
-}
+import { createError, createRouteLocationUrl, fail, ok, type RouteLocation, type RouterAdapter } from "@minix/core";
 
 function fromLocation(locationApi: Location | undefined, state?: unknown): RouteLocation | null {
   if (typeof locationApi?.pathname !== "string") {
@@ -46,7 +32,7 @@ export function createH5RouterAdapter(historyApi: History | undefined = globalTh
         return fail(createError("PLATFORM_UNSUPPORTED", "history API is unavailable", { recoverable: false }));
       }
 
-      const url = `${location.path}${toQueryString(location.params)}`;
+      const url = createRouteLocationUrl(location);
       historyApi.pushState(location.params ?? null, "", url);
       currentLocation = location;
       return ok(undefined);
@@ -57,7 +43,7 @@ export function createH5RouterAdapter(historyApi: History | undefined = globalTh
         return fail(createError("PLATFORM_UNSUPPORTED", "history API is unavailable", { recoverable: false }));
       }
 
-      const url = `${location.path}${toQueryString(location.params)}`;
+      const url = createRouteLocationUrl(location);
       historyApi.replaceState(location.params ?? null, "", url);
       currentLocation = location;
       return ok(undefined);

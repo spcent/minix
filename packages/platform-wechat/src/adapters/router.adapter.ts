@@ -1,4 +1,4 @@
-import { createError, fail, ok, type RouteLocation, type RouterAdapter } from "@minix/core";
+import { createError, createRouteLocationUrl, fail, ok, type RouteLocation, type RouterAdapter } from "@minix/core";
 
 import { resolveWechatRuntime } from "../runtime";
 
@@ -6,20 +6,6 @@ interface WechatRouterRuntime {
   navigateTo?: (options: { url: string; success?: () => void; fail?: (error: unknown) => void }) => void;
   redirectTo?: (options: { url: string; success?: () => void; fail?: (error: unknown) => void }) => void;
   navigateBack?: (options: { delta?: number; success?: () => void; fail?: (error: unknown) => void }) => void;
-}
-
-function toQueryString(params?: RouteLocation["params"]): string {
-  if (!params) {
-    return "";
-  }
-
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    search.set(key, String(value));
-  }
-
-  const query = search.toString();
-  return query ? `?${query}` : "";
 }
 
 export function createWechatRouterAdapter(
@@ -38,7 +24,7 @@ export function createWechatRouterAdapter(
 
       return new Promise((resolve) => {
         host.navigateTo?.({
-          url: `${location.path}${toQueryString(location.params)}`,
+          url: createRouteLocationUrl(location),
           success() {
             currentLocation = location;
             resolve(ok(undefined));
@@ -59,7 +45,7 @@ export function createWechatRouterAdapter(
 
       return new Promise((resolve) => {
         host.redirectTo?.({
-          url: `${location.path}${toQueryString(location.params)}`,
+          url: createRouteLocationUrl(location),
           success() {
             currentLocation = location;
             resolve(ok(undefined));

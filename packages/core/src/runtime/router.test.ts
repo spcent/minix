@@ -4,7 +4,22 @@ import test from "node:test";
 import { ok } from "../error";
 import type { RouterAdapter } from "../ports/router";
 
-import { createRouteMapper, createRouterService } from "./router";
+import { createRouteLocationUrl, createRouteMapper, createRouterService } from "./router";
+
+test("createRouteLocationUrl serializes route params consistently", () => {
+  assert.equal(createRouteLocationUrl({ path: "/items" }), "/items");
+  assert.equal(
+    createRouteLocationUrl({
+      path: "/items",
+      params: {
+        from: "plan",
+        page: 2,
+        active: true,
+      },
+    }),
+    "/items?from=plan&page=2&active=true",
+  );
+});
 
 test("router service resolves route ids through a mapper", async () => {
   const calls: Array<{ kind: "push" | "replace"; path: string }> = [];

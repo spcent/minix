@@ -28,6 +28,20 @@ export function createRouteMapper(routeMap: Record<string, string>): RouteMapper
   };
 }
 
+export function createRouteLocationUrl(location: Pick<RouteLocation, "path" | "params">): string {
+  if (!location.params) {
+    return location.path;
+  }
+
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(location.params)) {
+    search.set(key, String(value));
+  }
+
+  const query = search.toString();
+  return query ? `${location.path}?${query}` : location.path;
+}
+
 export function createRouterService(options: CreateRouterServiceOptions): RouterService {
   const { adapter, routeMapper } = options;
 
