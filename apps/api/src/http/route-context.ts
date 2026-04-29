@@ -15,6 +15,19 @@ export async function parseRouteBody<SchemaOutput>(
   return parseJsonBody(c.req.raw, schema, getRouteTraceId(c));
 }
 
+export async function withParsedRouteBody<SchemaOutput, TResult>(
+  c: Context<any>,
+  schema: ZodType<SchemaOutput>,
+  handler: (payload: SchemaOutput) => Promise<TResult> | TResult,
+): Promise<TResult | Response> {
+  const payload = await parseRouteBody(c, schema);
+  if (payload instanceof Response) {
+    return payload;
+  }
+
+  return handler(payload);
+}
+
 export function parseRouteQuery<SchemaOutput>(
   c: Context<any>,
   schema: ZodType<SchemaOutput>,
@@ -81,4 +94,23 @@ export async function withRouteUserState<TResult>(
   handler: (context: RouteUserStateContext) => Promise<TResult> | TResult,
 ): Promise<TResult> {
   return handler(await loadRouteUserState(c, resolveStore));
+}
+
+export async function withRouteUserStateMutation<TResult>(
+  c: Context<any>,
+  resolveStore: (env: ApiBindings | undefined) => ApiStore,
+  handler: (context: RouteUserStateContext) => Promise<TResult> | TResult,
+  options: {
+    shouldSave?: (result: TResult) => boolean;
+  } = {},
+): Promise<TResult> {
+  const context = await loadRouteUserState(c, resolveStore);
+  const result = await handler(context);
+  const shouldSave =
+    options.shouldSave?.(result) ??
+    !(result instanceof Response && result.status >= 400);
+  if (shouldSave) {
+    await context.store.saveUserState(context.session.userId, context.userState);
+  }
+  return result;
 }

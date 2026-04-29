@@ -2,7 +2,7 @@ import {
   beginFormSubmit,
   createFormSubmissionKey,
   createFormWorkflowState,
-  createAuthRedirectParams,
+  createControllerRouterHelpers,
   cloneStateSnapshot,
   cloneStateSnapshotArray,
   createStore,
@@ -1290,6 +1290,11 @@ export function createAccountController(options: CreateAccountControllerOptions)
     ...cloneState(createDefaultAccountState()),
     ...initialState,
   });
+  const { routeToLogin, routeToOptional } = createControllerRouterHelpers({
+    kernel,
+    loginRouteId,
+    authRedirectSource,
+  });
 
   function applyOperationValues(
     values: AccountOperationFormValues,
@@ -1326,31 +1331,6 @@ export function createAccountController(options: CreateAccountControllerOptions)
         ...(!options.preserveResult ? { result: undefined } : {}),
       },
     });
-  }
-
-  async function routeToOptional(routeId?: AppRouteId) {
-    if (!routeId) {
-      return ok(undefined);
-    }
-
-    return kernel.router.toRoute(routeId);
-  }
-
-  async function routeToLogin() {
-    if (!loginRouteId) {
-      return ok(undefined);
-    }
-
-    const current = kernel.router.current();
-    return kernel.router.replaceRoute(
-      loginRouteId,
-      createAuthRedirectParams({
-        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
-        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
-        ...(authRedirectSource ? { source: authRedirectSource } : {}),
-        reason: "auth-required",
-      }),
-    );
   }
 
   async function persistTransitionResponse(response: IdentityTransitionResponse) {

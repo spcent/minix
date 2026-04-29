@@ -34,6 +34,10 @@ export const hostWechatFeatureFlags = defineHostFeatureFlags({
   enableRouteGuard: true,
 });
 
+function authenticatedPage(name: string) {
+  return createAuthenticatedGuardPolicy(`authenticated-${name}`);
+}
+
 export const hostWechatPageDefinitions = defineHostPageDefinitions({
   login: {
     feature: authFeatureManifest,
@@ -137,12 +141,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "overview",
     },
-    guardPolicy: {
-      name: "authenticated-overview",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("overview"),
     requiredCapabilities: [{ capability: "device" }],
     featureConfig: {
       landingVariant: "overview",
@@ -164,12 +163,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "plan",
     },
-    guardPolicy: {
-      name: "authenticated-plan",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("plan"),
     requiredCapabilities: [{ capability: "device" }],
     featureConfig: {
       experience: "daily-plan",
@@ -194,12 +188,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "feed",
     },
-    guardPolicy: {
-      name: "authenticated-feed",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("feed"),
     featureConfig: {
       surface: "search",
     },
@@ -226,12 +215,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       cancelRouteId: APP_ROUTE_IDS.account,
       authRedirectSource: "feedback",
     },
-    guardPolicy: {
-      name: "authenticated-feedback",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("feedback"),
     featureConfig: {
       surface: "feedback",
       template: "form",
@@ -258,12 +242,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "messages",
     },
-    guardPolicy: {
-      name: "authenticated-messages",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("messages"),
     featureConfig: {
       surface: "messages",
     },
@@ -288,12 +267,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       loginRouteId: APP_ROUTE_IDS.login,
       settingsRouteId: APP_ROUTE_IDS.settings,
     },
-    guardPolicy: {
-      name: "authenticated-media-tools",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("media-tools"),
     requiredCapabilities: [
       { capability: "upload", required: false },
       { capability: "share", required: false },
@@ -321,12 +295,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       membershipRouteId: APP_ROUTE_IDS.membership,
       ordersRouteId: APP_ROUTE_IDS.orders,
     },
-    guardPolicy: {
-      name: "authenticated-membership",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("membership"),
     requiredCapabilities: [{ capability: "payment", required: false }],
     miniprogramPage: "pages/membership/index",
     registrationModule: "../../../src/registrations/wechat/pages/membership",
@@ -347,12 +316,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       membershipRouteId: APP_ROUTE_IDS.membership,
       ordersRouteId: APP_ROUTE_IDS.orders,
     },
-    guardPolicy: {
-      name: "authenticated-orders",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("orders"),
     requiredCapabilities: [{ capability: "payment", required: false }],
     miniprogramPage: "pages/orders/index",
     registrationModule: "../../../src/registrations/wechat/pages/orders",
@@ -389,12 +353,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       },
       showErrorToast: true,
     },
-    guardPolicy: {
-      name: "authenticated-settings",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("settings"),
     requiredCapabilities: [{ capability: "clipboard" }],
     featureConfig: {
       sectionDensity: "comfortable",
@@ -422,12 +381,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       identityMergeRouteId: APP_ROUTE_IDS.identityMerge,
       authRedirectSource: "account",
     },
-    guardPolicy: {
-      name: "authenticated-account",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("account"),
     requiredCapabilities: [{ capability: "clipboard", required: false }],
     featureConfig: {
       surface: "account",

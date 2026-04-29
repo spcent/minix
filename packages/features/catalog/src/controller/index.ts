@@ -2,6 +2,7 @@ import {
   cloneStateSnapshot,
   cloneStateSnapshotArray,
   createControllerRouterHelpers,
+  createListRequestFlow,
   ok,
   createStore,
   deriveLatestMilestoneHistory,
@@ -296,91 +297,94 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
     });
   }
 
-  async function handleLoadFailure(result: FailedCatalogResult) {
-    store.setState({
+  function createLoadFailurePatch(result: FailedCatalogResult) {
+    return {
       loading: false,
       refreshing: false,
       errorText: result.error.message,
-    });
-
-    if (result.error.code === "UNAUTHORIZED") {
-      return routeToLogin();
-    }
-
-    return result;
+    };
   }
 
-  async function requestPage(page: number, append: boolean) {
-    const current = store.getState();
-    const result = await kernel.request.get<NovelListResponse>(requestPath, {
+  function createRequestQuery(state: CatalogState, page: number) {
+    return {
       page,
-      pageSize: current.query.pageSize,
-      categoryKey: current.activeCategoryKey === "all" ? undefined : current.activeCategoryKey,
-      status: current.activeStatus === "all" ? undefined : current.activeStatus,
-      sort: current.sort,
-      keyword: current.query.keyword || undefined,
-    });
-
-    if (!result.ok) {
-      return handleLoadFailure(result);
-    }
-
-    const nextSearchResults = createSearchResults(result.value, current.recentSearches, current.emptyText);
-    const annotatedItems = annotateItems(nextSearchResults.items);
-    const nextItems = append ? annotateItems([...current.items, ...annotatedItems]) : annotatedItems;
-    const nextQuery = {
-      ...current.query,
-      keyword: result.value.searchQuery.keyword,
-      page: result.value.searchQuery.page,
-      pageSize: result.value.searchQuery.pageSize,
+      pageSize: state.query.pageSize,
+      categoryKey: state.activeCategoryKey === "all" ? undefined : state.activeCategoryKey,
+      status: state.activeStatus === "all" ? undefined : state.activeStatus,
+      sort: state.sort,
+      keyword: state.query.keyword || undefined,
     };
-    const selectedNovelId = deriveSelectedNovelId({
-      ...current,
-      items: nextItems,
-    });
-    store.setState({
-      ready: true,
-      loading: false,
-      refreshing: false,
-      items: nextItems,
-      hasMore: nextSearchResults.hasMore,
-      searchQuery: cloneStateSnapshot(result.value.searchQuery),
-      searchFilters: cloneStateSnapshotArray(result.value.searchFilters),
-      searchResults: {
-        ...nextSearchResults,
+  }
+
+  const runListRequest = createListRequestFlow<CatalogState, NovelListResponse>({
+    store,
+    resolvePage: ({ kind, state }) => (kind === "append" ? (state.query.page ?? 1) + 1 : 1),
+    createStartPatch: ({ kind }) => ({
+      loading: true,
+      refreshing: kind === "refresh",
+      errorText: undefined,
+    }),
+    request: ({ page }) => kernel.request.get<NovelListResponse>(requestPath, createRequestQuery(store.getState(), page)),
+    applyResponse: ({ kind, response }) => {
+      const current = store.getState();
+      const nextSearchResults = createSearchResults(response, current.recentSearches, current.emptyText);
+      const annotatedItems = annotateItems(nextSearchResults.items);
+      const nextItems = kind === "append" ? annotateItems([...current.items, ...annotatedItems]) : annotatedItems;
+      const nextQuery = {
+        ...current.query,
+        keyword: response.searchQuery.keyword,
+        page: response.searchQuery.page,
+        pageSize: response.searchQuery.pageSize,
+      };
+      const selectedNovelId = deriveSelectedNovelId({
+        ...current,
         items: nextItems,
-      },
-      query: nextQuery,
-      list: createCatalogListState({
-        title: current.title,
-        pageSize: nextQuery.pageSize,
-        emptyText: current.emptyText,
+      });
+
+      return {
+        ready: true,
+        loading: false,
+        refreshing: false,
         items: nextItems,
-        ...(selectedNovelId ? { selectedNovelId } : {}),
-        searchQuery: result.value.searchQuery,
-        searchFilters: result.value.searchFilters,
+        hasMore: nextSearchResults.hasMore,
+        searchQuery: cloneStateSnapshot(response.searchQuery),
+        searchFilters: cloneStateSnapshotArray(response.searchFilters),
         searchResults: {
           ...nextSearchResults,
           items: nextItems,
         },
-        hasMore: nextSearchResults.hasMore,
-        ...(nextSearchResults.total !== undefined ? { total: nextSearchResults.total } : {}),
-        keyword: nextQuery.keyword,
-        page: nextQuery.page,
-        sort: result.value.searchResults.activeSortKey as NovelSortValue,
-      }),
-      errorText: undefined,
-      recentSearches: nextSearchResults.recentKeywords,
-      hotKeywords: nextSearchResults.hotKeywords,
-      sort: result.value.searchResults.activeSortKey as NovelSortValue,
-      activeCategoryKey: findSelectedFilterKey(result.value, "category") ?? "all",
-      activeStatus: (findSelectedFilterKey(result.value, "status") as NovelStatus | "all" | undefined) ?? "all",
-      selectedNovelId,
-      ...deriveCatalogReasons(nextItems, selectedNovelId),
-    });
-
-    return result;
-  }
+        query: nextQuery,
+        list: createCatalogListState({
+          title: current.title,
+          pageSize: nextQuery.pageSize,
+          emptyText: current.emptyText,
+          items: nextItems,
+          ...(selectedNovelId ? { selectedNovelId } : {}),
+          searchQuery: response.searchQuery,
+          searchFilters: response.searchFilters,
+          searchResults: {
+            ...nextSearchResults,
+            items: nextItems,
+          },
+          hasMore: nextSearchResults.hasMore,
+          ...(nextSearchResults.total !== undefined ? { total: nextSearchResults.total } : {}),
+          keyword: nextQuery.keyword,
+          page: nextQuery.page,
+          sort: response.searchResults.activeSortKey as NovelSortValue,
+        }),
+        errorText: undefined,
+        recentSearches: nextSearchResults.recentKeywords,
+        hotKeywords: nextSearchResults.hotKeywords,
+        sort: response.searchResults.activeSortKey as NovelSortValue,
+        activeCategoryKey: findSelectedFilterKey(response, "category") ?? "all",
+        activeStatus: (findSelectedFilterKey(response, "status") as NovelStatus | "all" | undefined) ?? "all",
+        selectedNovelId,
+        ...deriveCatalogReasons(nextItems, selectedNovelId),
+      };
+    },
+    createFailurePatch: ({ result }) => createLoadFailurePatch(result),
+    onUnauthorized: () => routeToLogin(),
+  });
 
   return {
     store,
@@ -393,13 +397,7 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
       hydrateStateFromRoute();
       await hydrateSearchHistory();
       await hydrateLatestMilestone();
-      store.setState({
-        loading: true,
-        refreshing: false,
-        errorText: undefined,
-      });
-
-      return requestPage(1, false);
+      return runListRequest("initial");
     },
 
     async loadMore() {
@@ -408,12 +406,7 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
         return ok(undefined);
       }
 
-      store.setState({
-        loading: true,
-        errorText: undefined,
-      });
-
-      return requestPage((current.query.page ?? 1) + 1, true);
+      return runListRequest("append");
     },
 
     selectNovel(novelId: string) {

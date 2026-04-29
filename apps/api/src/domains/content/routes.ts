@@ -24,7 +24,14 @@ import {
 } from "./managed-content";
 import { listFeed } from "./feed";
 import { CHAPTER_CONTENT, CHAPTER_LISTS, NOVELS } from "../../content";
-import { getRouteTraceId, parseRouteBody, parseRouteQuery, withRouteUserState } from "../../http/route-context";
+import {
+  getRouteTraceId,
+  parseRouteBody,
+  parseRouteQuery,
+  withParsedRouteBody,
+  withRouteUserState,
+  withRouteUserStateMutation,
+} from "../../http/route-context";
 import { jsonError, respondDomainResult } from "../../http/response";
 import type { ApiRouteBaseOptions } from "../route-options";
 import { pickDefinedApiFields } from "../schema-helpers";
@@ -107,12 +114,8 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
 
   app.post("/content/save-draft", async (c) => {
     const traceId = getRouteTraceId(c);
-    const payload = await parseRouteBody(c, contentDraftSaveSchema);
-    if (payload instanceof Response) {
-      return payload;
-    }
-
-    return withRouteUserState(c, resolveStore, async ({ session, store, userState }) => {
+    return withParsedRouteBody(c, contentDraftSaveSchema, (payload) =>
+      withRouteUserStateMutation(c, resolveStore, ({ userState }) => {
       const request: SaveContentDraftRequest = {
         model: payload.model,
         title: payload.title,
@@ -135,19 +138,15 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
         return respondDomainResult(c, response, traceId);
       }
 
-      await store.saveUserState(session.userId, userState);
       return c.json(response.value satisfies SaveContentDraftResponse);
-    });
+      }),
+    );
   });
 
   app.post("/content/lifecycle", async (c) => {
     const traceId = getRouteTraceId(c);
-    const payload = await parseRouteBody(c, contentLifecycleMutationSchema);
-    if (payload instanceof Response) {
-      return payload;
-    }
-
-    return withRouteUserState(c, resolveStore, async ({ session, store, userState }) => {
+    return withParsedRouteBody(c, contentLifecycleMutationSchema, (payload) =>
+      withRouteUserStateMutation(c, resolveStore, ({ userState }) => {
       const response = applyManagedContentLifecycle(userState, {
         contentId: payload.contentId,
         action: payload.action,
@@ -157,9 +156,9 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
         return respondDomainResult(c, response, traceId);
       }
 
-      await store.saveUserState(session.userId, userState);
       return c.json(response.value satisfies ContentLifecycleMutationResponse);
-    });
+      }),
+    );
   });
 
   app.get("/novels", async (c) => {

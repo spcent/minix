@@ -25,7 +25,7 @@ import {
   beginFormSubmit,
   cloneStateSnapshot,
   cloneStateSnapshotArray,
-  createAuthRedirectParams,
+  createControllerRouterHelpers,
   createFormDraftState,
   createFormSchema,
   createFormSubmissionKey,
@@ -423,6 +423,11 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
     ...cloneState(createDefaultFeedbackState()),
     ...initialState,
   });
+  const { routeToLogin, routeToOptional } = createControllerRouterHelpers({
+    kernel,
+    loginRouteId,
+    authRedirectSource,
+  });
 
   function applyFeedbackValues(
     values: FeedbackValues,
@@ -472,31 +477,6 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
     }
 
     return kernel.storage.remove(feedbackDraftStorageKey);
-  }
-
-  async function routeToOptional(routeId?: AppRouteId, params?: Record<string, string | number | boolean>) {
-    if (!routeId) {
-      return ok(undefined);
-    }
-
-    return kernel.router.toRoute(routeId, params);
-  }
-
-  async function routeToLogin() {
-    if (!loginRouteId) {
-      return ok(undefined);
-    }
-
-    const current = kernel.router.current();
-    return kernel.router.replaceRoute(
-      loginRouteId,
-      createAuthRedirectParams({
-        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
-        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
-        ...(authRedirectSource ? { source: authRedirectSource } : {}),
-        reason: "auth-required",
-      }),
-    );
   }
 
   async function captureLocalContext() {

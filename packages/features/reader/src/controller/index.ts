@@ -1,7 +1,8 @@
 import {
   cloneStateSnapshot,
   cloneStateSnapshotArray,
-  createAuthRedirectParams,
+  createControllerRouterHelpers,
+  createSingleFlightHydrator,
   ok,
   createStore,
   deriveNovelAccessPresentation,
@@ -524,7 +525,10 @@ export function createReaderController(options: CreateReaderControllerOptions) {
     ...cloneInitialState(createInitialReaderState()),
     ...initialState,
   });
-  let displayHydration: Promise<Result<void>> | null = null;
+  const { routeToLogin } = createControllerRouterHelpers({
+    kernel,
+    loginRouteId,
+  });
 
   function resolveRouteValue(key: "novelId" | "chapterId"): string | undefined {
     const current = kernel.router.current();
@@ -542,33 +546,13 @@ export function createReaderController(options: CreateReaderControllerOptions) {
     return typeof routeValue === "string" ? routeValue : undefined;
   }
 
-  async function routeToLogin() {
-    if (!loginRouteId) {
-      return ok(undefined);
-    }
-
-    const current = kernel.router.current();
-    return kernel.router.replaceRoute(
-      loginRouteId,
-      createAuthRedirectParams({
-        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
-        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
-        reason: "auth-required",
-      }),
-    );
-  }
-
   async function persistDisplayPreferences() {
     const current = store.getState();
     return kernel.storage.set(displaySettingsStorageKey, createDisplayPreferences(current));
   }
 
-  async function hydrateDisplayPreferences(force = false): Promise<Result<void>> {
-    if (!force && displayHydration) {
-      return displayHydration;
-    }
-
-    const run = async (): Promise<Result<void>> => {
+  const hydrateDisplayPreferences = createSingleFlightHydrator<void>(
+    async (): Promise<Result<void>> => {
       const current = store.getState();
       const result = await kernel.storage.get<ReaderDisplayPreferences>(displaySettingsStorageKey);
       if (!result.ok) {
@@ -577,13 +561,8 @@ export function createReaderController(options: CreateReaderControllerOptions) {
 
       store.setState(applyNightModeDefault(applyDisplayPreferences(current, result.value), now()));
       return ok(undefined);
-    };
-
-    displayHydration = run().finally(() => {
-      displayHydration = null;
-    });
-    return displayHydration;
-  }
+    },
+  );
 
   async function restoreOrCreateSession(
     novelId: string,

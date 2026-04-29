@@ -1,5 +1,5 @@
 import {
-  createAuthRedirectParams,
+  createControllerRouterHelpers,
   createCapabilityHealthSnapshot,
   createDetailStatus,
   createListStatus,
@@ -101,6 +101,10 @@ export function createSubscriptionController(options: CreateSubscriptionControll
     ...createInitialSubscriptionState(),
     ...initialState,
   });
+  const { routeToLogin } = createControllerRouterHelpers({
+    kernel,
+    loginRouteId,
+  });
 
   function derivePaymentCapabilitySummary(status: CapabilityStatus | undefined) {
     const base = describeCapabilityStatus(
@@ -138,22 +142,6 @@ export function createSubscriptionController(options: CreateSubscriptionControll
     const current = kernel.router.current();
     const value = current.ok ? current.value?.params?.[key] : undefined;
     return typeof value === "string" ? value : store.getState()[key];
-  }
-
-  async function routeToLogin() {
-    if (!loginRouteId) {
-      return ok(undefined);
-    }
-
-    const current = kernel.router.current();
-    return kernel.router.replaceRoute(
-      loginRouteId,
-      createAuthRedirectParams({
-        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
-        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
-        reason: "auth-required",
-      }),
-    );
   }
 
   function deriveReturnTarget(source?: string) {

@@ -1,7 +1,7 @@
 import {
   cloneStateSnapshot,
   cloneStateSnapshotArray,
-  createAuthRedirectParams,
+  createControllerRouterHelpers,
   ok,
   createStore,
   deriveLatestMilestoneHistory,
@@ -372,22 +372,10 @@ export function createBookshelfController(options: CreateBookshelfControllerOpti
     ...cloneInitialState(createInitialBookshelfState()),
     ...initialState,
   });
-
-  async function routeToLogin() {
-    if (!loginRouteId) {
-      return ok(undefined);
-    }
-
-    const current = kernel.router.current();
-    return kernel.router.replaceRoute(
-      loginRouteId,
-      createAuthRedirectParams({
-        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
-        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
-        reason: "auth-required",
-      }),
-    );
-  }
+  const { routeToLogin } = createControllerRouterHelpers({
+    kernel,
+    loginRouteId,
+  });
 
   async function persistLatestMilestone(
     novelId: string | undefined,

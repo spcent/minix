@@ -1,6 +1,6 @@
 import {
   cloneStateSnapshotArray,
-  createAuthRedirectParams,
+  createControllerRouterHelpers,
   ok,
   createStore,
   deriveNovelAccessPresentation,
@@ -222,6 +222,10 @@ export function createTocController(options: CreateTocControllerOptions) {
     ...cloneInitialState(createInitialTocState()),
     ...initialState,
   });
+  const { routeToLogin } = createControllerRouterHelpers({
+    kernel,
+    loginRouteId,
+  });
 
   function resolveNovelId(): string | undefined {
     const current = kernel.router.current();
@@ -282,22 +286,6 @@ export function createTocController(options: CreateTocControllerOptions) {
     }
 
     return kernel.storage.set<LatestReadingMilestoneSnapshot[]>(latestMilestoneHistoryStorageKey, nextHistory);
-  }
-
-  async function routeToLogin() {
-    if (!loginRouteId) {
-      return ok(undefined);
-    }
-
-    const current = kernel.router.current();
-    return kernel.router.replaceRoute(
-      loginRouteId,
-      createAuthRedirectParams({
-        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
-        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
-        reason: "auth-required",
-      }),
-    );
   }
 
   return {

@@ -1,7 +1,7 @@
 import {
   cloneStateSnapshot,
   cloneStateSnapshotArray,
-  createAuthRedirectParams,
+  createControllerRouterHelpers,
   createDetailStatus,
   ok,
   createStore,
@@ -199,6 +199,10 @@ export function createNovelDetailController(options: CreateNovelDetailController
     ...cloneInitialState(createInitialNovelDetailState()),
     ...initialState,
   });
+  const { routeToLogin, routeToOptional } = createControllerRouterHelpers({
+    kernel,
+    loginRouteId,
+  });
 
   function resolveNovelId(): string | undefined {
     const current = kernel.router.current();
@@ -207,30 +211,6 @@ export function createNovelDetailController(options: CreateNovelDetailController
     }
 
     return store.getState().novelId;
-  }
-
-  async function routeToOptional(routeId: AppRouteId | undefined, params?: Record<string, string | number | boolean>) {
-    if (!routeId) {
-      return ok(undefined);
-    }
-
-    return kernel.router.toRoute(routeId, params);
-  }
-
-  async function routeToLogin() {
-    if (!loginRouteId) {
-      return ok(undefined);
-    }
-
-    const current = kernel.router.current();
-    return kernel.router.replaceRoute(
-      loginRouteId,
-      createAuthRedirectParams({
-        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
-        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
-        reason: "auth-required",
-      }),
-    );
   }
 
   return {

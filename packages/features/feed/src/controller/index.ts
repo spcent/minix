@@ -4,10 +4,8 @@ import {
   cloneStateSnapshotArray,
   createControllerRouterHelpers,
   createFormSubmissionKey,
-  createFormDraftState,
-  createFormSchema,
+  createListRequestFlow,
   createListStatus,
-  createFormWorkflowState,
   createStore,
   createSingleFlightHydrator,
   finalizeFormSubmit,
@@ -30,9 +28,6 @@ import {
   type ContentVisibility,
   type FeedItem,
   type FeedListResponse,
-  type FormApprovalNode,
-  type FormFieldDefinition,
-  type FormSchema,
   type SaveContentDraftRequest,
   type SaveContentDraftResponse,
   type SearchDomain,
@@ -46,6 +41,7 @@ import {
   type ContentDraftFormValues,
   type FeedState,
 } from "../model";
+import { buildContentDraftFormState, CONTENT_DRAFT_STORAGE_KEY } from "./content-draft-form";
 
 export interface CreateFeedControllerOptions {
   kernel: AppKernel;
@@ -63,196 +59,13 @@ export interface CreateFeedControllerOptions {
 }
 
 type FailedFeedResult = Extract<Result<FeedListResponse>, { ok: false }>;
+type ContentDraftSnapshotResult = Result<{
+  savedAt: number;
+  values: ContentDraftFormValues;
+  currentStepKey?: string;
+} | null>;
 
 const DEFAULT_SEARCH_HISTORY_STORAGE_KEY = "feed.recent-keywords";
-const CONTENT_DRAFT_STORAGE_KEY = "@minix/feed/content-draft/v1";
-
-function createContentDraftSchema(values: ContentDraftFormValues): FormSchema {
-  const fields: FormFieldDefinition[] = [
-    {
-      key: "model",
-      label: "Content model",
-      type: "single_select",
-      required: true,
-      dynamic: true,
-      stepKey: "basics",
-      options: [
-        { key: "article", label: "Article" },
-        { key: "course", label: "Course" },
-        { key: "event", label: "Event" },
-        { key: "post", label: "Post" },
-      ],
-    },
-    {
-      key: "title",
-      label: "Title",
-      type: "text",
-      required: true,
-      stepKey: "basics",
-    },
-    {
-      key: "subtitle",
-      label: "Subtitle",
-      type: "text",
-      stepKey: "basics",
-    },
-    {
-      key: "summary",
-      label: "Summary",
-      type: "text",
-      required: true,
-      stepKey: "basics",
-    },
-    {
-      key: "bodyPreview",
-      label: "Body preview",
-      type: "rich_text",
-      required: true,
-      stepKey: "editorial",
-      richTextToolbar: "placeholder",
-    },
-    {
-      key: "tagKeys",
-      label: "Tags",
-      type: "multi_select",
-      dynamic: true,
-      stepKey: "editorial",
-      options: [
-        { key: "news", label: "News" },
-        { key: "featured", label: "Featured" },
-        { key: "member", label: "Member" },
-        { key: "event", label: "Event" },
-      ],
-    },
-    {
-      key: "visibility",
-      label: "Visibility",
-      type: "single_select",
-      required: true,
-      dynamic: true,
-      stepKey: "distribution",
-      options: [
-        { key: "public", label: "Public" },
-        { key: "login_required", label: "Login required" },
-        { key: "member_only", label: "Member only" },
-        { key: "purchased_only", label: "Purchased only" },
-      ],
-    },
-    {
-      key: "publishAt",
-      label: "Publish date",
-      type: "date",
-      dynamic: true,
-      stepKey: "distribution",
-      conditions: [{ field: "model", operator: "eq", value: "event" }],
-    },
-    {
-      key: "coverAssetId",
-      label: "Cover asset",
-      type: "upload_reference",
-      dynamic: true,
-      stepKey: "assets",
-      uploadRole: "content-cover",
-    },
-    {
-      key: "attachmentAssetIds",
-      label: "Attachment assets",
-      type: "upload_reference",
-      dynamic: true,
-      stepKey: "assets",
-      uploadRole: "content-attachment",
-      conditions: [{ field: "model", operator: "neq", value: "post" }],
-    },
-  ];
-
-  return createFormSchema({
-    fields,
-    steps: [
-      { key: "basics", label: "Basics" },
-      { key: "editorial", label: "Editorial" },
-      { key: "distribution", label: "Distribution" },
-      { key: "assets", label: "Assets" },
-      { key: "review", label: "Review" },
-    ],
-  });
-}
-
-function createContentDraftApprovalNodes(
-  response?: SaveContentDraftResponse,
-  selectedReviewItem?: ContentReviewQueueItem,
-): FormApprovalNode[] {
-  const reviewStatus = response?.contentDetail.reviewRecord?.status;
-  if (!reviewStatus && !selectedReviewItem) {
-    return [];
-  }
-
-  return [
-    {
-      nodeKey: "authoring",
-      label: "Authoring",
-      state: "approved",
-      assigneeLabel: response?.contentDetail.authorLabel ?? "Author",
-      comment: response?.transitionMessage ?? "Draft content is ready for editorial review.",
-    },
-    {
-      nodeKey: "review",
-      label: "Editorial review",
-      state:
-        reviewStatus === "approved"
-          ? "approved"
-          : reviewStatus === "rejected"
-            ? "rejected"
-            : reviewStatus === "queued" || selectedReviewItem?.lifecycleState === "under_review"
-              ? "pending"
-              : "not_started",
-      assigneeLabel: selectedReviewItem?.reviewerLabel ?? response?.contentDetail.reviewRecord?.reviewerLabel ?? "Reviewer",
-      comment:
-        response?.contentDetail.reviewRecord?.message ??
-        selectedReviewItem?.queueLabel ??
-        "Editorial review will start after the draft is submitted.",
-    },
-  ];
-}
-
-function buildContentDraftFormState(
-  values: ContentDraftFormValues,
-  options: {
-    currentStepKey?: string;
-    draftSavedAt?: number;
-    restored?: boolean;
-    lastResponse?: SaveContentDraftResponse;
-    selectedReviewItem?: ContentReviewQueueItem;
-  } = {},
-) {
-  const schema = createContentDraftSchema(values);
-  const approvalNodes = createContentDraftApprovalNodes(options.lastResponse, options.selectedReviewItem);
-  const approvalState = approvalNodes.some((node) => node.state === "pending")
-    ? "pending"
-    : approvalNodes.some((node) => node.state === "approved")
-      ? "approved"
-      : "none";
-
-  return {
-    schema,
-    workflow: createFormWorkflowState({
-      values,
-      schema,
-      approvalState,
-      ...(options.currentStepKey ? { currentStepKey: options.currentStepKey } : {}),
-      ...(approvalNodes.length > 0 ? { approvalNodes } : {}),
-      ...(options.draftSavedAt !== undefined
-        ? {
-            draft: createFormDraftState({
-              draftId: "content-draft",
-              recoveryKey: CONTENT_DRAFT_STORAGE_KEY,
-              savedAt: options.draftSavedAt,
-              ...(options.restored ? { restored: true } : {}),
-            }),
-          }
-        : {}),
-    }),
-  };
-}
 
 function createContentDraftRequest(values: ContentDraftFormValues): SaveContentDraftRequest {
   return {
@@ -613,10 +426,10 @@ export function createFeedController(options: CreateFeedControllerOptions) {
     });
   }
 
-  function createRequestQuery() {
+  function createRequestQuery(page = store.getState().query.page) {
     const current = store.getState();
     return {
-      page: current.query.page,
+      page,
       pageSize: current.query.pageSize,
       ...(current.query.keyword ? { keyword: current.query.keyword } : {}),
       ...(current.query.mode !== "global" ? { mode: current.query.mode } : {}),
@@ -672,9 +485,9 @@ export function createFeedController(options: CreateFeedControllerOptions) {
     return kernel.storage.set(searchHistoryStorageKey, nextRecentKeywords);
   }
 
-  async function handleFeedFailure(result: FailedFeedResult) {
+  function createFeedFailurePatch(result: FailedFeedResult) {
     const hasItems = store.getState().items.length > 0;
-    store.setState({
+    return {
       loading: false,
       refreshing: false,
       errorText: result.error.message,
@@ -684,13 +497,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         partialData: hasItems,
         staleData: hasItems,
       }),
-    });
-
-    if (result.error.code === "UNAUTHORIZED") {
-      await routeToLogin();
-    }
-
-    return result;
+    };
   }
 
   function applyContentMutationResponse(
@@ -736,6 +543,141 @@ export function createFeedController(options: CreateFeedControllerOptions) {
     });
   }
 
+  let pendingContentDraftSnapshot: ContentDraftSnapshotResult | null = null;
+
+  const runListRequest = createListRequestFlow<FeedState, FeedListResponse>({
+    store,
+    resolvePage: ({ kind, state }) => (kind === "append" ? state.query.page + 1 : 1),
+    createStartPatch: ({ kind, state }) => ({
+      loading: kind === "refresh" ? state.loading : true,
+      refreshing: kind === "refresh",
+      errorText: undefined,
+      contentTransitionFeedback: undefined,
+      query: {
+        ...state.query,
+        page: kind === "append" ? state.query.page + 1 : kind === "refresh" ? 1 : state.query.page,
+      },
+      status: createListStatus(
+        kind === "refresh" ? "refreshing" : kind === "append" ? "appending" : "loading",
+        {
+          firstLoaded: kind === "append" || kind === "refresh" ? state.status.firstLoaded : state.status.firstLoaded,
+          ...(kind !== "initial" && state.items.length > 0 ? { partialData: true, staleData: true } : {}),
+          ...(kind === "initial" && state.status.restoredFromRoute ? { restoredFromRoute: true } : {}),
+          ...(kind === "initial" && state.status.restoredQueryKeys ? { restoredQueryKeys: state.status.restoredQueryKeys } : {}),
+          ...(kind === "initial" && state.status.restoredSelectionId ? { restoredSelectionId: state.status.restoredSelectionId } : {}),
+        },
+      ),
+    }),
+    request: ({ page }) => kernel.request.get<FeedListResponse>(requestPath, createRequestQuery(page)),
+    applyResponse: ({ kind, response }) => {
+      const current = store.getState();
+      const nextSearchResults = createSearchResults(response, current.recentKeywords, current.emptyText, {
+        restoredFromRoute: current.status.restoredFromRoute,
+        routeWritebackEnabled: Boolean(feedRouteId),
+        ...(current.activeTag ? { activeTag: current.activeTag } : {}),
+      });
+      const nextItems =
+        kind === "append"
+          ? [...current.items, ...cloneStateSnapshotArray(nextSearchResults.items)]
+          : cloneStateSnapshotArray(kind === "refresh" ? response.items : nextSearchResults.items);
+      const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
+      const loadState = nextItems.length > 0 ? "ready" : "empty";
+      const basePatch: Partial<FeedState> = {
+        loading: false,
+        refreshing: false,
+        ready: true,
+        items: nextItems,
+        hasMore: nextSearchResults.hasMore,
+        pagination: {
+          page: response.searchQuery.page,
+          pageSize: response.searchQuery.pageSize,
+          hasMore: nextSearchResults.hasMore,
+          total: nextSearchResults.total,
+        },
+        filters: cloneStateSnapshotArray(response.searchFilters),
+        searchQuery: cloneStateSnapshot(response.searchQuery),
+        searchFilters: cloneStateSnapshotArray(response.searchFilters),
+        searchResults: kind === "append" ? { ...nextSearchResults, items: nextItems } : nextSearchResults,
+        searchQualitySummary: nextSearchResults.qualitySummary,
+        selectedItemId,
+        selection: createSelection(selectedItemId),
+        status: createListStatus(loadState, {
+          firstLoaded: true,
+          restoredFromRoute: current.status.restoredFromRoute,
+          ...(current.status.restoredQueryKeys ? { restoredQueryKeys: current.status.restoredQueryKeys } : {}),
+          ...(selectedItemId ? { restoredSelectionId: selectedItemId } : {}),
+        }),
+        tags: response.tags ? cloneStateSnapshotArray(response.tags) : current.tags,
+        featuredReason:
+          kind === "refresh"
+            ? response.featuredReason ?? deriveFeaturedReason(nextItems, current.featuredReason)
+            : nextSearchResults.featuredReason ?? response.featuredReason ?? deriveFeaturedReason(nextItems, current.featuredReason),
+        query: {
+          ...current.query,
+          keyword: response.searchQuery.keyword,
+          mode: response.searchQuery.mode,
+          domain: response.searchQuery.domain,
+          sortKey: response.searchQuery.sortKey ?? current.query.sortKey,
+          page: response.searchQuery.page,
+          pageSize: response.searchQuery.pageSize,
+        },
+      };
+
+      if (kind !== "refresh") {
+        basePatch.recentKeywords = nextSearchResults.recentKeywords;
+      }
+
+      if (kind !== "initial") {
+        return basePatch;
+      }
+
+      const contentDraftSnapshot = pendingContentDraftSnapshot;
+      const contentDraftValues = contentDraftSnapshot?.ok && contentDraftSnapshot.value?.values
+        ? createDefaultContentDraftFormValues(contentDraftSnapshot.value.values)
+        : current.contentDraftForm.values;
+      const nextContentDraft = buildContentDraftFormState(contentDraftValues, {
+        ...(contentDraftSnapshot?.ok && contentDraftSnapshot.value?.currentStepKey
+          ? { currentStepKey: contentDraftSnapshot.value.currentStepKey }
+          : {}),
+        ...(contentDraftSnapshot?.ok && contentDraftSnapshot.value?.savedAt !== undefined
+          ? {
+              draftSavedAt: contentDraftSnapshot.value.savedAt,
+              restored: true,
+            }
+          : {}),
+      });
+
+      return {
+        ...basePatch,
+        contentDraftForm: {
+          ...current.contentDraftForm,
+          dirty: Boolean(contentDraftSnapshot?.ok && contentDraftSnapshot.value),
+          values: contentDraftValues,
+          formValues: cloneStateSnapshot(contentDraftValues),
+          ...(contentDraftSnapshot?.ok && contentDraftSnapshot.value?.savedAt !== undefined
+            ? {
+                initialValues: cloneStateSnapshot(createDefaultContentDraftFormValues()),
+                initialFormValues: cloneStateSnapshot(createDefaultContentDraftFormValues()),
+              }
+            : {}),
+          schema: nextContentDraft.schema,
+          workflow: nextContentDraft.workflow,
+          submitState: {
+            ...current.contentDraftForm.submitState,
+            ...(contentDraftSnapshot?.ok && contentDraftSnapshot.value?.savedAt !== undefined
+              ? { draftSavedAt: contentDraftSnapshot.value.savedAt }
+              : {}),
+          },
+        },
+      };
+    },
+    createFailurePatch: ({ result }) => createFeedFailurePatch(result),
+    onUnauthorized: async (result) => {
+      await routeToLogin();
+      return result;
+    },
+  });
+
   return {
     store,
 
@@ -756,174 +698,16 @@ export function createFeedController(options: CreateFeedControllerOptions) {
       await hydrateRecentKeywords();
       hydrateStateFromRoute();
       const contentDraftSnapshot = await loadContentDraftSnapshot();
-      store.setState({
-        loading: true,
-        refreshing: false,
-        errorText: undefined,
-        contentTransitionFeedback: undefined,
-        status: createListStatus("loading", {
-          firstLoaded: store.getState().status.firstLoaded,
-          restoredFromRoute: store.getState().status.restoredFromRoute,
-          ...(store.getState().status.restoredQueryKeys ? { restoredQueryKeys: store.getState().status.restoredQueryKeys } : {}),
-          ...(store.getState().status.restoredSelectionId ? { restoredSelectionId: store.getState().status.restoredSelectionId } : {}),
-        }),
-      });
-
-      const result = await kernel.request.get<FeedListResponse>(requestPath, createRequestQuery());
-      if (!result.ok) {
-        return handleFeedFailure(result);
+      pendingContentDraftSnapshot = contentDraftSnapshot;
+      try {
+        return await runListRequest("initial");
+      } finally {
+        pendingContentDraftSnapshot = null;
       }
-
-      const nextSearchResults = createSearchResults(result.value, store.getState().recentKeywords, store.getState().emptyText, {
-        restoredFromRoute: store.getState().status.restoredFromRoute,
-        routeWritebackEnabled: Boolean(feedRouteId),
-        ...(store.getState().activeTag ? { activeTag: store.getState().activeTag } : {}),
-      });
-      const nextItems = cloneStateSnapshotArray(nextSearchResults.items);
-      const selectedItemId = deriveSelectedItemId(nextItems, store.getState().selectedItemId);
-      const loadState = nextItems.length > 0 ? "ready" : "empty";
-      const contentDraftValues = contentDraftSnapshot.ok && contentDraftSnapshot.value?.values
-        ? createDefaultContentDraftFormValues(contentDraftSnapshot.value.values)
-        : store.getState().contentDraftForm.values;
-      const nextContentDraft = buildContentDraftFormState(contentDraftValues, {
-        ...(contentDraftSnapshot.ok && contentDraftSnapshot.value?.currentStepKey
-          ? { currentStepKey: contentDraftSnapshot.value.currentStepKey }
-          : {}),
-        ...(contentDraftSnapshot.ok && contentDraftSnapshot.value?.savedAt !== undefined
-          ? {
-              draftSavedAt: contentDraftSnapshot.value.savedAt,
-              restored: true,
-            }
-          : {}),
-      });
-      store.setState({
-        loading: false,
-        refreshing: false,
-        ready: true,
-        items: nextItems,
-        hasMore: nextSearchResults.hasMore,
-        pagination: {
-          page: result.value.searchQuery.page,
-          pageSize: result.value.searchQuery.pageSize,
-          hasMore: nextSearchResults.hasMore,
-          total: nextSearchResults.total,
-        },
-        filters: cloneStateSnapshotArray(result.value.searchFilters),
-        searchQuery: cloneStateSnapshot(result.value.searchQuery),
-        searchFilters: cloneStateSnapshotArray(result.value.searchFilters),
-        searchResults: nextSearchResults,
-        searchQualitySummary: nextSearchResults.qualitySummary,
-        selectedItemId,
-        selection: createSelection(selectedItemId),
-        status: createListStatus(loadState, {
-          firstLoaded: true,
-          restoredFromRoute: store.getState().status.restoredFromRoute,
-          ...(store.getState().status.restoredQueryKeys ? { restoredQueryKeys: store.getState().status.restoredQueryKeys } : {}),
-          ...(selectedItemId ? { restoredSelectionId: selectedItemId } : {}),
-        }),
-        tags: result.value.tags ? cloneStateSnapshotArray(result.value.tags) : store.getState().tags,
-        featuredReason: nextSearchResults.featuredReason ?? result.value.featuredReason ?? deriveFeaturedReason(nextItems, store.getState().featuredReason),
-        recentKeywords: nextSearchResults.recentKeywords,
-        contentDraftForm: {
-          ...store.getState().contentDraftForm,
-          dirty: Boolean(contentDraftSnapshot.ok && contentDraftSnapshot.value),
-          values: contentDraftValues,
-          formValues: cloneStateSnapshot(contentDraftValues),
-          ...(contentDraftSnapshot.ok && contentDraftSnapshot.value?.savedAt !== undefined
-            ? {
-                initialValues: cloneStateSnapshot(createDefaultContentDraftFormValues()),
-                initialFormValues: cloneStateSnapshot(createDefaultContentDraftFormValues()),
-              }
-            : {}),
-          schema: nextContentDraft.schema,
-          workflow: nextContentDraft.workflow,
-          submitState: {
-            ...store.getState().contentDraftForm.submitState,
-            ...(contentDraftSnapshot.ok && contentDraftSnapshot.value?.savedAt !== undefined
-              ? { draftSavedAt: contentDraftSnapshot.value.savedAt }
-              : {}),
-          },
-        },
-        query: {
-          ...store.getState().query,
-          keyword: result.value.searchQuery.keyword,
-          mode: result.value.searchQuery.mode,
-          domain: result.value.searchQuery.domain,
-          sortKey: result.value.searchQuery.sortKey ?? store.getState().query.sortKey,
-          page: result.value.searchQuery.page,
-          pageSize: result.value.searchQuery.pageSize,
-        },
-      });
-      return result;
     },
 
     async refresh() {
-      store.setState({
-        refreshing: true,
-        errorText: undefined,
-        contentTransitionFeedback: undefined,
-        query: {
-          ...store.getState().query,
-          page: 1,
-        },
-        status: createListStatus("refreshing", {
-          firstLoaded: store.getState().status.firstLoaded,
-          partialData: store.getState().items.length > 0,
-          staleData: store.getState().items.length > 0,
-        }),
-      });
-
-      const result = await kernel.request.get<FeedListResponse>(requestPath, createRequestQuery());
-      if (!result.ok) {
-        return handleFeedFailure(result);
-      }
-
-      const nextItems = cloneStateSnapshotArray(result.value.items);
-      const selectedItemId = deriveSelectedItemId(nextItems, store.getState().selectedItemId);
-      const nextSearchResults = createSearchResults(result.value, store.getState().recentKeywords, store.getState().emptyText, {
-        restoredFromRoute: store.getState().status.restoredFromRoute,
-        routeWritebackEnabled: Boolean(feedRouteId),
-        ...(store.getState().activeTag ? { activeTag: store.getState().activeTag } : {}),
-      });
-      const loadState = nextItems.length > 0 ? "ready" : "empty";
-      store.setState({
-        loading: false,
-        refreshing: false,
-        ready: true,
-        items: nextItems,
-        hasMore: result.value.hasMore,
-        pagination: {
-          page: result.value.searchQuery.page,
-          pageSize: result.value.searchQuery.pageSize,
-          hasMore: result.value.hasMore,
-          total: nextSearchResults.total,
-        },
-        filters: cloneStateSnapshotArray(result.value.searchFilters),
-        searchQuery: cloneStateSnapshot(result.value.searchQuery),
-        searchFilters: cloneStateSnapshotArray(result.value.searchFilters),
-        searchResults: nextSearchResults,
-        searchQualitySummary: nextSearchResults.qualitySummary,
-        selectedItemId,
-        selection: createSelection(selectedItemId),
-        status: createListStatus(loadState, {
-          firstLoaded: true,
-          restoredFromRoute: store.getState().status.restoredFromRoute,
-          ...(store.getState().status.restoredQueryKeys ? { restoredQueryKeys: store.getState().status.restoredQueryKeys } : {}),
-          ...(selectedItemId ? { restoredSelectionId: selectedItemId } : {}),
-        }),
-        tags: result.value.tags ? cloneStateSnapshotArray(result.value.tags) : store.getState().tags,
-        featuredReason: result.value.featuredReason ?? deriveFeaturedReason(nextItems, store.getState().featuredReason),
-        query: {
-          ...store.getState().query,
-          keyword: result.value.searchQuery.keyword,
-          mode: result.value.searchQuery.mode,
-          domain: result.value.searchQuery.domain,
-          sortKey: result.value.searchQuery.sortKey ?? store.getState().query.sortKey,
-          page: result.value.searchQuery.page,
-          pageSize: result.value.searchQuery.pageSize,
-        },
-      });
-      return result;
+      return runListRequest("refresh");
     },
 
     async loadMore() {
@@ -932,73 +716,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         return ok(undefined);
       }
 
-      store.setState({
-        loading: true,
-        status: createListStatus("appending", {
-          firstLoaded: current.status.firstLoaded,
-          partialData: current.items.length > 0,
-          staleData: current.items.length > 0,
-        }),
-        query: {
-          ...current.query,
-          page: current.query.page + 1,
-        },
-      });
-
-      const result = await kernel.request.get<FeedListResponse>(requestPath, createRequestQuery());
-      if (!result.ok) {
-        return handleFeedFailure(result);
-      }
-
-      const nextSearchResults = createSearchResults(result.value, current.recentKeywords, current.emptyText, {
-        restoredFromRoute: current.status.restoredFromRoute,
-        routeWritebackEnabled: Boolean(feedRouteId),
-        ...(current.activeTag ? { activeTag: current.activeTag } : {}),
-      });
-      const nextItems = [...current.items, ...cloneStateSnapshotArray(nextSearchResults.items)];
-      const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
-      const loadState = nextItems.length > 0 ? "ready" : "empty";
-      store.setState({
-        loading: false,
-        ready: true,
-        items: nextItems,
-        hasMore: nextSearchResults.hasMore,
-        pagination: {
-          page: result.value.searchQuery.page,
-          pageSize: result.value.searchQuery.pageSize,
-          hasMore: nextSearchResults.hasMore,
-          total: nextSearchResults.total,
-        },
-        filters: cloneStateSnapshotArray(result.value.searchFilters),
-        searchQuery: cloneStateSnapshot(result.value.searchQuery),
-        searchFilters: cloneStateSnapshotArray(result.value.searchFilters),
-        searchResults: {
-          ...nextSearchResults,
-          items: nextItems,
-        },
-        searchQualitySummary: nextSearchResults.qualitySummary,
-        selectedItemId,
-        selection: createSelection(selectedItemId),
-        status: createListStatus(loadState, {
-          firstLoaded: true,
-          restoredFromRoute: current.status.restoredFromRoute,
-          ...(current.status.restoredQueryKeys ? { restoredQueryKeys: current.status.restoredQueryKeys } : {}),
-          ...(selectedItemId ? { restoredSelectionId: selectedItemId } : {}),
-        }),
-        tags: result.value.tags ? cloneStateSnapshotArray(result.value.tags) : current.tags,
-        featuredReason: nextSearchResults.featuredReason ?? result.value.featuredReason ?? deriveFeaturedReason(nextItems, current.featuredReason),
-        recentKeywords: nextSearchResults.recentKeywords,
-        query: {
-          ...current.query,
-          keyword: result.value.searchQuery.keyword,
-          mode: result.value.searchQuery.mode,
-          domain: result.value.searchQuery.domain,
-          sortKey: result.value.searchQuery.sortKey ?? current.query.sortKey,
-          page: result.value.searchQuery.page,
-          pageSize: result.value.searchQuery.pageSize,
-        },
-      });
-      return result;
+      return runListRequest("append");
     },
 
     async submitSearch() {

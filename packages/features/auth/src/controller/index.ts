@@ -1,4 +1,5 @@
 import {
+  createControllerRouterHelpers,
   createStore,
   deriveAuthRedirectLabel,
   ok,
@@ -219,6 +220,7 @@ export function createAuthController(options: CreateAuthControllerOptions) {
       ...(initialMethod === "guest" ? { anonymousId: createAnonymousId() } : {}),
     },
   });
+  const { routeToOptional } = createControllerRouterHelpers({ kernel });
 
   async function routeToSuccess() {
     if (stayOnSuccess) {
@@ -226,14 +228,6 @@ export function createAuthController(options: CreateAuthControllerOptions) {
     }
 
     return kernel.router.replaceRoute(successRouteId);
-  }
-
-  async function routeToOptional(routeId?: AppRouteId) {
-    if (!routeId) {
-      return { ok: true, value: undefined } as const;
-    }
-
-    return kernel.router.toRoute(routeId);
   }
 
   function readRedirectState(): { target: AuthRedirectTarget; noticeMessage: string | null } {

@@ -25,6 +25,10 @@ export const hostH5FeatureFlags = defineHostFeatureFlags({
   enableRouteGuard: true,
 });
 
+function authenticatedPage(name: string) {
+  return createAuthenticatedGuardPolicy(`authenticated-${name}`);
+}
+
 export const hostH5PageDefinitions = defineHostPageDefinitions({
   login: {
     feature: authFeatureManifest,
@@ -105,12 +109,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "overview",
     },
-    guardPolicy: {
-      name: "authenticated-overview",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("overview"),
     requiredCapabilities: [{ capability: "device" }],
     featureConfig: {
       landingVariant: "overview",
@@ -128,12 +127,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "plan",
     },
-    guardPolicy: {
-      name: "authenticated-plan",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("plan"),
     requiredCapabilities: [{ capability: "device" }],
     featureConfig: {
       experience: "daily-plan",
@@ -153,12 +147,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "feed",
     },
-    guardPolicy: {
-      name: "authenticated-feed",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("feed"),
     requiredCapabilities: [{ capability: "device" }],
     featureConfig: {
       surface: "search",
@@ -180,12 +169,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       cancelRouteId: APP_ROUTE_IDS.account,
       authRedirectSource: "feedback",
     },
-    guardPolicy: {
-      name: "authenticated-feedback",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("feedback"),
     featureConfig: {
       surface: "feedback",
       template: "form",
@@ -208,12 +192,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "messages",
     },
-    guardPolicy: {
-      name: "authenticated-messages",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("messages"),
     featureConfig: {
       surface: "messages",
     },
@@ -233,12 +212,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       loginRouteId: APP_ROUTE_IDS.login,
       settingsRouteId: APP_ROUTE_IDS.settings,
     },
-    guardPolicy: {
-      name: "authenticated-media-tools",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("media-tools"),
     requiredCapabilities: [
       { capability: "upload", required: false },
       { capability: "share", required: false },
@@ -262,12 +236,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       authRedirectSource: "preferences",
       showErrorToast: false,
     },
-    guardPolicy: {
-      name: "authenticated-settings",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("settings"),
     requiredCapabilities: [{ capability: "clipboard" }],
     featureConfig: {
       sectionDensity: "comfortable",
@@ -287,12 +256,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       membershipRouteId: APP_ROUTE_IDS.membership,
       ordersRouteId: APP_ROUTE_IDS.orders,
     },
-    guardPolicy: {
-      name: "authenticated-membership",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("membership"),
     requiredCapabilities: [{ capability: "payment", required: false }],
     renderMode: "custom",
   },
@@ -309,12 +273,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       membershipRouteId: APP_ROUTE_IDS.membership,
       ordersRouteId: APP_ROUTE_IDS.orders,
     },
-    guardPolicy: {
-      name: "authenticated-orders",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("orders"),
     requiredCapabilities: [{ capability: "payment", required: false }],
     renderMode: "custom",
   },
@@ -335,12 +294,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       identityMergeRouteId: APP_ROUTE_IDS.identityMerge,
       authRedirectSource: "account",
     },
-    guardPolicy: {
-      name: "authenticated-account",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("account"),
     requiredCapabilities: [{ capability: "clipboard", required: false }],
     featureConfig: {
       surface: "account",

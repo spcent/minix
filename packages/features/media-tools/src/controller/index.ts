@@ -19,6 +19,7 @@ import {
   cloneStateSnapshot,
   cloneStateSnapshotArray,
   createCapabilityHealthSnapshot,
+  createControllerRouterHelpers,
   createStore,
   describeCapabilityStatus,
   ok,
@@ -247,14 +248,7 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
     ...cloneState(createDefaultMediaToolsState()),
     ...initialState,
   });
-
-  async function routeToOptional(routeId?: AppRouteId) {
-    if (!routeId) {
-      return ok(undefined);
-    }
-
-    return kernel.router.toRoute(routeId);
-  }
+  const { routeToOptional } = createControllerRouterHelpers({ kernel });
 
   function setResult(result: MediaToolsResult | undefined) {
     store.setState({

@@ -1,6 +1,7 @@
 import {
-  createAuthRedirectParams,
+  createControllerRouterHelpers,
   createDetailStatus,
+  createListRequestFlow,
   createListStatus,
   cloneStateSnapshot,
   cloneStateSnapshotArray,
@@ -136,31 +137,11 @@ export function createMessagesController(options: CreateMessagesControllerOption
     ...cloneState(createDefaultMessagesState()),
     ...initialState,
   });
-
-  async function routeToOptional(routeId?: AppRouteId, params?: Record<string, string | number | boolean>) {
-    if (!routeId) {
-      return ok(undefined);
-    }
-
-    return kernel.router.toRoute(routeId, params);
-  }
-
-  async function routeToLogin() {
-    if (!loginRouteId) {
-      return ok(undefined);
-    }
-
-    const current = kernel.router.current();
-    return kernel.router.replaceRoute(
-      loginRouteId,
-      createAuthRedirectParams({
-        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
-        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
-        ...(authRedirectSource ? { source: authRedirectSource } : {}),
-        reason: "auth-required",
-      }),
-    );
-  }
+  const { routeToLogin, routeToOptional } = createControllerRouterHelpers({
+    kernel,
+    loginRouteId,
+    authRedirectSource,
+  });
 
   function hydrateStateFromRoute() {
     const current = kernel.router.current();
@@ -245,71 +226,9 @@ export function createMessagesController(options: CreateMessagesControllerOption
     });
   }
 
-  function applyResponse(response: NotificationListResponse, mode: "replace" | "append") {
+  function createLoadFailurePatch(result: FailedMessagesResult | FailedMarkReadResult | FailedThreadResult) {
     const current = store.getState();
-    const threads = response.threadList?.items ?? response.reservedThreads;
-    const nextItems =
-      mode === "append"
-        ? [...current.items, ...response.notificationList.items.filter((item) => !current.items.some((entry) => entry.id === item.id))]
-        : response.notificationList.items;
-    const selectedThreadId =
-      current.selectedThreadId && threads.some((thread) => thread.threadId === current.selectedThreadId)
-        ? current.selectedThreadId
-        : response.messageThread?.threadId ?? threads[0]?.threadId;
-    const selectedItemId =
-      nextItems.find((item) => item.id === current.selectedItemId)?.id ??
-      response.notificationList.selectedNotificationId ??
-      nextItems[0]?.id;
-
-    store.setState({
-      ready: true,
-      loading: false,
-      refreshing: false,
-      errorText: undefined,
-      errorCode: undefined,
-      items: nextItems,
-      total: response.notificationList.total,
-      hasMore: response.notificationList.hasMore,
-      pagination: {
-        page: response.notificationList.page,
-        pageSize: response.notificationList.pageSize,
-        hasMore: response.notificationList.hasMore,
-        ...(response.notificationList.total !== undefined ? { total: response.notificationList.total } : {}),
-      },
-      filters: response.notificationList.filters,
-      groups: response.notificationList.groups,
-      unreadBadge: response.unreadBadge,
-      deliveryPosture: response.deliveryPosture ?? current.deliveryPosture,
-      reservedThreads: threads,
-      selectedThreadId,
-      messageThread:
-        selectedThreadId && threads.some((thread) => thread.threadId === selectedThreadId)
-          ? current.messageThread
-          : undefined,
-      messageItems:
-        current.messageThread && current.messageThread.threadId === selectedThreadId ? current.messageItems : [],
-      detailActions:
-        current.messageThread && current.messageThread.threadId === selectedThreadId ? current.detailActions : undefined,
-      selectedItemId,
-      selection: createSelection(selectedItemId),
-      query: {
-        ...current.query,
-        page: response.notificationList.page,
-        pageSize: response.notificationList.pageSize,
-      },
-      lastActionMessage: current.lastActionMessage,
-      status: createListStatus(nextItems.length > 0 ? "ready" : "empty", {
-        firstLoaded: nextItems.length > 0,
-        restoredFromRoute: current.status.restoredFromRoute,
-        ...(current.status.restoredQueryKeys ? { restoredQueryKeys: current.status.restoredQueryKeys } : {}),
-        ...(current.status.restoredSelectionId ? { restoredSelectionId: current.status.restoredSelectionId } : {}),
-      }),
-    });
-  }
-
-  async function handleLoadFailure(result: FailedMessagesResult | FailedMarkReadResult | FailedThreadResult) {
-    const current = store.getState();
-    store.setState({
+    return {
       loading: false,
       refreshing: false,
       errorText: result.error.message,
@@ -328,7 +247,7 @@ export function createMessagesController(options: CreateMessagesControllerOption
           ? "unavailable"
           : result.error.code === "FORBIDDEN"
             ? "forbidden"
-            : result.error.code === "NETWORK_ERROR"
+          : result.error.code === "NETWORK_ERROR"
               ? "offline"
               : "error",
         {
@@ -339,7 +258,11 @@ export function createMessagesController(options: CreateMessagesControllerOption
             : {}),
         },
       ),
-    });
+    };
+  }
+
+  async function handleLoadFailure(result: FailedMessagesResult | FailedMarkReadResult | FailedThreadResult) {
+    store.setState(createLoadFailurePatch(result));
 
     if (result.error.code === "UNAUTHORIZED") {
       await routeToLogin();
@@ -388,14 +311,104 @@ export function createMessagesController(options: CreateMessagesControllerOption
     return result;
   }
 
-  async function loadPage(mode: "replace" | "append", page: number) {
-    const result = await kernel.request.get<NotificationListResponse>(requestPath, createRequestQuery(page));
-    if (!result.ok) {
-      return handleLoadFailure(result);
-    }
+  const runListRequest = createListRequestFlow<MessagesState, NotificationListResponse>({
+    store,
+    resolvePage: ({ kind, state }) => (kind === "append" ? state.query.page + 1 : 1),
+    createStartPatch: ({ kind, state }) => ({
+      loading: kind === "refresh" ? state.loading : true,
+      refreshing: kind === "refresh",
+      errorText: undefined,
+      errorCode: undefined,
+      lastActionMessage: undefined,
+      status: createListStatus(
+        kind === "refresh" ? "refreshing" : kind === "append" ? "partial" : "loading",
+        {
+          firstLoaded: kind === "append" ? state.items.length > 0 : kind === "refresh" ? state.items.length > 0 : state.status.restoredFromRoute ? state.status.firstLoaded : state.items.length > 0,
+          ...(kind !== "initial" && state.items.length > 0 ? { staleData: true } : {}),
+          ...(kind === "append" && state.items.length > 0 ? { partialData: true } : {}),
+          ...(kind === "initial" && state.status.restoredFromRoute ? { restoredFromRoute: true } : {}),
+          ...(kind === "initial" && state.status.restoredQueryKeys ? { restoredQueryKeys: state.status.restoredQueryKeys } : {}),
+          ...(kind === "initial" && state.status.restoredSelectionId ? { restoredSelectionId: state.status.restoredSelectionId } : {}),
+        },
+      ),
+      query: {
+        ...state.query,
+        page: kind === "append" ? state.query.page + 1 : 1,
+      },
+    }),
+    request: ({ page }) => kernel.request.get<NotificationListResponse>(requestPath, createRequestQuery(page)),
+    applyResponse: ({ kind, response }) => {
+      const current = store.getState();
+      const mode = kind === "append" ? "append" : "replace";
+      const threads = response.threadList?.items ?? response.reservedThreads;
+      const nextItems =
+        mode === "append"
+          ? [...current.items, ...response.notificationList.items.filter((item) => !current.items.some((entry) => entry.id === item.id))]
+          : response.notificationList.items;
+      const selectedThreadId =
+        current.selectedThreadId && threads.some((thread) => thread.threadId === current.selectedThreadId)
+          ? current.selectedThreadId
+          : response.messageThread?.threadId ?? threads[0]?.threadId;
+      const selectedItemId =
+        nextItems.find((item) => item.id === current.selectedItemId)?.id ??
+        response.notificationList.selectedNotificationId ??
+        nextItems[0]?.id;
 
-    applyResponse(result.value, mode);
-    if (mode === "replace") {
+      return {
+        ready: true,
+        loading: false,
+        refreshing: false,
+        errorText: undefined,
+        errorCode: undefined,
+        items: nextItems,
+        total: response.notificationList.total,
+        hasMore: response.notificationList.hasMore,
+        pagination: {
+          page: response.notificationList.page,
+          pageSize: response.notificationList.pageSize,
+          hasMore: response.notificationList.hasMore,
+          ...(response.notificationList.total !== undefined ? { total: response.notificationList.total } : {}),
+        },
+        filters: response.notificationList.filters,
+        groups: response.notificationList.groups,
+        unreadBadge: response.unreadBadge,
+        deliveryPosture: response.deliveryPosture ?? current.deliveryPosture,
+        reservedThreads: threads,
+        selectedThreadId,
+        messageThread:
+          selectedThreadId && threads.some((thread) => thread.threadId === selectedThreadId)
+            ? current.messageThread
+            : undefined,
+        messageItems:
+          current.messageThread && current.messageThread.threadId === selectedThreadId ? current.messageItems : [],
+        detailActions:
+          current.messageThread && current.messageThread.threadId === selectedThreadId ? current.detailActions : undefined,
+        selectedItemId,
+        selection: createSelection(selectedItemId),
+        query: {
+          ...current.query,
+          page: response.notificationList.page,
+          pageSize: response.notificationList.pageSize,
+        },
+        lastActionMessage: current.lastActionMessage,
+        status: createListStatus(nextItems.length > 0 ? "ready" : "empty", {
+          firstLoaded: nextItems.length > 0,
+          restoredFromRoute: current.status.restoredFromRoute,
+          ...(current.status.restoredQueryKeys ? { restoredQueryKeys: current.status.restoredQueryKeys } : {}),
+          ...(current.status.restoredSelectionId ? { restoredSelectionId: current.status.restoredSelectionId } : {}),
+        }),
+      };
+    },
+    createFailurePatch: ({ result }) => createLoadFailurePatch(result),
+    onUnauthorized: async (result) => {
+      await routeToLogin();
+      return result;
+    },
+  });
+
+  async function loadPage(kind: "initial" | "refresh" | "append") {
+    const result = await runListRequest(kind);
+    if (result.ok && kind !== "append") {
       const selectedThreadId = store.getState().selectedThreadId;
       if (selectedThreadId) {
         await loadThread(selectedThreadId);
@@ -475,41 +488,11 @@ export function createMessagesController(options: CreateMessagesControllerOption
 
     async loadInitial() {
       hydrateStateFromRoute();
-      store.setState({
-        loading: true,
-        errorText: undefined,
-        errorCode: undefined,
-        lastActionMessage: undefined,
-        status: createListStatus("loading", {
-          firstLoaded: store.getState().items.length > 0,
-          restoredFromRoute: store.getState().status.restoredFromRoute,
-          ...(store.getState().status.restoredQueryKeys ? { restoredQueryKeys: store.getState().status.restoredQueryKeys } : {}),
-          ...(store.getState().status.restoredSelectionId ? { restoredSelectionId: store.getState().status.restoredSelectionId } : {}),
-        }),
-        query: {
-          ...store.getState().query,
-          page: 1,
-        },
-      });
-      return loadPage("replace", 1);
+      return loadPage("initial");
     },
 
     async refresh() {
-      store.setState({
-        refreshing: true,
-        errorText: undefined,
-        errorCode: undefined,
-        lastActionMessage: undefined,
-        status: createListStatus("refreshing", {
-          firstLoaded: store.getState().items.length > 0,
-          staleData: store.getState().items.length > 0,
-        }),
-        query: {
-          ...store.getState().query,
-          page: 1,
-        },
-      });
-      return loadPage("replace", 1);
+      return loadPage("refresh");
     },
 
     async loadMore() {
@@ -518,16 +501,7 @@ export function createMessagesController(options: CreateMessagesControllerOption
         return ok(undefined);
       }
 
-      store.setState({
-        loading: true,
-        lastActionMessage: undefined,
-        status: createListStatus("partial", {
-          firstLoaded: current.items.length > 0,
-          partialData: current.items.length > 0,
-          staleData: current.items.length > 0,
-        }),
-      });
-      return loadPage("append", current.query.page + 1);
+      return loadPage("append");
     },
 
     selectItem(itemId: string) {
