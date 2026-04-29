@@ -116,6 +116,20 @@ export function createListStatus(
   };
 }
 
+export function createListSelectionState(
+  selectedItemId: string | undefined,
+  options: {
+    selectedItemIds?: string[];
+    batchSelectable?: boolean;
+  } = {},
+): ListSelectionState {
+  return {
+    ...(selectedItemId !== undefined ? { selectedItemId } : {}),
+    selectedItemIds: [...(options.selectedItemIds ?? (selectedItemId ? [selectedItemId] : []))],
+    batchSelectable: options.batchSelectable ?? false,
+  };
+}
+
 export function createListPageState<TItem>(options: CreateListPageStateOptions<TItem>): ListPageState<TItem> {
   const query = options.query ?? {};
   const firstItemId =
@@ -143,11 +157,10 @@ export function createListPageState<TItem>(options: CreateListPageStateOptions<T
       ...(options.total !== undefined ? { total: options.total } : {}),
     },
     filters: cloneStateSnapshotArray(options.searchFilters ?? []),
-    selection: {
-      ...(firstItemId !== undefined ? { selectedItemId: firstItemId } : {}),
-      selectedItemIds: [...(options.selectedItemIds ?? (firstItemId ? [firstItemId] : []))],
+    selection: createListSelectionState(firstItemId, {
+      ...(options.selectedItemIds !== undefined ? { selectedItemIds: options.selectedItemIds } : {}),
       batchSelectable: options.batchSelectable ?? false,
-    },
+    }),
     status: {
       ...createListStatus(options.loadState ?? "idle", {
         firstLoaded: false,

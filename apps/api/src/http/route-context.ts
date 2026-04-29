@@ -72,3 +72,13 @@ export async function loadRouteUserState(
   const userState = await store.getUserState(session.userId);
   return { traceId, session, store, userState };
 }
+
+export type RouteUserStateContext = Awaited<ReturnType<typeof loadRouteUserState>>;
+
+export async function withRouteUserState<TResult>(
+  c: Context<any>,
+  resolveStore: (env: ApiBindings | undefined) => ApiStore,
+  handler: (context: RouteUserStateContext) => Promise<TResult> | TResult,
+): Promise<TResult> {
+  return handler(await loadRouteUserState(c, resolveStore));
+}

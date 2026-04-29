@@ -2,11 +2,14 @@ import {
   beginFormSubmit,
   cloneStateSnapshot,
   cloneStateSnapshotArray,
-  createAuthRedirectParams,
+  createControllerRouterHelpers,
   createFormSubmissionKey,
+  createFormDraftState,
+  createFormSchema,
   createListStatus,
   createFormWorkflowState,
   createStore,
+  createSingleFlightHydrator,
   finalizeFormSubmit,
   normalizeSearchKeyword,
   ok,
@@ -162,7 +165,7 @@ function createContentDraftSchema(values: ContentDraftFormValues): FormSchema {
     },
   ];
 
-  return {
+  return createFormSchema({
     fields,
     steps: [
       { key: "basics", label: "Basics" },
@@ -171,7 +174,7 @@ function createContentDraftSchema(values: ContentDraftFormValues): FormSchema {
       { key: "assets", label: "Assets" },
       { key: "review", label: "Review" },
     ],
-  };
+  });
 }
 
 function createContentDraftApprovalNodes(
@@ -239,12 +242,12 @@ function buildContentDraftFormState(
       ...(approvalNodes.length > 0 ? { approvalNodes } : {}),
       ...(options.draftSavedAt !== undefined
         ? {
-            draft: {
+            draft: createFormDraftState({
               draftId: "content-draft",
               recoveryKey: CONTENT_DRAFT_STORAGE_KEY,
-              lastSavedAt: options.draftSavedAt,
-              ...(options.restored ? { restoredAt: Date.now() } : {}),
-            },
+              savedAt: options.draftSavedAt,
+              ...(options.restored ? { restored: true } : {}),
+            }),
           }
         : {}),
     }),
@@ -466,7 +469,11 @@ export function createFeedController(options: CreateFeedControllerOptions) {
     ...cloneState(createDefaultFeedState()),
     ...initialState,
   });
-  let keywordHydration: Promise<Result<void>> | null = null;
+  const { routeToLogin, routeToOptional } = createControllerRouterHelpers({
+    kernel,
+    loginRouteId,
+    authRedirectSource,
+  });
 
   function applyContentDraftFormValues(
     values: ContentDraftFormValues,
@@ -511,14 +518,6 @@ export function createFeedController(options: CreateFeedControllerOptions) {
     });
   }
 
-  async function routeToOptional(routeId?: AppRouteId, params?: Record<string, string | number | boolean>) {
-    if (!routeId) {
-      return ok(undefined);
-    }
-
-    return kernel.router.toRoute(routeId, params);
-  }
-
   async function loadContentDraftSnapshot() {
     if (!kernel.storage) {
       return ok<{
@@ -543,29 +542,8 @@ export function createFeedController(options: CreateFeedControllerOptions) {
     return kernel.storage.remove(CONTENT_DRAFT_STORAGE_KEY);
   }
 
-  async function routeToLogin() {
-    if (!loginRouteId) {
-      return ok(undefined);
-    }
-
-    const current = kernel.router.current();
-    return kernel.router.replaceRoute(
-      loginRouteId,
-      createAuthRedirectParams({
-        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
-        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
-        ...(authRedirectSource ? { source: authRedirectSource } : {}),
-        reason: "auth-required",
-      }),
-    );
-  }
-
-  async function hydrateRecentKeywords(force = false): Promise<Result<void>> {
-    if (!force && keywordHydration) {
-      return keywordHydration;
-    }
-
-    const run = async (): Promise<Result<void>> => {
+  const hydrateRecentKeywords = createSingleFlightHydrator<void>(
+    async (): Promise<Result<void>> => {
       const result = await kernel.storage.get<string[]>(searchHistoryStorageKey);
       if (!result.ok) {
         return result;
@@ -587,13 +565,8 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         });
       }
       return ok(undefined);
-    };
-
-    keywordHydration = run().finally(() => {
-      keywordHydration = null;
-    });
-    return keywordHydration;
-  }
+    },
+  );
 
   function hydrateStateFromRoute() {
     const current = kernel.router.current();

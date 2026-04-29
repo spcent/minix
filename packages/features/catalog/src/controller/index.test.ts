@@ -223,6 +223,9 @@ test("catalog controller submits keyword and status filters to the list request"
   const lastCall = requestCalls.at(-1) as NovelListResponse | Record<string, unknown> | undefined;
   assert.equal(controller.store.getState().query.keyword, "lantern");
   assert.equal(controller.store.getState().activeStatus, "completed");
+  assert.equal(controller.store.getState().list.items.length, controller.store.getState().items.length);
+  assert.equal(controller.store.getState().list.query.keyword, "lantern");
+  assert.equal(controller.store.getState().list.selection.selectedItemId, controller.store.getState().selectedNovelId);
   assert.equal((lastCall as Record<string, unknown>)?.keyword, "lantern");
   assert.equal((lastCall as Record<string, unknown>)?.status, "completed");
   assert.deepEqual(routeCalls.at(-1), {

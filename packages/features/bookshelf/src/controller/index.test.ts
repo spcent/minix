@@ -170,6 +170,8 @@ test("bookshelf controller keeps selection inside the active sort and filter vie
 
   assert.equal(controller.store.getState().selectedNovelId, "novel_lantern");
   assert.equal(controller.store.getState().visibleItems.length, 1);
+  assert.equal(controller.store.getState().list.items.length, 1);
+  assert.equal(controller.store.getState().list.selectedItemId, "novel_lantern");
 
   controller.setFilter("all");
   controller.setSort("progress");
@@ -177,6 +179,8 @@ test("bookshelf controller keeps selection inside the active sort and filter vie
   assert.equal(controller.store.getState().selectedNovelId, "novel_lantern");
   assert.equal(controller.store.getState().activeSortKey, "progress");
   assert.equal(controller.store.getState().visibleItems[0]?.novelId, "novel_cinder");
+  assert.equal(controller.store.getState().list.items[0]?.novelId, "novel_cinder");
+  assert.equal(controller.store.getState().list.selection.selectedItemId, "novel_lantern");
 });
 
 test("bookshelf controller can continue a specific visible title without relying on selection", async () => {

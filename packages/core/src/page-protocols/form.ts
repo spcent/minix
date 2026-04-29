@@ -156,6 +156,38 @@ export function createFormWorkflowState<TValues extends Record<string, unknown>>
   };
 }
 
+export function createFormField(definition: FormFieldDefinition): FormFieldDefinition {
+  return {
+    ...definition,
+    ...(definition.options ? { options: cloneStateSnapshotArray(definition.options) } : {}),
+    ...(definition.conditions ? { conditions: cloneStateSnapshotArray(definition.conditions) } : {}),
+  };
+}
+
+export function createFormSchema(input: {
+  fields: FormFieldDefinition[];
+  steps: FormSchema["steps"];
+}): FormSchema {
+  return {
+    fields: cloneStateSnapshotArray(input.fields.map((field) => createFormField(field))),
+    steps: cloneStateSnapshotArray(input.steps),
+  };
+}
+
+export function createFormDraftState(input: {
+  draftId: string;
+  recoveryKey: string;
+  savedAt: number;
+  restored?: boolean;
+}): FormDraftState {
+  return {
+    draftId: input.draftId,
+    recoveryKey: input.recoveryKey,
+    lastSavedAt: input.savedAt,
+    ...(input.restored ? { restoredAt: Date.now() } : {}),
+  };
+}
+
 export function createFormSubmissionKey<TValues extends Record<string, unknown>>(
   scope: string,
   mode: FormSubmitMode,

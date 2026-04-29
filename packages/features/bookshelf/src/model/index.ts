@@ -1,5 +1,5 @@
 import type { BookshelfItem } from "@minix/contracts";
-import type { LatestMilestoneHistoryEntry } from "@minix/core";
+import { createListPageState, type LatestMilestoneHistoryEntry, type ListPageState } from "@minix/core";
 
 export type BookshelfSortKey = "recent" | "updated" | "progress";
 
@@ -8,6 +8,7 @@ export type BookshelfFilterKey = "all" | "updates" | "completed";
 export interface BookshelfState {
   ready: boolean;
   title: string;
+  list: ListPageState<BookshelfItem>;
   items: BookshelfItem[];
   visibleItems: BookshelfItem[];
   pinnedItem: BookshelfItem | undefined;
@@ -49,10 +50,42 @@ export interface CreateBookshelfStateOptions {
   emptyText?: string;
 }
 
+export interface CreateBookshelfListStateOptions {
+  title: string;
+  emptyText: string;
+  items?: BookshelfItem[];
+  selectedNovelId?: string;
+  pageSize?: number;
+  sort?: BookshelfSortKey;
+}
+
+export function createBookshelfListState(options: CreateBookshelfListStateOptions): ListPageState<BookshelfItem> {
+  return createListPageState({
+    title: options.title,
+    pageSize: options.pageSize ?? Math.max(options.items?.length ?? 0, 1),
+    emptyText: options.emptyText,
+    ...(options.items ? { items: options.items } : {}),
+    ...(options.selectedNovelId ? { selectedItemId: options.selectedNovelId } : {}),
+    query: {
+      page: 1,
+      pageSize: options.pageSize ?? Math.max(options.items?.length ?? 0, 1),
+      ...(options.sort ? { sort: [{ field: options.sort, order: "desc" }] } : {}),
+    },
+  });
+}
+
 export function createInitialBookshelfState(options: CreateBookshelfStateOptions = {}): BookshelfState {
+  const title = options.title ?? "My Bookshelf";
+  const emptyText = options.emptyText ?? "Your bookshelf is still empty.";
+
   return {
     ready: false,
-    title: options.title ?? "My Bookshelf",
+    title,
+    list: createBookshelfListState({
+      title,
+      emptyText,
+      sort: "recent",
+    }),
     items: [],
     visibleItems: [],
     pinnedItem: undefined,
@@ -64,7 +97,7 @@ export function createInitialBookshelfState(options: CreateBookshelfStateOptions
     mutatingNovelId: undefined,
     errorText: undefined,
     statusText: undefined,
-    emptyText: options.emptyText ?? "Your bookshelf is still empty.",
+    emptyText,
     selectedNovelId: undefined,
     pinnedNovelId: undefined,
     activeSortKey: "recent",

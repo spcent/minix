@@ -246,3 +246,22 @@ export function createInitialAuthPageState(platform?: LoginPlatformKind): AuthPa
     identityFailureReason: null,
   };
 }
+
+export type AuthIdentityPageSurface = "identity-upgrade" | "identity-bind-phone" | "identity-merge";
+
+const AUTH_IDENTITY_NOTICE_BY_SURFACE: Record<AuthIdentityPageSurface, string> = {
+  "identity-upgrade": "Upgrade a guest session with phone verification or password credentials.",
+  "identity-bind-phone": "Bind a verified phone to the current WeChat account and resolve merge conflicts before completion.",
+  "identity-merge": "Review account merge impact, confirm explicitly, or cancel without changing account data.",
+};
+
+export function createAuthIdentityPageState(
+  platform: LoginPlatformKind,
+  surface: AuthIdentityPageSurface,
+): AuthPageState {
+  return {
+    ...createInitialAuthPageState(platform),
+    ...(surface !== "identity-merge" ? { selectedLoginMethod: "phone_code" as const } : {}),
+    noticeMessage: AUTH_IDENTITY_NOTICE_BY_SURFACE[surface],
+  };
+}

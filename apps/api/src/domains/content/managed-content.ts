@@ -8,11 +8,8 @@ import type {
   ContentDetailResponse,
   ContentDisplay,
   ContentGovernanceSummary,
-  ContentLifecycle,
-  ContentLifecycleAction,
   ContentLifecycleMutationRequest,
   ContentLifecycleMutationResponse,
-  ContentPermissions,
   ContentReviewQueue,
   ContentReviewQueueResponse,
   ContentReviewRecord,
@@ -22,7 +19,6 @@ import type {
   SaveContentDraftResponse,
 } from "@minix/contracts";
 
-import { HOST_ITEMS } from "../../content";
 import { bindUploadAssetsToOwner, resolveUploadAssetForUser } from "../uploads/pipeline";
 import { cloneDomainSnapshotArray } from "../snapshot";
 import { createApiPaginationWindow } from "../pagination";
@@ -33,382 +29,25 @@ import {
   cloneManagedContentEntry,
   cloneManagedContentReviewRecord,
 } from "./snapshots";
-
-function createManagedContentAuditEntry(input: {
-  auditId: string;
-  action: ContentAuditEntry["action"];
-  actorRole: ContentActorRole;
-  actorLabel: string;
-  createdAt: string;
-  message: string;
-}): ContentAuditEntry {
-  return {
-    auditId: input.auditId,
-    action: input.action,
-    actorRole: input.actorRole,
-    actorLabel: input.actorLabel,
-    createdAt: input.createdAt,
-    message: input.message,
-  };
-}
-
-function createManagedContentAttachments(contentId: string, attachmentAssetIds: string[]): ContentAttachmentReference[] {
-  return attachmentAssetIds.map((assetId, index) => ({
-    assetId,
-    kind: "attachment",
-    label: `${contentId} attachment ${index + 1}`,
-  }));
-}
-
-export function createDefaultManagedContentEntries(): NonNullable<UserState["managedContentById"]> {
-  return {
-    lesson_1: {
-      authorUserId: "editorial_author_1",
-      model: "article",
-      visibility: "public",
-      lifecycle: {
-        state: "published",
-        availableActions: ["update", "archive", "delete", "change_visibility"],
-        publishedAt: "2026-04-01T08:00:00.000Z",
-        updatedAt: "2026-04-01T08:00:00.000Z",
-      },
-      authorLabel: "MiniX Editorial",
-      title: HOST_ITEMS[0]?.title ?? "Warm-up lesson",
-      ...(HOST_ITEMS[0]?.subtitle ? { subtitle: HOST_ITEMS[0].subtitle } : {}),
-      summary: HOST_ITEMS[0]?.subtitle ?? "Warm-up content block.",
-      bodyPreview: "Published warm-up lesson body preview.",
-      categoryKey: "warm-up",
-      categoryLabel: "Warm-up",
-      tags: [{ key: "article", label: "Article" }],
-      attachments: [],
-      reviewRecord: {
-        reviewId: "review_lesson_1",
-        status: "approved",
-        queueLabel: "Editorial review",
-        reviewerLabel: "Reviewer Mina",
-        submittedAt: "2026-03-31T08:00:00.000Z",
-        assignedAt: "2026-03-31T08:10:00.000Z",
-        decidedAt: "2026-04-01T08:00:00.000Z",
-        message: "Approved for publication.",
-      },
-      auditHistory: [
-        createManagedContentAuditEntry({
-          auditId: "audit_lesson_1_create",
-          action: "create",
-          actorRole: "author",
-          actorLabel: "MiniX Editorial",
-          createdAt: "2026-03-31T07:30:00.000Z",
-          message: "Initial article draft created.",
-        }),
-        createManagedContentAuditEntry({
-          auditId: "audit_lesson_1_publish",
-          action: "publish",
-          actorRole: "reviewer",
-          actorLabel: "Reviewer Mina",
-          createdAt: "2026-04-01T08:00:00.000Z",
-          message: "Article approved and published.",
-        }),
-      ],
-      actorRoles: ["author", "reviewer", "admin", "reader"],
-      authoring: {
-        title: HOST_ITEMS[0]?.title ?? "Warm-up lesson",
-        ...(HOST_ITEMS[0]?.subtitle ? { subtitle: HOST_ITEMS[0].subtitle } : {}),
-        summary: HOST_ITEMS[0]?.subtitle ?? "Warm-up content block.",
-        bodyPreview: "Published warm-up lesson body preview.",
-        visibility: "public",
-        category: { key: "warm-up", label: "Warm-up" },
-        tags: [{ key: "article", label: "Article" }],
-        attachmentAssetIds: [],
-      },
-    },
-    lesson_2: {
-      authorUserId: "minix_user",
-      model: "course",
-      visibility: "login_required",
-      lifecycle: {
-        state: "draft",
-        availableActions: ["publish", "submit_review", "delete", "change_visibility"],
-        updatedAt: "2026-04-02T08:00:00.000Z",
-      },
-      authorLabel: "MiniX Curriculum",
-      title: HOST_ITEMS[1]?.title ?? "Dialogue practice",
-      ...(HOST_ITEMS[1]?.subtitle ? { subtitle: HOST_ITEMS[1].subtitle } : {}),
-      summary: HOST_ITEMS[1]?.subtitle ?? "Dialogue content block.",
-      bodyPreview: "Draft lesson body preview for dialogue practice.",
-      categoryKey: "input",
-      categoryLabel: "Input",
-      tags: [{ key: "course", label: "Course" }],
-      attachments: [],
-      reviewRecord: {
-        reviewId: "review_lesson_2",
-        status: "not_requested",
-        queueLabel: "Draft workspace",
-      },
-      auditHistory: [
-        createManagedContentAuditEntry({
-          auditId: "audit_lesson_2_create",
-          action: "create",
-          actorRole: "author",
-          actorLabel: "MiniX Curriculum",
-          createdAt: "2026-04-02T08:00:00.000Z",
-          message: "Course draft created in the CMS workspace.",
-        }),
-      ],
-      actorRoles: ["author", "reviewer", "admin", "reader"],
-      authoring: {
-        title: HOST_ITEMS[1]?.title ?? "Dialogue practice",
-        ...(HOST_ITEMS[1]?.subtitle ? { subtitle: HOST_ITEMS[1].subtitle } : {}),
-        summary: HOST_ITEMS[1]?.subtitle ?? "Dialogue content block.",
-        bodyPreview: "Draft lesson body preview for dialogue practice.",
-        visibility: "login_required",
-        category: { key: "input", label: "Input" },
-        tags: [{ key: "course", label: "Course" }],
-        attachmentAssetIds: [],
-      },
-    },
-    lesson_3: {
-      authorUserId: "practice_author_1",
-      model: "post",
-      visibility: "member_only",
-      lifecycle: {
-        state: "under_review",
-        availableActions: ["approve_review", "reject_review", "change_visibility"],
-        updatedAt: "2026-04-03T08:00:00.000Z",
-        reviewMessage: "Waiting for review approval before publishing.",
-      },
-      authorLabel: "MiniX Review Queue",
-      title: HOST_ITEMS[2]?.title ?? "Practice post",
-      ...(HOST_ITEMS[2]?.subtitle ? { subtitle: HOST_ITEMS[2].subtitle } : {}),
-      summary: HOST_ITEMS[2]?.subtitle ?? "Practice content block.",
-      bodyPreview: "Practice post body preview pending review.",
-      categoryKey: "practice",
-      categoryLabel: "Practice",
-      tags: [{ key: "review", label: "Review" }],
-      attachments: [],
-      reviewRecord: {
-        reviewId: "review_lesson_3",
-        status: "queued",
-        queueLabel: "Review queue",
-        reviewerLabel: "Reviewer Mina",
-        submittedAt: "2026-04-03T08:00:00.000Z",
-        assignedAt: "2026-04-03T08:10:00.000Z",
-        message: "Waiting for review approval before publishing.",
-      },
-      auditHistory: [
-        createManagedContentAuditEntry({
-          auditId: "audit_lesson_3_create",
-          action: "create",
-          actorRole: "author",
-          actorLabel: "MiniX Review Queue",
-          createdAt: "2026-04-03T07:30:00.000Z",
-          message: "Post draft created for review.",
-        }),
-        createManagedContentAuditEntry({
-          auditId: "audit_lesson_3_submit",
-          action: "submit_review",
-          actorRole: "author",
-          actorLabel: "MiniX Review Queue",
-          createdAt: "2026-04-03T08:00:00.000Z",
-          message: "Post submitted into the review queue.",
-        }),
-      ],
-      actorRoles: ["author", "reviewer", "admin", "reader"],
-      authoring: {
-        title: HOST_ITEMS[2]?.title ?? "Practice post",
-        ...(HOST_ITEMS[2]?.subtitle ? { subtitle: HOST_ITEMS[2].subtitle } : {}),
-        summary: HOST_ITEMS[2]?.subtitle ?? "Practice content block.",
-        bodyPreview: "Practice post body preview pending review.",
-        visibility: "member_only",
-        category: { key: "practice", label: "Practice" },
-        tags: [{ key: "review", label: "Review" }],
-        attachmentAssetIds: [],
-      },
-    },
-    lesson_4: {
-      authorUserId: "coaching_author_1",
-      model: "consultation_service",
-      visibility: "purchased_only",
-      lifecycle: {
-        state: "review_rejected",
-        availableActions: ["update", "submit_review", "delete", "change_visibility"],
-        updatedAt: "2026-04-04T08:00:00.000Z",
-        reviewMessage: "Needs a clearer service scope before approval.",
-      },
-      authorLabel: "MiniX Coaching",
-      title: HOST_ITEMS[3]?.title ?? "Speaking clinic",
-      ...(HOST_ITEMS[3]?.subtitle ? { subtitle: HOST_ITEMS[3].subtitle } : {}),
-      summary: HOST_ITEMS[3]?.subtitle ?? "Speaking content block.",
-      bodyPreview: "Rejected consultation service draft preview.",
-      categoryKey: "speaking",
-      categoryLabel: "Speaking",
-      tags: [{ key: "service", label: "Service" }],
-      attachments: [],
-      reviewRecord: {
-        reviewId: "review_lesson_4",
-        status: "rejected",
-        queueLabel: "Reviewer feedback",
-        reviewerLabel: "Reviewer Mina",
-        submittedAt: "2026-04-04T07:40:00.000Z",
-        assignedAt: "2026-04-04T07:50:00.000Z",
-        decidedAt: "2026-04-04T08:00:00.000Z",
-        message: "Needs a clearer service scope before approval.",
-      },
-      auditHistory: [
-        createManagedContentAuditEntry({
-          auditId: "audit_lesson_4_create",
-          action: "create",
-          actorRole: "author",
-          actorLabel: "MiniX Coaching",
-          createdAt: "2026-04-04T07:20:00.000Z",
-          message: "Consultation service draft created.",
-        }),
-        createManagedContentAuditEntry({
-          auditId: "audit_lesson_4_reject",
-          action: "reject_review",
-          actorRole: "reviewer",
-          actorLabel: "Reviewer Mina",
-          createdAt: "2026-04-04T08:00:00.000Z",
-          message: "Review rejected with scope clarification feedback.",
-        }),
-      ],
-      actorRoles: ["author", "reviewer", "admin", "reader"],
-      authoring: {
-        title: HOST_ITEMS[3]?.title ?? "Speaking clinic",
-        ...(HOST_ITEMS[3]?.subtitle ? { subtitle: HOST_ITEMS[3].subtitle } : {}),
-        summary: HOST_ITEMS[3]?.subtitle ?? "Speaking content block.",
-        bodyPreview: "Rejected consultation service draft preview.",
-        visibility: "purchased_only",
-        category: { key: "speaking", label: "Speaking" },
-        tags: [{ key: "service", label: "Service" }],
-        attachmentAssetIds: [],
-      },
-    },
-    lesson_5: {
-      authorUserId: "ops_author_1",
-      model: "tool_config",
-      visibility: "public",
-      lifecycle: {
-        state: "offline",
-        availableActions: ["restore", "delete", "change_visibility"],
-        updatedAt: "2026-04-05T08:00:00.000Z",
-        offlineAt: "2026-04-05T08:00:00.000Z",
-      },
-      authorLabel: "MiniX Operations",
-      title: HOST_ITEMS[4]?.title ?? "Tooling config",
-      ...(HOST_ITEMS[4]?.subtitle ? { subtitle: HOST_ITEMS[4].subtitle } : {}),
-      summary: HOST_ITEMS[4]?.subtitle ?? "Review content block.",
-      bodyPreview: "Offline tooling config preview.",
-      categoryKey: "wrap-up",
-      categoryLabel: "Wrap-up",
-      tags: [{ key: "tool", label: "Tool" }],
-      attachments: [],
-      reviewRecord: {
-        reviewId: "review_lesson_5",
-        status: "approved",
-        queueLabel: "Ops review",
-        reviewerLabel: "Reviewer Mina",
-        submittedAt: "2026-04-04T08:00:00.000Z",
-        assignedAt: "2026-04-04T08:10:00.000Z",
-        decidedAt: "2026-04-04T08:30:00.000Z",
-        message: "Approved before taking offline for maintenance.",
-      },
-      auditHistory: [
-        createManagedContentAuditEntry({
-          auditId: "audit_lesson_5_publish",
-          action: "publish",
-          actorRole: "reviewer",
-          actorLabel: "Reviewer Mina",
-          createdAt: "2026-04-04T08:30:00.000Z",
-          message: "Tool config published.",
-        }),
-        createManagedContentAuditEntry({
-          auditId: "audit_lesson_5_archive",
-          action: "archive",
-          actorRole: "admin",
-          actorLabel: "Ops Admin",
-          createdAt: "2026-04-05T08:00:00.000Z",
-          message: "Tool config taken offline for maintenance.",
-        }),
-      ],
-      actorRoles: ["author", "reviewer", "admin", "reader"],
-      authoring: {
-        title: HOST_ITEMS[4]?.title ?? "Tooling config",
-        ...(HOST_ITEMS[4]?.subtitle ? { subtitle: HOST_ITEMS[4].subtitle } : {}),
-        summary: HOST_ITEMS[4]?.subtitle ?? "Review content block.",
-        bodyPreview: "Offline tooling config preview.",
-        visibility: "public",
-        category: { key: "wrap-up", label: "Wrap-up" },
-        tags: [{ key: "tool", label: "Tool" }],
-        attachmentAssetIds: [],
-      },
-    },
-  };
-}
-
-type ManagedContentEntry = NonNullable<UserState["managedContentById"]>[string];
-
-interface ManagedContentMutationSuccess<TValue> {
-  ok: true;
-  value: TValue;
-}
-
-interface ManagedContentMutationFailure {
-  ok: false;
-  code: "NOT_FOUND" | "FORBIDDEN";
-  message: string;
-}
-
-type ManagedContentMutationResult<TValue> = ManagedContentMutationSuccess<TValue> | ManagedContentMutationFailure;
+import {
+  createManagedContentLifecycleActions,
+  createManagedContentPermissions,
+  resolveManagedContentActorRole,
+} from "./managed-content-review";
+import type {
+  ManagedContentEntry,
+  ManagedContentMutationResult,
+  ManagedContentResponseMutationResult,
+} from "./managed-content-types";
+import {
+  createDefaultManagedContentEntries,
+  createManagedContentAttachments,
+  createManagedContentAuditEntry,
+} from "./managed-content-seeds";
+export { createDefaultManagedContentEntries } from "./managed-content-seeds";
 
 function resolveManagedContentEntry(contentId: string, userState?: UserState): ManagedContentEntry | undefined {
   return userState?.managedContentById?.[contentId] ?? createDefaultManagedContentEntries()[contentId];
-}
-
-function resolveManagedContentActorRole(actorRole: ContentActorRole | undefined): ContentActorRole {
-  return actorRole ?? "reader";
-}
-
-function createManagedContentPermissions(
-  entry: ManagedContentEntry,
-  actorRole: ContentActorRole | undefined,
-): ContentPermissions {
-  const resolvedActorRole = resolveManagedContentActorRole(actorRole);
-  const isAuthor = resolvedActorRole === "author";
-  const isReviewer = resolvedActorRole === "reviewer";
-  const isAdmin = resolvedActorRole === "admin";
-
-  return {
-    actorRole: resolvedActorRole,
-    canEdit: isAuthor || isAdmin,
-    canSaveDraft: isAuthor || isAdmin,
-    canSubmitReview: isAuthor || isAdmin,
-    canApproveReview: isReviewer || isAdmin,
-    canRejectReview: isReviewer || isAdmin,
-    canArchive: isReviewer || isAdmin,
-    canDelete: isAuthor || isAdmin,
-    canRestore: isReviewer || isAdmin,
-    canChangeVisibility: isAuthor || isAdmin,
-    canManageAttachments: isAuthor || isAdmin,
-    canViewAuditHistory: resolvedActorRole !== "reader",
-  };
-}
-
-function createManagedContentLifecycleActions(state: ContentLifecycle["state"]): ContentLifecycleAction[] {
-  switch (state) {
-    case "published":
-      return ["update", "archive", "delete", "change_visibility"];
-    case "offline":
-      return ["restore", "delete", "change_visibility"];
-    case "under_review":
-      return ["approve_review", "reject_review", "change_visibility"];
-    case "review_rejected":
-      return ["update", "submit_review", "delete", "change_visibility"];
-    case "deleted":
-      return ["restore"];
-    case "draft":
-    default:
-      return ["publish", "update", "submit_review", "delete", "change_visibility"];
-  }
 }
 
 function createManagedContentDisplay(contentId: string, userState?: UserState): ContentDisplay | undefined {
@@ -723,7 +362,7 @@ function createManagedContentResponse(
   userState: UserState,
   actorRole?: ContentActorRole,
   transitionMessage = "Content updated.",
-): ManagedContentMutationResult<ContentLifecycleMutationResponse | SaveContentDraftResponse> {
+): ManagedContentResponseMutationResult {
   const contentCard = createManagedContentCard(contentId, userState, actorRole);
   const contentDetail = createManagedContentDetail(contentId, userState, actorRole);
   const contentAccess = createManagedContentAccess(contentId, userState, actorRole);

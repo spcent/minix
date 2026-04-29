@@ -22,6 +22,7 @@ import {
 } from "@minix/contracts";
 
 import {
+  createBookshelfListState,
   createInitialBookshelfState,
   type BookshelfFilterKey,
   type BookshelfSortKey,
@@ -47,6 +48,7 @@ export interface CreateBookshelfControllerOptions {
 function cloneInitialState(initialState: BookshelfState): BookshelfState {
   return {
     ...initialState,
+    list: cloneStateSnapshot(initialState.list),
     items: cloneStateSnapshotArray(initialState.items),
     visibleItems: cloneStateSnapshotArray(initialState.visibleItems),
     ...(initialState.pinnedItem ? { pinnedItem: cloneStateSnapshot(initialState.pinnedItem) } : {}),
@@ -238,6 +240,7 @@ function createVisibleState(
 ): Pick<
   BookshelfState,
   | "visibleItems"
+  | "list"
   | "selectedNovelId"
   | "pinnedItem"
   | "activeItems"
@@ -284,6 +287,13 @@ function createVisibleState(
   const selectedItem = nextState.items.find((item) => item.novelId === selectedNovelId);
 
   return {
+    list: createBookshelfListState({
+      title: nextState.title,
+      emptyText: nextState.emptyText,
+      items: visibleItems,
+      ...(selectedNovelId ? { selectedNovelId } : {}),
+      sort: nextState.activeSortKey,
+    }),
     visibleItems,
     selectedNovelId,
     pinnedItem,
@@ -443,6 +453,7 @@ export function createBookshelfController(options: CreateBookshelfControllerOpti
       });
       store.setState({
         selectedNovelId: nextView.selectedNovelId,
+        list: nextView.list,
         pinnedItem: nextView.pinnedItem,
         selectionReason: nextView.selectionReason,
         resumeCueTitle: nextView.resumeCueTitle,
@@ -475,6 +486,7 @@ export function createBookshelfController(options: CreateBookshelfControllerOpti
       store.setState({
         pinnedNovelId: novelId,
         selectedNovelId: nextView.selectedNovelId,
+        list: nextView.list,
         visibleItems: nextView.visibleItems,
         pinnedItem: nextView.pinnedItem,
         activeItems: nextView.activeItems,
@@ -514,6 +526,7 @@ export function createBookshelfController(options: CreateBookshelfControllerOpti
       store.setState({
         pinnedNovelId: undefined,
         selectedNovelId: nextView.selectedNovelId,
+        list: nextView.list,
         visibleItems: nextView.visibleItems,
         pinnedItem: nextView.pinnedItem,
         activeItems: nextView.activeItems,
@@ -548,6 +561,7 @@ export function createBookshelfController(options: CreateBookshelfControllerOpti
       });
       store.setState({
         activeSortKey: sortKey,
+        list: nextView.list,
         visibleItems: nextView.visibleItems,
         pinnedItem: nextView.pinnedItem,
         activeItems: nextView.activeItems,
@@ -594,6 +608,7 @@ export function createBookshelfController(options: CreateBookshelfControllerOpti
       });
       store.setState({
         activeFilterKey: filterKey,
+        list: nextView.list,
         visibleItems: nextView.visibleItems,
         pinnedItem: nextView.pinnedItem,
         activeItems: nextView.activeItems,
@@ -735,6 +750,7 @@ export function createBookshelfController(options: CreateBookshelfControllerOpti
       });
       store.setState({
         items: nextItems,
+        list: nextView.list,
         visibleItems: nextView.visibleItems,
         pinnedItem: nextView.pinnedItem,
         activeItems: nextView.activeItems,

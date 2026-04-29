@@ -24,8 +24,8 @@ import {
 } from "./managed-content";
 import { listFeed } from "./feed";
 import { CHAPTER_CONTENT, CHAPTER_LISTS, NOVELS } from "../../content";
-import { getRouteTraceId, parseRouteBody, parseRouteQuery } from "../../http/route-context";
-import { jsonError } from "../../http/response";
+import { getRouteTraceId, parseRouteBody, parseRouteQuery, withRouteUserState } from "../../http/route-context";
+import { jsonError, respondDomainResult } from "../../http/response";
 import type { ApiRouteBaseOptions } from "../route-options";
 import { pickDefinedApiFields } from "../schema-helpers";
 import {
@@ -62,10 +62,7 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
       return query;
     }
 
-    const session = c.get("session");
-    const store = resolveStore(c.env);
-    const userState = await store.getUserState(session.userId);
-    return c.json(listFeed(query, userState));
+    return withRouteUserState(c, resolveStore, ({ userState }) => c.json(listFeed(query, userState)));
   });
 
   app.get("/content/detail", async (c) => {
@@ -75,21 +72,20 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
     }
 
     const traceId = getRouteTraceId(c);
-    const session = c.get("session");
-    const store = resolveStore(c.env);
-    const userState = await store.getUserState(session.userId);
-    const response = getManagedContentDetail(
-      {
-        contentId: query.contentId,
-        ...pickDefinedApiFields(query, ["actorRole"]),
-      },
-      userState,
-    );
-    if (!response) {
-      return jsonError("NOT_FOUND", "Managed content not found.", 404, traceId);
-    }
+    return withRouteUserState(c, resolveStore, ({ userState }) => {
+      const response = getManagedContentDetail(
+        {
+          contentId: query.contentId,
+          ...pickDefinedApiFields(query, ["actorRole"]),
+        },
+        userState,
+      );
+      if (!response) {
+        return jsonError("NOT_FOUND", "Managed content not found.", 404, traceId);
+      }
 
-    return c.json(response satisfies ContentDetailResponse);
+      return c.json(response satisfies ContentDetailResponse);
+    });
   });
 
   app.get("/content/review-queue", async (c) => {
@@ -98,16 +94,15 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
       return query;
     }
 
-    const session = c.get("session");
-    const store = resolveStore(c.env);
-    const userState = await store.getUserState(session.userId);
     const request: ListContentReviewQueueRequest = pickDefinedApiFields(query, [
       "page",
       "pageSize",
       "state",
       "actorRole",
     ]);
-    return c.json(listManagedContentReviewQueue(userState, request) satisfies ContentReviewQueueResponse);
+    return withRouteUserState(c, resolveStore, ({ userState }) =>
+      c.json(listManagedContentReviewQueue(userState, request) satisfies ContentReviewQueueResponse),
+    );
   });
 
   app.post("/content/save-draft", async (c) => {
@@ -117,33 +112,32 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
       return payload;
     }
 
-    const session = c.get("session");
-    const store = resolveStore(c.env);
-    const userState = await store.getUserState(session.userId);
-    const request: SaveContentDraftRequest = {
-      model: payload.model,
-      title: payload.title,
-      summary: payload.summary,
-      visibility: payload.visibility,
-      categoryKey: payload.categoryKey,
-      categoryLabel: payload.categoryLabel,
-      tags: payload.tags,
-      ...pickDefinedApiFields(payload, [
-        "contentId",
-        "subtitle",
-        "bodyPreview",
-        "coverAssetId",
-        "attachmentAssetIds",
-        "actorRole",
-      ]),
-    };
-    const response = saveManagedContentDraft(userState, request);
-    if (!response.ok) {
-      return jsonError(response.code, response.message, response.code === "FORBIDDEN" ? 403 : 404, traceId);
-    }
+    return withRouteUserState(c, resolveStore, async ({ session, store, userState }) => {
+      const request: SaveContentDraftRequest = {
+        model: payload.model,
+        title: payload.title,
+        summary: payload.summary,
+        visibility: payload.visibility,
+        categoryKey: payload.categoryKey,
+        categoryLabel: payload.categoryLabel,
+        tags: payload.tags,
+        ...pickDefinedApiFields(payload, [
+          "contentId",
+          "subtitle",
+          "bodyPreview",
+          "coverAssetId",
+          "attachmentAssetIds",
+          "actorRole",
+        ]),
+      };
+      const response = saveManagedContentDraft(userState, request);
+      if (!response.ok) {
+        return respondDomainResult(c, response, traceId);
+      }
 
-    await store.saveUserState(session.userId, userState);
-    return c.json(response.value satisfies SaveContentDraftResponse);
+      await store.saveUserState(session.userId, userState);
+      return c.json(response.value satisfies SaveContentDraftResponse);
+    });
   });
 
   app.post("/content/lifecycle", async (c) => {
@@ -153,20 +147,19 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
       return payload;
     }
 
-    const session = c.get("session");
-    const store = resolveStore(c.env);
-    const userState = await store.getUserState(session.userId);
-    const response = applyManagedContentLifecycle(userState, {
-      contentId: payload.contentId,
-      action: payload.action,
-      ...pickDefinedApiFields(payload, ["visibility", "reviewMessage", "actorRole"]),
-    });
-    if (!response.ok) {
-      return jsonError(response.code, response.message, response.code === "FORBIDDEN" ? 403 : 404, traceId);
-    }
+    return withRouteUserState(c, resolveStore, async ({ session, store, userState }) => {
+      const response = applyManagedContentLifecycle(userState, {
+        contentId: payload.contentId,
+        action: payload.action,
+        ...pickDefinedApiFields(payload, ["visibility", "reviewMessage", "actorRole"]),
+      });
+      if (!response.ok) {
+        return respondDomainResult(c, response, traceId);
+      }
 
-    await store.saveUserState(session.userId, userState);
-    return c.json(response.value satisfies ContentLifecycleMutationResponse);
+      await store.saveUserState(session.userId, userState);
+      return c.json(response.value satisfies ContentLifecycleMutationResponse);
+    });
   });
 
   app.get("/novels", async (c) => {

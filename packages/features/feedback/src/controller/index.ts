@@ -26,6 +26,8 @@ import {
   cloneStateSnapshot,
   cloneStateSnapshotArray,
   createAuthRedirectParams,
+  createFormDraftState,
+  createFormSchema,
   createFormSubmissionKey,
   createFormWorkflowState,
   createStore,
@@ -121,12 +123,12 @@ function createFeedbackDraftState(input: {
   savedAt: number;
   restored?: boolean;
 }): FeedbackState["workflow"]["draft"] {
-  return {
+  return createFormDraftState({
     draftId: "feedback-form",
     recoveryKey: feedbackDraftStorageKey,
-    lastSavedAt: input.savedAt,
-    ...(input.restored ? { restoredAt: Date.now() } : {}),
-  };
+    savedAt: input.savedAt,
+    ...(input.restored ? { restored: true } : {}),
+  });
 }
 
 function createFeedbackSchema(values: FeedbackValues, categories: FeedbackCategory[]): FormSchema {
@@ -208,7 +210,7 @@ function createFeedbackSchema(values: FeedbackValues, categories: FeedbackCatego
     },
   ];
 
-  return {
+  return createFormSchema({
     fields,
     steps: [
       { key: "classify", label: "Classify" },
@@ -216,7 +218,7 @@ function createFeedbackSchema(values: FeedbackValues, categories: FeedbackCatego
       { key: "attachments", label: "Attachments" },
       { key: "followup", label: "Follow-up" },
     ],
-  };
+  });
 }
 
 function createFeedbackApprovalNodes(

@@ -17,13 +17,73 @@ export function withTraceHeaders(headers: Record<string, string>, traceId: strin
   };
 }
 
+export function createApiErrorPayload<TExtra extends Record<string, unknown> = Record<string, never>>(
+  code: string,
+  message: string,
+  extra?: TExtra,
+): { code: string; message: string } & TExtra {
+  return {
+    code,
+    message,
+    ...(extra ?? ({} as TExtra)),
+  };
+}
+
 export function jsonError(code: string, message: string, status: number, traceId: string) {
   return Response.json(
-    { code, message },
+    createApiErrorPayload(code, message),
     {
       status,
       headers: withTraceHeaders({}, traceId),
     },
+  );
+}
+
+export type ApiDomainResult<TValue> =
+  | { ok: true; value: TValue }
+  | { ok: false; code: string; message: string };
+
+export interface JsonResponder {
+  json(payload: unknown, status?: number): Response;
+}
+
+export function resolveDomainErrorStatus(code: string): number {
+  if (code === "FORBIDDEN") {
+    return 403;
+  }
+
+  if (code === "UNAUTHORIZED") {
+    return 401;
+  }
+
+  if (code === "NOT_FOUND") {
+    return 404;
+  }
+
+  if (code === "CONFLICT") {
+    return 409;
+  }
+
+  return 400;
+}
+
+export function respondDomainResult<TValue>(
+  c: JsonResponder,
+  result: ApiDomainResult<TValue>,
+  traceId: string,
+  options: {
+    statusByCode?: (code: string) => number;
+  } = {},
+) {
+  if (result.ok) {
+    return c.json(result.value);
+  }
+
+  return jsonError(
+    result.code,
+    result.message,
+    options.statusByCode?.(result.code) ?? resolveDomainErrorStatus(result.code),
+    traceId,
   );
 }
 

@@ -38,6 +38,35 @@ import {
   uploadSessionRequestSchema,
 } from "./schemas";
 
+function loadUploadTaskRecordOrResponse(userState: UserState, taskId: string, traceId: string) {
+  const existing = userState.uploadsByTaskId[taskId];
+  if (!existing) {
+    return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
+  }
+
+  return existing;
+}
+
+function loadAttachUploadRecordOrResponse(
+  userState: UserState,
+  input: {
+    taskId?: string;
+    assetId?: string;
+    traceId: string;
+  },
+) {
+  const existing = input.taskId
+    ? userState.uploadsByTaskId[input.taskId]
+    : input.assetId
+      ? findUploadRecordByAssetId(userState, input.assetId)
+      : undefined;
+  if (!existing) {
+    return jsonError("NOT_FOUND", "Upload task not found.", 404, input.traceId);
+  }
+
+  return existing;
+}
+
 export interface RegisterUploadRoutesOptions extends ApiRouteBaseOptions, ApiClientContextRouteOptions {
   guardUploadSessionRateLimit: (input: ApiRateLimitGuardInput) => ApiClientStampedRateLimitGuardResult;
   appendUploadSessionAudit: (input: {
@@ -162,9 +191,9 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
     }
 
     const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
-    const existing = userState.uploadsByTaskId[payload.taskId];
-    if (!existing) {
-      return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
+    const existing = loadUploadTaskRecordOrResponse(userState, payload.taskId, traceId);
+    if (existing instanceof Response) {
+      return existing;
     }
 
     const request: UploadChunkRequest = normalizeUploadChunkRequest(payload);
@@ -181,9 +210,9 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
     }
 
     const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
-    const existing = userState.uploadsByTaskId[payload.taskId];
-    if (!existing) {
-      return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
+    const existing = loadUploadTaskRecordOrResponse(userState, payload.taskId, traceId);
+    if (existing instanceof Response) {
+      return existing;
     }
 
     const record = completeUploadRecord(
@@ -219,13 +248,12 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
     }
 
     const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
-    const existing = payload.taskId
-      ? userState.uploadsByTaskId[payload.taskId]
-      : payload.assetId
-        ? findUploadRecordByAssetId(userState, payload.assetId)
-        : undefined;
-    if (!existing) {
-      return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
+    const existing = loadAttachUploadRecordOrResponse(userState, {
+      ...pickDefinedApiFields(payload, ["taskId", "assetId"]),
+      traceId,
+    });
+    if (existing instanceof Response) {
+      return existing;
     }
 
     const request = normalizeUploadAttachRequest(payload);
@@ -248,9 +276,9 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
     }
 
     const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
-    const existing = userState.uploadsByTaskId[payload.taskId];
-    if (!existing) {
-      return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
+    const existing = loadUploadTaskRecordOrResponse(userState, payload.taskId, traceId);
+    if (existing instanceof Response) {
+      return existing;
     }
 
     const request: UploadRetryRequest = { taskId: payload.taskId };
@@ -267,9 +295,9 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
     }
 
     const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
-    const existing = userState.uploadsByTaskId[payload.taskId];
-    if (!existing) {
-      return jsonError("NOT_FOUND", "Upload task not found.", 404, traceId);
+    const existing = loadUploadTaskRecordOrResponse(userState, payload.taskId, traceId);
+    if (existing instanceof Response) {
+      return existing;
     }
 
     const request: UploadCancelRequest = {

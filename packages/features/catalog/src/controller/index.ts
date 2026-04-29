@@ -1,11 +1,12 @@
 import {
   cloneStateSnapshot,
   cloneStateSnapshotArray,
-  createAuthRedirectParams,
+  createControllerRouterHelpers,
   ok,
   createStore,
   deriveLatestMilestoneHistory,
   deriveLatestMilestoneContinuity,
+  createSingleFlightHydrator,
   LATEST_READING_MILESTONE_HISTORY_STORAGE_KEY,
   LATEST_READING_MILESTONE_STORAGE_KEY,
   normalizeSearchKeyword,
@@ -17,7 +18,7 @@ import {
 } from "@minix/core";
 import { type AppRouteId, type NovelCard, type NovelListResponse, type NovelSortValue, type NovelStatus, type SearchResults } from "@minix/contracts";
 
-import { createInitialCatalogState, type CatalogState } from "../model";
+import { createCatalogListState, createInitialCatalogState, type CatalogState } from "../model";
 
 export interface CreateCatalogControllerOptions {
   kernel: AppKernel;
@@ -41,6 +42,7 @@ const DEFAULT_SEARCH_HISTORY_STORAGE_KEY = "catalog.search-history";
 function cloneInitialState(initialState: CatalogState): CatalogState {
   return {
     ...initialState,
+    list: cloneStateSnapshot(initialState.list),
     items: cloneStateSnapshotArray(initialState.items),
     ...(initialState.searchQuery ? { searchQuery: cloneStateSnapshot(initialState.searchQuery) } : {}),
     searchFilters: cloneStateSnapshotArray(initialState.searchFilters),
@@ -188,31 +190,10 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
     ...cloneInitialState(createInitialCatalogState()),
     ...initialState,
   });
-  let searchHistoryHydration: Promise<Result<void>> | null = null;
-
-  async function routeToOptional(routeId?: AppRouteId, params?: Record<string, string | number | boolean>) {
-    if (!routeId) {
-      return ok(undefined);
-    }
-
-    return kernel.router.toRoute(routeId, params);
-  }
-
-  async function routeToLogin() {
-    if (!loginRouteId) {
-      return ok(undefined);
-    }
-
-    const current = kernel.router.current();
-    return kernel.router.replaceRoute(
-      loginRouteId,
-      createAuthRedirectParams({
-        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
-        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
-        reason: "auth-required",
-      }),
-    );
-  }
+  const { routeToLogin, routeToOptional } = createControllerRouterHelpers({
+    kernel,
+    loginRouteId,
+  });
 
   function createRecentSearches(current: string[], keyword: string): string[] {
     return pushRecentSearchKeyword(current, keyword);
@@ -222,12 +203,8 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
     return kernel.storage.set(searchHistoryStorageKey, recentSearches);
   }
 
-  async function hydrateSearchHistory(force = false): Promise<Result<void>> {
-    if (!force && searchHistoryHydration) {
-      return searchHistoryHydration;
-    }
-
-    const run = async (): Promise<Result<void>> => {
+  const hydrateSearchHistory = createSingleFlightHydrator<void>(
+    async (): Promise<Result<void>> => {
       const result = await kernel.storage.get<string[]>(searchHistoryStorageKey);
       if (!result.ok) {
         return result;
@@ -249,13 +226,8 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
         });
       }
       return ok(undefined);
-    };
-
-    searchHistoryHydration = run().finally(() => {
-      searchHistoryHydration = null;
-    });
-    return searchHistoryHydration;
-  }
+    },
+  );
 
   async function hydrateLatestMilestone() {
     const result = await kernel.storage.get<LatestReadingMilestoneSnapshot>(latestMilestoneStorageKey);
@@ -356,6 +328,12 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
     const nextSearchResults = createSearchResults(result.value, current.recentSearches, current.emptyText);
     const annotatedItems = annotateItems(nextSearchResults.items);
     const nextItems = append ? annotateItems([...current.items, ...annotatedItems]) : annotatedItems;
+    const nextQuery = {
+      ...current.query,
+      keyword: result.value.searchQuery.keyword,
+      page: result.value.searchQuery.page,
+      pageSize: result.value.searchQuery.pageSize,
+    };
     const selectedNovelId = deriveSelectedNovelId({
       ...current,
       items: nextItems,
@@ -372,12 +350,25 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
         ...nextSearchResults,
         items: nextItems,
       },
-      query: {
-        ...current.query,
-        keyword: result.value.searchQuery.keyword,
-        page: result.value.searchQuery.page,
-        pageSize: result.value.searchQuery.pageSize,
-      },
+      query: nextQuery,
+      list: createCatalogListState({
+        title: current.title,
+        pageSize: nextQuery.pageSize,
+        emptyText: current.emptyText,
+        items: nextItems,
+        ...(selectedNovelId ? { selectedNovelId } : {}),
+        searchQuery: result.value.searchQuery,
+        searchFilters: result.value.searchFilters,
+        searchResults: {
+          ...nextSearchResults,
+          items: nextItems,
+        },
+        hasMore: nextSearchResults.hasMore,
+        ...(nextSearchResults.total !== undefined ? { total: nextSearchResults.total } : {}),
+        keyword: nextQuery.keyword,
+        page: nextQuery.page,
+        sort: result.value.searchResults.activeSortKey as NovelSortValue,
+      }),
       errorText: undefined,
       recentSearches: nextSearchResults.recentKeywords,
       hotKeywords: nextSearchResults.hotKeywords,
@@ -431,6 +422,21 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
       store.setState({
         selectedNovelId: novelId,
         selectedReason: selected?.recommendedReason,
+        list: createCatalogListState({
+          title: current.title,
+          pageSize: current.query.pageSize,
+          emptyText: current.emptyText,
+          items: current.items,
+          selectedNovelId: novelId,
+          ...(current.searchQuery ? { searchQuery: current.searchQuery } : {}),
+          searchFilters: current.searchFilters,
+          ...(current.searchResults ? { searchResults: current.searchResults } : {}),
+          hasMore: current.hasMore,
+          ...(current.searchResults?.total !== undefined ? { total: current.searchResults.total } : {}),
+          keyword: current.query.keyword,
+          page: current.query.page,
+          sort: current.sort,
+        }),
       });
     },
 

@@ -1,70 +1,23 @@
 import { APP_ROUTE_IDS } from "@minix/contracts";
-import { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags, type SettingsPageModel } from "@minix/core";
+import {
+  createAuthenticatedGuardPolicy,
+  defineHostFeatureFlags,
+  defineHostPageDefinitions,
+  loadFeatureFlags,
+} from "@minix/core";
 import { accountFeatureManifest, createDefaultAccountState } from "@minix/feature-account";
-import { authFeatureManifest, createInitialAuthPageState } from "@minix/feature-auth";
+import { authFeatureManifest, createAuthIdentityPageState, createInitialAuthPageState } from "@minix/feature-auth";
 import { createDefaultFeedbackState, feedbackFeatureManifest } from "@minix/feature-feedback";
-import { createDefaultFeedState, feedFeatureManifest } from "@minix/feature-feed";
-import { createDefaultItemsPageModel, itemsFeatureManifest } from "@minix/feature-items";
+import { createMinuteEnglishSearchFeedState, feedFeatureManifest } from "@minix/feature-feed";
+import {
+  createMinuteEnglishOverviewPageModel,
+  createMinuteEnglishPracticePlanPageModel,
+  itemsFeatureManifest,
+} from "@minix/feature-items";
 import { createDefaultMediaToolsState, mediaToolsFeatureManifest } from "@minix/feature-media-tools";
 import { createDefaultMessagesState, messagesFeatureManifest } from "@minix/feature-messages";
-import { settingsFeatureManifest } from "@minix/feature-settings";
+import { createMinuteEnglishSettingsPageModel, settingsFeatureManifest } from "@minix/feature-settings";
 import { createInitialSubscriptionState, subscriptionFeatureManifest } from "@minix/feature-subscription";
-
-function createMinuteEnglishSettingsPageModel(): SettingsPageModel {
-  return {
-    title: "Learning Preferences",
-    sections: [
-      {
-        key: "study-profile",
-        title: "Study Profile",
-        items: [
-          {
-            key: "level",
-            label: "Level",
-            type: "text",
-            value: "A2 to B1",
-          },
-          {
-            key: "goal",
-            label: "Goal",
-            type: "text",
-            value: "Speak confidently in daily situations",
-          },
-          {
-            key: "plan",
-            label: "Plan",
-            type: "text",
-            value: "10 minutes every weekday",
-          },
-          {
-            key: "focus",
-            label: "Focus",
-            type: "text",
-            value: "Vocabulary, listening, and speaking",
-          },
-        ],
-      },
-      {
-        key: "account",
-        title: "Account",
-        items: [
-          {
-            key: "session",
-            label: "Session",
-            type: "text",
-            value: "Protected pages unlock after sign-in on this device",
-          },
-          {
-            key: "progress",
-            label: "Progress",
-            type: "text",
-            value: "Saved on this device and restored when you return",
-          },
-        ],
-      },
-    ],
-  };
-}
 
 export const hostH5FeatureFlags = defineHostFeatureFlags({
   ...loadFeatureFlags(),
@@ -91,11 +44,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     feature: authFeatureManifest,
     routeId: APP_ROUTE_IDS.identityUpgrade,
     routePath: "/auth/identity/upgrade",
-    pageData: {
-      ...createInitialAuthPageState("h5"),
-      selectedLoginMethod: "phone_code",
-      noticeMessage: "Upgrade a guest session with phone verification or password credentials.",
-    },
+    pageData: createAuthIdentityPageState("h5", "identity-upgrade"),
     controller: {
       successRouteId: APP_ROUTE_IDS.account,
       stayOnSuccess: true,
@@ -103,12 +52,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       planRouteId: APP_ROUTE_IDS.items,
       settingsRouteId: APP_ROUTE_IDS.settings,
     },
-    guardPolicy: {
-      name: "authenticated-identity-upgrade",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-upgrade"),
     featureConfig: {
       surface: "identity-upgrade",
     },
@@ -118,11 +62,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     feature: authFeatureManifest,
     routeId: APP_ROUTE_IDS.identityBindPhone,
     routePath: "/auth/identity/bind-phone",
-    pageData: {
-      ...createInitialAuthPageState("h5"),
-      selectedLoginMethod: "phone_code",
-      noticeMessage: "Bind a verified phone to the current WeChat account and resolve merge conflicts before completion.",
-    },
+    pageData: createAuthIdentityPageState("h5", "identity-bind-phone"),
     controller: {
       successRouteId: APP_ROUTE_IDS.account,
       stayOnSuccess: true,
@@ -130,12 +70,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       planRouteId: APP_ROUTE_IDS.items,
       settingsRouteId: APP_ROUTE_IDS.settings,
     },
-    guardPolicy: {
-      name: "authenticated-identity-bind-phone",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-bind-phone"),
     featureConfig: {
       surface: "identity-bind-phone",
     },
@@ -145,10 +80,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     feature: authFeatureManifest,
     routeId: APP_ROUTE_IDS.identityMerge,
     routePath: "/auth/identity/merge",
-    pageData: {
-      ...createInitialAuthPageState("h5"),
-      noticeMessage: "Review account merge impact, confirm explicitly, or cancel without changing account data.",
-    },
+    pageData: createAuthIdentityPageState("h5", "identity-merge"),
     controller: {
       successRouteId: APP_ROUTE_IDS.account,
       stayOnSuccess: true,
@@ -156,12 +88,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
       planRouteId: APP_ROUTE_IDS.items,
       settingsRouteId: APP_ROUTE_IDS.settings,
     },
-    guardPolicy: {
-      name: "authenticated-identity-merge",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-merge"),
     featureConfig: {
       surface: "identity-merge",
     },
@@ -171,12 +98,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     feature: itemsFeatureManifest,
     routeId: APP_ROUTE_IDS.overview,
     routePath: "/overview",
-    pageData: createDefaultItemsPageModel({
-      title: "Your Daily English Overview",
-      pageSize: 3,
-      emptyText: "No overview tasks yet. Please come back later.",
-      featuredReason: "Start with overview to understand today's focus before opening the full lesson plan.",
-    }),
+    pageData: createMinuteEnglishOverviewPageModel(),
     controller: {
       loginRouteId: APP_ROUTE_IDS.login,
       planRouteId: APP_ROUTE_IDS.items,
@@ -199,12 +121,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     feature: itemsFeatureManifest,
     routeId: APP_ROUTE_IDS.items,
     routePath: "/plan",
-    pageData: createDefaultItemsPageModel({
-      title: "Today's English Practice",
-      pageSize: 6,
-      emptyText: "No lesson tasks yet. Please come back later.",
-      featuredReason: "Today's plan is balanced to move from vocabulary to listening and then active speaking.",
-    }),
+    pageData: createMinuteEnglishPracticePlanPageModel(),
     controller: {
       loginRouteId: APP_ROUTE_IDS.login,
       overviewRouteId: APP_ROUTE_IDS.overview,
@@ -228,13 +145,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     feature: feedFeatureManifest,
     routeId: APP_ROUTE_IDS.feed,
     routePath: "/discover",
-    pageData: createDefaultFeedState({
-      title: "Search Center",
-      subtitle: "Cross-domain search with ranking, hot terms, typo recovery, and filterable result lanes.",
-      surface: "search",
-      pageSize: 6,
-      emptyText: "No discovery results are available yet.",
-    }),
+    pageData: createMinuteEnglishSearchFeedState(),
     controller: {
       loginRouteId: APP_ROUTE_IDS.login,
       feedRouteId: APP_ROUTE_IDS.feed,

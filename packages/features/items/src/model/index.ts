@@ -16,10 +16,10 @@ export interface ItemsProgressSnapshot {
 export type ItemsPageModel = ListPageState<ItemsPageItem> & {
   activeFilter: ItemsFilterValue;
   completedItemIds: string[];
-    progressHydrated: boolean;
-    lastProgressAt: string | undefined;
-    featuredReason: string | undefined;
-    recentlyCompletedItemId: string | undefined;
+  progressHydrated: boolean;
+  lastProgressAt: string | undefined;
+  featuredReason: string | undefined;
+  recentlyCompletedItemId: string | undefined;
 };
 
 export interface CreateItemsPageModelOptions {
@@ -73,5 +73,23 @@ export function createDefaultItemsPageModel(options: CreateDefaultItemsPageModel
     ...(options.items ? { items: options.items } : {}),
     ...(options.activeFilter ? { activeFilter: options.activeFilter } : {}),
     ...(options.featuredReason ? { featuredReason: options.featuredReason } : {}),
+  });
+}
+
+export function createMinuteEnglishOverviewPageModel(): ItemsPageModel {
+  return createDefaultItemsPageModel({
+    title: "Your Daily English Overview",
+    pageSize: 3,
+    emptyText: "No overview tasks yet. Please come back later.",
+    featuredReason: "Start with overview to understand today's focus before opening the full lesson plan.",
+  });
+}
+
+export function createMinuteEnglishPracticePlanPageModel(): ItemsPageModel {
+  return createDefaultItemsPageModel({
+    title: "Today's English Practice",
+    pageSize: 6,
+    emptyText: "No lesson tasks yet. Please come back later.",
+    featuredReason: "Today's plan is balanced to move from vocabulary to listening and then active speaking.",
   });
 }

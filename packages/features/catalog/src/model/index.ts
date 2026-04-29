@@ -1,5 +1,5 @@
 import type { NovelCard, NovelSortValue, NovelStatus, SearchFilterGroup, SearchQuery, SearchResults } from "@minix/contracts";
-import type { LatestMilestoneHistoryEntry } from "@minix/core";
+import { createListPageState, type LatestMilestoneHistoryEntry, type ListPageState } from "@minix/core";
 
 export interface CatalogCategory {
   key: string;
@@ -14,6 +14,7 @@ export interface CatalogStatusOption {
 export interface CatalogState {
   ready: boolean;
   title: string;
+  list: ListPageState<NovelCard>;
   items: NovelCard[];
   searchQuery: SearchQuery | undefined;
   searchFilters: SearchFilterGroup[];
@@ -70,23 +71,70 @@ export interface CreateCatalogStateOptions {
   hotKeywords?: string[];
 }
 
+export interface CreateCatalogListStateOptions {
+  title: string;
+  pageSize: number;
+  emptyText: string;
+  items?: NovelCard[];
+  selectedNovelId?: string;
+  searchQuery?: SearchQuery;
+  searchFilters?: SearchFilterGroup[];
+  searchResults?: SearchResults<NovelCard>;
+  hasMore?: boolean;
+  total?: number;
+  keyword?: string;
+  page?: number;
+  sort?: NovelSortValue;
+}
+
+export function createCatalogListState(options: CreateCatalogListStateOptions): ListPageState<NovelCard> {
+  return createListPageState({
+    title: options.title,
+    pageSize: options.pageSize,
+    emptyText: options.emptyText,
+    ...(options.items ? { items: options.items } : {}),
+    ...(options.selectedNovelId ? { selectedItemId: options.selectedNovelId } : {}),
+    ...(options.searchQuery ? { searchQuery: options.searchQuery } : {}),
+    ...(options.searchFilters ? { searchFilters: options.searchFilters } : {}),
+    ...(options.searchResults ? { searchResults: options.searchResults } : {}),
+    hasMore: options.hasMore ?? false,
+    ...(options.total !== undefined ? { total: options.total } : {}),
+    query: {
+      page: options.page ?? 1,
+      pageSize: options.pageSize,
+      ...(options.keyword ? { keyword: options.keyword } : {}),
+      ...(options.sort ? { sort: [{ field: options.sort, order: "desc" }] } : {}),
+    },
+  });
+}
+
 export function createInitialCatalogState(options: CreateCatalogStateOptions = {}): CatalogState {
+  const pageSize = options.pageSize ?? 6;
+  const title = options.title ?? "Discover Novels";
+  const emptyText = options.emptyText ?? "No novels found yet.";
+
   return {
     ready: false,
-    title: options.title ?? "Discover Novels",
+    title,
+    list: createCatalogListState({
+      title,
+      pageSize,
+      emptyText,
+      sort: options.sort ?? "recommended",
+    }),
     items: [],
     searchQuery: undefined,
     searchFilters: [],
     searchResults: undefined,
     query: {
       page: 1,
-      pageSize: options.pageSize ?? 6,
+      pageSize,
       keyword: "",
     },
     loading: false,
     refreshing: false,
     hasMore: false,
-    emptyText: options.emptyText ?? "No novels found yet.",
+    emptyText,
     errorText: undefined,
     selectedNovelId: undefined,
     activeCategoryKey: options.activeCategoryKey ?? "all",

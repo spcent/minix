@@ -1,13 +1,24 @@
 import { APP_ROUTE_IDS } from "@minix/contracts";
-import { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags, type AppKernel, type SettingsPageModel } from "@minix/core";
+import {
+  createAuthenticatedGuardPolicy,
+  createWechatShellConfig,
+  defineHostFeatureFlags,
+  defineHostPageDefinitions,
+  loadFeatureFlags,
+  type AppKernel,
+} from "@minix/core";
 import { createDefaultAccountState, accountFeatureManifest } from "@minix/feature-account";
-import { authFeatureManifest, createInitialAuthPageState } from "@minix/feature-auth";
+import { authFeatureManifest, createAuthIdentityPageState, createInitialAuthPageState } from "@minix/feature-auth";
 import { createDefaultFeedbackState, feedbackFeatureManifest } from "@minix/feature-feedback";
-import { createDefaultFeedState, feedFeatureManifest } from "@minix/feature-feed";
-import { createDefaultItemsPageModel, itemsFeatureManifest } from "@minix/feature-items";
+import { createMinuteEnglishSearchFeedState, feedFeatureManifest } from "@minix/feature-feed";
+import {
+  createMinuteEnglishOverviewPageModel,
+  createMinuteEnglishPracticePlanPageModel,
+  itemsFeatureManifest,
+} from "@minix/feature-items";
 import { createDefaultMediaToolsState, mediaToolsFeatureManifest } from "@minix/feature-media-tools";
 import { createDefaultMessagesState, messagesFeatureManifest } from "@minix/feature-messages";
-import { settingsFeatureManifest } from "@minix/feature-settings";
+import { createMinuteEnglishSettingsPageModel, settingsFeatureManifest } from "@minix/feature-settings";
 import { createInitialSubscriptionState, subscriptionFeatureManifest } from "@minix/feature-subscription";
 
 async function reportWechatAuthError(kernel: AppKernel, message: string) {
@@ -15,62 +26,6 @@ async function reportWechatAuthError(kernel: AppKernel, message: string) {
     title: message,
     icon: "error",
   });
-}
-
-function createMinuteEnglishSettingsPageModel(): SettingsPageModel {
-  return {
-    title: "Learning Preferences",
-    sections: [
-      {
-        key: "study-profile",
-        title: "Study Profile",
-        items: [
-          {
-            key: "level",
-            label: "Level",
-            type: "text",
-            value: "A2 to B1",
-          },
-          {
-            key: "goal",
-            label: "Goal",
-            type: "text",
-            value: "Speak confidently in daily situations",
-          },
-          {
-            key: "plan",
-            label: "Plan",
-            type: "text",
-            value: "10 minutes every weekday",
-          },
-          {
-            key: "focus",
-            label: "Focus",
-            type: "text",
-            value: "Vocabulary, listening, and speaking",
-          },
-        ],
-      },
-      {
-        key: "account",
-        title: "Account",
-        items: [
-          {
-            key: "session",
-            label: "Session",
-            type: "text",
-            value: "Protected pages unlock after sign-in on this device",
-          },
-          {
-            key: "progress",
-            label: "Progress",
-            type: "text",
-            value: "Saved on this device and restored when you return",
-          },
-        ],
-      },
-    ],
-  };
 }
 
 export const hostWechatFeatureFlags = defineHostFeatureFlags({
@@ -103,11 +58,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
     feature: authFeatureManifest,
     routeId: APP_ROUTE_IDS.identityUpgrade,
     routePath: "/pages/identityUpgrade/index",
-    pageData: {
-      ...createInitialAuthPageState("wechat"),
-      selectedLoginMethod: "phone_code",
-      noticeMessage: "Upgrade a guest session with phone verification or password credentials.",
-    },
+    pageData: createAuthIdentityPageState("wechat", "identity-upgrade"),
     controller: {
       successRouteId: APP_ROUTE_IDS.settings,
       stayOnSuccess: true,
@@ -116,30 +67,22 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       reportError: reportWechatAuthError,
     },
-    guardPolicy: {
-      name: "authenticated-identity-upgrade",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-upgrade"),
     featureConfig: {
       surface: "identity-upgrade",
     },
-    miniprogramPage: "pages/identityUpgrade/index",
-    registrationModule: "../../../src/registrations/wechat/pages/identityUpgrade",
-    navigationBarTitleText: "Upgrade Account",
-    shellTemplate: "generic",
-    shellStyle: "generic",
+    ...createWechatShellConfig({
+      page: "identityUpgrade",
+      navigationBarTitleText: "Upgrade Account",
+      shellTemplate: "generic",
+      shellStyle: "generic",
+    }),
   },
   identityBindPhone: {
     feature: authFeatureManifest,
     routeId: APP_ROUTE_IDS.identityBindPhone,
     routePath: "/pages/identityBindPhone/index",
-    pageData: {
-      ...createInitialAuthPageState("wechat"),
-      selectedLoginMethod: "phone_code",
-      noticeMessage: "Bind a verified phone to the current WeChat account and resolve merge conflicts before completion.",
-    },
+    pageData: createAuthIdentityPageState("wechat", "identity-bind-phone"),
     controller: {
       successRouteId: APP_ROUTE_IDS.settings,
       stayOnSuccess: true,
@@ -148,29 +91,22 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       reportError: reportWechatAuthError,
     },
-    guardPolicy: {
-      name: "authenticated-identity-bind-phone",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-bind-phone"),
     featureConfig: {
       surface: "identity-bind-phone",
     },
-    miniprogramPage: "pages/identityBindPhone/index",
-    registrationModule: "../../../src/registrations/wechat/pages/identityBindPhone",
-    navigationBarTitleText: "Bind Phone",
-    shellTemplate: "generic",
-    shellStyle: "generic",
+    ...createWechatShellConfig({
+      page: "identityBindPhone",
+      navigationBarTitleText: "Bind Phone",
+      shellTemplate: "generic",
+      shellStyle: "generic",
+    }),
   },
   identityMerge: {
     feature: authFeatureManifest,
     routeId: APP_ROUTE_IDS.identityMerge,
     routePath: "/pages/identityMerge/index",
-    pageData: {
-      ...createInitialAuthPageState("wechat"),
-      noticeMessage: "Review account merge impact, confirm explicitly, or cancel without changing account data.",
-    },
+    pageData: createAuthIdentityPageState("wechat", "identity-merge"),
     controller: {
       successRouteId: APP_ROUTE_IDS.settings,
       stayOnSuccess: true,
@@ -179,31 +115,22 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       reportError: reportWechatAuthError,
     },
-    guardPolicy: {
-      name: "authenticated-identity-merge",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-merge"),
     featureConfig: {
       surface: "identity-merge",
     },
-    miniprogramPage: "pages/identityMerge/index",
-    registrationModule: "../../../src/registrations/wechat/pages/identityMerge",
-    navigationBarTitleText: "Merge Accounts",
-    shellTemplate: "generic",
-    shellStyle: "generic",
+    ...createWechatShellConfig({
+      page: "identityMerge",
+      navigationBarTitleText: "Merge Accounts",
+      shellTemplate: "generic",
+      shellStyle: "generic",
+    }),
   },
   overview: {
     feature: itemsFeatureManifest,
     routeId: APP_ROUTE_IDS.overview,
     routePath: "/pages/overview/index",
-    pageData: createDefaultItemsPageModel({
-      title: "Your Daily English Overview",
-      pageSize: 3,
-      emptyText: "No overview tasks yet. Please come back later.",
-      featuredReason: "Start with overview to understand today's focus before opening the full lesson plan.",
-    }),
+    pageData: createMinuteEnglishOverviewPageModel(),
     controller: {
       loginRouteId: APP_ROUTE_IDS.login,
       planRouteId: APP_ROUTE_IDS.items,
@@ -230,12 +157,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
     feature: itemsFeatureManifest,
     routeId: APP_ROUTE_IDS.items,
     routePath: "/pages/items/index",
-    pageData: createDefaultItemsPageModel({
-      title: "Today's English Practice",
-      pageSize: 6,
-      emptyText: "No lesson tasks yet. Please come back later.",
-      featuredReason: "Today's plan is balanced to move from vocabulary to listening and then active speaking.",
-    }),
+    pageData: createMinuteEnglishPracticePlanPageModel(),
     controller: {
       loginRouteId: APP_ROUTE_IDS.login,
       overviewRouteId: APP_ROUTE_IDS.overview,
@@ -264,13 +186,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
     feature: feedFeatureManifest,
     routeId: APP_ROUTE_IDS.feed,
     routePath: "/pages/feed/index",
-    pageData: createDefaultFeedState({
-      title: "Search Center",
-      subtitle: "Cross-domain search with ranking, hot terms, typo recovery, and filterable result lanes.",
-      surface: "search",
-      pageSize: 6,
-      emptyText: "No discovery results are available yet.",
-    }),
+    pageData: createMinuteEnglishSearchFeedState(),
     controller: {
       loginRouteId: APP_ROUTE_IDS.login,
       feedRouteId: APP_ROUTE_IDS.feed,

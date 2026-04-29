@@ -153,6 +153,43 @@ export interface HostPageDefinition<
 
 export type HostPageDefinitions = Record<string, HostPageDefinition>;
 
+export type WechatShellConfig = Pick<
+  HostPageDefinition,
+  "miniprogramPage" | "registrationModule" | "navigationBarTitleText" | "enablePullDownRefresh" | "shellTemplate" | "shellStyle"
+>;
+
+export interface CreateWechatShellConfigOptions {
+  page: string;
+  registrationPage?: string;
+  navigationBarTitleText?: string;
+  enablePullDownRefresh?: boolean;
+  shellTemplate: string;
+  shellStyle: string;
+}
+
+export function createAuthenticatedGuardPolicy(name: string, onFail?: GuardPolicy["onFail"]): GuardPolicy {
+  return {
+    name,
+    requirements: {
+      authenticated: true,
+    },
+    ...(onFail ? { onFail } : {}),
+  };
+}
+
+export function createWechatShellConfig(options: CreateWechatShellConfigOptions): WechatShellConfig {
+  const registrationPage = options.registrationPage ?? options.page;
+
+  return {
+    miniprogramPage: `pages/${options.page}/index`,
+    registrationModule: `../../../src/registrations/wechat/pages/${registrationPage}`,
+    ...(options.navigationBarTitleText ? { navigationBarTitleText: options.navigationBarTitleText } : {}),
+    ...(options.enablePullDownRefresh !== undefined ? { enablePullDownRefresh: options.enablePullDownRefresh } : {}),
+    shellTemplate: options.shellTemplate,
+    shellStyle: options.shellStyle,
+  };
+}
+
 export function defineHostFeatureFlags<TFeatureFlags extends FeatureFlags>(featureFlags: TFeatureFlags): TFeatureFlags {
   return featureFlags;
 }

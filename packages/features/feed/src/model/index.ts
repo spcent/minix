@@ -149,3 +149,13 @@ export function createDefaultFeedState(options: CreateDefaultFeedStateOptions = 
     ],
   });
 }
+
+export function createMinuteEnglishSearchFeedState(): FeedState {
+  return createDefaultFeedState({
+    title: "Search Center",
+    subtitle: "Cross-domain search with ranking, hot terms, typo recovery, and filterable result lanes.",
+    surface: "search",
+    pageSize: 6,
+    emptyText: "No discovery results are available yet.",
+  });
+}

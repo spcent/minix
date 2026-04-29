@@ -1,8 +1,11 @@
 import {
   cloneStateSnapshot,
   cloneStateSnapshotArray,
-  createAuthRedirectParams,
-  createListStatus,
+  createControllerRouterHelpers,
+  createListSelectionState,
+  createListRequestFlow,
+  createListRequestSuccessStatus,
+  createSingleFlightHydrator,
   ok,
   createStore,
   type AppKernel,
@@ -16,7 +19,6 @@ import {
 
 import type { ItemsFilterValue, ItemsPageItem, ItemsPageModel, ItemsProgressSnapshot } from "../model";
 
-type FailedItemsResult<TItem extends ItemsListItem> = Extract<Result<ItemsListResponse<TItem>>, { ok: false }>;
 const DEFAULT_PROGRESS_STORAGE_KEY = "items.progress";
 
 export interface CreateItemsControllerOptions<TItem extends ItemsListItem> {
@@ -103,10 +105,45 @@ function createProgressSnapshot(model: ItemsPageModel): ItemsProgressSnapshot {
 }
 
 function createSelectionState(selectedItemId: string | undefined) {
+  return createListSelectionState(selectedItemId);
+}
+
+function createLoadedItemsPatch<TItem extends ItemsListItem>(
+  current: ItemsPageModel,
+  response: ItemsListResponse<TItem>,
+  options: {
+    append?: boolean;
+    fallbackPage: number;
+  },
+): Partial<ItemsPageModel> {
+  const sourceItems = options.append ? [...current.items, ...response.items] : response.items;
+  const nextItems = applyCompletionState(sourceItems, current.completedItemIds);
+  const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
+  const page = response.page ?? options.fallbackPage;
+  const pageSize = response.pageSize ?? current.query.pageSize ?? 20;
+
   return {
-    ...(selectedItemId !== undefined ? { selectedItemId } : {}),
-    selectedItemIds: selectedItemId ? [selectedItemId] : [],
-    batchSelectable: false,
+    loading: false,
+    refreshing: false,
+    ready: true,
+    items: nextItems,
+    selectedItemId,
+    selection: createSelectionState(selectedItemId),
+    hasMore: response.hasMore,
+    pagination: {
+      page,
+      pageSize,
+      hasMore: response.hasMore,
+    },
+    query: {
+      ...current.query,
+      page,
+      pageSize,
+    },
+    errorText: undefined,
+    featuredReason: deriveFeaturedReason(nextItems, current.featuredReason),
+    recentlyCompletedItemId: undefined,
+    status: createListRequestSuccessStatus(nextItems.length, selectedItemId),
   };
 }
 
@@ -123,40 +160,19 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
     progressStorageKey = DEFAULT_PROGRESS_STORAGE_KEY,
   } = options;
   const store = createStore(cloneInitialModel(initialModel));
-  let progressHydration: Promise<Result<void>> | null = null;
-
-  async function routeToLogin() {
-    const current = kernel.router.current();
-    return kernel.router.replaceRoute(
-      loginRouteId,
-      createAuthRedirectParams({
-        ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
-        ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
-        ...(authRedirectSource ? { source: authRedirectSource } : {}),
-        reason: "auth-required",
-      }),
-    );
-  }
-
-  async function routeToOptional(routeId?: AppRouteId) {
-    if (!routeId) {
-      return ok(undefined);
-    }
-
-    return kernel.router.toRoute(routeId);
-  }
+  const { routeToLogin, routeToOptional } = createControllerRouterHelpers({
+    kernel,
+    loginRouteId,
+    ...(authRedirectSource ? { authRedirectSource } : {}),
+  });
 
   async function persistProgress() {
     const current = store.getState();
     return kernel.storage.set(progressStorageKey, createProgressSnapshot(current));
   }
 
-  async function hydrateProgress(force = false): Promise<Result<void>> {
-    if (!force && progressHydration) {
-      return progressHydration;
-    }
-
-    const run = async (): Promise<Result<void>> => {
+  const hydrateProgress = createSingleFlightHydrator<void>(
+    async (force): Promise<Result<void>> => {
       const current = store.getState();
       if (!force && current.progressHydrated) {
         return ok(undefined);
@@ -190,32 +206,28 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
         recentlyCompletedItemId: undefined,
       });
       return ok(undefined);
-    };
+    },
+  );
 
-    progressHydration = run().finally(() => {
-      progressHydration = null;
-    });
-    return progressHydration;
-  }
-
-  function handleLoadFailure(result: FailedItemsResult<TItem>) {
-    store.setState({
-      ready: true,
-      loading: false,
-      refreshing: false,
-      errorText: result.error.message,
-      status: createListStatus("error", {
-        firstLoaded: store.getState().items.length > 0,
-        staleData: store.getState().items.length > 0,
-      }),
-    });
-
-    if (result.error.code === "UNAUTHORIZED") {
-      return routeToLogin();
-    }
-
-    return result;
-  }
+  const runListRequest = createListRequestFlow<ItemsPageModel, ItemsListResponse<TItem>>({
+    store,
+    request({ state, page }) {
+      return kernel.request.get<ItemsListResponse<TItem>>(
+        requestPath,
+        nextPageQuery(page, state.query.pageSize ?? 20),
+      );
+    },
+    applyResponse({ kind, state, response, page }) {
+      return createLoadedItemsPatch(state, response, {
+        append: kind === "append",
+        fallbackPage: page,
+      });
+    },
+    onUnauthorized: routeToLogin,
+    resolvePage({ kind, state }) {
+      return kind === "append" ? (state.query.page ?? 1) + 1 : 1;
+    },
+  });
 
   return {
     store,
@@ -226,106 +238,12 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
 
     async loadInitial() {
       await hydrateProgress();
-      const current = store.getState();
-      store.setState({
-        loading: true,
-        refreshing: false,
-        errorText: undefined,
-        status: createListStatus("loading", {
-          firstLoaded: current.items.length > 0,
-        }),
-      });
-
-      const result = await kernel.request.get<ItemsListResponse<TItem>>(
-        requestPath,
-        nextPageQuery(current.query.page ?? 1, current.query.pageSize ?? 20),
-      );
-
-      if (!result.ok) {
-        return handleLoadFailure(result);
-      }
-
-      const nextItems = applyCompletionState(result.value.items, current.completedItemIds);
-      const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
-      store.setState({
-        loading: false,
-        refreshing: false,
-        ready: true,
-        items: nextItems,
-        selectedItemId,
-        selection: createSelectionState(selectedItemId),
-        hasMore: result.value.hasMore,
-        pagination: {
-          page: result.value.page ?? current.query.page ?? 1,
-          pageSize: result.value.pageSize ?? current.query.pageSize ?? 20,
-          hasMore: result.value.hasMore,
-        },
-        query: {
-          ...current.query,
-          page: result.value.page ?? current.query.page ?? 1,
-          pageSize: result.value.pageSize ?? current.query.pageSize ?? 20,
-        },
-        errorText: undefined,
-        featuredReason: deriveFeaturedReason(nextItems, current.featuredReason),
-        recentlyCompletedItemId: undefined,
-        status: createListStatus(nextItems.length > 0 ? "ready" : "empty", {
-          firstLoaded: true,
-          ...(selectedItemId ? { restoredSelectionId: selectedItemId } : {}),
-        }),
-      });
-      return result;
+      return runListRequest("initial");
     },
 
     async refresh() {
       await hydrateProgress();
-      const current = store.getState();
-      store.setState({
-        refreshing: true,
-        errorText: undefined,
-        status: createListStatus("refreshing", {
-          firstLoaded: current.items.length > 0,
-          staleData: current.items.length > 0,
-        }),
-      });
-
-      const result = await kernel.request.get<ItemsListResponse<TItem>>(
-        requestPath,
-        nextPageQuery(1, current.query.pageSize ?? 20),
-      );
-
-      if (!result.ok) {
-        return handleLoadFailure(result);
-      }
-
-      const nextItems = applyCompletionState(result.value.items, current.completedItemIds);
-      const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
-      store.setState({
-        loading: false,
-        refreshing: false,
-        ready: true,
-        items: nextItems,
-        selectedItemId,
-        selection: createSelectionState(selectedItemId),
-        hasMore: result.value.hasMore,
-        pagination: {
-          page: result.value.page ?? 1,
-          pageSize: result.value.pageSize ?? current.query.pageSize ?? 20,
-          hasMore: result.value.hasMore,
-        },
-        query: {
-          ...current.query,
-          page: result.value.page ?? 1,
-          pageSize: result.value.pageSize ?? current.query.pageSize ?? 20,
-        },
-        errorText: undefined,
-        featuredReason: deriveFeaturedReason(nextItems, current.featuredReason),
-        recentlyCompletedItemId: undefined,
-        status: createListStatus(nextItems.length > 0 ? "ready" : "empty", {
-          firstLoaded: true,
-          ...(selectedItemId ? { restoredSelectionId: selectedItemId } : {}),
-        }),
-      });
-      return result;
+      return runListRequest("refresh");
     },
 
     async loadMore() {
@@ -335,53 +253,7 @@ export function createItemsController<TItem extends ItemsListItem>(options: Crea
         return;
       }
 
-      const nextPage = (current.query.page ?? 1) + 1;
-      store.setState({
-        loading: true,
-        errorText: undefined,
-        status: createListStatus("partial", {
-          firstLoaded: current.items.length > 0,
-          partialData: current.items.length > 0,
-          staleData: current.items.length > 0,
-        }),
-      });
-
-      const result = await kernel.request.get<ItemsListResponse<TItem>>(
-        requestPath,
-        nextPageQuery(nextPage, current.query.pageSize ?? 20),
-      );
-
-      if (!result.ok) {
-        return handleLoadFailure(result);
-      }
-
-      const nextItems = applyCompletionState([...current.items, ...result.value.items], current.completedItemIds);
-      const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
-      store.setState({
-        loading: false,
-        ready: true,
-        items: nextItems,
-        selectedItemId,
-        selection: createSelectionState(selectedItemId),
-        hasMore: result.value.hasMore,
-        pagination: {
-          page: result.value.page ?? nextPage,
-          pageSize: result.value.pageSize ?? current.query.pageSize ?? 20,
-          hasMore: result.value.hasMore,
-        },
-        query: {
-          ...current.query,
-          page: result.value.page ?? nextPage,
-          pageSize: result.value.pageSize ?? current.query.pageSize ?? 20,
-        },
-        errorText: undefined,
-        featuredReason: deriveFeaturedReason(nextItems, current.featuredReason),
-        status: createListStatus("ready", {
-          firstLoaded: true,
-          ...(selectedItemId ? { restoredSelectionId: selectedItemId } : {}),
-        }),
-      });
-      return result;
+      return runListRequest("append");
     },
 
     async setFilter(nextFilter: ItemsFilterValue) {

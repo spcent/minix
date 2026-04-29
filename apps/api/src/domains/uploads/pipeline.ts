@@ -1,37 +1,33 @@
-import { createHash } from "node:crypto";
-
 import type {
   UploadAsset,
   UploadAttachRequest,
   UploadCancelRequest,
   UploadChunkReceipt,
   UploadChunkRequest,
-  UploadCleanupRecord,
   UploadPipelineRequest,
   UploadPipelineResponse,
   UploadPipelineSource,
-  UploadProviderPosture,
-  ProviderPostureMode,
   UploadReference,
   UploadRetryRequest,
   UploadSelectionResult,
   UploadSession,
   UploadSessionRequest,
   UploadTask,
-  UploadTransferPayload,
 } from "@minix/contracts";
 
-import {
-  buildProviderUrl,
-  isProductionProviderMode,
-  resolveProviderName,
-  resolveProviderPostureMode,
-  resolveUrlHost,
-  SECRET_MATERIAL_NOT_TRACKED_SUMMARY,
-} from "../provider-posture";
+import { isProductionProviderMode } from "../provider-posture";
 import { cloneOptionalDomainSnapshot } from "../snapshot";
-import type { ApiBindings, StoredUploadRecord, UserState } from "../../types";
-import { cloneUploadAsset, createUploadAssetVariant } from "./assets";
+import type { StoredUploadRecord, UserState } from "../../types";
+import { cloneUploadAsset } from "./assets";
+import {
+  buildUploadedAssetUrl,
+  buildUploadedThumbnailUrl,
+  createUploadProviderPosture,
+  resolveUploadProviderMode,
+  resolveUploadReviewProvider,
+  resolveUploadStorageProvider,
+  type UploadProviderRuntimeEnv,
+} from "./provider-posture";
 import {
   cloneStoredUploadRecord,
   cloneUploadChunkReceipt,
@@ -42,143 +38,15 @@ import {
   cloneUploadSession,
 } from "./records";
 import { cloneUploadError, cloneUploadTask, cloneUploadTransferPayload } from "./tasks";
-
-const DEFAULT_UPLOAD_CHUNK_SIZE_BYTES = 64 * 1024;
-const REDUCED_UPLOAD_CHUNK_SIZE_BYTES = 16 * 1024;
-const WEAK_NETWORK_UPLOAD_CHUNK_SIZE_BYTES = 8 * 1024;
-
-export type UploadProviderRuntimeEnv = Pick<
-  ApiBindings,
-  | "MINIX_UPLOAD_PROVIDER_MODE"
-  | "MINIX_UPLOAD_STORAGE_PROVIDER"
-  | "MINIX_UPLOAD_REVIEW_PROVIDER"
-  | "MINIX_UPLOAD_ASSET_BASE_URL"
->;
-
-function resolveUploadProviderMode(runtimeEnv?: UploadProviderRuntimeEnv): ProviderPostureMode {
-  return resolveProviderPostureMode(runtimeEnv?.MINIX_UPLOAD_PROVIDER_MODE);
-}
-
-function resolveUploadStorageProvider(runtimeEnv?: UploadProviderRuntimeEnv): string {
-  const providerMode = resolveUploadProviderMode(runtimeEnv);
-  return resolveProviderName({
-    configuredName: runtimeEnv?.MINIX_UPLOAD_STORAGE_PROVIDER,
-    providerMode,
-    productionFallback: "object-storage-provider",
-    sampleFallback: "sample-object-storage",
-  });
-}
-
-function resolveUploadReviewProvider(runtimeEnv?: UploadProviderRuntimeEnv): string {
-  const providerMode = resolveUploadProviderMode(runtimeEnv);
-  return resolveProviderName({
-    configuredName: runtimeEnv?.MINIX_UPLOAD_REVIEW_PROVIDER,
-    providerMode,
-    productionFallback: "content-review-provider",
-    sampleFallback: "sample-upload-policy",
-  });
-}
-
-function createUploadProviderPosture(record: StoredUploadRecord): UploadProviderPosture {
-  const providerMode = record.reviewRecord?.providerMode ?? "sample";
-  const storageProvider = record.reviewRecord?.storageProvider ?? (isProductionProviderMode(providerMode) ? "configured object storage" : "sample-object-storage");
-  const reviewProvider = record.reviewRecord?.provider ?? (isProductionProviderMode(providerMode) ? "configured review provider" : "sample-upload-policy");
-  const assetHost = resolveUrlHost(record.uploadAsset?.url);
-  const postureSummary =
-    isProductionProviderMode(providerMode)
-      ? `Upload storage resolves through ${storageProvider} and review resolves through ${reviewProvider}. ${SECRET_MATERIAL_NOT_TRACKED_SUMMARY}`
-      : `Upload storage and review remain sample-backed through ${storageProvider} and ${reviewProvider}. ${SECRET_MATERIAL_NOT_TRACKED_SUMMARY}`;
-  return {
-    providerMode,
-    storageProvider,
-    reviewProvider,
-    ...(assetHost ? { assetHost } : {}),
-    secretMaterialTracked: false,
-    postureSummary,
-  };
-}
-
-function buildUploadedAssetUrl(assetId: string, requestUrl: string, runtimeEnv?: UploadProviderRuntimeEnv): string {
-  return buildProviderUrl({
-    path: `/uploads/assets/${assetId}`,
-    requestUrl,
-    configuredBaseUrl: runtimeEnv?.MINIX_UPLOAD_ASSET_BASE_URL,
-  });
-}
-
-function buildUploadedThumbnailUrl(assetId: string, requestUrl: string, runtimeEnv?: UploadProviderRuntimeEnv): string {
-  return buildProviderUrl({
-    path: `/uploads/assets/${assetId}/thumb`,
-    requestUrl,
-    configuredBaseUrl: runtimeEnv?.MINIX_UPLOAD_ASSET_BASE_URL,
-  });
-}
-
-function createUploadHash(buffer: Uint8Array): string {
-  return createHash("sha256").update(buffer).digest("hex");
-}
-
-function decodeBase64ToBuffer(value: string): Uint8Array {
-  return Uint8Array.from(Buffer.from(value, "base64"));
-}
-
-function createSyntheticTransferPayload(
-  task: UploadTask,
-  selectedAsset: UploadAsset,
-  userState?: UserState,
-): UploadTransferPayload {
-  const totalBytes = selectedAsset.metadata.sizeBytes;
-  const seed = `${task.scenario}:${task.fileType}:${task.fileName ?? selectedAsset.fileName}:`;
-  const repeated = seed.repeat(Math.ceil(totalBytes / Math.max(seed.length, 1))).slice(0, totalBytes);
-  const configuredChunkSize = resolveUploadChunkSizeBytes(userState);
-  const chunkSizeBytes = Math.min(configuredChunkSize, Math.max(totalBytes, 1));
-  const chunks: UploadTransferPayload["chunks"] = [];
-  let byteOffset = 0;
-  while (byteOffset < totalBytes) {
-    const nextLength = Math.min(chunkSizeBytes, totalBytes - byteOffset);
-    const chunkBytes = Buffer.from(repeated.slice(byteOffset, byteOffset + nextLength), "utf8");
-    chunks.push({
-      chunkIndex: chunks.length,
-      byteOffset,
-      byteLength: nextLength,
-      checksum: createUploadHash(chunkBytes),
-      checksumAlgorithm: "sha256",
-      dataBase64: chunkBytes.toString("base64"),
-    });
-    byteOffset += nextLength;
-  }
-
-  return {
-    mode: chunks.length > 1 ? "chunked" : "single_part",
-    checksumAlgorithm: "sha256",
-    fileChecksum: createUploadHash(Buffer.from(repeated, "utf8")),
-    totalBytes,
-    chunkSizeBytes,
-    chunks,
-  };
-}
-
-function resolveUploadChunkSizeBytes(userState?: UserState): number {
-  const networkStrategy = userState?.settingsState?.preferences?.device?.networkStrategy ?? "balanced";
-  const weakNetworkMode = userState?.settingsState?.preferences?.device?.weakNetworkMode ?? false;
-  if (weakNetworkMode) {
-    return WEAK_NETWORK_UPLOAD_CHUNK_SIZE_BYTES;
-  }
-  if (networkStrategy === "data-saver") {
-    return REDUCED_UPLOAD_CHUNK_SIZE_BYTES;
-  }
-  return DEFAULT_UPLOAD_CHUNK_SIZE_BYTES;
-}
-
-function resolveSelectionTransfer(selection: UploadSelectionResult, userState?: UserState): UploadTransferPayload | undefined {
-  if (selection.transfer) {
-    return cloneUploadTransferPayload(selection.transfer);
-  }
-  if (!selection.uploadAsset) {
-    return undefined;
-  }
-  return createSyntheticTransferPayload(selection.uploadTask, selection.uploadAsset, userState);
-}
+import {
+  synchronizeUploadRecordSummaries,
+  updateUploadRetention,
+} from "./summaries";
+import {
+  createUploadHash,
+  decodeBase64ToBuffer,
+  resolveSelectionTransfer,
+} from "./transfer";
 
 function createUploadLifecycle(task: UploadTask, input: {
   backendBacked: boolean;
@@ -284,209 +152,6 @@ function calculateUploadExpiresAt(task: UploadTask, now: string): string | undef
   return task.governance.expiresInDays !== undefined
     ? new Date(Date.parse(now) + task.governance.expiresInDays * 24 * 60 * 60 * 1000).toISOString()
     : undefined;
-}
-
-function formatAcceptedFileTypes(fileTypes: UploadTask["governance"]["acceptedFileTypes"]): string {
-  if (fileTypes.length === 0) {
-    return "configured asset types";
-  }
-  if (fileTypes.length === 1) {
-    return fileTypes[0] ?? "configured asset type";
-  }
-  if (fileTypes.length === 2) {
-    return `${fileTypes[0] ?? "configured asset type"} and ${fileTypes[1] ?? "configured asset type"}`;
-  }
-  const lastFileType = fileTypes[fileTypes.length - 1] ?? "configured asset type";
-  return `${fileTypes.slice(0, -1).join(", ")}, and ${lastFileType}`;
-}
-
-function createUploadGovernanceSummary(task: UploadTask): string {
-  const sizeLimitMb = Math.round((task.governance.maxSizeBytes / (1024 * 1024)) * 10) / 10;
-  const reviewClause = task.governance.sensitiveReviewRequired
-    ? "Sensitive review remains enabled for this upload flow."
-    : "No additional sensitive review is required for this upload flow.";
-  const retentionClause =
-    task.governance.expiresInDays !== undefined
-      ? `Retention expires after ${task.governance.expiresInDays} days unless a business reference keeps the asset active.`
-      : "Retention remains active until the business flow clears the asset.";
-  return `Upload accepts ${formatAcceptedFileTypes(task.governance.acceptedFileTypes)} up to ${sizeLimitMb} MB. ${reviewClause} ${retentionClause}`;
-}
-
-function createUploadOwnershipSummary(references: UploadReference[]): string {
-  if (references.length === 0) {
-    return "Asset ownership is not yet bound to a business record.";
-  }
-  const [primaryReference, ...rest] = references;
-  if (!primaryReference) {
-    return "Asset ownership is not yet bound to a business record.";
-  }
-  return rest.length > 0
-    ? `Asset is bound to ${primaryReference.ownerType} ${primaryReference.ownerId} as ${primaryReference.role}, plus ${rest.length} additional reference${rest.length === 1 ? "" : "s"}.`
-    : `Asset is bound to ${primaryReference.ownerType} ${primaryReference.ownerId} as ${primaryReference.role}.`;
-}
-
-function createUploadReferenceOwnerSummary(reference: UploadReference): string {
-  const sourceLabel = reference.sourceContext?.label ?? reference.sourceContext?.routeId ?? reference.sourceContext?.pagePath;
-  return sourceLabel
-    ? `${reference.ownerType} ${reference.ownerId} uses this asset as ${reference.role} from ${sourceLabel}.`
-    : `${reference.ownerType} ${reference.ownerId} uses this asset as ${reference.role}.`;
-}
-
-function createUploadRetentionSummary(task: UploadTask, cleanupRecord?: UploadCleanupRecord): string {
-  if (task.lifecycle.retentionStatus === "expired") {
-    return cleanupRecord?.cleanupScheduledAt
-      ? `Retention expired and cleanup completed after ${cleanupRecord.cleanupScheduledAt}.`
-      : "Retention expired and the upload is no longer active.";
-  }
-  if (task.lifecycle.retentionStatus === "scheduled_cleanup") {
-    return cleanupRecord?.cleanupScheduledAt
-      ? `Retention is scheduled for cleanup at ${cleanupRecord.cleanupScheduledAt}.`
-      : "Retention is scheduled for cleanup.";
-  }
-  if (task.lifecycle.expiresAt) {
-    return `Retention remains active until ${task.lifecycle.expiresAt} unless the asset is cleaned earlier.`;
-  }
-  return "Retention remains active for this upload.";
-}
-
-function createUploadCleanupSummary(cleanupRecord: UploadCleanupRecord | undefined, task: UploadTask): string {
-  if (cleanupRecord?.retentionStatus === "scheduled_cleanup") {
-    const scheduledAt = cleanupRecord.cleanupScheduledAt
-      ? ` Cleanup is queued for ${cleanupRecord.cleanupScheduledAt}.`
-      : " Cleanup is queued.";
-    const reason = cleanupRecord.cleanupReason ? ` Reason: ${cleanupRecord.cleanupReason}.` : "";
-    return `Cleanup is pending for this upload.${scheduledAt}${reason}`;
-  }
-  if (cleanupRecord?.retentionStatus === "expired") {
-    return "Cleanup completed and the upload has expired.";
-  }
-  if (task.lifecycle.canCancel) {
-    return "Cleanup is not scheduled while the upload remains active or under review.";
-  }
-  return "Cleanup is idle until retention changes or the asset loses its references.";
-}
-
-function createDerivedAssetVariants(asset: UploadAsset): NonNullable<UploadAsset["metadata"]["variants"]> {
-  const variants: NonNullable<UploadAsset["metadata"]["variants"]> = [
-    createUploadAssetVariant({
-      kind: "original",
-      url: asset.url,
-      label: "Original asset",
-      width: asset.metadata.width,
-      height: asset.metadata.height,
-      durationSeconds: asset.metadata.durationSeconds,
-      pageCount: asset.metadata.pageCount,
-    }),
-  ];
-
-  if (asset.thumbnailUrl) {
-    variants.push(createUploadAssetVariant({
-      kind: "thumbnail",
-      url: asset.thumbnailUrl,
-      label: "Thumbnail",
-      width: asset.metadata.width !== undefined ? Math.max(1, Math.round(asset.metadata.width / 4)) : undefined,
-      height: asset.metadata.height !== undefined ? Math.max(1, Math.round(asset.metadata.height / 4)) : undefined,
-    }));
-  }
-
-  if (asset.coverImageUrl) {
-    variants.push(createUploadAssetVariant({
-      kind: "cover",
-      url: asset.coverImageUrl,
-      label: "Cover image",
-      width: asset.metadata.width,
-      height: asset.metadata.height,
-    }));
-  }
-
-  return variants;
-}
-
-function createUploadReviewAnnotations(record: StoredUploadRecord): string[] {
-  const annotations: string[] = [`Review status: ${record.uploadTask.reviewStatus}.`];
-  if (record.reviewRecord?.provider) {
-    annotations.push(`Provider: ${record.reviewRecord.provider}.`);
-  }
-  if (record.reviewRecord?.message) {
-    annotations.push(record.reviewRecord.message);
-  }
-  if (record.reviewRecord?.reasonCodes?.length) {
-    annotations.push(`Reason codes: ${record.reviewRecord.reasonCodes.join(", ")}.`);
-  }
-  if (record.cleanupRecord?.cleanupReason) {
-    annotations.push(`Cleanup reason: ${record.cleanupRecord.cleanupReason}.`);
-  }
-  return annotations;
-}
-
-function createDerivedAssetSummary(asset: UploadAsset): string {
-  const variantCount = asset.metadata.variants?.length ?? 0;
-  const physicalSummary =
-    asset.metadata.width !== undefined && asset.metadata.height !== undefined
-      ? `Primary dimensions are ${asset.metadata.width}x${asset.metadata.height}.`
-      : asset.metadata.durationSeconds !== undefined
-        ? `Primary duration is ${asset.metadata.durationSeconds} seconds.`
-        : asset.metadata.pageCount !== undefined
-          ? `Primary document length is ${asset.metadata.pageCount} pages.`
-          : "Primary asset metadata is file-level only.";
-  return variantCount > 0
-    ? `${variantCount} derived asset variant${variantCount === 1 ? "" : "s"} are available. ${physicalSummary}`
-    : physicalSummary;
-}
-
-function synchronizeUploadRecordSummaries(record: StoredUploadRecord) {
-  const ownershipSummary = createUploadOwnershipSummary(record.references);
-  record.uploadTask.governance.governanceSummary = createUploadGovernanceSummary(record.uploadTask);
-  record.uploadTask.ownershipSummary = ownershipSummary;
-  record.uploadTask.lifecycle.retentionSummary = createUploadRetentionSummary(record.uploadTask, record.cleanupRecord);
-  record.uploadTask.lifecycle.cleanupSummary = createUploadCleanupSummary(record.cleanupRecord, record.uploadTask);
-
-  record.references = record.references.map((reference) => ({
-    ...reference,
-    ownerSummary: createUploadReferenceOwnerSummary(reference),
-  }));
-
-  if (record.cleanupRecord) {
-    record.cleanupRecord.ownershipSummary = ownershipSummary;
-    record.cleanupRecord.retentionSummary = createUploadRetentionSummary(record.uploadTask, record.cleanupRecord);
-    record.cleanupRecord.cleanupSummary = createUploadCleanupSummary(record.cleanupRecord, record.uploadTask);
-  }
-
-  const reviewAnnotations = createUploadReviewAnnotations(record);
-  if (record.reviewRecord) {
-    if (reviewAnnotations.length > 0) {
-      record.reviewRecord.annotationSummary = reviewAnnotations.join(" ");
-    } else {
-      delete record.reviewRecord.annotationSummary;
-    }
-  }
-
-  if (record.uploadAsset) {
-    record.uploadAsset.ownershipSummary = ownershipSummary;
-    record.uploadAsset.metadata.variants = createDerivedAssetVariants(record.uploadAsset);
-    if (reviewAnnotations.length > 0) {
-      record.uploadAsset.metadata.reviewAnnotations = reviewAnnotations;
-    } else {
-      delete record.uploadAsset.metadata.reviewAnnotations;
-    }
-    record.uploadAsset.derivedAssetSummary = createDerivedAssetSummary(record.uploadAsset);
-  }
-}
-
-function updateUploadRetention(record: StoredUploadRecord, input: {
-  retentionStatus: UploadCleanupRecord["retentionStatus"];
-  referenced?: boolean;
-  cleanupReason?: string;
-  cleanupScheduledAt?: string;
-}) {
-  record.uploadTask.lifecycle.retentionStatus = input.retentionStatus;
-  record.cleanupRecord = {
-    retentionStatus: input.retentionStatus,
-    ...(input.cleanupScheduledAt ? { cleanupScheduledAt: input.cleanupScheduledAt } : {}),
-    ...(input.cleanupReason ? { cleanupReason: input.cleanupReason } : {}),
-    referenced: input.referenced ?? record.cleanupRecord?.referenced ?? false,
-  };
-  synchronizeUploadRecordSummaries(record);
 }
 
 export function createUploadSessionRecord(
