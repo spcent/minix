@@ -2,7 +2,7 @@ import {
   cloneStateSnapshot,
   cloneStateSnapshotArray,
   createControllerRouterHelpers,
-  createListRequestFlow,
+  createSearchListRequestFlow,
   ok,
   createStore,
   deriveLatestMilestoneHistory,
@@ -316,14 +316,12 @@ export function createCatalogController(options: CreateCatalogControllerOptions)
     };
   }
 
-  const runListRequest = createListRequestFlow<CatalogState, NovelListResponse>({
+  const runListRequest = createSearchListRequestFlow<CatalogState, NovelListResponse>({
     store,
-    resolvePage: ({ kind, state }) => (kind === "append" ? (state.query.page ?? 1) + 1 : 1),
-    createStartPatch: ({ kind }) => ({
-      loading: true,
-      refreshing: kind === "refresh",
-      errorText: undefined,
-    }),
+    startPatch: {
+      includeStatus: false,
+      keepLoadingOnRefresh: false,
+    },
     request: ({ page }) => kernel.request.get<NovelListResponse>(requestPath, createRequestQuery(store.getState(), page)),
     applyResponse: ({ kind, response }) => {
       const current = store.getState();

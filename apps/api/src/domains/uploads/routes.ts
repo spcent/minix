@@ -3,6 +3,8 @@ import type {
   UploadChunkRequest,
   UploadRetryRequest,
 } from "@minix/contracts";
+import type { Context } from "hono";
+import type { ZodType } from "zod";
 
 import {
   getRouteParam,
@@ -10,10 +12,11 @@ import {
   loadRouteUserState,
   parseRouteBody,
   withParsedRouteBody,
+  type RouteUserStateContext,
   withRouteUserStateMutation,
 } from "../../http/route-context";
 import { escapeXml, jsonError } from "../../http/response";
-import type { ApiStore, UserState } from "../../types";
+import type { ApiStore, StoredUploadRecord, UserState } from "../../types";
 import type {
   ApiClientContextRouteOptions,
   ApiClientStampedRateLimitGuardResult,
@@ -108,6 +111,37 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
   app.use("/uploads", requireSession);
   app.use("/uploads/*", requireSession);
 
+  function withUploadTaskMutation<TPayload extends { taskId: string }>(
+    c: Context<any>,
+    schema: ZodType<TPayload>,
+    mutate: (input: {
+      payload: TPayload;
+      existing: StoredUploadRecord;
+      context: RouteUserStateContext;
+    }) => Promise<StoredUploadRecord> | StoredUploadRecord,
+    options: {
+      afterRecordSaved?: (input: {
+        payload: TPayload;
+        record: StoredUploadRecord;
+        context: RouteUserStateContext;
+      }) => Promise<void> | void;
+    } = {},
+  ) {
+    return withParsedRouteBody(c, schema, (payload) =>
+      withRouteUserStateMutation(c, resolveStore, async (context) => {
+        const existing = loadUploadTaskRecordOrResponse(context.userState, payload.taskId, context.traceId);
+        if (existing instanceof Response) {
+          return existing;
+        }
+
+        const record = await mutate({ payload, existing, context });
+        context.userState.uploadsByTaskId[payload.taskId] = record;
+        await options.afterRecordSaved?.({ payload, record, context });
+        return c.json(createUploadResponse(record));
+      }),
+    );
+  }
+
   app.post("/uploads", async (c) => {
     const payload = await parseRouteBody(c, uploadSessionRequestSchema);
     if (payload instanceof Response) {
@@ -192,30 +226,18 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
   });
 
   app.post("/uploads/chunk", async (c) => {
-    return withParsedRouteBody(c, uploadChunkRequestSchema, (payload) =>
-      withRouteUserStateMutation(c, resolveStore, ({ traceId, userState }) => {
-        const existing = loadUploadTaskRecordOrResponse(userState, payload.taskId, traceId);
-        if (existing instanceof Response) {
-          return existing;
-        }
-
-        const request: UploadChunkRequest = normalizeUploadChunkRequest(payload);
-        const record = appendUploadChunkRecord(existing, request, undefined, c.env);
-        userState.uploadsByTaskId[payload.taskId] = record;
-        return c.json(createUploadResponse(record));
-      }),
-    );
+    return withUploadTaskMutation(c, uploadChunkRequestSchema, ({ payload, existing }) => {
+      const request: UploadChunkRequest = normalizeUploadChunkRequest(payload);
+      return appendUploadChunkRecord(existing, request, undefined, c.env);
+    });
   });
 
   app.post("/uploads/complete", async (c) => {
-    return withParsedRouteBody(c, uploadCompleteSchema, (payload) =>
-      withRouteUserStateMutation(c, resolveStore, async ({ traceId, session, store, userState }) => {
-        const existing = loadUploadTaskRecordOrResponse(userState, payload.taskId, traceId);
-        if (existing instanceof Response) {
-          return existing;
-        }
-
-        const record = completeUploadRecord(
+    return withUploadTaskMutation(
+      c,
+      uploadCompleteSchema,
+      ({ payload, existing }) =>
+        completeUploadRecord(
           existing,
           {
             taskId: payload.taskId,
@@ -226,19 +248,20 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
           c.req.url,
           undefined,
           c.env,
-        );
-        userState.uploadsByTaskId[payload.taskId] = record;
-        if (record.cleanupRecord?.retentionStatus === "scheduled_cleanup") {
-          await scheduleUploadCleanupJob({
-            store,
-            userId: session.userId,
-            userState,
-            taskId: record.uploadTask.taskId,
-            ...(record.cleanupRecord.cleanupScheduledAt ? { scheduledAt: record.cleanupRecord.cleanupScheduledAt } : {}),
-          });
-        }
-        return c.json(createUploadResponse(record));
-      }),
+        ),
+      {
+        afterRecordSaved: async ({ record, context }) => {
+          if (record.cleanupRecord?.retentionStatus === "scheduled_cleanup") {
+            await scheduleUploadCleanupJob({
+              store: context.store,
+              userId: context.session.userId,
+              userState: context.userState,
+              taskId: record.uploadTask.taskId,
+              ...(record.cleanupRecord.cleanupScheduledAt ? { scheduledAt: record.cleanupRecord.cleanupScheduledAt } : {}),
+            });
+          }
+        },
+      },
     );
   });
 
@@ -268,44 +291,34 @@ export function registerUploadRoutes(options: RegisterUploadRoutesOptions) {
   });
 
   app.post("/uploads/retry", async (c) => {
-    return withParsedRouteBody(c, uploadRetrySchema, (payload) =>
-      withRouteUserStateMutation(c, resolveStore, ({ traceId, userState }) => {
-        const existing = loadUploadTaskRecordOrResponse(userState, payload.taskId, traceId);
-        if (existing instanceof Response) {
-          return existing;
-        }
-
-        const request: UploadRetryRequest = { taskId: payload.taskId };
-        const record = retryUploadPipeline(existing, request, undefined, c.env);
-        userState.uploadsByTaskId[payload.taskId] = record;
-        return c.json(createUploadResponse(record));
-      }),
-    );
+    return withUploadTaskMutation(c, uploadRetrySchema, ({ payload, existing }) => {
+      const request: UploadRetryRequest = { taskId: payload.taskId };
+      return retryUploadPipeline(existing, request, undefined, c.env);
+    });
   });
 
   app.post("/uploads/cancel", async (c) => {
-    return withParsedRouteBody(c, uploadCancelSchema, (payload) =>
-      withRouteUserStateMutation(c, resolveStore, async ({ traceId, session, store, userState }) => {
-        const existing = loadUploadTaskRecordOrResponse(userState, payload.taskId, traceId);
-        if (existing instanceof Response) {
-          return existing;
-        }
-
+    return withUploadTaskMutation(
+      c,
+      uploadCancelSchema,
+      ({ payload, existing }) => {
         const request: UploadCancelRequest = {
           taskId: payload.taskId,
           ...pickDefinedApiFields(payload, ["reason"]),
         };
-        const record = cancelUploadPipeline(existing, request, undefined, c.env);
-        userState.uploadsByTaskId[payload.taskId] = record;
-        await scheduleUploadCleanupJob({
-          store,
-          userId: session.userId,
-          userState,
-          taskId: record.uploadTask.taskId,
-          ...(record.cleanupRecord?.cleanupScheduledAt ? { scheduledAt: record.cleanupRecord.cleanupScheduledAt } : {}),
-        });
-        return c.json(createUploadResponse(record));
-      }),
+        return cancelUploadPipeline(existing, request, undefined, c.env);
+      },
+      {
+        afterRecordSaved: async ({ record, context }) => {
+          await scheduleUploadCleanupJob({
+            store: context.store,
+            userId: context.session.userId,
+            userState: context.userState,
+            taskId: record.uploadTask.taskId,
+            ...(record.cleanupRecord?.cleanupScheduledAt ? { scheduledAt: record.cleanupRecord.cleanupScheduledAt } : {}),
+          });
+        },
+      },
     );
   });
 

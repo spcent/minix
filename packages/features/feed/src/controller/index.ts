@@ -4,8 +4,8 @@ import {
   cloneStateSnapshotArray,
   createControllerRouterHelpers,
   createFormSubmissionKey,
-  createListRequestFlow,
   createListStatus,
+  createSearchListRequestFlow,
   createStore,
   createSingleFlightHydrator,
   finalizeFormSubmit,
@@ -545,29 +545,13 @@ export function createFeedController(options: CreateFeedControllerOptions) {
 
   let pendingContentDraftSnapshot: ContentDraftSnapshotResult | null = null;
 
-  const runListRequest = createListRequestFlow<FeedState, FeedListResponse>({
+  const runListRequest = createSearchListRequestFlow<FeedState, FeedListResponse>({
     store,
-    resolvePage: ({ kind, state }) => (kind === "append" ? state.query.page + 1 : 1),
-    createStartPatch: ({ kind, state }) => ({
-      loading: kind === "refresh" ? state.loading : true,
-      refreshing: kind === "refresh",
-      errorText: undefined,
-      contentTransitionFeedback: undefined,
-      query: {
-        ...state.query,
-        page: kind === "append" ? state.query.page + 1 : kind === "refresh" ? 1 : state.query.page,
-      },
-      status: createListStatus(
-        kind === "refresh" ? "refreshing" : kind === "append" ? "appending" : "loading",
-        {
-          firstLoaded: kind === "append" || kind === "refresh" ? state.status.firstLoaded : state.status.firstLoaded,
-          ...(kind !== "initial" && state.items.length > 0 ? { partialData: true, staleData: true } : {}),
-          ...(kind === "initial" && state.status.restoredFromRoute ? { restoredFromRoute: true } : {}),
-          ...(kind === "initial" && state.status.restoredQueryKeys ? { restoredQueryKeys: state.status.restoredQueryKeys } : {}),
-          ...(kind === "initial" && state.status.restoredSelectionId ? { restoredSelectionId: state.status.restoredSelectionId } : {}),
-        },
-      ),
-    }),
+    startPatch: {
+      appendLoadState: "appending",
+      clearKeys: ["contentTransitionFeedback"],
+      firstLoaded: ({ state }) => state.status.firstLoaded,
+    },
     request: ({ page }) => kernel.request.get<FeedListResponse>(requestPath, createRequestQuery(page)),
     applyResponse: ({ kind, response }) => {
       const current = store.getState();

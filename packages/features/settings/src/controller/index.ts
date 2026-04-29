@@ -3,7 +3,6 @@ import {
   cloneStateSnapshotArray,
   ok,
   createStore,
-  createAuthRedirectParams,
   READER_DISPLAY_STORAGE_KEY,
   READING_CENTER_STORAGE_KEY,
   type AppKernel,
@@ -16,7 +15,6 @@ import {
   type SettingsPageModel,
   type SettingsSection,
   type ToastOptions,
-  type UserSession,
 } from "@minix/core";
 import {
   SETTINGS_NETWORK_STRATEGIES,
@@ -25,6 +23,8 @@ import {
   type SettingsResponse,
   type UpdateSettingsRequest,
 } from "@minix/contracts";
+
+import { ensureSettingsAuthenticated } from "./auth-flow";
 
 export interface CreateSettingsControllerOptions {
   kernel: AppKernel;
@@ -59,26 +59,6 @@ const DIGEST_MODES: ReadingCenterPreferences["digest"][] = ["weekly", "weekend",
 const SYNC_MODES: ReadingCenterPreferences["sync"][] = ["cross-host", "device-first"];
 const REMINDER_MODES: ReadingCenterPreferences["reminders"][] = ["nightly", "chapter-moves", "paused"];
 const PROFILE_VISIBILITIES = [...SETTINGS_PROFILE_VISIBILITIES];
-
-function hasActiveSession(session: UserSession | null | undefined): boolean {
-  if (!session?.loggedIn || !session.token?.accessToken) {
-    return false;
-  }
-
-  if (session.token.expiresAt === undefined) {
-    return true;
-  }
-
-  return session.token.expiresAt > Date.now();
-}
-
-function canRefreshSession(session: UserSession | null | undefined): session is UserSession {
-  return Boolean(session?.loggedIn && session.token?.refreshToken);
-}
-
-function shouldClearAfterRefreshFailure(code: string): boolean {
-  return code === "TOKEN_EXPIRED" || code === "UNAUTHORIZED" || code === "FORBIDDEN";
-}
 
 function formatTheme(theme: ReaderTheme): string {
   if (theme === "sepia") {
@@ -823,80 +803,14 @@ export function createSettingsController(options: CreateSettingsControllerOption
     store,
 
     async ensureAuthenticated() {
-      const result = await kernel.session.get();
-      if (!result.ok) {
-        return result;
-      }
-
-      if (!hasActiveSession(result.value)) {
-        if (canRefreshSession(result.value) && kernel.auth.refreshSession) {
-          const refreshed = await kernel.auth.refreshSession(result.value);
-          if (refreshed.ok) {
-            const remoteSettings = await hydrateRemoteSettings();
-            if (!remoteSettings.ok) {
-              if (remoteSettings.error.code === "UNAUTHORIZED") {
-                const current = kernel.router.current();
-                return kernel.router.replaceRoute(
-                  loginRouteId,
-                  createAuthRedirectParams({
-                    ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
-                    ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
-                    ...(authRedirectSource ? { source: authRedirectSource } : {}),
-                    reason: "auth-required",
-                  }),
-                );
-              }
-
-              return remoteSettings;
-            }
-
-            await hydrateDisplayPreferences();
-            await hydrateReadingCenterPreferences();
-            return ok(undefined);
-          }
-
-          if (shouldClearAfterRefreshFailure(refreshed.error.code)) {
-            await kernel.session.clear();
-          } else {
-            return refreshed;
-          }
-        } else if (result.value) {
-          await kernel.session.clear();
-        }
-
-        const current = kernel.router.current();
-        return kernel.router.replaceRoute(
-          loginRouteId,
-          createAuthRedirectParams({
-            ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
-            ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
-            ...(authRedirectSource ? { source: authRedirectSource } : {}),
-            reason: "auth-required",
-          }),
-        );
-      }
-
-      const remoteSettings = await hydrateRemoteSettings();
-      if (!remoteSettings.ok) {
-        if (remoteSettings.error.code === "UNAUTHORIZED") {
-          const current = kernel.router.current();
-          return kernel.router.replaceRoute(
-            loginRouteId,
-            createAuthRedirectParams({
-              ...(current.ok && current.value?.path ? { path: current.value.path } : {}),
-              ...(current.ok && current.value?.params ? { params: current.value.params } : {}),
-              ...(authRedirectSource ? { source: authRedirectSource } : {}),
-              reason: "auth-required",
-            }),
-          );
-        }
-
-        return remoteSettings;
-      }
-
-      await hydrateDisplayPreferences();
-      await hydrateReadingCenterPreferences();
-      return ok(undefined);
+      return ensureSettingsAuthenticated({
+        kernel,
+        loginRouteId,
+        authRedirectSource,
+        hydrateRemoteSettings,
+        hydrateDisplayPreferences,
+        hydrateReadingCenterPreferences,
+      });
     },
 
     async cycleReaderTheme() {

@@ -1,8 +1,8 @@
 import {
   createControllerRouterHelpers,
   createDetailStatus,
-  createListRequestFlow,
   createListStatus,
+  createSearchListRequestFlow,
   cloneStateSnapshot,
   cloneStateSnapshotArray,
   createStore,
@@ -311,31 +311,12 @@ export function createMessagesController(options: CreateMessagesControllerOption
     return result;
   }
 
-  const runListRequest = createListRequestFlow<MessagesState, NotificationListResponse>({
+  const runListRequest = createSearchListRequestFlow<MessagesState, NotificationListResponse>({
     store,
-    resolvePage: ({ kind, state }) => (kind === "append" ? state.query.page + 1 : 1),
-    createStartPatch: ({ kind, state }) => ({
-      loading: kind === "refresh" ? state.loading : true,
-      refreshing: kind === "refresh",
-      errorText: undefined,
-      errorCode: undefined,
-      lastActionMessage: undefined,
-      status: createListStatus(
-        kind === "refresh" ? "refreshing" : kind === "append" ? "partial" : "loading",
-        {
-          firstLoaded: kind === "append" ? state.items.length > 0 : kind === "refresh" ? state.items.length > 0 : state.status.restoredFromRoute ? state.status.firstLoaded : state.items.length > 0,
-          ...(kind !== "initial" && state.items.length > 0 ? { staleData: true } : {}),
-          ...(kind === "append" && state.items.length > 0 ? { partialData: true } : {}),
-          ...(kind === "initial" && state.status.restoredFromRoute ? { restoredFromRoute: true } : {}),
-          ...(kind === "initial" && state.status.restoredQueryKeys ? { restoredQueryKeys: state.status.restoredQueryKeys } : {}),
-          ...(kind === "initial" && state.status.restoredSelectionId ? { restoredSelectionId: state.status.restoredSelectionId } : {}),
-        },
-      ),
-      query: {
-        ...state.query,
-        page: kind === "append" ? state.query.page + 1 : 1,
-      },
-    }),
+    startPatch: {
+      appendLoadState: "partial",
+      clearKeys: ["errorCode", "lastActionMessage"],
+    },
     request: ({ page }) => kernel.request.get<NotificationListResponse>(requestPath, createRequestQuery(page)),
     applyResponse: ({ kind, response }) => {
       const current = store.getState();
@@ -404,18 +385,17 @@ export function createMessagesController(options: CreateMessagesControllerOption
       await routeToLogin();
       return result;
     },
-  });
+    afterSuccess: async ({ kind }) => {
+      if (kind === "append") {
+        return;
+      }
 
-  async function loadPage(kind: "initial" | "refresh" | "append") {
-    const result = await runListRequest(kind);
-    if (result.ok && kind !== "append") {
       const selectedThreadId = store.getState().selectedThreadId;
       if (selectedThreadId) {
         await loadThread(selectedThreadId);
       }
-    }
-    return result;
-  }
+    },
+  });
 
   async function syncRoute() {
     if (!messagesRouteId) {
@@ -488,11 +468,11 @@ export function createMessagesController(options: CreateMessagesControllerOption
 
     async loadInitial() {
       hydrateStateFromRoute();
-      return loadPage("initial");
+      return runListRequest("initial");
     },
 
     async refresh() {
-      return loadPage("refresh");
+      return runListRequest("refresh");
     },
 
     async loadMore() {
@@ -501,7 +481,7 @@ export function createMessagesController(options: CreateMessagesControllerOption
         return ok(undefined);
       }
 
-      return loadPage("append");
+      return runListRequest("append");
     },
 
     selectItem(itemId: string) {

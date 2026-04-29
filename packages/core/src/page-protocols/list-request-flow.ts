@@ -1,3 +1,5 @@
+import type { ListPageLoadState } from "@minix/contracts";
+
 import type { Result } from "../error/index";
 import type { Store } from "../store/state";
 import { createListStatus } from "./list";
@@ -10,6 +12,14 @@ export interface ListRequestFlowState {
   refreshing: boolean;
   errorText: string | undefined;
   items: unknown[];
+}
+
+export interface SearchListRequestFlowState extends ListRequestFlowState {
+  query: {
+    page?: number;
+    pageSize?: number;
+  };
+  status?: ReturnType<typeof createListStatus>;
 }
 
 export interface CreateListRequestFlowOptions<TState extends ListRequestFlowState, TResponse, TPatch extends Partial<TState>> {
@@ -29,6 +39,28 @@ export interface CreateListRequestFlowOptions<TState extends ListRequestFlowStat
     state: TState;
     result: Extract<Result<TResponse>, { ok: false }>;
   }) => TPatch;
+  afterSuccess?: (input: {
+    kind: ListRequestKind;
+    state: TState;
+    response: TResponse;
+    page: number;
+    patch: TPatch;
+  }) => Promise<void> | void;
+}
+
+export interface CreateSearchListRequestStartPatchOptions<TState extends SearchListRequestFlowState> {
+  appendLoadState?: ListPageLoadState;
+  clearKeys?: Array<keyof TState>;
+  firstLoaded?: (input: { kind: ListRequestKind; state: TState }) => boolean;
+  includeStatus?: boolean;
+  keepLoadingOnRefresh?: boolean;
+  updateQueryPage?: boolean;
+}
+
+export interface CreateSearchListRequestFlowOptions<TState extends SearchListRequestFlowState, TResponse, TPatch extends Partial<TState>>
+  extends Omit<CreateListRequestFlowOptions<TState, TResponse, TPatch>, "createStartPatch"> {
+  createStartPatch?: (input: { kind: ListRequestKind; state: TState }) => TPatch;
+  startPatch?: CreateSearchListRequestStartPatchOptions<TState>;
 }
 
 export function createListRequestStartPatch(
@@ -91,6 +123,55 @@ export function createListRequestSuccessStatus(itemCount: number, selectedItemId
   });
 }
 
+export function createSearchListRequestStartPatch<TState extends SearchListRequestFlowState>(
+  input: { kind: ListRequestKind; state: TState },
+  options: CreateSearchListRequestStartPatchOptions<TState> = {},
+): Partial<TState> {
+  const { kind, state } = input;
+  const page = kind === "append" ? (state.query.page ?? 1) + 1 : 1;
+  const keepLoadingOnRefresh = options.keepLoadingOnRefresh ?? true;
+  const patch = {
+    loading: kind === "refresh" ? (keepLoadingOnRefresh ? state.loading : false) : true,
+    refreshing: kind === "refresh",
+    errorText: undefined,
+  } as Partial<TState>;
+
+  if (options.updateQueryPage ?? true) {
+    Object.assign(patch, {
+      query: {
+        ...state.query,
+        page,
+      },
+    });
+  }
+
+  for (const key of options.clearKeys ?? []) {
+    (patch as Record<keyof TState, unknown>)[key] = undefined;
+  }
+
+  const includeStatus = options.includeStatus ?? state.status !== undefined;
+  if (includeStatus) {
+    const firstLoaded =
+      options.firstLoaded?.({ kind, state }) ??
+      (kind === "initial" && state.status?.restoredFromRoute
+        ? Boolean(state.status.firstLoaded)
+        : state.items.length > 0);
+    const loadState = kind === "refresh" ? "refreshing" : kind === "append" ? options.appendLoadState ?? "partial" : "loading";
+
+    Object.assign(patch, {
+      status: createListStatus(loadState, {
+        firstLoaded,
+        ...(kind !== "initial" && state.items.length > 0 ? { partialData: true, staleData: true } : {}),
+        ...(kind === "initial" && state.status?.restoredFromRoute ? { restoredFromRoute: true } : {}),
+        ...(kind === "initial" && state.status?.restoredQueryKeys ? { restoredQueryKeys: state.status.restoredQueryKeys } : {}),
+        ...(kind === "initial" && state.status?.restoredSelectionId ? { restoredSelectionId: state.status.restoredSelectionId } : {}),
+      }),
+    });
+  }
+
+  return patch;
+}
+
 export function createListRequestFlow<TState extends ListRequestFlowState, TResponse, TPatch extends Partial<TState> = Partial<TState>>(
   options: CreateListRequestFlowOptions<TState, TResponse, TPatch>,
 ) {
@@ -120,7 +201,27 @@ export function createListRequestFlow<TState extends ListRequestFlowState, TResp
     }
 
     const responseState = options.store.getState();
-    options.store.setState(options.applyResponse({ kind, state: responseState, response: result.value, page }));
+    const patch = options.applyResponse({ kind, state: responseState, response: result.value, page });
+    options.store.setState(patch);
+    await options.afterSuccess?.({ kind, state: options.store.getState(), response: result.value, page, patch });
     return result;
   };
+}
+
+export function createSearchListRequestFlow<
+  TState extends SearchListRequestFlowState,
+  TResponse,
+  TPatch extends Partial<TState> = Partial<TState>,
+>(options: CreateSearchListRequestFlowOptions<TState, TResponse, TPatch>) {
+  const { startPatch, createStartPatch, ...flowOptions } = options;
+
+  return createListRequestFlow<TState, TResponse, TPatch>({
+    ...flowOptions,
+    resolvePage:
+      flowOptions.resolvePage ??
+      (({ kind, state }) => (kind === "append" ? (state.query.page ?? 1) + 1 : 1)),
+    createStartPatch:
+      createStartPatch ??
+      ((input) => createSearchListRequestStartPatch(input, startPatch) as TPatch),
+  });
 }

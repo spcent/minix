@@ -11,7 +11,6 @@ import {
   persistAuthSessionResponse,
   type AppKernel,
   type Result,
-  type UserSession,
 } from "@minix/core";
 import type {
   AccountCancellationRequest,
@@ -34,7 +33,6 @@ import type {
   ListUserRelationsRequest,
   UpdateUserProfileRequest,
   UserAssetHistoryResponse,
-  UserAssetLedgerEntry,
   UserRelationList,
   UserRelationMutationRequest,
   UserRelationListResponse,
@@ -53,6 +51,12 @@ import {
   type AccountState,
   type AccountSummaryStat,
 } from "../model";
+import {
+  createAssetHistoryRequestPath,
+  createAssetHistoryStatePatch,
+  createAssetLedgerSection,
+} from "./asset-history";
+import { buildStateFromSession, hasActiveSession } from "./session";
 
 export interface CreateAccountControllerOptions {
   kernel: AppKernel;
@@ -65,22 +69,6 @@ export interface CreateAccountControllerOptions {
   identityMergeRouteId?: AppRouteId;
   requestPath?: string;
   authRedirectSource?: string;
-}
-
-function hasActiveSession(session: UserSession | null | undefined): session is UserSession {
-  if (!session) {
-    return false;
-  }
-
-  if (!session.loggedIn || !session.token?.accessToken) {
-    return false;
-  }
-
-  if (session.token.expiresAt === undefined) {
-    return true;
-  }
-
-  return session.token.expiresAt > Date.now();
 }
 
 function cloneState(state: AccountState): AccountState {
@@ -145,15 +133,6 @@ function createAccountDraftState(input: {
   };
 }
 
-function upsertSectionItem(items: AccountSectionItem[], nextItem: AccountSectionItem): AccountSectionItem[] {
-  const existingIndex = items.findIndex((item) => item.key === nextItem.key);
-  if (existingIndex === -1) {
-    return [...items, nextItem];
-  }
-
-  return items.map((item, index) => (index === existingIndex ? nextItem : item));
-}
-
 function upsertSection(sections: AccountSection[], nextSection: AccountSection): AccountSection[] {
   const existingIndex = sections.findIndex((section) => section.key === nextSection.key);
   if (existingIndex === -1) {
@@ -177,90 +156,6 @@ function upsertStat(stats: AccountSummaryStat[], nextStat: AccountSummaryStat): 
   }
 
   return stats.map((stat, index) => (index === existingIndex ? nextStat : stat));
-}
-
-function describeAuthStatus(session: UserSession): string {
-  if (session.authStatus === "guest" || session.identity.anonymous) {
-    return "Browsing as guest";
-  }
-
-  return session.platform === "wechat" ? "Signed in through WeChat" : "Signed in through H5";
-}
-
-function describeSessionState(session: UserSession): string {
-  return session.token?.refreshToken
-    ? "This device can refresh the session when the access token expires."
-    : "This device currently relies on the active access token only.";
-}
-
-function buildStateFromSession(baseState: AccountState, session: UserSession): AccountState {
-  const nickname = session.profile?.nickname ?? `User ${session.identity.userId.slice(0, 6)}`;
-  const authStatusLabel = describeAuthStatus(session);
-  const sessionLabel = describeSessionState(session);
-
-  let stats = baseState.stats;
-  stats = upsertStat(stats, {
-    key: "session",
-    label: "Session",
-    value: sessionLabel,
-    tone: "positive",
-  });
-  stats = upsertStat(stats, {
-    key: "profile",
-    label: "Profile",
-    value: `${nickname} on ${session.platform}`,
-  });
-
-  let sections = baseState.sections;
-  sections = upsertSection(sections, {
-    key: "identity",
-    title: "Identity",
-    items: upsertSectionItem(
-      upsertSectionItem(
-        baseState.sections.find((section) => section.key === "identity")?.items ?? [],
-        {
-          key: "user-id",
-          label: "User ID",
-          value: session.identity.userId,
-          hint: "Use this id when you need support or cross-device recovery.",
-        },
-      ),
-      {
-        key: "nickname",
-        label: "Nickname",
-        value: nickname,
-      },
-    ),
-  });
-  sections = upsertSection(sections, {
-    key: "session",
-    title: "Session",
-    items: [
-      {
-        key: "auth-status",
-        label: "Auth status",
-        value: authStatusLabel,
-      },
-      {
-        key: "device-session",
-        label: "Session state",
-        value: sessionLabel,
-      },
-    ],
-  });
-
-  return {
-    ...baseState,
-    authenticated: true,
-    userId: session.identity.userId,
-    nickname,
-    avatarUrl: session.profile?.avatarUrl,
-    authStatusLabel,
-    sessionLabel,
-    stats,
-    sections,
-    selectedActionKey: baseState.selectedActionKey ?? baseState.actions[0]?.key,
-  };
 }
 
 function createStatusLabel(response: CurrentUserResponse): string {
@@ -792,35 +687,6 @@ function createRelationListSection(relationList: UserRelationList | undefined): 
   };
 }
 
-function createAssetLedgerSection(entries: UserAssetLedgerEntry[]): AccountSection | undefined {
-  if (entries.length === 0) {
-    return undefined;
-  }
-
-  return {
-    key: "asset-ledger",
-    title: "Asset history",
-    items: entries.map((entry) => ({
-      key: entry.ledgerId,
-      label: entry.title,
-      value: entry.message,
-      hint: [
-        entry.subject,
-        entry.kind,
-        entry.entitlement?.label,
-        entry.membershipPlanId,
-        entry.pointsDelta !== undefined ? `points ${entry.pointsDelta >= 0 ? "+" : ""}${entry.pointsDelta}` : undefined,
-        entry.balanceDeltaCents !== undefined
-          ? `balance ${(entry.balanceDeltaCents / 100).toFixed(2)} CNY`
-          : undefined,
-        entry.createdAt,
-      ]
-        .filter(Boolean)
-        .join(" · "),
-    })),
-  };
-}
-
 function createRemoteActions(response: CurrentUserResponse): AccountAction[] {
   const actions: AccountAction[] = [
     {
@@ -982,16 +848,6 @@ function createRelationListRequestPath(input: ListUserRelationsRequest): string 
     ...(input.keyword ? { keyword: input.keyword } : {}),
   });
   return `/account/relations/list?${params.toString()}`;
-}
-
-function createAssetHistoryRequestPath(input: ListUserAssetHistoryRequest): string {
-  const params = new URLSearchParams({
-    ...(input.page ? { page: String(input.page) } : {}),
-    ...(input.pageSize ? { pageSize: String(input.pageSize) } : {}),
-    ...(input.subject ? { subject: input.subject } : {}),
-  });
-
-  return params.size > 0 ? `/account/assets/history?${params.toString()}` : "/account/assets/history";
 }
 
 function createAccountOperationValuesFromProfile(
@@ -1427,15 +1283,7 @@ export function createAccountController(options: CreateAccountControllerOptions)
       return result;
     }
 
-    const assetLedgerSection = createAssetLedgerSection(result.value.ledgerEntries);
-    store.setState({
-      accountSummary: result.value.accountSummary,
-      ...(result.value.accountWorkspaceSummary
-        ? { accountWorkspaceSummary: result.value.accountWorkspaceSummary }
-        : {}),
-      assetLedgerEntries: result.value.ledgerEntries,
-      sections: assetLedgerSection ? upsertSection(store.getState().sections, assetLedgerSection) : store.getState().sections,
-    });
+    store.setState(createAssetHistoryStatePatch(store.getState(), result.value));
     return result;
   }
 
