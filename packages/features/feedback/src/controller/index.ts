@@ -14,6 +14,7 @@ import type {
 } from "@minix/contracts";
 import {
   beginFormSubmit,
+  cloneFormPageState,
   cloneStateSnapshot,
   cloneStateSnapshotArray,
   createControllerRouterHelpers,
@@ -21,6 +22,7 @@ import {
   createStore,
   finalizeFormSubmit,
   ok,
+  runFormDraftFlow,
   type AppKernel,
   type Result,
 } from "@minix/core";
@@ -74,47 +76,7 @@ type FailedFeedbackResult =
   | Extract<Result<FeedbackTicketActionResponse>, { ok: false }>;
 
 function cloneState(state: FeedbackState): FeedbackState {
-  return {
-    ...state,
-    formValues: cloneStateSnapshot(state.formValues),
-    initialFormValues: cloneStateSnapshot(state.initialFormValues),
-    validationErrors: cloneStateSnapshotArray(state.validationErrors),
-    submitState: cloneStateSnapshot(state.submitState),
-    schema: {
-      fields: cloneStateSnapshotArray(state.schema.fields),
-      steps: cloneStateSnapshotArray(state.schema.steps),
-    },
-    workflow: {
-      ...state.workflow,
-      stepKeys: [...state.workflow.stepKeys],
-      visibleFieldKeys: [...state.workflow.visibleFieldKeys],
-      dynamicFieldKeys: [...state.workflow.dynamicFieldKeys],
-      conditionalFieldKeys: [...state.workflow.conditionalFieldKeys],
-      ...(state.workflow.approvalNodes
-        ? { approvalNodes: cloneStateSnapshotArray(state.workflow.approvalNodes) }
-        : {}),
-      ...(state.workflow.draft ? { draft: cloneStateSnapshot(state.workflow.draft) } : {}),
-    },
-    values: cloneStateSnapshot(state.values),
-    initialValues: cloneStateSnapshot(state.initialValues),
-    fieldErrors: cloneStateSnapshotArray(state.fieldErrors),
-    lastSubmission: state.lastSubmission ? cloneStateSnapshot(state.lastSubmission) : undefined,
-    categories: cloneStateSnapshotArray(state.categories),
-    latestTicket: state.latestTicket ? cloneStateSnapshot(state.latestTicket) : undefined,
-    latestStatus: state.latestStatus ? cloneStateSnapshot(state.latestStatus) : undefined,
-    latestCategory: state.latestCategory ? cloneStateSnapshot(state.latestCategory) : undefined,
-    ticketList: state.ticketList ? cloneStateSnapshot(state.ticketList) : undefined,
-    selectedTicketId: state.selectedTicketId,
-    recommendedFaqEntries: cloneStateSnapshotArray(state.recommendedFaqEntries),
-    faqCatalog: cloneStateSnapshotArray(state.faqCatalog),
-    supportEntries: cloneStateSnapshotArray(state.supportEntries),
-    supportEntry: state.supportEntry ? cloneStateSnapshot(state.supportEntry) : undefined,
-    revisitAction: state.revisitAction ? cloneStateSnapshot(state.revisitAction) : undefined,
-    queueDashboards: cloneStateSnapshotArray(state.queueDashboards),
-    slaRules: cloneStateSnapshotArray(state.slaRules),
-    handlingReport: state.handlingReport ? cloneStateSnapshot(state.handlingReport) : undefined,
-    serviceLoopSummary: state.serviceLoopSummary,
-  };
+  return cloneFormPageState(state) as FeedbackState;
 }
 
 function buildDeviceSummary(value: unknown): string | undefined {
@@ -567,57 +529,50 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         values: cloneStateSnapshot(store.getState().values),
         ...(store.getState().workflow.currentStepKey ? { currentStepKey: store.getState().workflow.currentStepKey } : {}),
       };
-      const submissionKey = createFormSubmissionKey("feedback-form", "draft", snapshot.values);
-      const nextSubmit = beginFormSubmit(store.getState().submitState, {
-        mode: "draft",
-        submissionKey,
-      });
-      if (nextSubmit.blocked) {
-        store.setState({
-          submitState: nextSubmit.submitState,
-          serviceLoopSummary: "This feedback draft is already saved.",
-        });
-        return ok(undefined);
-      }
 
-      store.setState({
-        submitState: nextSubmit.submitState,
+      return runFormDraftFlow({
+        scope: "feedback-form",
+        submitState: store.getState().submitState,
+        snapshot,
+        persist: (draftSnapshot) => kernel.storage.set(feedbackDraftStorageKey, draftSnapshot),
+        onStarted: (submitState) => {
+          store.setState({ submitState });
+        },
+        onDuplicate: (submitState) => {
+          store.setState({
+            submitState,
+            serviceLoopSummary: "This feedback draft is already saved.",
+          });
+        },
+        onFailure: (result) => {
+          store.setState({
+            errorText: result.error.message,
+            submitState: {
+              ...store.getState().submitState,
+              phase: "failed",
+            },
+          });
+        },
+        onSuccess: ({ snapshot: draftSnapshot, submitState }) => {
+          const nextDraft = createFeedbackDraftState({
+            savedAt: draftSnapshot.savedAt,
+          });
+          store.setState({
+            dirty: true,
+            workflow: createFeedbackWorkflow(
+              store.getState().values,
+              {
+                categories: store.getState().categories,
+                latestStatus: store.getState().latestStatus,
+              },
+              store.getState().workflow.currentStepKey,
+              nextDraft,
+            ).workflow,
+            submitState,
+            serviceLoopSummary: "Feedback draft saved for recovery.",
+          });
+        },
       });
-      const result = await kernel.storage.set(feedbackDraftStorageKey, snapshot);
-      if (!result.ok) {
-        store.setState({
-          errorText: result.error.message,
-          submitState: {
-            ...store.getState().submitState,
-            phase: "failed",
-          },
-        });
-        return result;
-      }
-
-      const nextDraft = createFeedbackDraftState({
-        savedAt: snapshot.savedAt,
-      });
-      store.setState({
-        dirty: true,
-        workflow: createFeedbackWorkflow(
-          store.getState().values,
-          {
-            categories: store.getState().categories,
-            latestStatus: store.getState().latestStatus,
-          },
-          store.getState().workflow.currentStepKey,
-          nextDraft,
-        ).workflow,
-        submitState: finalizeFormSubmit(store.getState().submitState, {
-          mode: "draft",
-          submissionKey,
-          submittedAt: snapshot.savedAt,
-          draftSavedAt: snapshot.savedAt,
-        }),
-        serviceLoopSummary: "Feedback draft saved for recovery.",
-      });
-      return ok(undefined);
     },
 
     async submit() {

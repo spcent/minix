@@ -25,6 +25,20 @@ export interface CreateBootstrapRuntimeEnvOptions {
   allowLocationParams?: boolean;
 }
 
+export interface CreateOfficialHostBootstrapRuntimeEnvOptions {
+  appId: string;
+  appName: string;
+  platform: RuntimeEnv["platform"];
+  defaultApiBaseUrl?: string;
+  mockApiBaseUrl?: string;
+  version?: string;
+  allowLocationParams?: boolean;
+}
+
+export const DEFAULT_BOOTSTRAP_API_BASE_URL = "http://localhost:3000";
+export const DEFAULT_BOOTSTRAP_MOCK_API_BASE_URL = "https://mock.minix.local";
+export const DEFAULT_BOOTSTRAP_VERSION = "1.0.0";
+
 export function parseBootstrapBooleanFlag(value: string | boolean | null | undefined): boolean | undefined {
   if (typeof value === "boolean") {
     return value;
@@ -100,4 +114,22 @@ export function createBootstrapRuntimeEnv(
     debug: useMock,
     version: options.version,
   };
+}
+
+export function createOfficialHostBootstrapRuntimeEnv(
+  options: CreateOfficialHostBootstrapRuntimeEnvOptions,
+  globals: BootstrapEnvGlobals = globalThis,
+): RuntimeEnv {
+  return createBootstrapRuntimeEnv(
+    {
+      appId: options.appId,
+      appName: options.appName,
+      platform: options.platform,
+      defaultApiBaseUrl: options.defaultApiBaseUrl ?? DEFAULT_BOOTSTRAP_API_BASE_URL,
+      mockApiBaseUrl: options.mockApiBaseUrl ?? DEFAULT_BOOTSTRAP_MOCK_API_BASE_URL,
+      version: options.version ?? DEFAULT_BOOTSTRAP_VERSION,
+      ...(options.allowLocationParams !== undefined ? { allowLocationParams: options.allowLocationParams } : {}),
+    },
+    globals,
+  );
 }

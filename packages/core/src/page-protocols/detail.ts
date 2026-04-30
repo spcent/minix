@@ -130,3 +130,7 @@ export function createDefaultDetailPageState<TData = unknown>(
     ...(options.recoveredFromLink ? { recoveredFromLink: true } : {}),
   });
 }
+
+export function cloneDetailPageState<TData = unknown>(state: DetailPageState<TData>): DetailPageState<TData> {
+  return cloneStateSnapshot(state);
+}

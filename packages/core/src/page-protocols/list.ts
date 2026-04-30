@@ -12,7 +12,7 @@ import type {
   SearchResults,
 } from "@minix/contracts";
 
-import { cloneOptionalStateSnapshot, cloneStateSnapshotArray } from "../store/snapshot";
+import { cloneOptionalStateSnapshot, cloneStateSnapshot, cloneStateSnapshotArray } from "../store/snapshot";
 
 export interface ListPageState<TItem> {
   title: string;
@@ -208,4 +208,8 @@ export function createDefaultListPageState<TItem>(
     ...(options.items ? { items: options.items } : {}),
     ...(options.loadState !== undefined ? { loadState: options.loadState } : {}),
   });
+}
+
+export function cloneListPageState<TItem>(state: ListPageState<TItem>): ListPageState<TItem> {
+  return cloneStateSnapshot(state);
 }

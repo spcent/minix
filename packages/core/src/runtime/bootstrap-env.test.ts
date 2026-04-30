@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   createBootstrapRuntimeEnv,
+  createOfficialHostBootstrapRuntimeEnv,
   parseBootstrapBooleanFlag,
   readBootstrapLocationParam,
   readBootstrapProcessEnv,
@@ -109,4 +110,22 @@ test("createBootstrapRuntimeEnv lets explicit overrides win before process env",
 
   assert.equal(env.apiBaseUrl, "https://api.override.test");
   assert.equal(env.debug, true);
+});
+
+test("createOfficialHostBootstrapRuntimeEnv applies shared official host defaults", () => {
+  const env = createOfficialHostBootstrapRuntimeEnv({
+    appId: "test-h5",
+    appName: "Test H5",
+    platform: "h5",
+    allowLocationParams: true,
+  });
+
+  assert.deepEqual(env, {
+    appId: "test-h5",
+    appName: "Test H5",
+    platform: "h5",
+    apiBaseUrl: "http://localhost:3000",
+    debug: false,
+    version: "1.0.0",
+  });
 });

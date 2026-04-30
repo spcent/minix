@@ -1,5 +1,11 @@
 import { APP_ROUTE_IDS } from "@minix/contracts";
-import { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags, type AppKernel } from "@minix/core";
+import {
+  createAuthenticatedGuardPolicy,
+  defineHostFeatureFlags,
+  defineHostPageDefinitions,
+  loadFeatureFlags,
+  type AppKernel,
+} from "@minix/core";
 import { accountFeatureManifest, createDefaultAccountState } from "@minix/feature-account";
 import { authFeatureManifest, createInitialAuthPageState } from "@minix/feature-auth";
 import { bookshelfFeatureManifest, createInitialBookshelfState } from "@minix/feature-bookshelf";
@@ -31,6 +37,10 @@ export const novelWechatFeatureFlags = defineHostFeatureFlags({
   enableAutoLogin: false,
   enableRouteGuard: true,
 });
+
+function authenticatedPage(name: string) {
+  return createAuthenticatedGuardPolicy(`authenticated-${name}`);
+}
 
 export const novelWechatPageDefinitions = defineHostPageDefinitions({
   login: {
@@ -90,12 +100,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "feed",
     },
-    guardPolicy: {
-      name: "authenticated-feed",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("feed"),
     miniprogramPage: "pages/feed/index",
     registrationModule: "../../../src/registrations/wechat/pages/feed",
     navigationBarTitleText: "Discover",
@@ -116,12 +121,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       overviewRouteId: APP_ROUTE_IDS.catalog,
       authRedirectSource: "account",
     },
-    guardPolicy: {
-      name: "authenticated-account",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("account"),
     requiredCapabilities: [{ capability: "clipboard", required: false }],
     featureConfig: {
       surface: "account",
@@ -152,12 +152,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       cancelRouteId: APP_ROUTE_IDS.account,
       authRedirectSource: "feedback",
     },
-    guardPolicy: {
-      name: "authenticated-feedback",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("feedback"),
     featureConfig: {
       surface: "feedback",
       template: "form",
@@ -184,12 +179,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "messages",
     },
-    guardPolicy: {
-      name: "authenticated-messages",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("messages"),
     featureConfig: {
       surface: "messages",
     },
@@ -214,12 +204,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       loginRouteId: APP_ROUTE_IDS.login,
       settingsRouteId: APP_ROUTE_IDS.settings,
     },
-    guardPolicy: {
-      name: "authenticated-media-tools",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("media-tools"),
     requiredCapabilities: [
       { capability: "upload", required: false },
       { capability: "share", required: false },
@@ -250,12 +235,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
       membershipRouteId: APP_ROUTE_IDS.membership,
     },
-    guardPolicy: {
-      name: "authenticated-novel-detail",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("novel-detail"),
     miniprogramPage: "pages/novelDetail/index",
     registrationModule: "../../../src/registrations/wechat/pages/novelDetail",
     navigationBarTitleText: "Novel Detail",
@@ -276,12 +256,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       readerRouteId: APP_ROUTE_IDS.reader,
       membershipRouteId: APP_ROUTE_IDS.membership,
     },
-    guardPolicy: {
-      name: "authenticated-toc",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("toc"),
     miniprogramPage: "pages/toc/index",
     registrationModule: "../../../src/registrations/wechat/pages/toc",
     navigationBarTitleText: "Chapter List",
@@ -304,12 +279,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
       membershipRouteId: APP_ROUTE_IDS.membership,
     },
-    guardPolicy: {
-      name: "authenticated-reader",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("reader"),
     miniprogramPage: "pages/reader/index",
     registrationModule: "../../../src/registrations/wechat/pages/reader",
     navigationBarTitleText: "Reader",
@@ -331,12 +301,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       tocRouteId: APP_ROUTE_IDS.toc,
       settingsRouteId: APP_ROUTE_IDS.settings,
     },
-    guardPolicy: {
-      name: "authenticated-bookshelf",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("bookshelf"),
     miniprogramPage: "pages/bookshelf/index",
     registrationModule: "../../../src/registrations/wechat/pages/bookshelf",
     navigationBarTitleText: "Bookshelf",
@@ -371,12 +336,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       },
       showErrorToast: true,
     },
-    guardPolicy: {
-      name: "authenticated-settings",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("settings"),
     miniprogramPage: "pages/settings/index",
     registrationModule: "../../../src/registrations/wechat/pages/settings",
     navigationBarTitleText: "Settings",
@@ -398,12 +358,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       tocRouteId: APP_ROUTE_IDS.toc,
       bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
     },
-    guardPolicy: {
-      name: "authenticated-membership",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("membership"),
     miniprogramPage: "pages/membership/index",
     registrationModule: "../../../src/registrations/wechat/pages/membership",
     navigationBarTitleText: "Membership",

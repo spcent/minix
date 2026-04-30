@@ -1,4 +1,5 @@
 import type {
+  AccountOperation,
   AccountOperationResponse,
   AuthCredentialProtection,
 } from "@minix/contracts";
@@ -19,6 +20,14 @@ export interface AccountActionContext {
   deviceId?: string;
 }
 
+export type AccountSecurityOperationKind =
+  | "change_phone"
+  | "unbind_wechat"
+  | "unlink_provider"
+  | "revoke_provider"
+  | "request_cancellation"
+  | "revoke_cancellation";
+
 export interface AccountRouteHelpers {
   loadAccountActionContext: (
     c: Context<any>,
@@ -26,13 +35,7 @@ export interface AccountRouteHelpers {
   ) => Promise<AccountActionContext | Response>;
   createBlockedAccountOperationResponse: (input: {
     userState: UserState;
-    kind:
-      | "change_phone"
-      | "unbind_wechat"
-      | "unlink_provider"
-      | "revoke_provider"
-      | "request_cancellation"
-      | "revoke_cancellation";
+    kind: AccountSecurityOperationKind;
     message: string;
     session: SessionRecord;
     requestUrl: string;
@@ -41,6 +44,13 @@ export interface AccountRouteHelpers {
     clientId: string;
     deviceId?: string;
   }) => Promise<AccountOperationResponse>;
+  loadAvailableAccountOperation: (input: {
+    c: Context<any>;
+    operations: AccountOperation[];
+    kind: AccountSecurityOperationKind;
+    fallbackMessage: string;
+    context: AccountActionContext;
+  }) => Promise<AccountOperation | Response>;
   createVerificationFailureResponse: (input: {
     c: Context<any>;
     store: ApiStore;
@@ -124,13 +134,7 @@ export function createAccountRouteHelpers(
 
   async function createBlockedAccountOperationResponse(input: {
     userState: UserState;
-    kind:
-      | "change_phone"
-      | "unbind_wechat"
-      | "unlink_provider"
-      | "revoke_provider"
-      | "request_cancellation"
-      | "revoke_cancellation";
+    kind: AccountSecurityOperationKind;
     message: string;
     session: SessionRecord;
     requestUrl: string;
@@ -152,6 +156,32 @@ export function createAccountRouteHelpers(
     });
     await input.store.saveUserState(input.session.userId, input.userState);
     return response;
+  }
+
+  async function loadAvailableAccountOperation(input: {
+    c: Context<any>;
+    operations: AccountOperation[];
+    kind: AccountSecurityOperationKind;
+    fallbackMessage: string;
+    context: AccountActionContext;
+  }) {
+    const operation = input.operations.find((item) => item.kind === input.kind);
+    if (operation?.available) {
+      return operation;
+    }
+
+    const response = await createBlockedAccountOperationResponse({
+      userState: input.context.userState,
+      kind: input.kind,
+      message: operation?.blockedReason ?? input.fallbackMessage,
+      session: input.context.session,
+      requestUrl: input.c.req.url,
+      traceId: input.context.traceId,
+      store: input.context.store,
+      clientId: input.context.clientId,
+      ...(input.context.deviceId ? { deviceId: input.context.deviceId } : {}),
+    });
+    return input.c.json(response, 409);
   }
 
   async function createVerificationFailureResponse(input: {
@@ -245,6 +275,7 @@ export function createAccountRouteHelpers(
   return {
     loadAccountActionContext,
     createBlockedAccountOperationResponse,
+    loadAvailableAccountOperation,
     createVerificationFailureResponse,
     verifyAccountSecurityCredential,
     appendAccountAuditEvent,

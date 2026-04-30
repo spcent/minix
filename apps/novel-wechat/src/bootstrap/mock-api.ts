@@ -16,11 +16,6 @@ import type {
   BookshelfResponse,
   ChapterContent,
   ChapterListResponse,
-  ContentAccess,
-  ContentCard,
-  ContentDetail,
-  ContentDisplay,
-  ContentLifecycle,
   LoadReadingProgressResponse,
   MembershipOverview,
   NovelDetail,
@@ -29,8 +24,15 @@ import type {
   SaveReadingProgressRequest,
 } from "@minix/contracts";
 
+import {
+  createNovelContentAccess,
+  createNovelContentCard,
+  createNovelContentDetail,
+  enrichNovelDetail,
+  type RawNovelDetail,
+} from "./mock-content";
+
 type QueryValue = string | number | boolean | undefined;
-type RawNovelDetail = Omit<NovelDetail, "contentDetail" | "contentAccess">;
 
 const MOCK_COVER_URLS = {
   lantern: createMockSvgCoverDataUrl({
@@ -68,97 +70,6 @@ const MEMBERSHIP_OVERVIEW: MembershipOverview = {
     { key: "priority-updates", label: "Priority Updates", description: "Keep reading progress and update cues aligned across the shelf and reader." },
   ],
 };
-
-function createNovelContentLifecycle(detail: RawNovelDetail): ContentLifecycle {
-  const updatedAt = detail.latestChapter?.updatedAt ?? "2026-03-22T08:00:00.000Z";
-  return {
-    state: "published",
-    availableActions: ["update", "archive", "delete"],
-    publishedAt: updatedAt,
-    updatedAt,
-  };
-}
-
-function createNovelContentDisplay(
-  detail: RawNovelDetail,
-  slot: ContentDisplay["recommendationSlot"],
-  slotLabel: string,
-): ContentDisplay {
-  return {
-    category: { key: detail.categoryKey, label: detail.categoryLabel },
-    tags: detail.tags.map((tag) => ({ key: tag.key, label: tag.label })),
-    topics: detail.tags.slice(0, 2).map((tag) => ({ key: tag.key, label: tag.label })),
-    ...(slot ? { recommendationSlot: slot } : {}),
-    recommendationSlotLabel: slotLabel,
-    pinned: detail.status === "serializing",
-    featured: detail.requiresMembership || detail.status === "serializing",
-  };
-}
-
-function createNovelContentAccess(detail: RawNovelDetail | NovelDetail): ContentAccess {
-  const purchased = Boolean(detail.isPurchased);
-  return {
-    visibility: detail.requiresMembership ? "member_only" : "public",
-    accessible: !detail.requiresMembership || purchased || detail.isFree,
-    previewAvailable: Boolean(detail.isFree || detail.isTrial),
-    requiresLogin: false,
-    requiresMembership: detail.requiresMembership,
-    requiresPurchase: false,
-    purchased,
-    summaryLabel:
-      detail.accessRuleSummaryLabel ??
-      (detail.requiresMembership
-        ? "This title stays in the premium lane until membership unlocks the complete reading route after the visible preview boundary."
-        : "Open-access reading continues without a paywall in the current sample surface."),
-    ...(detail.requiresMembership ? { gateLabel: "Membership required for full reading" } : {}),
-    ...(detail.requiresMembership ? { entitlementLabel: "Membership unlock" } : {}),
-  };
-}
-
-function createNovelContentDetail(detail: RawNovelDetail | NovelDetail): ContentDetail {
-  return {
-    contentId: detail.id,
-    model: "novel_story",
-    title: detail.title,
-    ...(detail.subtitle ? { subtitle: detail.subtitle } : {}),
-    summary: detail.summary,
-    ...(detail.coverUrl ? { coverUrl: detail.coverUrl } : {}),
-    authorLabel: detail.author.name,
-    display: createNovelContentDisplay(
-      detail,
-      detail.requiresMembership ? "premium" : detail.status === "serializing" ? "frontlist" : "ranking",
-      detail.requiresMembership ? "Premium Spotlight" : detail.status === "serializing" ? "Frontlist Serial" : "Completed Archive",
-    ),
-    lifecycle: createNovelContentLifecycle(detail),
-    ...(detail.relatedLaneLabel ? { recommendationReason: detail.relatedLaneLabel } : {}),
-  };
-}
-
-function createNovelContentCard(detail: NovelDetail): ContentCard {
-  return {
-    contentId: detail.id,
-    model: "novel_story",
-    title: detail.title,
-    ...(detail.subtitle ? { subtitle: detail.subtitle } : {}),
-    summary: detail.summary,
-    ...(detail.coverUrl ? { coverUrl: detail.coverUrl } : {}),
-    authorLabel: detail.author.name,
-    display: createNovelContentDisplay(
-      detail,
-      detail.requiresMembership ? "premium" : detail.status === "serializing" ? "frontlist" : "ranking",
-      detail.requiresMembership ? "Premium Spotlight" : detail.status === "serializing" ? "Frontlist Serial" : "Completed Archive",
-    ),
-    lifecycle: createNovelContentLifecycle(detail),
-  };
-}
-
-function enrichNovelDetail(detail: RawNovelDetail): NovelDetail {
-  return {
-    ...detail,
-    contentDetail: createNovelContentDetail(detail),
-    contentAccess: createNovelContentAccess(detail),
-  };
-}
 
 const RAW_NOVELS: RawNovelDetail[] = [
   {

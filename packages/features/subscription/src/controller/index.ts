@@ -1,9 +1,7 @@
 import {
   createControllerRouterHelpers,
-  createCapabilityHealthSnapshot,
   createDetailStatus,
   createListStatus,
-  describeCapabilityStatus,
   ok,
   createStore,
   deriveLatestMilestoneHistory,
@@ -23,7 +21,6 @@ import type {
   OrderDetailResponse,
   OrderOperationRequest,
   PaymentCatalogResponse,
-  CapabilityStatus,
   PurchaseOrderRequest,
   PurchaseOrderResponse,
   PurchaseMembershipRequest,
@@ -32,10 +29,16 @@ import type {
   SubscriptionOperationRequest,
 } from "@minix/contracts";
 import { createInitialSubscriptionState, type SubscriptionState } from "../model";
-
-function isSamplePaymentProviderMode(providerMode: NonNullable<PurchaseMembershipResponse["paymentIntent"]["gatewayReference"]>["providerMode"]): boolean {
-  return providerMode === "sample";
-}
+import { applyCommerceSnapshot, applyOrderDetailToState, deriveEntitlementSummary, handleCommerceDetailFailure } from "./commerce-projection";
+import { isSamplePaymentProviderMode, syncPaymentCapabilityState } from "./payment-capability";
+import {
+  deriveRecommendedPlanId,
+  deriveReturnActionLabel,
+  deriveReturnContextLabel,
+  deriveReturnTarget,
+  deriveUnlockOutcomeLabel,
+  resolveSubscriptionRouteParam,
+} from "./return-context";
 
 export interface CreateSubscriptionControllerOptions {
   kernel: AppKernel;
@@ -106,183 +109,6 @@ export function createSubscriptionController(options: CreateSubscriptionControll
     loginRouteId,
   });
 
-  function derivePaymentCapabilitySummary(status: CapabilityStatus | undefined) {
-    const base = describeCapabilityStatus(
-      status,
-      "Payment capability status is unavailable until the host runtime reports it.",
-    );
-    if (!status || !status.available) {
-      return `${base} Order creation can still succeed, but a host payment bridge is required before native payment execution can continue.`;
-    }
-
-    if (status.mode === "degraded") {
-      return `${base} Host payment execution may still require a follow-up confirmation step.`;
-    }
-
-    return base;
-  }
-
-  function syncPaymentCapabilityState() {
-    const statusResult = kernel.capability?.status("payment");
-    const paymentCapabilityStatus = statusResult?.ok ? statusResult.value : undefined;
-    store.setState({
-      paymentCapabilityStatus,
-      paymentCapabilitySnapshot: createCapabilityHealthSnapshot(
-        "payment",
-        paymentCapabilityStatus,
-        "Payment capability status is unavailable until the host runtime reports it.",
-      ),
-      paymentCapabilitySummary: derivePaymentCapabilitySummary(paymentCapabilityStatus),
-    });
-
-    return paymentCapabilityStatus;
-  }
-
-  function resolveRouteParam(key: "source" | "novelId" | "chapterId"): string | undefined {
-    const current = kernel.router.current();
-    const value = current.ok ? current.value?.params?.[key] : undefined;
-    return typeof value === "string" ? value : store.getState()[key];
-  }
-
-  function deriveReturnTarget(source?: string) {
-    if (source === "reader") {
-      return "reader" as const;
-    }
-
-    if (source === "toc") {
-      return "toc" as const;
-    }
-
-    if (source === "detail") {
-      return "detail" as const;
-    }
-
-    return "catalog" as const;
-  }
-
-  function deriveReturnActionLabel(source?: string) {
-    if (source === "reader") {
-      return "Return to chapter";
-    }
-
-    if (source === "toc") {
-      return "Return to directory";
-    }
-
-    if (source === "detail") {
-      return "Return to title";
-    }
-
-    return "Back to library";
-  }
-
-  function deriveEntitlementSummary(overview: MembershipOverview | undefined) {
-    if (!overview) {
-      return undefined;
-    }
-
-    if (overview.active) {
-      return `${overview.statusLabel}. Membership should now behave like a recovery path instead of a blocker.`;
-    }
-
-    if (overview.tier === "guest") {
-      return "Guest access is active. Sign in or purchase before premium continuity can resume.";
-    }
-
-    return `${overview.statusLabel}. Premium continuation is still blocked until an entitlement is added.`;
-  }
-
-  function applyOrderDetailToState(current: SubscriptionState, detail: OrderDetailResponse): Partial<SubscriptionState> {
-    const entitlement = detail.entitlement as SubscriptionState["entitlement"];
-    const paymentContinuitySummary =
-      detail.paymentResult.continuitySummary ??
-      detail.operationResult?.continuitySummary ??
-      detail.afterSalesCases?.[0]?.continuitySummary;
-    const diagnosticsParts = [
-      detail.paymentIntent.capabilitySummary,
-      detail.paymentIntent.executionSummary,
-      detail.commercePosture?.gatewaySummary,
-      detail.commercePosture?.callbackSummary,
-      detail.callbackVerification.diagnosticsSummary,
-      detail.reconciliation.diagnosticsSummary,
-      detail.reconciliation.ledgerAuditSummary,
-    ].filter((value): value is string => Boolean(value));
-    return {
-      selectedOrderId: detail.order.orderId,
-      order: detail.order,
-      paymentIntent: detail.paymentIntent,
-      paymentResult: detail.paymentResult,
-      callbackVerification: detail.callbackVerification,
-      reconciliation: detail.reconciliation,
-      commercePosture: detail.commercePosture,
-      paymentContinuitySummary,
-      paymentDiagnosticsSummary: diagnosticsParts.length > 0 ? diagnosticsParts.join(" ") : undefined,
-      afterSalesContinuitySummary: detail.afterSalesCases?.[0]?.continuitySummary,
-      commerceDetailStatus: createDetailStatus("ready", {
-        entryContext: "list",
-        requestedDetailId: detail.order.orderId,
-      }),
-      entitlement,
-      ...(detail.afterSalesCases ? { afterSalesCases: detail.afterSalesCases } : {}),
-      transactionMessage: detail.operationResult?.message ?? detail.paymentResult.message,
-      canCancelOrder: detail.order.status === "created" || detail.order.status === "pending_payment",
-      canRefundOrder: detail.order.status === "paid",
-      canCancelSubscription: detail.subscription?.status === "active" || detail.subscription?.status === "renewal_due",
-      canRenewSubscription: detail.subscription?.status === "cancelled" || detail.subscription?.status === "grace" || detail.subscription?.status === "expired",
-      ...(entitlement?.productType === "membership"
-        ? {
-            overview: entitlement.overview,
-            benefits: entitlement.overview.benefits,
-            entitlementSummary: deriveEntitlementSummary(entitlement.overview),
-            recommendedPlanId: deriveRecommendedPlanId(current.source, entitlement.overview),
-          }
-        : {}),
-    };
-  }
-
-  function applyCommerceSnapshot(input: {
-    catalog?: PaymentCatalogResponse;
-    orderList?: OrderListResponse;
-    subscriptions?: SubscriptionListResponse;
-    afterSales?: AfterSalesListResponse;
-  }): Partial<SubscriptionState> {
-    const nextState: Partial<SubscriptionState> = {};
-    if (input.catalog && Array.isArray(input.catalog.products) && Array.isArray(input.catalog.skus)) {
-      nextState.catalogProducts = input.catalog.products;
-      nextState.catalogSkus = input.catalog.skus;
-      nextState.selectedSkuId = store.getState().selectedSkuId ?? input.catalog.products[0]?.defaultSkuId ?? input.catalog.skus[0]?.skuId;
-    }
-    if (input.orderList?.orderList && Array.isArray(input.orderList.orderList.items)) {
-      const currentSelectedOrderId = store.getState().selectedOrderId;
-      const selectedOrderId =
-        currentSelectedOrderId && input.orderList.orderList.items.some((item) => item.orderId === currentSelectedOrderId)
-          ? currentSelectedOrderId
-          : input.orderList.orderList.items[0]?.orderId;
-      nextState.orderList = input.orderList.orderList;
-      nextState.commercePosture = input.orderList.commercePosture ?? store.getState().commercePosture;
-      nextState.orderListStatus = createListStatus(
-        input.orderList.orderList.items.length > 0 ? "ready" : "empty",
-        {
-          firstLoaded: true,
-          ...(selectedOrderId ? { restoredSelectionId: selectedOrderId } : {}),
-        },
-      );
-      nextState.selectedOrderId = selectedOrderId;
-    }
-    if (input.subscriptions && Array.isArray(input.subscriptions.subscriptions)) {
-      nextState.subscriptions = input.subscriptions.subscriptions;
-      nextState.canCancelSubscription = input.subscriptions.subscriptions.some((item) => item.status === "active" || item.status === "renewal_due");
-      nextState.canRenewSubscription = input.subscriptions.subscriptions.some(
-        (item) => item.status === "cancelled" || item.status === "grace" || item.status === "expired",
-      );
-    }
-    if (input.afterSales && Array.isArray(input.afterSales.cases)) {
-      nextState.afterSalesCases = input.afterSales.cases;
-      nextState.selectedAfterSalesCase = input.afterSales.cases[0];
-    }
-    return nextState;
-  }
-
   async function refreshCommerceData() {
     const current = store.getState();
     store.setState({
@@ -306,10 +132,10 @@ export function createSubscriptionController(options: CreateSubscriptionControll
 
     const nextState: Partial<SubscriptionState> = {};
     if (catalog.ok) {
-      Object.assign(nextState, applyCommerceSnapshot({ catalog: catalog.value }));
+      Object.assign(nextState, applyCommerceSnapshot(store.getState(), { catalog: catalog.value }));
     }
     if (orderList.ok) {
-      Object.assign(nextState, applyCommerceSnapshot({ orderList: orderList.value }));
+      Object.assign(nextState, applyCommerceSnapshot(store.getState(), { orderList: orderList.value }));
     } else {
       nextState.orderListStatus = createListStatus(current.orderList?.items.length ? "partial" : "error", {
         firstLoaded: Boolean(current.orderList),
@@ -319,106 +145,16 @@ export function createSubscriptionController(options: CreateSubscriptionControll
       });
     }
     if (subscriptions.ok) {
-      Object.assign(nextState, applyCommerceSnapshot({ subscriptions: subscriptions.value }));
+      Object.assign(nextState, applyCommerceSnapshot(store.getState(), { subscriptions: subscriptions.value }));
     }
     if (afterSales.ok) {
-      Object.assign(nextState, applyCommerceSnapshot({ afterSales: afterSales.value }));
+      Object.assign(nextState, applyCommerceSnapshot(store.getState(), { afterSales: afterSales.value }));
     }
     store.setState(nextState);
   }
 
-  function handleCommerceDetailFailure(
-    code: string | undefined,
-    message: string,
-    requestedDetailId?: string,
-  ): Partial<SubscriptionState> {
-    const current = store.getState();
-    const hasDetail = Boolean(current.order || current.selectedAfterSalesCase);
-    const loadState =
-      code === "NOT_FOUND"
-        ? "unavailable"
-        : code === "FORBIDDEN"
-          ? "forbidden"
-          : code === "OFFLINE"
-            ? "offline"
-            : hasDetail
-              ? "stale"
-              : "error";
-
-    return {
-      errorText: message,
-      commerceDetailStatus: createDetailStatus(loadState, {
-        entryContext: current.commerceDetailStatus.entryContext,
-        recoveredFromLink: current.commerceDetailStatus.recoveredFromLink,
-        stale: loadState === "stale",
-        ...(requestedDetailId ? { requestedDetailId } : {}),
-      }),
-    };
-  }
-
-  function deriveRecommendedPlanId(source?: string, overview?: MembershipOverview) {
-    if (overview?.active) {
-      return "quarterly" as const;
-    }
-
-    if (source === "reader") {
-      return "monthly" as const;
-    }
-
-    if (source === "toc" || source === "detail") {
-      return "quarterly" as const;
-    }
-
-    return "annual" as const;
-  }
-
-  function deriveUnlockOutcomeLabel(source?: string, planId?: string) {
-    const cadence =
-      planId === "monthly"
-        ? "monthly"
-        : planId === "annual"
-          ? "annual"
-          : "quarterly";
-
-    if (source === "reader") {
-      return `Unlock happens immediately on the ${cadence} plan, then the blocked chapter can reopen without losing reading position.`;
-    }
-
-    if (source === "toc") {
-      return `Unlock happens immediately on the ${cadence} plan, then the selected chapter can reopen from the directory with access already resolved.`;
-    }
-
-    if (source === "detail") {
-      return `Unlock happens immediately on the ${cadence} plan, then the title dossier can continue without another paywall branch.`;
-    }
-
-    return `Unlock happens immediately on the ${cadence} plan, then premium discovery and continuation stay available across the catalog surfaces.`;
-  }
-
-  function deriveReturnContextLabel(source?: string, novelId?: string, chapterId?: string) {
-    if (source === "reader") {
-      return chapterId
-        ? `Return path will reopen chapter ${chapterId} inside the reader flow.`
-        : "Return path will reopen the blocked reader location.";
-    }
-
-    if (source === "toc") {
-      return chapterId
-        ? `Return path will reopen the directory with ${chapterId} still in focus.`
-        : "Return path will reopen the directory with the selected chapter still focused.";
-    }
-
-    if (source === "detail") {
-      return novelId
-        ? `Return path will reopen the title dossier for ${novelId}.`
-        : "Return path will reopen the blocked title dossier.";
-    }
-
-    return "Return path will land back in the library with premium continuity already active.";
-  }
-
   async function reservePlatformPayment(response: PurchaseMembershipResponse) {
-    const paymentCapabilityStatus = syncPaymentCapabilityState();
+    const paymentCapabilityStatus = syncPaymentCapabilityState(kernel, store);
     if (!kernel.capability || !paymentCapabilityStatus?.available) {
       return;
     }
@@ -447,9 +183,9 @@ export function createSubscriptionController(options: CreateSubscriptionControll
     },
 
     async load() {
-      const source = resolveRouteParam("source");
-      const novelId = resolveRouteParam("novelId");
-      const chapterId = resolveRouteParam("chapterId");
+      const source = resolveSubscriptionRouteParam(kernel, store, "source");
+      const novelId = resolveSubscriptionRouteParam(kernel, store, "novelId");
+      const chapterId = resolveSubscriptionRouteParam(kernel, store, "chapterId");
       const milestoneResult = await kernel.storage.get<LatestReadingMilestoneSnapshot>(latestMilestoneStorageKey);
       const milestone = milestoneResult.ok ? milestoneResult.value : null;
       const milestoneContinuity = deriveLatestMilestoneContinuity(milestone);
@@ -499,7 +235,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
               ? "This title requires membership before continuing."
             : "Membership unlocks the full reading flow.",
       });
-      syncPaymentCapabilityState();
+      syncPaymentCapabilityState(kernel, store);
 
       const result = await kernel.request.get<MembershipOverview>(requestPath);
       if (!result.ok) {
@@ -666,7 +402,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
 
       const detail = await kernel.request.get<OrderDetailResponse>(orderDetailRequestPath, { orderId });
       if (!detail.ok) {
-        store.setState(handleCommerceDetailFailure(detail.error.code, detail.error.message, orderId));
+        store.setState(handleCommerceDetailFailure(store.getState(), detail.error.code, detail.error.message, orderId));
         return detail;
       }
 
@@ -706,7 +442,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
       if (!result.ok) {
         store.setState({
           purchasing: false,
-          ...handleCommerceDetailFailure(result.error.code, result.error.message, orderId),
+          ...handleCommerceDetailFailure(store.getState(), result.error.code, result.error.message, orderId),
         });
         return result;
       }
@@ -737,7 +473,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
       if (!result.ok) {
         store.setState({
           purchasing: false,
-          ...handleCommerceDetailFailure(result.error.code, result.error.message, orderId),
+          ...handleCommerceDetailFailure(store.getState(), result.error.code, result.error.message, orderId),
         });
         return result;
       }
@@ -760,7 +496,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         orderId,
       } satisfies OrderOperationRequest);
       if (!result.ok) {
-        store.setState(handleCommerceDetailFailure(result.error.code, result.error.message, orderId));
+        store.setState(handleCommerceDetailFailure(store.getState(), result.error.code, result.error.message, orderId));
         return result;
       }
 
@@ -798,7 +534,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
       if (!result.ok) {
         store.setState({
           purchasing: false,
-          ...handleCommerceDetailFailure(result.error.code, result.error.message),
+          ...handleCommerceDetailFailure(store.getState(), result.error.code, result.error.message),
         });
         return result;
       }
@@ -833,7 +569,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
       });
       const result = await kernel.request.get<OrderDetailResponse>(orderDetailRequestPath, { orderId });
       if (!result.ok) {
-        store.setState(handleCommerceDetailFailure(result.error.code, result.error.message, orderId));
+        store.setState(handleCommerceDetailFailure(store.getState(), result.error.code, result.error.message, orderId));
         return result;
       }
       store.setState({
@@ -855,7 +591,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         ...(reason ? { reason } : {}),
       } satisfies SubscriptionOperationRequest);
       if (!result.ok) {
-        store.setState(handleCommerceDetailFailure(result.error.code, result.error.message, targetId));
+        store.setState(handleCommerceDetailFailure(store.getState(), result.error.code, result.error.message, targetId));
         return result;
       }
       store.setState({
@@ -876,7 +612,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
         ...(skuId ? { skuId } : {}),
       } satisfies SubscriptionOperationRequest);
       if (!result.ok) {
-        store.setState(handleCommerceDetailFailure(result.error.code, result.error.message, targetId));
+        store.setState(handleCommerceDetailFailure(store.getState(), result.error.code, result.error.message, targetId));
         return result;
       }
       store.setState({
@@ -912,7 +648,7 @@ export function createSubscriptionController(options: CreateSubscriptionControll
       });
       const result = await kernel.request.get<AfterSalesDetailResponse>(afterSalesDetailRequestPath, { caseId: targetId });
       if (!result.ok) {
-        store.setState(handleCommerceDetailFailure(result.error.code, result.error.message, targetId));
+        store.setState(handleCommerceDetailFailure(store.getState(), result.error.code, result.error.message, targetId));
         return result;
       }
       const selectedAfterSalesCase =

@@ -14,6 +14,7 @@ import type {
   FormWorkflowState,
 } from "@minix/contracts";
 
+import { ok, type Result } from "../error/index";
 import { cloneStateSnapshot, cloneStateSnapshotArray } from "../store/snapshot";
 
 export interface FormPageState<TValues extends Record<string, unknown>, TResult = unknown> {
@@ -260,6 +261,61 @@ export function finalizeFormSubmit<TResult = unknown>(
   };
 }
 
+export interface RunFormDraftFlowOptions<
+  TValues extends Record<string, unknown>,
+  TSnapshot extends { savedAt: number; values: TValues },
+  TResult = unknown,
+> {
+  scope: string;
+  submitState: FormSubmitState<TResult>;
+  snapshot: TSnapshot;
+  persist: (snapshot: TSnapshot) => Promise<Result<unknown>>;
+  onStarted: (submitState: FormSubmitState<TResult>) => void;
+  onDuplicate: (submitState: FormSubmitState<TResult>) => void;
+  onFailure: (result: Extract<Result<unknown>, { ok: false }>) => void;
+  onSuccess: (input: {
+    snapshot: TSnapshot;
+    submitState: FormSubmitState<TResult>;
+    submissionKey: string;
+  }) => void;
+}
+
+export async function runFormDraftFlow<
+  TValues extends Record<string, unknown>,
+  TSnapshot extends { savedAt: number; values: TValues },
+  TResult = unknown,
+>(options: RunFormDraftFlowOptions<TValues, TSnapshot, TResult>): Promise<Result<void>> {
+  const submissionKey = createFormSubmissionKey(options.scope, "draft", options.snapshot.values);
+  const nextSubmit = beginFormSubmit(options.submitState, {
+    mode: "draft",
+    submissionKey,
+  });
+
+  if (nextSubmit.blocked) {
+    options.onDuplicate(nextSubmit.submitState);
+    return ok(undefined);
+  }
+
+  options.onStarted(nextSubmit.submitState);
+  const result = await options.persist(options.snapshot);
+  if (!result.ok) {
+    options.onFailure(result);
+    return result;
+  }
+
+  options.onSuccess({
+    snapshot: options.snapshot,
+    submissionKey,
+    submitState: finalizeFormSubmit(nextSubmit.submitState, {
+      mode: "draft",
+      submissionKey,
+      submittedAt: options.snapshot.savedAt,
+      draftSavedAt: options.snapshot.savedAt,
+    }),
+  });
+  return ok(undefined);
+}
+
 export function createFormPageState<TValues extends Record<string, unknown>, TResult = unknown>(
   options: CreateFormPageStateOptions<TValues, TResult>,
 ): FormPageState<TValues, TResult> {
@@ -313,4 +369,10 @@ export function createDefaultFormPageState<TValues extends Record<string, unknow
     ...(options.workflow ? { workflow: options.workflow } : {}),
     ...(options.submitState ? { submitState: options.submitState } : {}),
   });
+}
+
+export function cloneFormPageState<TValues extends Record<string, unknown>, TResult = unknown>(
+  state: FormPageState<TValues, TResult>,
+): FormPageState<TValues, TResult> {
+  return cloneStateSnapshot(state);
 }

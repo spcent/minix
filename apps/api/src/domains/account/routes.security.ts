@@ -31,6 +31,7 @@ export function registerAccountSecurityRoutes(
   } = options;
   const {
     loadAccountActionContext,
+    loadAvailableAccountOperation,
     createBlockedAccountOperationResponse,
     appendAccountAuditEvent,
     verifyAccountSecurityCredential,
@@ -48,20 +49,15 @@ export function registerAccountSecurityRoutes(
     }
     const { traceId, session, store, userState, clientId, deviceId } = actionContext;
     const current = createCurrentUserResponse(session, userState, c.req.url);
-    const operation = current.accountOperations.find((item) => item.kind === "unbind_wechat");
-    if (!operation?.available) {
-      const response = await createBlockedAccountOperationResponse({
-        userState,
-        kind: "unbind_wechat",
-        message: operation?.blockedReason ?? "WeChat unbinding is unavailable.",
-        session,
-        requestUrl: c.req.url,
-        traceId,
-        store,
-        clientId,
-        ...(deviceId ? { deviceId } : {}),
-      });
-      return c.json(response, 409);
+    const operation = await loadAvailableAccountOperation({
+      c,
+      operations: current.accountOperations,
+      kind: "unbind_wechat",
+      fallbackMessage: "WeChat unbinding is unavailable.",
+      context: actionContext,
+    });
+    if (operation instanceof Response) {
+      return operation;
     }
 
     if (!payload.riskConfirmed) {
@@ -404,22 +400,15 @@ export function registerAccountSecurityRoutes(
     const action = payload.action ?? "request";
 
     if (action === "revoke") {
-      const operation = current.accountOperations.find(
-        (item) => item.kind === "revoke_cancellation",
-      );
-      if (!operation?.available) {
-        const response = await createBlockedAccountOperationResponse({
-          userState,
-          kind: "revoke_cancellation",
-          message: operation?.blockedReason ?? "Cancellation revoke is unavailable.",
-          session,
-          requestUrl: c.req.url,
-          traceId,
-          store,
-          clientId,
-          ...(deviceId ? { deviceId } : {}),
-        });
-        return c.json(response, 409);
+      const operation = await loadAvailableAccountOperation({
+        c,
+        operations: current.accountOperations,
+        kind: "revoke_cancellation",
+        fallbackMessage: "Cancellation revoke is unavailable.",
+        context: actionContext,
+      });
+      if (operation instanceof Response) {
+        return operation;
       }
 
       userState.availabilityStatus = "enabled";
@@ -454,22 +443,15 @@ export function registerAccountSecurityRoutes(
       );
     }
 
-    const operation = current.accountOperations.find(
-      (item) => item.kind === "request_cancellation",
-    );
-    if (!operation?.available) {
-      const response = await createBlockedAccountOperationResponse({
-        userState,
-        kind: "request_cancellation",
-        message: operation?.blockedReason ?? "Cancellation is unavailable.",
-        session,
-        requestUrl: c.req.url,
-        traceId,
-        store,
-        clientId,
-        ...(deviceId ? { deviceId } : {}),
-      });
-      return c.json(response, 409);
+    const operation = await loadAvailableAccountOperation({
+      c,
+      operations: current.accountOperations,
+      kind: "request_cancellation",
+      fallbackMessage: "Cancellation is unavailable.",
+      context: actionContext,
+    });
+    if (operation instanceof Response) {
+      return operation;
     }
 
     if (!payload.riskConfirmed) {

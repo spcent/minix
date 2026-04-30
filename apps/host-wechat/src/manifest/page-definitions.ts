@@ -205,7 +205,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
     shellStyle: "login",
   },
   ...createWechatIdentityWorkflowPages(),
-  ...createMinuteEnglishPagePreset(),  ...createMinuteEnglishPagePreset(),
+  ...createMinuteEnglishPagePreset(),
   feedback: {
     feature: feedbackFeatureManifest,
     routeId: APP_ROUTE_IDS.feedback,

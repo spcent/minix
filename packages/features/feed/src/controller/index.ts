@@ -12,8 +12,7 @@ import {
   normalizeSearchKeyword,
   ok,
   pushRecentSearchKeyword,
-  resolveSearchDomainParam,
-  resolveSearchModeParam,
+  runFormDraftFlow,
   type AppKernel,
   type Result,
 } from "@minix/core";
@@ -22,7 +21,6 @@ import {
   type ContentActorRole,
   type ContentLifecycleAction,
   type ContentLifecycleMutationResponse,
-  type ContentModel,
   type ContentReviewQueueResponse,
   type ContentReviewQueueItem,
   type ContentVisibility,
@@ -32,7 +30,6 @@ import {
   type SaveContentDraftResponse,
   type SearchDomain,
   type SearchMode,
-  type SearchResults,
 } from "@minix/contracts";
 
 import {
@@ -42,6 +39,17 @@ import {
   type FeedState,
 } from "../model";
 import { buildContentDraftFormState, CONTENT_DRAFT_STORAGE_KEY } from "./content-draft-form";
+import { createContentDraftRequest } from "./draft-request";
+import {
+  createContentMutationPatch,
+  createFeedSearchResults,
+  createFeedSelection,
+  cloneFeedState,
+  deriveFeaturedFeedReason,
+  deriveSelectedContentId,
+  deriveSelectedFeedItemId,
+} from "./projection";
+import { createFeedRequestQuery, createFeedRouteParams, hydrateFeedStateFromRoute } from "./route-state";
 
 export interface CreateFeedControllerOptions {
   kernel: AppKernel;
@@ -67,200 +75,8 @@ type ContentDraftSnapshotResult = Result<{
 
 const DEFAULT_SEARCH_HISTORY_STORAGE_KEY = "feed.recent-keywords";
 
-function createContentDraftRequest(values: ContentDraftFormValues): SaveContentDraftRequest {
-  return {
-    ...(values.contentId ? { contentId: values.contentId } : {}),
-    model: values.model,
-    title: values.title,
-    ...(values.subtitle ? { subtitle: values.subtitle } : {}),
-    summary: values.summary,
-    bodyPreview: values.bodyPreview,
-    visibility: values.visibility,
-    categoryKey: values.categoryKey,
-    categoryLabel: values.categoryLabel,
-    tags: values.tagKeys.map((key) => ({
-      key,
-      label: key.slice(0, 1).toUpperCase() + key.slice(1),
-    })),
-    ...(values.coverAssetId ? { coverAssetId: values.coverAssetId } : {}),
-    ...(values.attachmentAssetIds.length > 0 ? { attachmentAssetIds: values.attachmentAssetIds } : {}),
-    actorRole: values.actorRole,
-  };
-}
-
-function cloneState(state: FeedState): FeedState {
-  return {
-    ...state,
-    items: cloneStateSnapshotArray(state.items),
-    contentDraftForm: {
-      ...state.contentDraftForm,
-      formValues: cloneStateSnapshot(state.contentDraftForm.formValues),
-      initialFormValues: cloneStateSnapshot(state.contentDraftForm.initialFormValues),
-      validationErrors: cloneStateSnapshotArray(state.contentDraftForm.validationErrors),
-      submitState: cloneStateSnapshot(state.contentDraftForm.submitState),
-      schema: {
-        fields: cloneStateSnapshotArray(state.contentDraftForm.schema.fields),
-        steps: cloneStateSnapshotArray(state.contentDraftForm.schema.steps),
-      },
-      workflow: {
-        ...state.contentDraftForm.workflow,
-        stepKeys: [...state.contentDraftForm.workflow.stepKeys],
-        visibleFieldKeys: [...state.contentDraftForm.workflow.visibleFieldKeys],
-        dynamicFieldKeys: [...state.contentDraftForm.workflow.dynamicFieldKeys],
-        conditionalFieldKeys: [...state.contentDraftForm.workflow.conditionalFieldKeys],
-        ...(state.contentDraftForm.workflow.approvalNodes
-          ? {
-              approvalNodes: cloneStateSnapshotArray(state.contentDraftForm.workflow.approvalNodes),
-            }
-          : {}),
-        ...(state.contentDraftForm.workflow.draft
-          ? { draft: cloneStateSnapshot(state.contentDraftForm.workflow.draft) }
-          : {}),
-      },
-      values: cloneStateSnapshot(state.contentDraftForm.values),
-      initialValues: cloneStateSnapshot(state.contentDraftForm.initialValues),
-      fieldErrors: cloneStateSnapshotArray(state.contentDraftForm.fieldErrors),
-      ...(state.contentDraftForm.lastSubmission
-        ? { lastSubmission: cloneStateSnapshot(state.contentDraftForm.lastSubmission) }
-        : {}),
-    },
-    reviewQueue: cloneStateSnapshotArray(state.reviewQueue),
-    surface: state.surface,
-    tags: cloneStateSnapshotArray(state.tags),
-    pagination: cloneStateSnapshot(state.pagination),
-    filters: cloneStateSnapshotArray(state.filters),
-    selection: {
-      ...state.selection,
-      selectedItemIds: [...state.selection.selectedItemIds],
-    },
-    status: cloneStateSnapshot(state.status),
-    searchQuery: state.searchQuery ? cloneStateSnapshot(state.searchQuery) : undefined,
-    searchFilters: cloneStateSnapshotArray(state.searchFilters),
-    searchResults: state.searchResults ? cloneStateSnapshot(state.searchResults) : undefined,
-    searchQualitySummary: state.searchQualitySummary ? cloneStateSnapshot(state.searchQualitySummary) : undefined,
-    query: cloneStateSnapshot(state.query),
-    recentKeywords: [...state.recentKeywords],
-    selectedReviewContentId: state.selectedReviewContentId,
-  };
-}
-
-function deriveSelectedItemId(items: FeedItem[], currentSelectedItemId?: string): string | undefined {
-  if (currentSelectedItemId && items.some((item) => item.id === currentSelectedItemId)) {
-    return currentSelectedItemId;
-  }
-
-  return items[0]?.id;
-}
-
-function deriveFeaturedReason(items: FeedItem[], fallback?: string): string | undefined {
-  return items.find((item) => item.recommendedReason)?.recommendedReason ?? fallback;
-}
-
 function createRecentKeywords(current: string[], keyword: string): string[] {
   return pushRecentSearchKeyword(current, keyword);
-}
-
-function createSearchResults(
-  response: FeedListResponse,
-  recentKeywords: string[],
-  fallbackEmptyText: string,
-  options: {
-    restoredFromRoute?: boolean;
-    routeWritebackEnabled?: boolean;
-    activeTag?: string | undefined;
-  } = {},
-): SearchResults<FeedItem> {
-  const nextSearchResults = cloneStateSnapshot(response.searchResults);
-  const routeKeys = [
-    ...(response.searchQuery.keyword ? ["keyword"] : []),
-    ...(response.searchQuery.mode !== "global" ? ["mode"] : []),
-    ...(response.searchQuery.domain !== "feed" ? ["domain"] : []),
-    ...(response.searchQuery.sortKey && response.searchQuery.sortKey !== "recommended" ? ["sort"] : []),
-    ...(options.activeTag && options.activeTag !== "all" ? ["tag"] : []),
-    ...response.searchFilters
-      .filter((group) => group.key !== "domain" && group.key !== "tag" && group.selectedKeys.some((key) => key !== "all"))
-      .map((group) => group.key),
-  ];
-  const reloadRecovery =
-    options.restoredFromRoute ? "route" : recentKeywords.length > 0 ? "storage" : "none";
-  return {
-    ...nextSearchResults,
-    recentKeywords,
-    emptyText: nextSearchResults.emptyText || fallbackEmptyText,
-    persistence: {
-      routeKeys,
-      routeWriteback: options.routeWritebackEnabled ?? false,
-      reloadRecovery,
-      recentKeywordCount: recentKeywords.length,
-      label:
-        reloadRecovery === "route"
-          ? "Active discover filters and query params were restored from the current route."
-          : reloadRecovery === "storage"
-            ? "Recent discover keywords were restored from shared storage for quick reuse."
-            : "Discover filters stay route-addressable and recent keywords start empty until the first search.",
-    },
-    qualitySummary: {
-      ...(nextSearchResults.qualitySummary ?? {
-        rankingSummary: nextSearchResults.ranking?.label ?? "Results ranked by recommendation relevance.",
-        synonymSummary: "Suggestion terms and hot keywords act as the bounded synonym dictionary.",
-        correctionSummary: nextSearchResults.correctionKeyword
-          ? `Correction dictionary suggested "${nextSearchResults.correctionKeyword}".`
-          : "No correction term was required for the current query.",
-        recentSearchSummary: "Recent search persistence is bounded before storage writeback.",
-        routeWritebackSummary: "Route-addressable filters remain encoded in search query and filter metadata.",
-        zeroResultSummary: nextSearchResults.zeroResultGuidance?.label ?? "Search quality signals are active.",
-      }),
-      recentSearchSummary: `${recentKeywords.length} recent keyword(s) are available after bounded pruning.`,
-      routeWritebackSummary:
-        routeKeys.length > 0
-          ? `Route writeback tracks ${routeKeys.join(", ")}.`
-          : "No route writeback keys are active for the default search state.",
-    },
-  };
-}
-
-function createSelection(selectedItemId: string | undefined): FeedState["selection"] {
-  return {
-    ...(selectedItemId !== undefined ? { selectedItemId } : {}),
-    selectedItemIds: selectedItemId ? [selectedItemId] : [],
-    batchSelectable: false,
-  };
-}
-
-  function replaceFeedItem(items: FeedItem[], nextItem: FeedItem): FeedItem[] {
-  return items.map((item) => (item.id === nextItem.id ? nextItem : item));
-}
-
-function upsertFeedItem(items: FeedItem[], nextItem: FeedItem): FeedItem[] {
-  return items.some((item) => item.id === nextItem.id) ? replaceFeedItem(items, nextItem) : [nextItem, ...items];
-}
-
-function replaceFeedItemInSearchResults(
-  searchResults: FeedState["searchResults"],
-  nextItem: FeedItem,
-): FeedState["searchResults"] {
-  if (!searchResults) {
-    return searchResults;
-  }
-
-  return {
-    ...searchResults,
-    items: upsertFeedItem(searchResults.items, nextItem),
-    ...(searchResults.resultGroups
-      ? {
-          resultGroups: searchResults.resultGroups.map((group) => ({
-            ...group,
-            items: group.items.some((item) => item.id === nextItem.id)
-              ? replaceFeedItem(group.items, nextItem)
-              : group.items,
-          })),
-        }
-      : {}),
-  };
-}
-
-function deriveSelectedContentId(state: FeedState): string | undefined {
-  return state.items.find((item) => item.id === state.selectedItemId)?.contentCard?.contentId;
 }
 
 export function createFeedController(options: CreateFeedControllerOptions) {
@@ -279,7 +95,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
     initialState,
   } = options;
   const store = createStore<FeedState>({
-    ...cloneState(createDefaultFeedState()),
+    ...cloneFeedState(createDefaultFeedState()),
     ...initialState,
   });
   const { routeToLogin, routeToOptional } = createControllerRouterHelpers({
@@ -381,101 +197,6 @@ export function createFeedController(options: CreateFeedControllerOptions) {
     },
   );
 
-  function hydrateStateFromRoute() {
-    const current = kernel.router.current();
-    if (!current.ok || !current.value?.params) {
-      return;
-    }
-
-    const keyword = typeof current.value.params.keyword === "string" ? current.value.params.keyword : store.getState().query.keyword;
-    const tag = typeof current.value.params.tag === "string" ? current.value.params.tag : store.getState().activeTag;
-    const mode = resolveSearchModeParam(current.value.params.mode, store.getState().query.mode);
-    const domain = resolveSearchDomainParam(current.value.params.domain, store.getState().query.domain);
-    const sortKey =
-      typeof current.value.params.sort === "string" && current.value.params.sort.length > 0
-        ? current.value.params.sort
-        : store.getState().query.sortKey;
-    const selectedItemId =
-      typeof current.value.params.selectedItemId === "string"
-        ? current.value.params.selectedItemId
-        : store.getState().selectedItemId;
-
-    store.setState({
-      query: {
-        ...store.getState().query,
-        keyword,
-        mode,
-        domain,
-        sortKey,
-      },
-      activeTag: tag,
-      selectedItemId,
-      selection: createSelection(selectedItemId),
-      status: createListStatus(store.getState().status.loadState, {
-        firstLoaded: store.getState().status.firstLoaded,
-        restoredFromRoute: Boolean(keyword || (tag && tag !== "all") || mode !== store.getState().query.mode || domain !== store.getState().query.domain || sortKey !== store.getState().query.sortKey || selectedItemId),
-        restoredQueryKeys: [
-          ...(keyword ? ["keyword"] : []),
-          ...(tag && tag !== "all" ? ["tag"] : []),
-          ...(mode !== "global" ? ["mode"] : []),
-          ...(domain !== "feed" ? ["domain"] : []),
-          ...(sortKey !== "recommended" ? ["sort"] : []),
-        ],
-        ...(selectedItemId ? { restoredSelectionId: selectedItemId } : {}),
-      }),
-    });
-  }
-
-  function createRequestQuery(page = store.getState().query.page) {
-    const current = store.getState();
-    return {
-      page,
-      pageSize: current.query.pageSize,
-      ...(current.query.keyword ? { keyword: current.query.keyword } : {}),
-      ...(current.query.mode !== "global" ? { mode: current.query.mode } : {}),
-      ...(current.query.domain !== "feed" ? { domain: current.query.domain } : {}),
-      ...(current.query.sortKey !== "recommended" ? { sort: current.query.sortKey } : {}),
-      ...(current.activeTag && current.activeTag !== "all" ? { tag: current.activeTag } : {}),
-    };
-  }
-
-  function createRouteParams(overrides: {
-    keyword: string | undefined;
-    tag: string | undefined;
-    mode: SearchMode | undefined;
-    domain: SearchDomain | undefined;
-    sortKey: string | undefined;
-    selectedItemId: string | undefined;
-  }): Record<string, string | number | boolean> | undefined {
-    const params: Record<string, string | number | boolean> = {};
-
-    if (overrides.keyword) {
-      params.keyword = overrides.keyword;
-    }
-
-    if (overrides.tag && overrides.tag !== "all") {
-      params.tag = overrides.tag;
-    }
-
-    if (overrides.mode && overrides.mode !== "global") {
-      params.mode = overrides.mode;
-    }
-
-    if (overrides.domain && overrides.domain !== "feed") {
-      params.domain = overrides.domain;
-    }
-
-    if (overrides.sortKey && overrides.sortKey !== "recommended") {
-      params.sort = overrides.sortKey;
-    }
-
-    if (overrides.selectedItemId) {
-      params.selectedItemId = overrides.selectedItemId;
-    }
-
-    return Object.keys(params).length > 0 ? params : undefined;
-  }
-
   async function persistRecentKeywords(keyword: string) {
     const nextRecentKeywords = createRecentKeywords(store.getState().recentKeywords, keyword);
     store.setState({
@@ -500,49 +221,6 @@ export function createFeedController(options: CreateFeedControllerOptions) {
     };
   }
 
-  function applyContentMutationResponse(
-    response: ContentLifecycleMutationResponse | SaveContentDraftResponse,
-    contentId: string,
-  ) {
-    const state = store.getState();
-    const currentItem = state.items.find((item) => item.id === contentId);
-    const nextRecommendedReason = response.contentDetail.recommendationReason ?? currentItem?.recommendedReason;
-    const nextItem: FeedItem = {
-      id: contentId,
-      title: response.contentCard.title,
-      ...(response.contentCard.subtitle ? { subtitle: response.contentCard.subtitle } : {}),
-      eyebrow: response.contentCard.display.category.label ?? currentItem?.eyebrow ?? "Content",
-      ...(response.contentCard.coverUrl ? { imageUrl: response.contentCard.coverUrl } : {}),
-      ...(nextRecommendedReason !== undefined ? { recommendedReason: nextRecommendedReason } : {}),
-      ...(response.contentCard.lifecycle.updatedAt
-        ? { updatedAt: response.contentCard.lifecycle.updatedAt }
-        : response.contentCard.lifecycle.publishedAt
-          ? { updatedAt: response.contentCard.lifecycle.publishedAt }
-          : currentItem?.updatedAt
-            ? { updatedAt: currentItem.updatedAt }
-            : {}),
-      tag: response.contentCard.display.category.key ?? currentItem?.tag ?? "content",
-      ...(currentItem?.ranking ? { ranking: currentItem.ranking } : {}),
-      ...(currentItem?.routeTarget ? { routeTarget: currentItem.routeTarget } : {}),
-      contentCard: response.contentCard,
-      contentAccess: response.contentAccess,
-    };
-    const nextItems = upsertFeedItem(state.items, nextItem);
-    store.setState({
-      items: nextItems,
-      searchResults: replaceFeedItemInSearchResults(state.searchResults, nextItem),
-      featuredReason: deriveFeaturedReason(nextItems, state.featuredReason),
-      selectedItemId: nextItem.id,
-      selection: createSelection(nextItem.id),
-      contentTransitionFeedback: response.transitionMessage,
-      contentGovernanceSummary:
-        response.governanceSummary ??
-        response.contentDetail.governanceSummary ??
-        response.contentCard.governanceSummary ??
-        state.contentGovernanceSummary,
-    });
-  }
-
   let pendingContentDraftSnapshot: ContentDraftSnapshotResult | null = null;
 
   const runListRequest = createSearchListRequestFlow<FeedState, FeedListResponse>({
@@ -552,19 +230,19 @@ export function createFeedController(options: CreateFeedControllerOptions) {
       clearKeys: ["contentTransitionFeedback"],
       firstLoaded: ({ state }) => state.status.firstLoaded,
     },
-    request: ({ page }) => kernel.request.get<FeedListResponse>(requestPath, createRequestQuery(page)),
+    request: ({ page }) => kernel.request.get<FeedListResponse>(requestPath, createFeedRequestQuery(store.getState(), page)),
     applyResponse: ({ kind, response }) => {
       const current = store.getState();
-      const nextSearchResults = createSearchResults(response, current.recentKeywords, current.emptyText, {
+      const nextSearchResults = createFeedSearchResults(response, current.recentKeywords, current.emptyText, {
         restoredFromRoute: current.status.restoredFromRoute,
         routeWritebackEnabled: Boolean(feedRouteId),
         ...(current.activeTag ? { activeTag: current.activeTag } : {}),
       });
       const nextItems =
         kind === "append"
-          ? [...current.items, ...cloneStateSnapshotArray(nextSearchResults.items)]
-          : cloneStateSnapshotArray(kind === "refresh" ? response.items : nextSearchResults.items);
-      const selectedItemId = deriveSelectedItemId(nextItems, current.selectedItemId);
+          ? [...current.items, ...cloneStateSnapshotArray<FeedItem>(nextSearchResults.items)]
+          : cloneStateSnapshotArray<FeedItem>(kind === "refresh" ? response.items : nextSearchResults.items);
+      const selectedItemId = deriveSelectedFeedItemId(nextItems, current.selectedItemId);
       const loadState = nextItems.length > 0 ? "ready" : "empty";
       const basePatch: Partial<FeedState> = {
         loading: false,
@@ -584,7 +262,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         searchResults: kind === "append" ? { ...nextSearchResults, items: nextItems } : nextSearchResults,
         searchQualitySummary: nextSearchResults.qualitySummary,
         selectedItemId,
-        selection: createSelection(selectedItemId),
+        selection: createFeedSelection(selectedItemId),
         status: createListStatus(loadState, {
           firstLoaded: true,
           restoredFromRoute: current.status.restoredFromRoute,
@@ -594,8 +272,8 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         tags: response.tags ? cloneStateSnapshotArray(response.tags) : current.tags,
         featuredReason:
           kind === "refresh"
-            ? response.featuredReason ?? deriveFeaturedReason(nextItems, current.featuredReason)
-            : nextSearchResults.featuredReason ?? response.featuredReason ?? deriveFeaturedReason(nextItems, current.featuredReason),
+            ? response.featuredReason ?? deriveFeaturedFeedReason(nextItems, current.featuredReason)
+            : nextSearchResults.featuredReason ?? response.featuredReason ?? deriveFeaturedFeedReason(nextItems, current.featuredReason),
         query: {
           ...current.query,
           keyword: response.searchQuery.keyword,
@@ -680,7 +358,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
 
     async loadInitial() {
       await hydrateRecentKeywords();
-      hydrateStateFromRoute();
+      hydrateFeedStateFromRoute(kernel, store);
       const contentDraftSnapshot = await loadContentDraftSnapshot();
       pendingContentDraftSnapshot = contentDraftSnapshot;
       try {
@@ -708,7 +386,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
       await persistRecentKeywords(keyword);
       await routeToOptional(
         feedRouteId,
-        createRouteParams({
+        createFeedRouteParams({
           keyword,
           tag: store.getState().activeTag,
           mode: store.getState().query.mode,
@@ -736,7 +414,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
       });
       await routeToOptional(
         feedRouteId,
-        createRouteParams({
+        createFeedRouteParams({
           keyword: undefined,
           tag: store.getState().activeTag,
           mode: store.getState().query.mode,
@@ -759,7 +437,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
       });
       await routeToOptional(
         feedRouteId,
-        createRouteParams({
+        createFeedRouteParams({
           keyword: store.getState().query.keyword,
           tag: nextTag,
           mode: store.getState().query.mode,
@@ -788,7 +466,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
 
       await routeToOptional(
         feedRouteId,
-        createRouteParams({
+        createFeedRouteParams({
           keyword: store.getState().query.keyword,
           tag: store.getState().activeTag,
           mode: nextMode,
@@ -811,7 +489,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
 
       await routeToOptional(
         feedRouteId,
-        createRouteParams({
+        createFeedRouteParams({
           keyword: store.getState().query.keyword,
           tag: store.getState().activeTag,
           mode: store.getState().query.mode,
@@ -866,7 +544,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
     selectItem(itemId: string) {
       store.setState({
         selectedItemId: itemId,
-        selection: createSelection(itemId),
+        selection: createFeedSelection(itemId),
         status: createListStatus(store.getState().status.loadState, {
           firstLoaded: store.getState().status.firstLoaded,
           restoredFromRoute: store.getState().status.restoredFromRoute,
@@ -947,61 +625,56 @@ export function createFeedController(options: CreateFeedControllerOptions) {
           ? { currentStepKey: store.getState().contentDraftForm.workflow.currentStepKey }
           : {}),
       };
-      const submissionKey = createFormSubmissionKey("feed-content-draft", "draft", snapshot.values);
-      const nextSubmit = beginFormSubmit(store.getState().contentDraftForm.submitState, {
-        mode: "draft",
-        submissionKey,
-      });
-      if (nextSubmit.blocked) {
-        store.setState({
-          contentTransitionFeedback: "This content draft is already saved.",
-          contentDraftForm: {
-            ...store.getState().contentDraftForm,
-            submitState: nextSubmit.submitState,
-          },
-        });
-        return ok(undefined);
-      }
 
-      store.setState({
-        contentDraftForm: {
-          ...store.getState().contentDraftForm,
-          submitState: nextSubmit.submitState,
-        },
-      });
-      const result = await kernel.storage.set(CONTENT_DRAFT_STORAGE_KEY, snapshot);
-      if (!result.ok) {
-        store.setState({
-          contentTransitionFeedback: result.error.message,
-          contentDraftForm: {
-            ...store.getState().contentDraftForm,
-            submitState: {
-              ...store.getState().contentDraftForm.submitState,
-              phase: "failed",
+      return runFormDraftFlow({
+        scope: "feed-content-draft",
+        submitState: store.getState().contentDraftForm.submitState,
+        snapshot,
+        persist: (draftSnapshot) => kernel.storage.set(CONTENT_DRAFT_STORAGE_KEY, draftSnapshot),
+        onStarted: (submitState) => {
+          store.setState({
+            contentDraftForm: {
+              ...store.getState().contentDraftForm,
+              submitState,
             },
-          },
-        });
-        return result;
-      }
-
-      applyContentDraftFormValues(store.getState().contentDraftForm.values, {
-        dirty: true,
-        ...(snapshot.currentStepKey ? { currentStepKey: snapshot.currentStepKey } : {}),
-        draftSavedAt: snapshot.savedAt,
-      });
-      store.setState({
-        contentTransitionFeedback: "Content draft snapshot saved.",
-        contentDraftForm: {
-          ...store.getState().contentDraftForm,
-          submitState: finalizeFormSubmit(store.getState().contentDraftForm.submitState, {
-            mode: "draft",
-            submissionKey,
-            submittedAt: snapshot.savedAt,
-            draftSavedAt: snapshot.savedAt,
-          }),
+          });
+        },
+        onDuplicate: (submitState) => {
+          store.setState({
+            contentTransitionFeedback: "This content draft is already saved.",
+            contentDraftForm: {
+              ...store.getState().contentDraftForm,
+              submitState,
+            },
+          });
+        },
+        onFailure: (result) => {
+          store.setState({
+            contentTransitionFeedback: result.error.message,
+            contentDraftForm: {
+              ...store.getState().contentDraftForm,
+              submitState: {
+                ...store.getState().contentDraftForm.submitState,
+                phase: "failed",
+              },
+            },
+          });
+        },
+        onSuccess: ({ snapshot: draftSnapshot, submitState }) => {
+          applyContentDraftFormValues(store.getState().contentDraftForm.values, {
+            dirty: true,
+            ...(draftSnapshot.currentStepKey ? { currentStepKey: draftSnapshot.currentStepKey } : {}),
+            draftSavedAt: draftSnapshot.savedAt,
+          });
+          store.setState({
+            contentTransitionFeedback: "Content draft snapshot saved.",
+            contentDraftForm: {
+              ...store.getState().contentDraftForm,
+              submitState,
+            },
+          });
         },
       });
-      return ok(undefined);
     },
 
     async applyContentLifecycleAction(
@@ -1036,7 +709,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         return result;
       }
 
-      applyContentMutationResponse(result.value, contentId);
+      store.setState(createContentMutationPatch(store.getState(), result.value, contentId));
 
       return result;
     },
@@ -1102,7 +775,7 @@ export function createFeedController(options: CreateFeedControllerOptions) {
         lastResponse: result.value,
         preserveResult: true,
       });
-      applyContentMutationResponse(result.value, result.value.contentCard.contentId);
+      store.setState(createContentMutationPatch(store.getState(), result.value, result.value.contentCard.contentId));
       store.setState({
         contentDraftForm: {
           ...store.getState().contentDraftForm,

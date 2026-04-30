@@ -143,6 +143,145 @@ function createH5IdentityWorkflowPages() {
   };
 }
 
+function createMinuteEnglishSupportPages() {
+  return {
+    feedback: {
+      feature: feedbackFeatureManifest,
+      routeId: APP_ROUTE_IDS.feedback,
+      routePath: "/feedback",
+      pageData: createDefaultFeedbackState({
+        title: "Feedback",
+        subtitle: "Issue reports, suggestions, complaints, abuse reports, and satisfaction tickets share one reusable ticket model here.",
+      }),
+      controller: {
+        feedbackRouteId: APP_ROUTE_IDS.feedback,
+        loginRouteId: APP_ROUTE_IDS.login,
+        settingsRouteId: APP_ROUTE_IDS.settings,
+        cancelRouteId: APP_ROUTE_IDS.account,
+        authRedirectSource: "feedback",
+      },
+      guardPolicy: authenticatedPage("feedback"),
+      featureConfig: {
+        surface: "feedback",
+        template: "form",
+      },
+      renderMode: "custom" as const,
+    },
+    messages: {
+      feature: messagesFeatureManifest,
+      routeId: APP_ROUTE_IDS.messages,
+      routePath: "/inbox",
+      pageData: createDefaultMessagesState({
+        title: "Inbox",
+        subtitle: "System notices, business updates, reserved conversation threads, and unread badge state live here.",
+        pageSize: 6,
+        emptyText: "No inbox activity is available yet.",
+      }),
+      controller: {
+        messagesRouteId: APP_ROUTE_IDS.messages,
+        loginRouteId: APP_ROUTE_IDS.login,
+        settingsRouteId: APP_ROUTE_IDS.settings,
+        authRedirectSource: "messages",
+      },
+      guardPolicy: authenticatedPage("messages"),
+      featureConfig: {
+        surface: "messages",
+      },
+      renderMode: "custom" as const,
+    },
+    mediaTools: {
+      feature: mediaToolsFeatureManifest,
+      routeId: APP_ROUTE_IDS.mediaTools,
+      routePath: "/media-tools",
+      pageData: createDefaultMediaToolsState({
+        title: "Media Tools",
+        subtitle: "Minimal upload and share workspace proving the shared contracts through capability adapters.",
+        primaryActionLabel: "Select Upload Asset",
+        secondaryActionLabel: "Dispatch Share Payload",
+      }),
+      controller: {
+        loginRouteId: APP_ROUTE_IDS.login,
+        settingsRouteId: APP_ROUTE_IDS.settings,
+      },
+      guardPolicy: authenticatedPage("media-tools"),
+      requiredCapabilities: [
+        { capability: "upload" as const, required: false },
+        { capability: "share" as const, required: false },
+      ],
+      featureConfig: {
+        surface: "media-tools",
+        template: "workspace",
+      },
+      renderMode: "custom" as const,
+    },
+  };
+}
+
+function createMinuteEnglishCommercePages() {
+  const controller = {
+    loginRouteId: APP_ROUTE_IDS.login,
+    catalogRouteId: APP_ROUTE_IDS.feed,
+    membershipRouteId: APP_ROUTE_IDS.membership,
+    ordersRouteId: APP_ROUTE_IDS.orders,
+  };
+
+  return {
+    membership: {
+      feature: subscriptionFeatureManifest,
+      routeId: APP_ROUTE_IDS.membership,
+      routePath: "/membership",
+      pageData: createInitialSubscriptionState({
+        title: "Commerce Center",
+      }),
+      controller,
+      guardPolicy: authenticatedPage("membership"),
+      requiredCapabilities: [{ capability: "payment" as const, required: false }],
+      renderMode: "custom" as const,
+    },
+    orders: {
+      feature: subscriptionFeatureManifest,
+      routeId: APP_ROUTE_IDS.orders,
+      routePath: "/orders",
+      pageData: createInitialSubscriptionState({
+        title: "Order Center",
+      }),
+      controller,
+      guardPolicy: authenticatedPage("orders"),
+      requiredCapabilities: [{ capability: "payment" as const, required: false }],
+      renderMode: "custom" as const,
+    },
+  };
+}
+
+function createMinuteEnglishAccountPage() {
+  return {
+    account: {
+      feature: accountFeatureManifest,
+      routeId: APP_ROUTE_IDS.account,
+      routePath: "/account",
+      pageData: createDefaultAccountState({
+        title: "Account Center",
+        subtitle: "Profile, bindings, account placeholders, and support-facing session context.",
+      }),
+      controller: {
+        loginRouteId: APP_ROUTE_IDS.login,
+        settingsRouteId: APP_ROUTE_IDS.settings,
+        overviewRouteId: APP_ROUTE_IDS.overview,
+        identityUpgradeRouteId: APP_ROUTE_IDS.identityUpgrade,
+        identityBindPhoneRouteId: APP_ROUTE_IDS.identityBindPhone,
+        identityMergeRouteId: APP_ROUTE_IDS.identityMerge,
+        authRedirectSource: "account",
+      },
+      guardPolicy: authenticatedPage("account"),
+      requiredCapabilities: [{ capability: "clipboard" as const, required: false }],
+      featureConfig: {
+        surface: "account",
+      },
+      renderMode: "custom" as const,
+    },
+  };
+}
+
 export const hostH5PageDefinitions = defineHostPageDefinitions({
   login: {
     feature: authFeatureManifest,
@@ -159,76 +298,8 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     renderMode: "custom",
   },
   ...createH5IdentityWorkflowPages(),
-  ...createMinuteEnglishPagePreset(),  ...createMinuteEnglishPagePreset(),
-  feedback: {
-    feature: feedbackFeatureManifest,
-    routeId: APP_ROUTE_IDS.feedback,
-    routePath: "/feedback",
-    pageData: createDefaultFeedbackState({
-      title: "Feedback",
-      subtitle: "Issue reports, suggestions, complaints, abuse reports, and satisfaction tickets share one reusable ticket model here.",
-    }),
-    controller: {
-      feedbackRouteId: APP_ROUTE_IDS.feedback,
-      loginRouteId: APP_ROUTE_IDS.login,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      cancelRouteId: APP_ROUTE_IDS.account,
-      authRedirectSource: "feedback",
-    },
-    guardPolicy: authenticatedPage("feedback"),
-    featureConfig: {
-      surface: "feedback",
-      template: "form",
-    },
-    renderMode: "custom",
-  },
-  messages: {
-    feature: messagesFeatureManifest,
-    routeId: APP_ROUTE_IDS.messages,
-    routePath: "/inbox",
-    pageData: createDefaultMessagesState({
-      title: "Inbox",
-      subtitle: "System notices, business updates, reserved conversation threads, and unread badge state live here.",
-      pageSize: 6,
-      emptyText: "No inbox activity is available yet.",
-    }),
-    controller: {
-      messagesRouteId: APP_ROUTE_IDS.messages,
-      loginRouteId: APP_ROUTE_IDS.login,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      authRedirectSource: "messages",
-    },
-    guardPolicy: authenticatedPage("messages"),
-    featureConfig: {
-      surface: "messages",
-    },
-    renderMode: "custom",
-  },
-  mediaTools: {
-    feature: mediaToolsFeatureManifest,
-    routeId: APP_ROUTE_IDS.mediaTools,
-    routePath: "/media-tools",
-    pageData: createDefaultMediaToolsState({
-      title: "Media Tools",
-      subtitle: "Minimal upload and share workspace proving the shared contracts through capability adapters.",
-      primaryActionLabel: "Select Upload Asset",
-      secondaryActionLabel: "Dispatch Share Payload",
-    }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-    },
-    guardPolicy: authenticatedPage("media-tools"),
-    requiredCapabilities: [
-      { capability: "upload", required: false },
-      { capability: "share", required: false },
-    ],
-    featureConfig: {
-      surface: "media-tools",
-      template: "workspace",
-    },
-    renderMode: "custom",
-  },
+  ...createMinuteEnglishPagePreset(),
+  ...createMinuteEnglishSupportPages(),
   settings: {
     feature: settingsFeatureManifest,
     routeId: APP_ROUTE_IDS.settings,
@@ -249,62 +320,6 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     },
     renderMode: "custom",
   },
-  membership: {
-    feature: subscriptionFeatureManifest,
-    routeId: APP_ROUTE_IDS.membership,
-    routePath: "/membership",
-    pageData: createInitialSubscriptionState({
-      title: "Commerce Center",
-    }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      catalogRouteId: APP_ROUTE_IDS.feed,
-      membershipRouteId: APP_ROUTE_IDS.membership,
-      ordersRouteId: APP_ROUTE_IDS.orders,
-    },
-    guardPolicy: authenticatedPage("membership"),
-    requiredCapabilities: [{ capability: "payment", required: false }],
-    renderMode: "custom",
-  },
-  orders: {
-    feature: subscriptionFeatureManifest,
-    routeId: APP_ROUTE_IDS.orders,
-    routePath: "/orders",
-    pageData: createInitialSubscriptionState({
-      title: "Order Center",
-    }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      catalogRouteId: APP_ROUTE_IDS.feed,
-      membershipRouteId: APP_ROUTE_IDS.membership,
-      ordersRouteId: APP_ROUTE_IDS.orders,
-    },
-    guardPolicy: authenticatedPage("orders"),
-    requiredCapabilities: [{ capability: "payment", required: false }],
-    renderMode: "custom",
-  },
-  account: {
-    feature: accountFeatureManifest,
-    routeId: APP_ROUTE_IDS.account,
-    routePath: "/account",
-    pageData: createDefaultAccountState({
-      title: "Account Center",
-      subtitle: "Profile, bindings, account placeholders, and support-facing session context.",
-    }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      overviewRouteId: APP_ROUTE_IDS.overview,
-      identityUpgradeRouteId: APP_ROUTE_IDS.identityUpgrade,
-      identityBindPhoneRouteId: APP_ROUTE_IDS.identityBindPhone,
-      identityMergeRouteId: APP_ROUTE_IDS.identityMerge,
-      authRedirectSource: "account",
-    },
-    guardPolicy: authenticatedPage("account"),
-    requiredCapabilities: [{ capability: "clipboard", required: false }],
-    featureConfig: {
-      surface: "account",
-    },
-    renderMode: "custom",
-  },
+  ...createMinuteEnglishCommercePages(),
+  ...createMinuteEnglishAccountPage(),
 });

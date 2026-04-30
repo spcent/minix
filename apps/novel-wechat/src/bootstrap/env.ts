@@ -1,17 +1,20 @@
-import { createBootstrapRuntimeEnv, type BootstrapRuntimeEnvOverride, type RuntimeEnv } from "@minix/core";
+import {
+  DEFAULT_BOOTSTRAP_API_BASE_URL,
+  DEFAULT_BOOTSTRAP_MOCK_API_BASE_URL,
+  createOfficialHostBootstrapRuntimeEnv,
+  type BootstrapRuntimeEnvOverride,
+  type RuntimeEnv,
+} from "@minix/core";
 
 export type NovelWechatBootstrapEnvOverride = BootstrapRuntimeEnvOverride;
 
-export const NOVEL_WECHAT_DEFAULT_API_BASE_URL = "http://localhost:3000";
-export const NOVEL_WECHAT_MOCK_API_BASE_URL = "https://mock.minix.local";
+export const NOVEL_WECHAT_DEFAULT_API_BASE_URL = DEFAULT_BOOTSTRAP_API_BASE_URL;
+export const NOVEL_WECHAT_MOCK_API_BASE_URL = DEFAULT_BOOTSTRAP_MOCK_API_BASE_URL;
 
 export function loadNovelWechatEnv(): RuntimeEnv {
-  return createBootstrapRuntimeEnv({
+  return createOfficialHostBootstrapRuntimeEnv({
     appId: "novel-wechat",
-    appName: "MiniX Novel Wechat",
+    appName: "MiniX Novel WeChat",
     platform: "wechat",
-    defaultApiBaseUrl: NOVEL_WECHAT_DEFAULT_API_BASE_URL,
-    mockApiBaseUrl: NOVEL_WECHAT_MOCK_API_BASE_URL,
-    version: "1.0.0",
   });
 }

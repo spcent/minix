@@ -95,7 +95,7 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
 
 function authControllerSource(names: FeatureNames): string {
   return `import type { AppRouteId } from "@minix/contracts";
-import { createStore, type AppKernel } from "@minix/core";
+import { createControllerRouterHelpers, createStore, type AppKernel } from "@minix/core";
 import { createDefault${names.pascal}State, type ${names.pascal}Mode, type ${names.pascal}State } from "../model";
 
 export interface Create${names.pascal}ControllerOptions {
@@ -111,14 +111,7 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
     ...createDefault${names.pascal}State(),
     ...initialState,
   });
-
-  async function routeToOptional(routeId?: AppRouteId) {
-    if (!routeId) {
-      return undefined;
-    }
-
-    return kernel.router.toRoute(routeId);
-  }
+  const { routeToOptional } = createControllerRouterHelpers({ kernel });
 
   function setMode(mode: ${names.pascal}Mode) {
     store.setState({
@@ -274,7 +267,7 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
 
 function detailControllerSource(names: FeatureNames): string {
   return `import type { AppRouteId } from "@minix/contracts";
-import { createStore, type AppKernel } from "@minix/core";
+import { createControllerRouterHelpers, createStore, type AppKernel } from "@minix/core";
 import { createDefault${names.pascal}State, type ${names.pascal}State } from "../model";
 
 export interface Create${names.pascal}ControllerOptions {
@@ -291,14 +284,7 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
     ...createDefault${names.pascal}State(),
     ...initialState,
   });
-
-  async function routeToOptional(routeId?: AppRouteId) {
-    if (!routeId) {
-      return undefined;
-    }
-
-    return kernel.router.toRoute(routeId);
-  }
+  const { routeToOptional } = createControllerRouterHelpers({ kernel });
 
   return {
     store,
@@ -443,7 +429,7 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
 
 function profileControllerSource(names: FeatureNames): string {
   return `import type { AppRouteId } from "@minix/contracts";
-import { createStore, type AppKernel } from "@minix/core";
+import { createControllerRouterHelpers, createStore, type AppKernel } from "@minix/core";
 import { createDefault${names.pascal}State, type ${names.pascal}State } from "../model";
 
 export interface Create${names.pascal}ControllerOptions {
@@ -460,14 +446,7 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
     ...createDefault${names.pascal}State(),
     ...initialState,
   });
-
-  async function routeToOptional(routeId?: AppRouteId) {
-    if (!routeId) {
-      return undefined;
-    }
-
-    return kernel.router.toRoute(routeId);
-  }
+  const { routeToOptional } = createControllerRouterHelpers({ kernel });
 
   return {
     store,

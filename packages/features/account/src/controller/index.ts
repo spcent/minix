@@ -1,12 +1,13 @@
 import {
   beginFormSubmit,
+  cloneFormPageState,
   createFormSubmissionKey,
   createControllerRouterHelpers,
   cloneStateSnapshot,
-  cloneStateSnapshotArray,
   createStore,
   finalizeFormSubmit,
   ok,
+  runFormDraftFlow,
   type AppKernel,
   type Result,
 } from "@minix/core";
@@ -76,50 +77,7 @@ export interface CreateAccountControllerOptions {
 }
 
 function cloneState(state: AccountState): AccountState {
-  return {
-    ...state,
-    formValues: cloneStateSnapshot(state.formValues),
-    initialFormValues: cloneStateSnapshot(state.initialFormValues),
-    validationErrors: cloneStateSnapshotArray(state.validationErrors),
-    submitState: cloneStateSnapshot(state.submitState),
-    schema: {
-      fields: cloneStateSnapshotArray(state.schema.fields),
-      steps: cloneStateSnapshotArray(state.schema.steps),
-    },
-    workflow: {
-      ...state.workflow,
-      stepKeys: [...state.workflow.stepKeys],
-      visibleFieldKeys: [...state.workflow.visibleFieldKeys],
-      dynamicFieldKeys: [...state.workflow.dynamicFieldKeys],
-      conditionalFieldKeys: [...state.workflow.conditionalFieldKeys],
-      ...(state.workflow.approvalNodes
-        ? { approvalNodes: cloneStateSnapshotArray(state.workflow.approvalNodes) }
-        : {}),
-      ...(state.workflow.draft ? { draft: cloneStateSnapshot(state.workflow.draft) } : {}),
-    },
-    values: cloneStateSnapshot(state.values),
-    initialValues: cloneStateSnapshot(state.initialValues),
-    fieldErrors: cloneStateSnapshotArray(state.fieldErrors),
-    ...(state.lastSubmission ? { lastSubmission: cloneStateSnapshot(state.lastSubmission) } : {}),
-    stats: cloneStateSnapshotArray(state.stats),
-    sections: cloneStateSnapshotArray(state.sections),
-    actions: cloneStateSnapshotArray(state.actions),
-    ...(state.accountOperations
-      ? { accountOperations: cloneStateSnapshotArray(state.accountOperations) }
-      : {}),
-    ...(state.operationRecords
-      ? { operationRecords: cloneStateSnapshotArray(state.operationRecords) }
-      : {}),
-    ...(state.securityCenter ? { securityCenter: cloneStateSnapshot(state.securityCenter) } : {}),
-    ...(state.accountWorkspaceSummary ? { accountWorkspaceSummary: cloneStateSnapshot(state.accountWorkspaceSummary) } : {}),
-    assetLedgerEntries: cloneStateSnapshotArray(state.assetLedgerEntries),
-    ...(state.relationList ? { relationList: cloneStateSnapshot(state.relationList) } : {}),
-    ...(state.relationTargets
-      ? {
-          relationTargets: cloneStateSnapshotArray(state.relationTargets),
-        }
-      : {}),
-  };
+  return cloneFormPageState(state) as AccountState;
 }
 
 export function createAccountController(options: CreateAccountControllerOptions) {
@@ -482,55 +440,47 @@ export function createAccountController(options: CreateAccountControllerOptions)
         values: cloneStateSnapshot(store.getState().values),
         ...(store.getState().workflow.currentStepKey ? { currentStepKey: store.getState().workflow.currentStepKey } : {}),
       };
-      const submissionKey = createFormSubmissionKey("account-operation", "draft", snapshot.values);
-      const submissionState = beginFormSubmit(store.getState().submitState, {
-        mode: "draft",
-        submissionKey,
-      });
-      if (submissionState.blocked) {
-        store.setState({
-          transitionFeedback: "This draft is already saved.",
-          submitState: submissionState.submitState,
-        });
-        return ok(undefined);
-      }
 
-      store.setState({
-        submitState: submissionState.submitState,
+      return runFormDraftFlow({
+        scope: "account-operation",
+        submitState: store.getState().submitState,
+        snapshot,
+        persist: (draftSnapshot) => kernel.storage.set(accountFormDraftStorageKey, draftSnapshot),
+        onStarted: (submitState) => {
+          store.setState({ submitState });
+        },
+        onDuplicate: (submitState) => {
+          store.setState({
+            transitionFeedback: "This draft is already saved.",
+            submitState,
+          });
+        },
+        onFailure: (result) => {
+          store.setState({
+            errorText: result.error.message,
+            submitState: {
+              ...store.getState().submitState,
+              phase: "failed",
+            },
+          });
+        },
+        onSuccess: ({ snapshot: draftSnapshot, submitState }) => {
+          store.setState({
+            dirty: true,
+            workflow: createAccountWorkflow(
+              store.getState().values,
+              store.getState().workflow.currentStepKey,
+              store.getState().accountOperations?.find((item) => item.kind === store.getState().values.operationKind),
+              createAccountDraftState({
+                savedAt: draftSnapshot.savedAt,
+                ...(draftSnapshot.currentStepKey ? { currentStepKey: draftSnapshot.currentStepKey } : {}),
+              }),
+            ),
+            submitState,
+            transitionFeedback: "Account operation draft saved.",
+          });
+        },
       });
-      const result = await kernel.storage.set(accountFormDraftStorageKey, snapshot);
-      if (!result.ok) {
-        store.setState({
-          errorText: result.error.message,
-          submitState: {
-            ...store.getState().submitState,
-            phase: "failed",
-          },
-        });
-        return result;
-      }
-
-      const nextSubmitState = finalizeFormSubmit(store.getState().submitState, {
-        mode: "draft",
-        submissionKey,
-        submittedAt: snapshot.savedAt,
-        draftSavedAt: snapshot.savedAt,
-      });
-      store.setState({
-        dirty: true,
-        workflow: createAccountWorkflow(
-          store.getState().values,
-          store.getState().workflow.currentStepKey,
-          store.getState().accountOperations?.find((item) => item.kind === store.getState().values.operationKind),
-          createAccountDraftState({
-            savedAt: snapshot.savedAt,
-            ...(snapshot.currentStepKey ? { currentStepKey: snapshot.currentStepKey } : {}),
-          }),
-        ),
-        submitState: nextSubmitState,
-        transitionFeedback: "Account operation draft saved.",
-      });
-      return ok(undefined);
     },
 
     async discardOperationDraft() {

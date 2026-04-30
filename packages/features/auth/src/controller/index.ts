@@ -6,7 +6,6 @@ import {
   persistAuthSessionResponse,
   readAuthRedirectTarget,
   type AppKernel,
-  type LoginCredential,
   type UserSession,
 } from "@minix/core";
 import type {
@@ -18,7 +17,6 @@ import type {
   AuthPhoneVerificationResponse,
   AuthIdentityFailureReason,
   AuthIdentityWorkflow,
-  AuthRedirectTarget as ContractAuthRedirectTarget,
   AuthVerificationPurpose,
   IdentityBindPhoneRequest,
   IdentityBindOAuthRequest,
@@ -36,6 +34,10 @@ import {
   type AuthCredentialState,
   type AuthRedirectTarget,
 } from "../model";
+import { createAnonymousId, createCredentialFromState, createMethodValidation } from "./credential-flow";
+import { deriveRateLimitMessage, readRetryAfterSeconds } from "./rate-limit";
+import { createWorkflowRedirectTarget, formatForceReauthNotice, formatProtectedPageNotice } from "./redirect-flow";
+import { canRefreshSession, hasActiveSession, shouldClearAfterRefreshFailure } from "./session-flow";
 
 export interface CreateAuthControllerOptions {
   kernel: AppKernel;
@@ -45,156 +47,6 @@ export interface CreateAuthControllerOptions {
   planRouteId?: AppRouteId;
   settingsRouteId?: AppRouteId;
   reportError?: (message: string) => Promise<void>;
-}
-
-function hasActiveSession(session: UserSession | null | undefined): session is UserSession {
-  if (!session?.loggedIn || !session.token?.accessToken) {
-    return false;
-  }
-
-  if (session.token.expiresAt === undefined) {
-    return true;
-  }
-
-  return session.token.expiresAt > Date.now();
-}
-
-function canRefreshSession(session: UserSession | null | undefined): session is UserSession {
-  return Boolean(session?.loggedIn && session.token?.refreshToken);
-}
-
-function shouldClearAfterRefreshFailure(code: string): boolean {
-  return code === "TOKEN_EXPIRED" || code === "UNAUTHORIZED" || code === "FORBIDDEN";
-}
-
-function formatProtectedPageNotice(label?: string | null): string | null {
-  return label ? `Return to Home and sign in to open ${label}.` : null;
-}
-
-function formatForceReauthNotice(label?: string | null): string {
-  return label
-    ? `Sign in again to continue to ${label}.`
-    : "Sign in again to continue.";
-}
-
-function createAnonymousId(): string {
-  return `guest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function createMethodValidation(
-  method: LoginMethod,
-  credentials: AuthCredentialState,
-): Partial<Record<keyof AuthCredentialState, string>> {
-  switch (method) {
-    case "guest":
-      return {};
-    case "wechat_code":
-      return {};
-    case "phone_code":
-      return {
-        ...(credentials.phoneNumber.trim() ? {} : { phoneNumber: "Phone number is required." }),
-        ...(credentials.verificationCode.trim() ? {} : { verificationCode: "Verification code is required." }),
-      };
-    case "password":
-      return {
-        ...(credentials.account.trim() || credentials.phoneNumber.trim()
-          ? {}
-          : { account: "Account or phone number is required." }),
-        ...(credentials.password.trim() ? {} : { password: "Password is required." }),
-      };
-    case "oauth":
-      return {
-        ...(credentials.provider.trim() ? {} : { provider: "Provider is required." }),
-        ...(credentials.providerToken.trim() ? {} : { providerToken: "Provider token is required." }),
-        ...(credentials.providerUserId.trim() ? {} : { providerUserId: "Provider user id is required." }),
-        ...(credentials.oauthState.trim() ? {} : { oauthState: "OAuth state is required." }),
-      };
-  }
-}
-
-function createCredentialFromState(
-  method: LoginMethod,
-  credentials: AuthCredentialState,
-): LoginCredential {
-  switch (method) {
-    case "guest":
-      return {
-        method,
-        anonymousId: credentials.anonymousId.trim() || createAnonymousId(),
-        ...(credentials.deviceId.trim() ? { deviceId: credentials.deviceId.trim() } : {}),
-      };
-    case "phone_code":
-      return {
-        method,
-        phoneNumber: credentials.phoneNumber.trim(),
-        verificationCode: credentials.verificationCode.trim(),
-        ...(credentials.deviceId.trim() ? { deviceId: credentials.deviceId.trim() } : {}),
-      };
-    case "password":
-      return {
-        method,
-        ...(credentials.phoneNumber.trim()
-          ? { phoneNumber: credentials.phoneNumber.trim() }
-          : { account: credentials.account.trim() }),
-        password: credentials.password,
-        ...(credentials.deviceId.trim() ? { deviceId: credentials.deviceId.trim() } : {}),
-      };
-    case "oauth":
-      return {
-        method,
-        provider: credentials.provider.trim(),
-        providerToken: credentials.providerToken.trim(),
-        providerUserId: credentials.providerUserId.trim(),
-        oauthState: credentials.oauthState.trim(),
-        ...(credentials.deviceId.trim() ? { deviceId: credentials.deviceId.trim() } : {}),
-      };
-    case "wechat_code":
-    default:
-      return {
-        method: "wechat_code",
-        ...(credentials.deviceId.trim() ? { deviceId: credentials.deviceId.trim() } : {}),
-      };
-  }
-}
-
-function readRetryAfterSeconds(detail: unknown): number | null {
-  if (typeof detail !== "object" || detail === null) {
-    return null;
-  }
-
-  const value = (detail as Record<string, unknown>).retryAfterSeconds;
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function deriveRateLimitMessage(retryAfterSeconds: number | null): string | null {
-  if (retryAfterSeconds === null) {
-    return "Too many login attempts. Retry later.";
-  }
-
-  return `Too many login attempts. Retry in ${retryAfterSeconds} seconds.`;
-}
-
-function createWorkflowRedirectTarget(state: ReturnType<typeof createInitialAuthPageState>): ContractAuthRedirectTarget | undefined {
-  if (
-    !state.redirectRouteId &&
-    !state.redirectPath &&
-    !state.redirectSource &&
-    !state.redirectLabel &&
-    !state.redirectReason &&
-    !state.redirectForceReauth
-  ) {
-    return undefined;
-  }
-
-  return {
-    ...(state.redirectRouteId ? { routeId: state.redirectRouteId } : {}),
-    ...(state.redirectPath ? { path: state.redirectPath } : {}),
-    ...(state.redirectParams ? { params: state.redirectParams } : {}),
-    ...(state.redirectSource ? { source: state.redirectSource } : {}),
-    ...(state.redirectLabel ? { label: state.redirectLabel } : {}),
-    ...(state.redirectReason ? { reason: state.redirectReason } : {}),
-    ...(state.redirectForceReauth ? { forceReauth: true } : {}),
-  };
 }
 
 export function createAuthController(options: CreateAuthControllerOptions) {

@@ -13,7 +13,6 @@ import type {
 } from "@minix/contracts";
 import {
   cloneStateSnapshot,
-  cloneStateSnapshotArray,
   createCapabilityHealthSnapshot,
   createControllerRouterHelpers,
   createStore,
@@ -57,41 +56,7 @@ export interface CreateMediaToolsControllerOptions {
 }
 
 function cloneState(state: MediaToolsState): MediaToolsState {
-  return {
-    ...state,
-    uploadTask: cloneStateSnapshot(state.uploadTask),
-    ...(state.uploadCapabilityStatus ? { uploadCapabilityStatus: cloneStateSnapshot(state.uploadCapabilityStatus) } : {}),
-    ...(state.shareCapabilityStatus ? { shareCapabilityStatus: cloneStateSnapshot(state.shareCapabilityStatus) } : {}),
-    ...(state.clipboardCapabilityStatus ? { clipboardCapabilityStatus: cloneStateSnapshot(state.clipboardCapabilityStatus) } : {}),
-    ...(state.locationCapabilityStatus ? { locationCapabilityStatus: cloneStateSnapshot(state.locationCapabilityStatus) } : {}),
-    uploadCapabilitySnapshot: cloneStateSnapshot(state.uploadCapabilitySnapshot),
-    shareCapabilitySnapshot: cloneStateSnapshot(state.shareCapabilitySnapshot),
-    clipboardCapabilitySnapshot: cloneStateSnapshot(state.clipboardCapabilitySnapshot),
-    locationCapabilitySnapshot: cloneStateSnapshot(state.locationCapabilitySnapshot),
-    uploadCapabilitySummary: state.uploadCapabilitySummary,
-    shareCapabilitySummary: state.shareCapabilitySummary,
-    ...(state.uploadProviderPosture ? { uploadProviderPosture: cloneStateSnapshot(state.uploadProviderPosture) } : {}),
-    ...(state.uploadAsset ? { uploadAsset: cloneStateSnapshot(state.uploadAsset) } : {}),
-    ...(state.uploadReviewRecord ? { uploadReviewRecord: cloneStateSnapshot(state.uploadReviewRecord) } : {}),
-    ...(state.uploadCleanupRecord ? { uploadCleanupRecord: cloneStateSnapshot(state.uploadCleanupRecord) } : {}),
-    uploadReferences: cloneStateSnapshotArray(state.uploadReferences),
-    ...(state.uploadError ? { uploadError: cloneStateSnapshot(state.uploadError) } : {}),
-    uploadGovernanceSummary: state.uploadGovernanceSummary,
-    uploadOwnershipSummary: state.uploadOwnershipSummary,
-    uploadRetentionSummary: state.uploadRetentionSummary,
-    uploadDerivedAssetSummary: state.uploadDerivedAssetSummary,
-    sharePayload: cloneStateSnapshot(state.sharePayload),
-    shareChannel: cloneStateSnapshot(state.shareChannel),
-    shareAttribution: cloneStateSnapshot(state.shareAttribution),
-    ...(state.shareShortLinkRecord ? { shareShortLinkRecord: cloneStateSnapshot(state.shareShortLinkRecord) } : {}),
-    ...(state.sharePosterAsset ? { sharePosterAsset: cloneStateSnapshot(state.sharePosterAsset) } : {}),
-    ...(state.shareProviderPosture ? { shareProviderPosture: cloneStateSnapshot(state.shareProviderPosture) } : {}),
-    shareChannelReadinessSummary: state.shareChannelReadinessSummary,
-    shareFallbackSummary: state.shareFallbackSummary,
-    shareAttributionDiagnosticsSummary: state.shareAttributionDiagnosticsSummary,
-    usageExamples: [...state.usageExamples],
-    ...(state.lastResult ? { lastResult: cloneStateSnapshot(state.lastResult) } : {}),
-  };
+  return cloneStateSnapshot(state);
 }
 
 function deriveUploadProviderSummary(response: UploadPipelineResponse): string {

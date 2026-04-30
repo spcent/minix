@@ -1,5 +1,5 @@
 import { APP_ROUTE_IDS } from "@minix/contracts";
-import { defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags } from "@minix/core";
+import { createAuthenticatedGuardPolicy, defineHostFeatureFlags, defineHostPageDefinitions, loadFeatureFlags } from "@minix/core";
 import { accountFeatureManifest, createDefaultAccountState } from "@minix/feature-account";
 import { authFeatureManifest, createInitialAuthPageState } from "@minix/feature-auth";
 import { bookshelfFeatureManifest, createInitialBookshelfState } from "@minix/feature-bookshelf";
@@ -24,6 +24,10 @@ export const novelH5FeatureFlags = defineHostFeatureFlags({
   enableAutoLogin: false,
   enableRouteGuard: true,
 });
+
+function authenticatedPage(name: string) {
+  return createAuthenticatedGuardPolicy(`authenticated-${name}`);
+}
 
 export const novelH5PageDefinitions = defineHostPageDefinitions({
   home: {
@@ -92,12 +96,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "feed",
     },
-    guardPolicy: {
-      name: "authenticated-feed",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("feed"),
     renderMode: "custom",
   },
   account: {
@@ -114,12 +113,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       overviewRouteId: APP_ROUTE_IDS.home,
       authRedirectSource: "account",
     },
-    guardPolicy: {
-      name: "authenticated-account",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("account"),
     requiredCapabilities: [{ capability: "clipboard", required: false }],
     featureConfig: {
       surface: "account",
@@ -142,12 +136,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       cancelRouteId: APP_ROUTE_IDS.account,
       authRedirectSource: "feedback",
     },
-    guardPolicy: {
-      name: "authenticated-feedback",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("feedback"),
     featureConfig: {
       surface: "feedback",
       template: "form",
@@ -170,12 +159,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       settingsRouteId: APP_ROUTE_IDS.settings,
       authRedirectSource: "messages",
     },
-    guardPolicy: {
-      name: "authenticated-messages",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("messages"),
     featureConfig: {
       surface: "messages",
     },
@@ -195,12 +179,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       loginRouteId: APP_ROUTE_IDS.login,
       settingsRouteId: APP_ROUTE_IDS.settings,
     },
-    guardPolicy: {
-      name: "authenticated-media-tools",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("media-tools"),
     requiredCapabilities: [
       { capability: "upload", required: false },
       { capability: "share", required: false },
@@ -227,12 +206,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
       membershipRouteId: APP_ROUTE_IDS.membership,
     },
-    guardPolicy: {
-      name: "authenticated-novel-detail",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("novel-detail"),
     renderMode: "custom",
   },
   toc: {
@@ -249,12 +223,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       readerRouteId: APP_ROUTE_IDS.reader,
       membershipRouteId: APP_ROUTE_IDS.membership,
     },
-    guardPolicy: {
-      name: "authenticated-toc",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("toc"),
     renderMode: "custom",
   },
   reader: {
@@ -273,12 +242,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
       membershipRouteId: APP_ROUTE_IDS.membership,
     },
-    guardPolicy: {
-      name: "authenticated-reader",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("reader"),
     renderMode: "custom",
   },
   bookshelf: {
@@ -296,12 +260,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       tocRouteId: APP_ROUTE_IDS.toc,
       settingsRouteId: APP_ROUTE_IDS.settings,
     },
-    guardPolicy: {
-      name: "authenticated-bookshelf",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("bookshelf"),
     renderMode: "custom",
   },
   settings: {
@@ -322,12 +281,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       authRedirectSource: "preferences",
       showErrorToast: false,
     },
-    guardPolicy: {
-      name: "authenticated-settings",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("settings"),
     renderMode: "custom",
   },
   membership: {
@@ -345,12 +299,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       tocRouteId: APP_ROUTE_IDS.toc,
       bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
     },
-    guardPolicy: {
-      name: "authenticated-membership",
-      requirements: {
-        authenticated: true,
-      },
-    },
+    guardPolicy: authenticatedPage("membership"),
     renderMode: "custom",
   },
 });
