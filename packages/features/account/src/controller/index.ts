@@ -1,13 +1,11 @@
 import {
-  beginFormSubmit,
   cloneFormPageState,
-  createFormSubmissionKey,
   createControllerRouterHelpers,
   cloneStateSnapshot,
   createStore,
-  finalizeFormSubmit,
   ok,
   runFormDraftFlow,
+  runFormSubmitFlow,
   type AppKernel,
   type Result,
 } from "@minix/core";
@@ -509,69 +507,54 @@ export function createAccountController(options: CreateAccountControllerOptions)
       }
 
       const values = store.getState().values;
-      const submissionKey = createFormSubmissionKey("account-operation", "submit", values);
-      const submissionState = beginFormSubmit(store.getState().submitState, {
-        mode: "submit",
-        submissionKey,
-      });
-      if (submissionState.blocked) {
-        store.setState({
-          transitionFeedback: "This account operation was already submitted.",
-          submitState: submissionState.submitState,
-        });
-        return ok(undefined);
-      }
-
-      store.setState({
-        submitState: submissionState.submitState,
-      });
-
-      const action = createAccountOperationSubmitAction(values);
-      const result: Result<unknown> =
-        action.kind === "edit_profile"
-          ? await this.updateProfile(action.request)
-          : action.kind === "change_phone"
-            ? await this.changePhone(action.request)
-            : action.kind === "request_cancellation"
-              ? await this.requestCancellation(action.request)
-              : ok(undefined);
-
-      if (!result.ok) {
-        store.setState({
-          submitState: {
-            ...store.getState().submitState,
-            phase: "failed",
-          },
-        });
-        return result;
-      }
-
-      const submittedAt = Date.now();
-      await clearOperationDraft();
-      const currentProfile = store.getState().userProfile;
-      const resetValues = createAccountOperationValuesFromProfile(
-        currentProfile ? { userProfile: currentProfile } : undefined,
-      );
-      applyOperationValues(resetValues, {
-        dirty: false,
-        operationFormOpen: false,
-        phase: "submitted",
-      });
-      store.setState({
-        initialValues: cloneStateSnapshot(resetValues),
-        initialFormValues: cloneStateSnapshot(resetValues),
-        lastSubmission: {
-          submittedAt,
-          value: result.value,
+      return runFormSubmitFlow({
+        scope: "account-operation",
+        submitState: store.getState().submitState,
+        values,
+        submit: async (submitValues) => {
+          const action = createAccountOperationSubmitAction(submitValues);
+          return action.kind === "edit_profile"
+            ? this.updateProfile(action.request)
+            : action.kind === "change_phone"
+              ? this.changePhone(action.request)
+              : action.kind === "request_cancellation"
+                ? this.requestCancellation(action.request)
+                : ok(undefined);
         },
-        submitState: finalizeFormSubmit(store.getState().submitState, {
-          mode: "submit",
-          submissionKey,
-          submittedAt,
-          result: result.value,
-        }),
+        onStarted: (submitState) => {
+          store.setState({ submitState });
+        },
+        onDuplicate: (submitState) => {
+          store.setState({
+            transitionFeedback: "This account operation was already submitted.",
+            submitState,
+          });
+        },
+        onFailure: ({ submitState }) => {
+          store.setState({ submitState });
+        },
+        onSuccess: async ({ result, submittedAt, submitState }) => {
+          await clearOperationDraft();
+          const currentProfile = store.getState().userProfile;
+          const resetValues = createAccountOperationValuesFromProfile(
+            currentProfile ? { userProfile: currentProfile } : undefined,
+          );
+          applyOperationValues(resetValues, {
+            dirty: false,
+            operationFormOpen: false,
+            phase: "submitted",
+          });
+          store.setState({
+            initialValues: cloneStateSnapshot(resetValues),
+            initialFormValues: cloneStateSnapshot(resetValues),
+            lastSubmission: {
+              submittedAt,
+              value: result,
+            },
+            submitState,
+          });
+        },
       });
-      return result;
     },
 
     async submitGuestUpgrade(input: IdentityUpgradeRequest) {

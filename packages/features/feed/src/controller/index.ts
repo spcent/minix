@@ -1,18 +1,16 @@
 import {
-  beginFormSubmit,
   cloneStateSnapshot,
   cloneStateSnapshotArray,
   createControllerRouterHelpers,
-  createFormSubmissionKey,
   createListStatus,
   createSearchListRequestFlow,
   createStore,
   createSingleFlightHydrator,
-  finalizeFormSubmit,
   normalizeSearchKeyword,
   ok,
   pushRecentSearchKeyword,
   runFormDraftFlow,
+  runFormSubmitFlow,
   type AppKernel,
   type Result,
 } from "@minix/core";
@@ -716,82 +714,76 @@ export function createFeedController(options: CreateFeedControllerOptions) {
 
     async saveContentDraft(input?: SaveContentDraftRequest) {
       const request = input ?? createContentDraftRequest(store.getState().contentDraftForm.values);
-      const submissionKey = createFormSubmissionKey("feed-content-draft", "submit", request as unknown as Record<string, unknown>);
-      const nextSubmit = beginFormSubmit(store.getState().contentDraftForm.submitState, {
-        mode: "submit",
-        submissionKey,
-      });
-      if (nextSubmit.blocked) {
-        store.setState({
-          contentTransitionFeedback: "This content draft was already submitted.",
-          contentDraftForm: {
-            ...store.getState().contentDraftForm,
-            submitState: nextSubmit.submitState,
-          },
-        });
-        return ok(undefined);
-      }
-
-      store.setState({
-        contentDraftForm: {
-          ...store.getState().contentDraftForm,
-          submitState: nextSubmit.submitState,
-        },
-      });
-      const result = await kernel.request.post<SaveContentDraftResponse>(contentDraftPath, request as unknown as Record<string, unknown>);
-      if (!result.ok) {
-        store.setState({
-          contentTransitionFeedback: result.error.message,
-          contentDraftForm: {
-            ...store.getState().contentDraftForm,
-            submitState: {
-              ...store.getState().contentDraftForm.submitState,
-              phase: "failed",
+      return runFormSubmitFlow({
+        scope: "feed-content-draft",
+        submitState: store.getState().contentDraftForm.submitState,
+        values: request as unknown as Record<string, unknown>,
+        submit: () => kernel.request.post<SaveContentDraftResponse>(contentDraftPath, request as unknown as Record<string, unknown>),
+        onStarted: (submitState) => {
+          store.setState({
+            contentDraftForm: {
+              ...store.getState().contentDraftForm,
+              submitState,
             },
-          },
-        });
-        return result;
-      }
-
-      const nextValues = createDefaultContentDraftFormValues({
-        ...(request.contentId ? { contentId: request.contentId } : {}),
-        model: request.model,
-        title: request.title,
-        subtitle: request.subtitle ?? "",
-        summary: request.summary,
-        bodyPreview: request.bodyPreview ?? "",
-        visibility: request.visibility,
-        categoryKey: request.categoryKey,
-        categoryLabel: request.categoryLabel,
-        tagKeys: request.tags.map((tag) => tag.key),
-        coverAssetId: request.coverAssetId ?? "",
-        attachmentAssetIds: request.attachmentAssetIds ?? [],
-        actorRole: request.actorRole ?? "author",
-      });
-      await clearContentDraftSnapshot();
-      applyContentDraftFormValues(nextValues, {
-        dirty: false,
-        currentStepKey: "review",
-        lastResponse: result.value,
-        preserveResult: true,
-      });
-      store.setState(createContentMutationPatch(store.getState(), result.value, result.value.contentCard.contentId));
-      store.setState({
-        contentDraftForm: {
-          ...store.getState().contentDraftForm,
-          lastSubmission: {
-            submittedAt: Date.now(),
-            value: cloneStateSnapshot(result.value),
-          },
-          submitState: finalizeFormSubmit(store.getState().contentDraftForm.submitState, {
-            mode: "submit",
-            submissionKey,
-            submittedAt: Date.now(),
-            result: cloneStateSnapshot(result.value),
-          }),
+          });
+        },
+        onDuplicate: (submitState) => {
+          store.setState({
+            contentTransitionFeedback: "This content draft was already submitted.",
+            contentDraftForm: {
+              ...store.getState().contentDraftForm,
+              submitState,
+            },
+          });
+        },
+        onFailure: ({ result, submitState }) => {
+          store.setState({
+            contentTransitionFeedback: result.error.message,
+            contentDraftForm: {
+              ...store.getState().contentDraftForm,
+              submitState,
+            },
+          });
+        },
+        onSuccess: async ({ result, submittedAt, submitState }) => {
+          const nextValues = createDefaultContentDraftFormValues({
+            ...(request.contentId ? { contentId: request.contentId } : {}),
+            model: request.model,
+            title: request.title,
+            subtitle: request.subtitle ?? "",
+            summary: request.summary,
+            bodyPreview: request.bodyPreview ?? "",
+            visibility: request.visibility,
+            categoryKey: request.categoryKey,
+            categoryLabel: request.categoryLabel,
+            tagKeys: request.tags.map((tag) => tag.key),
+            coverAssetId: request.coverAssetId ?? "",
+            attachmentAssetIds: request.attachmentAssetIds ?? [],
+            actorRole: request.actorRole ?? "author",
+          });
+          await clearContentDraftSnapshot();
+          applyContentDraftFormValues(nextValues, {
+            dirty: false,
+            currentStepKey: "review",
+            lastResponse: result,
+            preserveResult: true,
+          });
+          store.setState(createContentMutationPatch(store.getState(), result, result.contentCard.contentId));
+          store.setState({
+            contentDraftForm: {
+              ...store.getState().contentDraftForm,
+              lastSubmission: {
+                submittedAt,
+                value: cloneStateSnapshot(result),
+              },
+              submitState: {
+                ...submitState,
+                result: cloneStateSnapshot(result),
+              },
+            },
+          });
         },
       });
-      return result;
     },
 
     async loadReviewQueue(query: {

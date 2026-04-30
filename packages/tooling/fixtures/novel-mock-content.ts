@@ -1,5 +1,3 @@
-// Generated from packages/tooling/fixtures/novel-mock-content.ts.
-// Run pnpm gen:novel-mock-content after editing the fixture.
 import type {
   ContentAccess,
   ContentCard,

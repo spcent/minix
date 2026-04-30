@@ -1,6 +1,7 @@
 import { APP_ROUTE_IDS } from "@minix/contracts";
 import {
   createAuthenticatedGuardPolicy,
+  createWechatShellConfig,
   defineHostFeatureFlags,
   defineHostPageDefinitions,
   loadFeatureFlags,
@@ -42,6 +43,91 @@ function authenticatedPage(name: string) {
   return createAuthenticatedGuardPolicy(`authenticated-${name}`);
 }
 
+function createNovelCatalogController() {
+  return {
+    loginRouteId: APP_ROUTE_IDS.login,
+    catalogRouteId: APP_ROUTE_IDS.catalog,
+    detailRouteId: APP_ROUTE_IDS.novelDetail,
+    readerRouteId: APP_ROUTE_IDS.reader,
+    tocRouteId: APP_ROUTE_IDS.toc,
+    bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
+    settingsRouteId: APP_ROUTE_IDS.settings,
+  };
+}
+
+function createNovelSupportController(source: "feedback" | "messages" | "media-tools") {
+  if (source === "feedback") {
+    return {
+      feedbackRouteId: APP_ROUTE_IDS.feedback,
+      loginRouteId: APP_ROUTE_IDS.login,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+      messagesRouteId: APP_ROUTE_IDS.messages,
+      cancelRouteId: APP_ROUTE_IDS.account,
+      authRedirectSource: "feedback",
+    };
+  }
+
+  if (source === "messages") {
+    return {
+      messagesRouteId: APP_ROUTE_IDS.messages,
+      loginRouteId: APP_ROUTE_IDS.login,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+      authRedirectSource: "messages",
+    };
+  }
+
+  return {
+    loginRouteId: APP_ROUTE_IDS.login,
+    settingsRouteId: APP_ROUTE_IDS.settings,
+  };
+}
+
+function createNovelReaderController(kind: "detail" | "toc" | "reader" | "bookshelf" | "membership") {
+  const shared = {
+    loginRouteId: APP_ROUTE_IDS.login,
+    catalogRouteId: APP_ROUTE_IDS.catalog,
+    novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
+    readerRouteId: APP_ROUTE_IDS.reader,
+    tocRouteId: APP_ROUTE_IDS.toc,
+    bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
+    membershipRouteId: APP_ROUTE_IDS.membership,
+  };
+
+  if (kind === "toc") {
+    return {
+      loginRouteId: APP_ROUTE_IDS.login,
+      catalogRouteId: APP_ROUTE_IDS.catalog,
+      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
+      readerRouteId: APP_ROUTE_IDS.reader,
+      membershipRouteId: APP_ROUTE_IDS.membership,
+    };
+  }
+
+  if (kind === "reader") {
+    return {
+      loginRouteId: APP_ROUTE_IDS.login,
+      readerRouteId: APP_ROUTE_IDS.reader,
+      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
+      tocRouteId: APP_ROUTE_IDS.toc,
+      bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
+      membershipRouteId: APP_ROUTE_IDS.membership,
+    };
+  }
+
+  if (kind === "bookshelf") {
+    return {
+      loginRouteId: APP_ROUTE_IDS.login,
+      catalogRouteId: APP_ROUTE_IDS.catalog,
+      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
+      readerRouteId: APP_ROUTE_IDS.reader,
+      tocRouteId: APP_ROUTE_IDS.toc,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+    };
+  }
+
+  return shared;
+}
+
 export const novelWechatPageDefinitions = defineHostPageDefinitions({
   login: {
     feature: authFeatureManifest,
@@ -68,20 +154,13 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
     pageData: createInitialCatalogState({
       title: "Library",
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      catalogRouteId: APP_ROUTE_IDS.catalog,
-      detailRouteId: APP_ROUTE_IDS.novelDetail,
-      readerRouteId: APP_ROUTE_IDS.reader,
-      tocRouteId: APP_ROUTE_IDS.toc,
-      bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-    },
-    miniprogramPage: "pages/catalog/index",
-    registrationModule: "../../../src/registrations/wechat/pages/catalog",
-    navigationBarTitleText: "Book Catalog",
-    shellStyle: "novel",
-    shellTemplate: "novel-catalog",
+    controller: createNovelCatalogController(),
+    ...createWechatShellConfig({
+      page: "catalog",
+      navigationBarTitleText: "Book Catalog",
+      shellTemplate: "novel-catalog",
+      shellStyle: "novel",
+    }),
   },
   feed: {
     feature: feedFeatureManifest,
@@ -144,14 +223,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
         platform: "wechat",
       },
     }),
-    controller: {
-      feedbackRouteId: APP_ROUTE_IDS.feedback,
-      loginRouteId: APP_ROUTE_IDS.login,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      messagesRouteId: APP_ROUTE_IDS.messages,
-      cancelRouteId: APP_ROUTE_IDS.account,
-      authRedirectSource: "feedback",
-    },
+    controller: createNovelSupportController("feedback"),
     guardPolicy: authenticatedPage("feedback"),
     featureConfig: {
       surface: "feedback",
@@ -173,12 +245,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       pageSize: 6,
       emptyText: "No inbox activity is available for this reader session yet.",
     }),
-    controller: {
-      messagesRouteId: APP_ROUTE_IDS.messages,
-      loginRouteId: APP_ROUTE_IDS.login,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      authRedirectSource: "messages",
-    },
+    controller: createNovelSupportController("messages"),
     guardPolicy: authenticatedPage("messages"),
     featureConfig: {
       surface: "messages",
@@ -200,10 +267,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       primaryActionLabel: "Select Reader Asset",
       secondaryActionLabel: "Dispatch Share Payload",
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-    },
+    controller: createNovelSupportController("media-tools"),
     guardPolicy: authenticatedPage("media-tools"),
     requiredCapabilities: [
       { capability: "upload", required: false },
@@ -226,15 +290,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
     pageData: createInitialNovelDetailState({
       novelId: DEFAULT_NOVEL_ID,
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
-      catalogRouteId: APP_ROUTE_IDS.catalog,
-      tocRouteId: APP_ROUTE_IDS.toc,
-      readerRouteId: APP_ROUTE_IDS.reader,
-      bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
-      membershipRouteId: APP_ROUTE_IDS.membership,
-    },
+    controller: createNovelReaderController("detail"),
     guardPolicy: authenticatedPage("novel-detail"),
     miniprogramPage: "pages/novelDetail/index",
     registrationModule: "../../../src/registrations/wechat/pages/novelDetail",
@@ -249,13 +305,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
     pageData: createInitialTocState({
       novelId: DEFAULT_NOVEL_ID,
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      catalogRouteId: APP_ROUTE_IDS.catalog,
-      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
-      readerRouteId: APP_ROUTE_IDS.reader,
-      membershipRouteId: APP_ROUTE_IDS.membership,
-    },
+    controller: createNovelReaderController("toc"),
     guardPolicy: authenticatedPage("toc"),
     miniprogramPage: "pages/toc/index",
     registrationModule: "../../../src/registrations/wechat/pages/toc",
@@ -271,14 +321,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
       novelId: DEFAULT_NOVEL_ID,
       chapterId: DEFAULT_CHAPTER_ID,
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      readerRouteId: APP_ROUTE_IDS.reader,
-      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
-      tocRouteId: APP_ROUTE_IDS.toc,
-      bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
-      membershipRouteId: APP_ROUTE_IDS.membership,
-    },
+    controller: createNovelReaderController("reader"),
     guardPolicy: authenticatedPage("reader"),
     miniprogramPage: "pages/reader/index",
     registrationModule: "../../../src/registrations/wechat/pages/reader",
@@ -293,14 +336,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
     pageData: createInitialBookshelfState({
       title: "Shelf",
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      catalogRouteId: APP_ROUTE_IDS.catalog,
-      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
-      readerRouteId: APP_ROUTE_IDS.reader,
-      tocRouteId: APP_ROUTE_IDS.toc,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-    },
+    controller: createNovelReaderController("bookshelf"),
     guardPolicy: authenticatedPage("bookshelf"),
     miniprogramPage: "pages/bookshelf/index",
     registrationModule: "../../../src/registrations/wechat/pages/bookshelf",
@@ -350,14 +386,7 @@ export const novelWechatPageDefinitions = defineHostPageDefinitions({
     pageData: createInitialSubscriptionState({
       title: "Membership Center",
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      catalogRouteId: APP_ROUTE_IDS.catalog,
-      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
-      readerRouteId: APP_ROUTE_IDS.reader,
-      tocRouteId: APP_ROUTE_IDS.toc,
-      bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
-    },
+    controller: createNovelReaderController("membership"),
     guardPolicy: authenticatedPage("membership"),
     miniprogramPage: "pages/membership/index",
     registrationModule: "../../../src/registrations/wechat/pages/membership",

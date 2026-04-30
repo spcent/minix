@@ -1,5 +1,6 @@
 import type {
   AccountOperation,
+  AccountOperationRecord,
   AccountOperationResponse,
   AuthCredentialProtection,
 } from "@minix/contracts";
@@ -8,6 +9,7 @@ import type { Context } from "hono";
 import { getRouteTraceId, loadRouteClientContext, loadRouteUserState } from "../../http/route-context";
 import { jsonError } from "../../http/response";
 import type { ApiStore, SessionRecord, UserState } from "../../types";
+import { createAccountOperationResponse } from "./current-user";
 import { resolveAccountSecurityPhoneNumber } from "./operations";
 import type { RegisterAccountRoutesOptions } from "./route-options";
 
@@ -72,6 +74,41 @@ export interface AccountRouteHelpers {
     missingCredentialMessage: string;
     missingCodeMessage: string;
   }) => Promise<Response | { securityPhone: string }>;
+  requireAccountRiskConfirmation: (input: {
+    c: Context<any>;
+    traceId: string;
+    confirmed: boolean | undefined;
+    message: string;
+  }) => Response | undefined;
+  commitAccountSecurityOperation: (input: {
+    c: Context<any>;
+    context: AccountActionContext;
+    operationRecord: AccountOperationRecord;
+    responseMessage: string;
+    audit: {
+      action: string;
+      result: "allowed" | "blocked" | "review";
+      message: string;
+    };
+    save?: () => Promise<void>;
+  }) => Promise<Response>;
+  runVerifiedAccountSecurityOperation: (input: {
+    c: Context<any>;
+    context: AccountActionContext;
+    riskConfirmed: boolean | undefined;
+    riskMessage: string;
+    verificationCode: string | undefined;
+    missingCredentialMessage: string;
+    missingCodeMessage: string;
+    mutate: () => AccountOperationRecord | Promise<AccountOperationRecord>;
+    responseMessage: string;
+    audit: {
+      action: string;
+      result: "allowed" | "blocked" | "review";
+      message: string;
+    };
+    save?: () => Promise<void>;
+  }) => Promise<Response>;
   appendAccountAuditEvent: (input: {
     userState: UserState;
     action: string;
@@ -247,6 +284,109 @@ export function createAccountRouteHelpers(
     return { securityPhone };
   }
 
+  function requireAccountRiskConfirmation(input: {
+    c: Context<any>;
+    traceId: string;
+    confirmed: boolean | undefined;
+    message: string;
+  }) {
+    if (input.confirmed) {
+      return undefined;
+    }
+
+    return jsonError("INVALID_ARGUMENT", input.message, 400, input.traceId);
+  }
+
+  async function commitAccountSecurityOperation(input: {
+    c: Context<any>;
+    context: AccountActionContext;
+    operationRecord: AccountOperationRecord;
+    responseMessage: string;
+    audit: {
+      action: string;
+      result: "allowed" | "blocked" | "review";
+      message: string;
+    };
+    save?: () => Promise<void>;
+  }) {
+    appendAccountAuditEvent({
+      userState: input.context.userState,
+      action: input.audit.action,
+      result: input.audit.result,
+      message: input.audit.message,
+      session: input.context.session,
+      traceId: input.context.traceId,
+      clientId: input.context.clientId,
+      ...(input.context.deviceId ? { deviceId: input.context.deviceId } : {}),
+    });
+    if (input.save) {
+      await input.save();
+    } else {
+      await input.context.store.saveUserState(input.context.session.userId, input.context.userState);
+    }
+
+    return input.c.json(
+      createAccountOperationResponse(
+        input.context.session,
+        input.context.userState,
+        input.c.req.url,
+        input.responseMessage,
+        input.operationRecord,
+      ),
+    );
+  }
+
+  async function runVerifiedAccountSecurityOperation(input: {
+    c: Context<any>;
+    context: AccountActionContext;
+    riskConfirmed: boolean | undefined;
+    riskMessage: string;
+    verificationCode: string | undefined;
+    missingCredentialMessage: string;
+    missingCodeMessage: string;
+    mutate: () => AccountOperationRecord | Promise<AccountOperationRecord>;
+    responseMessage: string;
+    audit: {
+      action: string;
+      result: "allowed" | "blocked" | "review";
+      message: string;
+    };
+    save?: () => Promise<void>;
+  }) {
+    const riskFailure = requireAccountRiskConfirmation({
+      c: input.c,
+      traceId: input.context.traceId,
+      confirmed: input.riskConfirmed,
+      message: input.riskMessage,
+    });
+    if (riskFailure) {
+      return riskFailure;
+    }
+
+    const securityVerification = await verifyAccountSecurityCredential({
+      c: input.c,
+      store: input.context.store,
+      session: input.context.session,
+      userState: input.context.userState,
+      verificationCode: input.verificationCode,
+      missingCredentialMessage: input.missingCredentialMessage,
+      missingCodeMessage: input.missingCodeMessage,
+    });
+    if (securityVerification instanceof Response) {
+      return securityVerification;
+    }
+
+    const operationRecord = await input.mutate();
+    return commitAccountSecurityOperation({
+      c: input.c,
+      context: input.context,
+      operationRecord,
+      responseMessage: input.responseMessage,
+      audit: input.audit,
+      ...(input.save ? { save: input.save } : {}),
+    });
+  }
+
   function appendAccountAuditEvent(input: {
     userState: UserState;
     action: string;
@@ -278,6 +418,9 @@ export function createAccountRouteHelpers(
     loadAvailableAccountOperation,
     createVerificationFailureResponse,
     verifyAccountSecurityCredential,
+    requireAccountRiskConfirmation,
+    commitAccountSecurityOperation,
+    runVerifiedAccountSecurityOperation,
     appendAccountAuditEvent,
   };
 }

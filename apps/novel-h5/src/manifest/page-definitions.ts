@@ -29,6 +29,91 @@ function authenticatedPage(name: string) {
   return createAuthenticatedGuardPolicy(`authenticated-${name}`);
 }
 
+function createNovelCatalogController() {
+  return {
+    loginRouteId: APP_ROUTE_IDS.login,
+    catalogRouteId: APP_ROUTE_IDS.catalog,
+    detailRouteId: APP_ROUTE_IDS.novelDetail,
+    readerRouteId: APP_ROUTE_IDS.reader,
+    tocRouteId: APP_ROUTE_IDS.toc,
+    bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
+    settingsRouteId: APP_ROUTE_IDS.settings,
+  };
+}
+
+function createNovelSupportController(source: "feedback" | "messages" | "media-tools") {
+  if (source === "feedback") {
+    return {
+      feedbackRouteId: APP_ROUTE_IDS.feedback,
+      loginRouteId: APP_ROUTE_IDS.login,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+      messagesRouteId: APP_ROUTE_IDS.messages,
+      cancelRouteId: APP_ROUTE_IDS.account,
+      authRedirectSource: "feedback",
+    };
+  }
+
+  if (source === "messages") {
+    return {
+      messagesRouteId: APP_ROUTE_IDS.messages,
+      loginRouteId: APP_ROUTE_IDS.login,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+      authRedirectSource: "messages",
+    };
+  }
+
+  return {
+    loginRouteId: APP_ROUTE_IDS.login,
+    settingsRouteId: APP_ROUTE_IDS.settings,
+  };
+}
+
+function createNovelReaderController(kind: "detail" | "toc" | "reader" | "bookshelf" | "membership") {
+  const shared = {
+    loginRouteId: APP_ROUTE_IDS.login,
+    catalogRouteId: APP_ROUTE_IDS.catalog,
+    novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
+    readerRouteId: APP_ROUTE_IDS.reader,
+    tocRouteId: APP_ROUTE_IDS.toc,
+    bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
+    membershipRouteId: APP_ROUTE_IDS.membership,
+  };
+
+  if (kind === "toc") {
+    return {
+      loginRouteId: APP_ROUTE_IDS.login,
+      catalogRouteId: APP_ROUTE_IDS.catalog,
+      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
+      readerRouteId: APP_ROUTE_IDS.reader,
+      membershipRouteId: APP_ROUTE_IDS.membership,
+    };
+  }
+
+  if (kind === "reader") {
+    return {
+      loginRouteId: APP_ROUTE_IDS.login,
+      readerRouteId: APP_ROUTE_IDS.reader,
+      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
+      tocRouteId: APP_ROUTE_IDS.toc,
+      bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
+      membershipRouteId: APP_ROUTE_IDS.membership,
+    };
+  }
+
+  if (kind === "bookshelf") {
+    return {
+      loginRouteId: APP_ROUTE_IDS.login,
+      catalogRouteId: APP_ROUTE_IDS.catalog,
+      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
+      readerRouteId: APP_ROUTE_IDS.reader,
+      tocRouteId: APP_ROUTE_IDS.toc,
+      settingsRouteId: APP_ROUTE_IDS.settings,
+    };
+  }
+
+  return shared;
+}
+
 export const novelH5PageDefinitions = defineHostPageDefinitions({
   home: {
     feature: catalogFeatureManifest,
@@ -37,15 +122,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
     pageData: createInitialCatalogState({
       title: "Quiet Frontlist",
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      catalogRouteId: APP_ROUTE_IDS.catalog,
-      detailRouteId: APP_ROUTE_IDS.novelDetail,
-      readerRouteId: APP_ROUTE_IDS.reader,
-      tocRouteId: APP_ROUTE_IDS.toc,
-      bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-    },
+    controller: createNovelCatalogController(),
     renderMode: "custom",
   },
   login: {
@@ -68,15 +145,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
     pageData: createInitialCatalogState({
       title: "Library",
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      catalogRouteId: APP_ROUTE_IDS.catalog,
-      detailRouteId: APP_ROUTE_IDS.novelDetail,
-      readerRouteId: APP_ROUTE_IDS.reader,
-      tocRouteId: APP_ROUTE_IDS.toc,
-      bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-    },
+    controller: createNovelCatalogController(),
     renderMode: "custom",
   },
   feed: {
@@ -128,14 +197,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       title: "Reader Feedback",
       subtitle: "Issue reports, support follow-up, and product suggestions stay available without leaving the novel host.",
     }),
-    controller: {
-      feedbackRouteId: APP_ROUTE_IDS.feedback,
-      loginRouteId: APP_ROUTE_IDS.login,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      messagesRouteId: APP_ROUTE_IDS.messages,
-      cancelRouteId: APP_ROUTE_IDS.account,
-      authRedirectSource: "feedback",
-    },
+    controller: createNovelSupportController("feedback"),
     guardPolicy: authenticatedPage("feedback"),
     featureConfig: {
       surface: "feedback",
@@ -153,12 +215,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       pageSize: 6,
       emptyText: "No inbox activity is available for this reader session yet.",
     }),
-    controller: {
-      messagesRouteId: APP_ROUTE_IDS.messages,
-      loginRouteId: APP_ROUTE_IDS.login,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      authRedirectSource: "messages",
-    },
+    controller: createNovelSupportController("messages"),
     guardPolicy: authenticatedPage("messages"),
     featureConfig: {
       surface: "messages",
@@ -175,10 +232,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       primaryActionLabel: "Select Reader Asset",
       secondaryActionLabel: "Dispatch Share Payload",
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-    },
+    controller: createNovelSupportController("media-tools"),
     guardPolicy: authenticatedPage("media-tools"),
     requiredCapabilities: [
       { capability: "upload", required: false },
@@ -197,15 +251,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
     pageData: createInitialNovelDetailState({
       novelId: DEFAULT_NOVEL_ID,
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
-      catalogRouteId: APP_ROUTE_IDS.catalog,
-      tocRouteId: APP_ROUTE_IDS.toc,
-      readerRouteId: APP_ROUTE_IDS.reader,
-      bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
-      membershipRouteId: APP_ROUTE_IDS.membership,
-    },
+    controller: createNovelReaderController("detail"),
     guardPolicy: authenticatedPage("novel-detail"),
     renderMode: "custom",
   },
@@ -216,13 +262,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
     pageData: createInitialTocState({
       novelId: DEFAULT_NOVEL_ID,
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      catalogRouteId: APP_ROUTE_IDS.catalog,
-      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
-      readerRouteId: APP_ROUTE_IDS.reader,
-      membershipRouteId: APP_ROUTE_IDS.membership,
-    },
+    controller: createNovelReaderController("toc"),
     guardPolicy: authenticatedPage("toc"),
     renderMode: "custom",
   },
@@ -234,14 +274,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
       novelId: DEFAULT_NOVEL_ID,
       chapterId: DEFAULT_CHAPTER_ID,
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      readerRouteId: APP_ROUTE_IDS.reader,
-      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
-      tocRouteId: APP_ROUTE_IDS.toc,
-      bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
-      membershipRouteId: APP_ROUTE_IDS.membership,
-    },
+    controller: createNovelReaderController("reader"),
     guardPolicy: authenticatedPage("reader"),
     renderMode: "custom",
   },
@@ -252,14 +285,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
     pageData: createInitialBookshelfState({
       title: "Shelf",
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      catalogRouteId: APP_ROUTE_IDS.catalog,
-      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
-      readerRouteId: APP_ROUTE_IDS.reader,
-      tocRouteId: APP_ROUTE_IDS.toc,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-    },
+    controller: createNovelReaderController("bookshelf"),
     guardPolicy: authenticatedPage("bookshelf"),
     renderMode: "custom",
   },
@@ -291,14 +317,7 @@ export const novelH5PageDefinitions = defineHostPageDefinitions({
     pageData: createInitialSubscriptionState({
       title: "Membership Center",
     }),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      catalogRouteId: APP_ROUTE_IDS.catalog,
-      novelDetailRouteId: APP_ROUTE_IDS.novelDetail,
-      readerRouteId: APP_ROUTE_IDS.reader,
-      tocRouteId: APP_ROUTE_IDS.toc,
-      bookshelfRouteId: APP_ROUTE_IDS.bookshelf,
-    },
+    controller: createNovelReaderController("membership"),
     guardPolicy: authenticatedPage("membership"),
     renderMode: "custom",
   },

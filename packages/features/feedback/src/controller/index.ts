@@ -13,16 +13,14 @@ import type {
   UploadAsset,
 } from "@minix/contracts";
 import {
-  beginFormSubmit,
   cloneFormPageState,
   cloneStateSnapshot,
   cloneStateSnapshotArray,
   createControllerRouterHelpers,
-  createFormSubmissionKey,
   createStore,
-  finalizeFormSubmit,
   ok,
   runFormDraftFlow,
+  runFormSubmitFlow,
   type AppKernel,
   type Result,
 } from "@minix/core";
@@ -582,67 +580,60 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
       }
 
       const values = store.getState().values;
-      const submissionKey = createFormSubmissionKey("feedback-form", "submit", values);
-      const nextSubmit = beginFormSubmit(store.getState().submitState, {
-        mode: "submit",
-        submissionKey,
-      });
-      if (nextSubmit.blocked) {
-        store.setState({
-          submitState: nextSubmit.submitState,
-          serviceLoopSummary: "This feedback form was already submitted.",
-        });
-        return ok(undefined);
-      }
-
-      const payload = createSubmitFeedbackPayload(values);
-
-      store.setState({
-        submitting: true,
-        errorCode: undefined,
-        errorText: undefined,
-        submitState: nextSubmit.submitState,
-      });
-
-      const result = await kernel.request.post<FeedbackTicketDetailResponse>(submitPath, payload);
-      if (!result.ok) {
-        return handleFailure(result);
-      }
-
-      await clearDraftState();
-      const submittedAt = Date.now();
-      const nextDerived = createFeedbackWorkflow(
-        store.getState().values,
-        {
-          categories: store.getState().categories,
-          latestStatus: result.value.feedbackStatus,
+      return runFormSubmitFlow({
+        scope: "feedback-form",
+        submitState: store.getState().submitState,
+        values,
+        submit: (submitValues) => kernel.request.post<FeedbackTicketDetailResponse>(submitPath, createSubmitFeedbackPayload(submitValues)),
+        onStarted: (submitState) => {
+          store.setState({
+            submitting: true,
+            errorCode: undefined,
+            errorText: undefined,
+            submitState,
+          });
         },
-        store.getState().workflow.currentStepKey,
-      );
-      store.setState({
-        ready: true,
-        submitting: false,
-        dirty: false,
-        errorCode: undefined,
-        errorText: undefined,
-        fieldErrors: [],
-        validationErrors: [],
-        ...createDetailStatePatch(store.getState(), result.value),
-        schema: nextDerived.schema,
-        workflow: nextDerived.workflow,
-        lastSubmission: {
-          submittedAt,
-          value: cloneStateSnapshot(result.value),
+        onDuplicate: (submitState) => {
+          store.setState({
+            submitState,
+            serviceLoopSummary: "This feedback form was already submitted.",
+          });
         },
-        submitState: finalizeFormSubmit(store.getState().submitState, {
-          mode: "submit",
-          submissionKey,
-          submittedAt,
-          result: cloneStateSnapshot(result.value),
-        }),
+        onFailure: async ({ result }) => {
+          await handleFailure(result);
+        },
+        onSuccess: async ({ result, submittedAt, submitState }) => {
+          await clearDraftState();
+          const nextDerived = createFeedbackWorkflow(
+            store.getState().values,
+            {
+              categories: store.getState().categories,
+              latestStatus: result.feedbackStatus,
+            },
+            store.getState().workflow.currentStepKey,
+          );
+          store.setState({
+            ready: true,
+            submitting: false,
+            dirty: false,
+            errorCode: undefined,
+            errorText: undefined,
+            fieldErrors: [],
+            validationErrors: [],
+            ...createDetailStatePatch(store.getState(), result),
+            schema: nextDerived.schema,
+            workflow: nextDerived.workflow,
+            lastSubmission: {
+              submittedAt,
+              value: cloneStateSnapshot(result),
+            },
+            submitState: {
+              ...submitState,
+              result: cloneStateSnapshot(result),
+            },
+          });
+        },
       });
-
-      return ok(result.value);
     },
 
     async refreshLatestStatus(ticketId?: string) {

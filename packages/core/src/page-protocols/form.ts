@@ -316,6 +316,75 @@ export async function runFormDraftFlow<
   return ok(undefined);
 }
 
+export interface RunFormSubmitFlowOptions<
+  TValues extends Record<string, unknown>,
+  TResult = unknown,
+> {
+  scope: string;
+  submitState: FormSubmitState<TResult>;
+  values: TValues;
+  submit: (values: TValues) => Promise<Result<TResult>>;
+  onStarted: (submitState: FormSubmitState<TResult>) => void;
+  onDuplicate: (submitState: FormSubmitState<TResult>) => void;
+  onFailure: (input: {
+    result: Extract<Result<TResult>, { ok: false }>;
+    submitState: FormSubmitState<TResult>;
+    submissionKey: string;
+  }) => void | Promise<void>;
+  onSuccess: (input: {
+    values: TValues;
+    result: TResult;
+    submittedAt: number;
+    submitState: FormSubmitState<TResult>;
+    submissionKey: string;
+  }) => void | Promise<void>;
+}
+
+export async function runFormSubmitFlow<
+  TValues extends Record<string, unknown>,
+  TResult = unknown,
+>(options: RunFormSubmitFlowOptions<TValues, TResult>): Promise<Result<TResult | undefined>> {
+  const submissionKey = createFormSubmissionKey(options.scope, "submit", options.values);
+  const nextSubmit = beginFormSubmit(options.submitState, {
+    mode: "submit",
+    submissionKey,
+  });
+
+  if (nextSubmit.blocked) {
+    options.onDuplicate(nextSubmit.submitState);
+    return ok(undefined);
+  }
+
+  options.onStarted(nextSubmit.submitState);
+  const result = await options.submit(options.values);
+  if (!result.ok) {
+    await options.onFailure({
+      result,
+      submissionKey,
+      submitState: {
+        ...nextSubmit.submitState,
+        phase: "failed",
+      },
+    });
+    return result;
+  }
+
+  const submittedAt = Date.now();
+  await options.onSuccess({
+    values: options.values,
+    result: result.value,
+    submittedAt,
+    submissionKey,
+    submitState: finalizeFormSubmit(nextSubmit.submitState, {
+      mode: "submit",
+      submissionKey,
+      submittedAt,
+      result: result.value,
+    }),
+  });
+  return result;
+}
+
 export function createFormPageState<TValues extends Record<string, unknown>, TResult = unknown>(
   options: CreateFormPageStateOptions<TValues, TResult>,
 ): FormPageState<TValues, TResult> {
