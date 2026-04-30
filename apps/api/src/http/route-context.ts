@@ -35,6 +35,19 @@ export function parseRouteQuery<SchemaOutput>(
   return parseQuery(new URL(c.req.url), schema, getRouteTraceId(c));
 }
 
+export function withParsedRouteQuery<SchemaOutput, TResult>(
+  c: Context<any>,
+  schema: ZodType<SchemaOutput>,
+  handler: (query: SchemaOutput) => Promise<TResult> | TResult,
+): Promise<TResult | Response> | TResult | Response {
+  const query = parseRouteQuery(c, schema);
+  if (query instanceof Response) {
+    return query;
+  }
+
+  return handler(query);
+}
+
 export function getRouteParam(c: Context<any>, name: string, fallback = ""): string {
   return c.req.param(name) ?? fallback;
 }
@@ -96,6 +109,20 @@ export async function withRouteUserState<TResult>(
   return handler(await loadRouteUserState(c, resolveStore));
 }
 
+export async function withRouteUserStateQuery<SchemaOutput, TResult>(
+  c: Context<any>,
+  resolveStore: (env: ApiBindings | undefined) => ApiStore,
+  schema: ZodType<SchemaOutput>,
+  handler: (context: RouteUserStateContext & { query: SchemaOutput }) => Promise<TResult> | TResult,
+): Promise<TResult | Response> {
+  return withParsedRouteQuery(c, schema, async (query) =>
+    handler({
+      ...(await loadRouteUserState(c, resolveStore)),
+      query,
+    }),
+  );
+}
+
 export async function withRouteUserStateMutation<TResult>(
   c: Context<any>,
   resolveStore: (env: ApiBindings | undefined) => ApiStore,
@@ -113,4 +140,27 @@ export async function withRouteUserStateMutation<TResult>(
     await context.store.saveUserState(context.session.userId, context.userState);
   }
   return result;
+}
+
+export async function withRouteUserStateMutationBody<SchemaOutput, TResult>(
+  c: Context<any>,
+  resolveStore: (env: ApiBindings | undefined) => ApiStore,
+  schema: ZodType<SchemaOutput>,
+  handler: (context: RouteUserStateContext & { payload: SchemaOutput }) => Promise<TResult> | TResult,
+  options: {
+    shouldSave?: (result: TResult) => boolean;
+  } = {},
+): Promise<TResult | Response> {
+  return withParsedRouteBody(c, schema, (payload) =>
+    withRouteUserStateMutation(
+      c,
+      resolveStore,
+      async (context) =>
+        handler({
+          ...context,
+          payload,
+        }),
+      options,
+    ),
+  );
 }

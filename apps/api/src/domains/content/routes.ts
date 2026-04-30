@@ -28,9 +28,8 @@ import {
   getRouteTraceId,
   parseRouteBody,
   parseRouteQuery,
-  withParsedRouteBody,
-  withRouteUserState,
-  withRouteUserStateMutation,
+  withRouteUserStateMutationBody,
+  withRouteUserStateQuery,
 } from "../../http/route-context";
 import { jsonError, respondDomainResult } from "../../http/response";
 import type { ApiRouteBaseOptions } from "../route-options";
@@ -64,22 +63,13 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   app.use("/reading-progress", requireSession);
 
   app.get("/feed", async (c) => {
-    const query = parseRouteQuery(c, feedQuerySchema);
-    if (query instanceof Response) {
-      return query;
-    }
-
-    return withRouteUserState(c, resolveStore, ({ userState }) => c.json(listFeed(query, userState)));
+    return withRouteUserStateQuery(c, resolveStore, feedQuerySchema, ({ query, userState }) =>
+      c.json(listFeed(query, userState)),
+    );
   });
 
   app.get("/content/detail", async (c) => {
-    const query = parseRouteQuery(c, contentIdQuerySchema);
-    if (query instanceof Response) {
-      return query;
-    }
-
-    const traceId = getRouteTraceId(c);
-    return withRouteUserState(c, resolveStore, ({ userState }) => {
+    return withRouteUserStateQuery(c, resolveStore, contentIdQuerySchema, ({ query, userState, traceId }) => {
       const response = getManagedContentDetail(
         {
           contentId: query.contentId,
@@ -96,26 +86,19 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
   });
 
   app.get("/content/review-queue", async (c) => {
-    const query = parseRouteQuery(c, contentReviewQueueQuerySchema);
-    if (query instanceof Response) {
-      return query;
-    }
-
-    const request: ListContentReviewQueueRequest = pickDefinedApiFields(query, [
-      "page",
-      "pageSize",
-      "state",
-      "actorRole",
-    ]);
-    return withRouteUserState(c, resolveStore, ({ userState }) =>
-      c.json(listManagedContentReviewQueue(userState, request) satisfies ContentReviewQueueResponse),
-    );
+    return withRouteUserStateQuery(c, resolveStore, contentReviewQueueQuerySchema, ({ query, userState }) => {
+      const request: ListContentReviewQueueRequest = pickDefinedApiFields(query, [
+        "page",
+        "pageSize",
+        "state",
+        "actorRole",
+      ]);
+      return c.json(listManagedContentReviewQueue(userState, request) satisfies ContentReviewQueueResponse);
+    });
   });
 
   app.post("/content/save-draft", async (c) => {
-    const traceId = getRouteTraceId(c);
-    return withParsedRouteBody(c, contentDraftSaveSchema, (payload) =>
-      withRouteUserStateMutation(c, resolveStore, ({ userState }) => {
+    return withRouteUserStateMutationBody(c, resolveStore, contentDraftSaveSchema, ({ payload, userState, traceId }) => {
       const request: SaveContentDraftRequest = {
         model: payload.model,
         title: payload.title,
@@ -139,14 +122,11 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
       }
 
       return c.json(response.value satisfies SaveContentDraftResponse);
-      }),
-    );
+    });
   });
 
   app.post("/content/lifecycle", async (c) => {
-    const traceId = getRouteTraceId(c);
-    return withParsedRouteBody(c, contentLifecycleMutationSchema, (payload) =>
-      withRouteUserStateMutation(c, resolveStore, ({ userState }) => {
+    return withRouteUserStateMutationBody(c, resolveStore, contentLifecycleMutationSchema, ({ payload, userState, traceId }) => {
       const response = applyManagedContentLifecycle(userState, {
         contentId: payload.contentId,
         action: payload.action,
@@ -157,8 +137,7 @@ export function registerContentRoutes(options: RegisterContentRoutesOptions) {
       }
 
       return c.json(response.value satisfies ContentLifecycleMutationResponse);
-      }),
-    );
+    });
   });
 
   app.get("/novels", async (c) => {

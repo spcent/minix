@@ -10,13 +10,7 @@ import type {
   FeedbackRevisitResponse,
   FeedbackTicketDetailResponse,
   FormValidationError,
-  SubmitFeedbackRequest,
   UploadAsset,
-  UploadChunkRequest,
-  UploadCompleteRequest,
-  UploadPipelineRequest,
-  UploadPipelineResponse,
-  UploadSelectionResult,
 } from "@minix/contracts";
 import {
   beginFormSubmit,
@@ -48,6 +42,8 @@ import {
   createFeedbackTicketsRequestQuery,
   createTicketListStatePatch,
 } from "./ticket-list";
+import { applyFeedbackFailure, createSubmitFeedbackPayload } from "./submit-flow";
+import { addFeedbackUploadedAsset, type FeedbackUploadKind } from "./upload-workflow";
 
 export interface CreateFeedbackControllerOptions {
   kernel: AppKernel;
@@ -316,165 +312,23 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
     return errors;
   }
 
-  async function addUploadedAsset(kind: "screenshot" | "attachment") {
-    const uploadStatus = kernel.capability?.status("upload");
-    if (!kernel.capability || !uploadStatus?.ok || !uploadStatus.value) {
-      store.setState({
-        errorCode: "CAPABILITY_UNAVAILABLE",
-        errorText: "Upload capability is unavailable on this host.",
-      });
-      return ok(undefined);
-    }
-
-    store.setState({
-      loading: true,
-      errorCode: undefined,
-      errorText: undefined,
-    });
-
-    const selection = await kernel.capability.execute<UploadSelectionResult>({
-      capability: "upload",
-      action: "selectAsset",
-      payload: {
-        scenario: kind === "screenshot" ? "content" : "attachment",
-        preferredFileType: kind === "screenshot" ? "image" : "attachment",
-        acceptedFileTypes: kind === "screenshot" ? ["image"] : ["attachment", "pdf", "image"],
-        maxSelectCount: 1,
-        governance: {
-          maxSizeBytes: kind === "screenshot" ? 10_000_000 : 15_000_000,
-          acceptedFileTypes: kind === "screenshot" ? ["image"] : ["attachment", "pdf", "image"],
-          sensitiveReviewRequired: true,
-          expiresInDays: 30,
-        },
+  async function addUploadedAsset(kind: FeedbackUploadKind) {
+    return addFeedbackUploadedAsset({
+      kernel,
+      store,
+      kind,
+      paths: {
+        uploadRequestPath,
+        uploadSessionPath,
+        uploadChunkPath,
+        uploadCompletePath,
       },
+      applyFeedbackValues,
     });
-    if (!selection.ok) {
-      store.setState({
-        loading: false,
-        errorCode: selection.error.code,
-        errorText: selection.error.message,
-      });
-      return selection;
-    }
-
-    const value = selection.value.value;
-    if (!value) {
-      store.setState({
-        loading: false,
-        errorCode: "INVALID_ARGUMENT",
-        errorText: "The upload capability did not return a selected asset.",
-      });
-      return ok(undefined);
-    }
-
-    const request: UploadPipelineRequest = {
-      scenario: kind === "screenshot" ? "content" : "attachment",
-      selection: value,
-    };
-    const sessionResponse = await kernel.request.post<UploadPipelineResponse>(uploadSessionPath, request);
-    let finalResponse: Result<UploadPipelineResponse> | undefined;
-    if (!sessionResponse.ok) {
-      finalResponse = await kernel.request.post<UploadPipelineResponse>(uploadRequestPath, request);
-    } else {
-      let current = sessionResponse.value;
-      if (current.session && current.transfer) {
-        const activeSession = current.session;
-        const activeTransfer = current.transfer;
-        const nextChunkIndex = activeSession.nextChunkIndex ?? current.uploadTask.uploadedChunkCount ?? 0;
-        for (const chunk of activeTransfer.chunks.slice(nextChunkIndex)) {
-          const chunkRequest: UploadChunkRequest = {
-            taskId: current.uploadTask.taskId,
-            sessionId: activeSession.sessionId,
-            chunk,
-          };
-          const chunkResult = await kernel.request.post<UploadPipelineResponse>(uploadChunkPath, chunkRequest);
-          if (!chunkResult.ok) {
-            finalResponse = chunkResult;
-            break;
-          }
-          current = chunkResult.value;
-        }
-        if (!finalResponse) {
-          const completionRequest: UploadCompleteRequest = {
-            taskId: current.uploadTask.taskId,
-            sessionId: activeSession.sessionId,
-            fileChecksum: activeTransfer.fileChecksum,
-            checksumAlgorithm: activeTransfer.checksumAlgorithm,
-          };
-          finalResponse = await kernel.request.post<UploadPipelineResponse>(uploadCompletePath, completionRequest);
-        }
-      } else {
-        finalResponse = sessionResponse;
-      }
-    }
-    if (!finalResponse || !finalResponse.ok) {
-      store.setState({
-        loading: false,
-        errorCode: finalResponse?.ok === false ? finalResponse.error.code : "UPLOAD_INCOMPLETE",
-        errorText: finalResponse?.ok === false ? finalResponse.error.message : "Upload completion did not return a response.",
-      });
-      return finalResponse ?? ok(undefined);
-    }
-
-    const uploadedAsset = finalResponse.value.uploadAsset;
-    if (!uploadedAsset) {
-      store.setState({
-        loading: false,
-        errorCode: finalResponse.value.uploadError?.code,
-        errorText: finalResponse.value.uploadError?.message ?? "The upload pipeline did not return a finalized asset.",
-      });
-      return ok(undefined);
-    }
-
-    const nextValues =
-      kind === "screenshot"
-        ? {
-            screenshotAssets: [...store.getState().values.screenshotAssets, uploadedAsset],
-          }
-        : {
-            attachmentAssets: [...store.getState().values.attachmentAssets, uploadedAsset],
-          };
-
-    applyFeedbackValues(
-      {
-        ...store.getState().values,
-        ...nextValues,
-      },
-      {
-        dirty: true,
-        ...(store.getState().workflow.currentStepKey
-          ? { currentStepKey: store.getState().workflow.currentStepKey }
-          : {}),
-        ...(store.getState().workflow.draft ? { draft: store.getState().workflow.draft } : {}),
-      },
-    );
-    store.setState({
-      loading: false,
-      errorCode: undefined,
-      errorText: undefined,
-    });
-
-    return finalResponse;
   }
 
   async function handleFailure(result: FailedFeedbackResult) {
-    store.setState({
-      loading: false,
-      submitting: false,
-      ready: true,
-      errorCode: result.error.code,
-      errorText: result.error.message,
-      submitState: {
-        ...store.getState().submitState,
-        phase: "failed",
-      },
-    });
-
-    if (result.error.code === "UNAUTHORIZED") {
-      await routeToLogin();
-    }
-
-    return result;
+    return applyFeedbackFailure({ store, result, routeToLogin });
   }
 
   return {
@@ -786,36 +640,7 @@ export function createFeedbackController(options: CreateFeedbackControllerOption
         return ok(undefined);
       }
 
-      const payload: SubmitFeedbackRequest = {
-        type: values.type,
-        categoryKey: values.categoryKey,
-        title: values.title,
-        description: values.description,
-        revisitRequested: values.revisitRequested,
-        ...(values.satisfactionScore !== undefined ? { satisfactionScore: values.satisfactionScore } : {}),
-        context: {
-          sourcePage: values.sourcePage,
-          ...(values.sourceRouteId ? { sourceRouteId: values.sourceRouteId } : {}),
-          ...(values.sourceLabel ? { sourceLabel: values.sourceLabel } : {}),
-          ...(values.userId ? { userId: values.userId } : {}),
-          platform: values.platform,
-          appVersion: values.appVersion,
-          ...(values.deviceSummary ? { deviceSummary: values.deviceSummary } : {}),
-          sourceContext: {
-            pagePath: values.sourcePage,
-            ...(values.sourceRouteId ? { routeId: values.sourceRouteId } : {}),
-            ...(values.sourceLabel ? { label: values.sourceLabel } : {}),
-          },
-          actorContext: {
-            ...(values.userId ? { userId: values.userId } : {}),
-            platform: values.platform,
-            appVersion: values.appVersion,
-            ...(values.deviceSummary ? { deviceSummary: values.deviceSummary } : {}),
-          },
-          screenshotAssets: values.screenshotAssets,
-          attachmentAssets: values.attachmentAssets,
-        },
-      };
+      const payload = createSubmitFeedbackPayload(values);
 
       store.setState({
         submitting: true,

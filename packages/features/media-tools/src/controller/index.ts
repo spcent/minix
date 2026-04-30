@@ -8,12 +8,8 @@ import type {
   ShareReturnRecognitionRequest,
   ShareReturnRecognitionResponse,
   UploadCancelRequest,
-  UploadChunkRequest,
-  UploadCompleteRequest,
-  UploadPipelineRequest,
   UploadPipelineResponse,
   UploadRetryRequest,
-  UploadSelectionResult,
 } from "@minix/contracts";
 import {
   cloneStateSnapshot,
@@ -21,6 +17,7 @@ import {
   createCapabilityHealthSnapshot,
   createControllerRouterHelpers,
   createStore,
+  createUploadClientFlow,
   describeCapabilityStatus,
   ok,
   type AppKernel,
@@ -378,44 +375,18 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
   }
 
   async function continueUpload(response: UploadPipelineResponse, detail?: string) {
-    applyUploadResponse(response, detail);
-    if (!response.session || !response.transfer) {
-      return ok(response);
+    const result = await createUploadClientFlow({
+      kernel,
+      uploadRequestPath,
+      uploadSessionPath,
+      uploadChunkPath,
+      uploadCompletePath,
+      onProgress: (nextResponse) => applyUploadResponse(nextResponse, detail),
+    }).continueUpload(response);
+    if (!result.ok) {
+      createUploadFailure(result.error.message);
     }
-
-    const activeSession = response.session;
-    const activeTransfer = response.transfer;
-    const nextChunkIndex = activeSession.nextChunkIndex ?? response.uploadTask.uploadedChunkCount ?? 0;
-    let current = response;
-    for (const chunk of activeTransfer.chunks.slice(nextChunkIndex)) {
-      const chunkPayload: UploadChunkRequest = {
-        taskId: current.uploadTask.taskId,
-        sessionId: current.session?.sessionId ?? activeSession.sessionId,
-        chunk,
-      };
-      const chunkResult = await kernel.request.post<UploadPipelineResponse>(uploadChunkPath, chunkPayload);
-      if (!chunkResult.ok) {
-        createUploadFailure(chunkResult.error.message);
-        return chunkResult;
-      }
-      current = chunkResult.value;
-      applyUploadResponse(current, detail);
-    }
-
-    const completionPayload: UploadCompleteRequest = {
-      taskId: current.uploadTask.taskId,
-      sessionId: current.session?.sessionId ?? activeSession.sessionId,
-      fileChecksum: activeTransfer.fileChecksum,
-      checksumAlgorithm: activeTransfer.checksumAlgorithm,
-    };
-    const completion = await kernel.request.post<UploadPipelineResponse>(uploadCompletePath, completionPayload);
-    if (!completion.ok) {
-      createUploadFailure(completion.error.message);
-      return completion;
-    }
-
-    applyUploadResponse(completion.value, detail);
-    return completion;
+    return result;
   }
 
   return {
@@ -453,10 +424,20 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
       });
 
       const current = store.getState();
-      const result = await kernel.capability.execute<UploadSelectionResult>({
-        capability: "upload",
-        action: "selectAsset",
-        payload: {
+      let selectionDetail: string | undefined;
+      const result = await createUploadClientFlow({
+        kernel,
+        uploadRequestPath,
+        uploadSessionPath,
+        uploadChunkPath,
+        uploadCompletePath,
+        onSelectionDetail: (detail) => {
+          selectionDetail = detail;
+        },
+        onProgress: (response) => applyUploadResponse(response, selectionDetail),
+      }).selectAndUpload({
+        scenario: current.uploadTask.scenario,
+        selection: {
           scenario: current.uploadTask.scenario,
           preferredFileType: current.uploadTask.fileType,
           acceptedFileTypes: current.uploadTask.governance.acceptedFileTypes,
@@ -464,48 +445,10 @@ export function createMediaToolsController(options: CreateMediaToolsControllerOp
           governance: current.uploadTask.governance,
         },
       });
-
       if (!result.ok) {
-        createUploadFailure(result.error.message);
-        return result;
+        createUploadFailure(result.error.message, selectionDetail);
       }
-
-      const value = result.value.value;
-      if (!value) {
-        createUploadFailure("Upload reservation did not return a task.", result.value.detail);
-        if (result.value.degraded) {
-          store.setState({
-            lastResult: {
-              status: "failed",
-              message: "Upload selection returned no transferable payload.",
-              ...(result.value.detail ? { detail: result.value.detail } : {}),
-            },
-          });
-        }
-        return ok(undefined);
-      }
-
-      const pipelineRequest: UploadPipelineRequest = {
-        scenario: current.uploadTask.scenario,
-        selection: value,
-      };
-      if (uploadRequestPath === uploadSessionPath) {
-        createUploadFailure("Upload session path cannot be the same as the legacy upload path.");
-        return ok(undefined);
-      }
-
-      const sessionResponse = await kernel.request.post<UploadPipelineResponse>(uploadSessionPath, pipelineRequest);
-      if (!sessionResponse.ok) {
-        const legacyPipeline = await kernel.request.post<UploadPipelineResponse>(uploadRequestPath, pipelineRequest);
-        if (!legacyPipeline.ok) {
-          createUploadFailure(sessionResponse.error.message);
-          return sessionResponse;
-        }
-        applyUploadResponse(legacyPipeline.value, result.value.detail);
-        return legacyPipeline;
-      }
-
-      return continueUpload(sessionResponse.value, result.value.detail);
+      return result;
     },
 
     async retryUpload() {
