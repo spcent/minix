@@ -68,6 +68,12 @@ pnpm verify:release
 
 Record the command results in [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md).
 
+For a copy-ready Markdown skeleton, run:
+
+```bash
+pnpm release:report -- --release v1.0.0-rc.N --operator "<name>" --local-verify passed
+```
+
 ## Preview Promotion
 
 1. Confirm Cloudflare access:
@@ -90,6 +96,7 @@ MINIX_API_BASE_URL="https://<preview-worker>.workers.dev" \
 MINIX_REMOTE_EVIDENCE_OUTPUT=".tmp/preview-remote-evidence.json" \
 pnpm verify:api:remote
 pnpm verify:api:remote:render .tmp/preview-remote-evidence.json preview
+pnpm release:report -- --release v1.0.0-rc.N --preview-evidence .tmp/preview-remote-evidence.json
 ```
 
 After API verification, inspect the authenticated `/ops/diagnostics` response on the target environment and confirm the provider-readiness summary matches the intended rollout posture for auth, messages, payment callbacks, upload, and share.
@@ -142,6 +149,7 @@ MINIX_REMOTE_EVIDENCE_OUTPUT=".tmp/production-remote-evidence.json" \
 pnpm verify:api:remote
 pnpm verify:api:remote:render .tmp/production-remote-evidence.json production
 pnpm verify:api:remote:compare .tmp/preview-remote-evidence.json .tmp/production-remote-evidence.json
+pnpm release:report -- --release v1.0.0 --preview-evidence .tmp/preview-remote-evidence.json --production-evidence .tmp/production-remote-evidence.json
 ```
 
 3. Deploy both H5 samples to Pages production:
@@ -173,6 +181,16 @@ Run this checklist while executing `0241` to `0245`:
 
 If any area remains `review` or `blocked`, do not hide it inside generic release notes. Record the exact remaining blocker or explicit release deferral in [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md).
 
+Use a consistent evidence row for each area:
+
+| Area | Required evidence |
+| --- | --- |
+| auth | readiness status, SMS provider, OAuth provider, callback domain, manual login or bind proof |
+| messages | readiness status, channel owners, polling-only decision, inbox or notification proof |
+| payment | readiness status, merchant owner, callback secret confirmation, purchase or refund proof |
+| upload | readiness status, storage provider, review provider, asset host URL, upload or attach proof |
+| share | readiness status, short-link provider, poster provider, deployed URL proof, attribution proof |
+
 ## Operator Evidence Workflow
 
 Use this same flow for `0241` to `0246` on preview and production:
@@ -180,9 +198,10 @@ Use this same flow for `0241` to `0246` on preview and production:
 1. deploy or update the target environment
 2. run `MINIX_REMOTE_EVIDENCE_OUTPUT="<path>" pnpm verify:api:remote`
 3. run `pnpm verify:api:remote:render <path> <label>`
-4. inspect authenticated `/ops/diagnostics` and confirm the matching `providerReadiness.*` keys
-5. paste the rendered snippet and manual validation notes into [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md)
-6. mark the relevant task card only after the evidence log and the target posture match
+4. run `pnpm release:report -- --preview-evidence <path>` or include both preview and production packs
+5. inspect authenticated `/ops/diagnostics` and confirm the matching `providerReadiness.*` keys
+6. paste the rendered snippet, report section, and manual validation notes into [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md)
+7. mark the relevant task card only after the evidence log and the target posture match
 
 Recommended evidence pack paths:
 

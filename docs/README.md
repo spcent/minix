@@ -7,6 +7,7 @@ This folder documents the current `v1.0.0` official-sample surface. It should de
 - [`../README.md`](../README.md): repository overview, setup, commands, and release links
 - [`../AGENTS.md`](../AGENTS.md): compact rules for coding agents
 - [`./AGENT_GUIDE.md`](./AGENT_GUIDE.md): practical change-order and completion checklist
+- [`./QUICK_ARCHITECTURE.md`](./QUICK_ARCHITECTURE.md): five-minute map for common changes
 - [`./ARCHITECTURE.md`](./ARCHITECTURE.md): current package boundaries and runtime shape
 
 ## Current Behavior And Contracts
@@ -23,12 +24,14 @@ This folder documents the current `v1.0.0` official-sample surface. It should de
 - [`./PRODUCTION_REGRESSION_MATRIX.md`](./PRODUCTION_REGRESSION_MATRIX.md): automated and manual release coverage
 - [`./RELEASE_RUNBOOK.md`](./RELEASE_RUNBOOK.md): preview and production promotion sequence
 - [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md): tracked verification evidence ledger
+- `pnpm release:report`: copy-ready release evidence report for `VERIFICATION_LOG.md`
 - [`./RELEASE_NOTES_TEMPLATE.md`](./RELEASE_NOTES_TEMPLATE.md): release-note template
 - [`./RELEASE_v1.0.0.md`](./RELEASE_v1.0.0.md): tracked release-cut record
 
 ## Planning
 
 - [`./ROADMAP.md`](./ROADMAP.md): current priorities and safe expansion rules
+- [`./FEATURE_REUSE_MATRIX.md`](./FEATURE_REUSE_MATRIX.md): current feature reuse across the four official hosts
 - [`../tasks/cards/`](../tasks/cards/): task-card queue and historical implementation records
 - [`../tasks/milestones/`](../tasks/milestones/): milestone records
 

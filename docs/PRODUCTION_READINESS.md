@@ -120,6 +120,23 @@ Record these bundle-level facts before closing the active release queue:
 - release:
   preview and production URLs, WeChat validator and date, final signoff owner, and go or no-go decision
 
+## Provider Evidence Standard
+
+Each provider-backed area should be recorded with the same fields so preview and production evidence can be compared without manual interpretation:
+
+| Field | Meaning |
+| --- | --- |
+| target environment | `local`, `preview`, or `production` target that produced the evidence |
+| readiness key | `/ops/diagnostics` key such as `providerReadiness.auth.sms` |
+| readiness status | one of `sample`, `ready`, `review`, `blocked`, or `unknown` |
+| provider mode | configured sample/production posture when exposed by the domain |
+| configured provider | SMS, OAuth, touchpoint, merchant, storage, review, short-link, poster, or gateway owner/name |
+| required remote inputs | callback domain, webhook secret, asset host, base URL, allowlist, or other operator-owned setup |
+| manual proof | concise validation note, owner, date, and target |
+| release decision | `ready`, explicit deferral, or blocker |
+
+Use `pnpm release:report -- --preview-evidence <path> --production-evidence <path>` to render the remote evidence pack into a copy-ready Markdown section for [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md). The report does not replace manual proof; it makes missing operator fields visible.
+
 ## Operator Execution Sequence
 
 Use this exact repo-side sequence when collecting rollout proof for `0241` to `0246`:
@@ -128,9 +145,10 @@ Use this exact repo-side sequence when collecting rollout proof for `0241` to `0
 2. deploy the target environment
 3. emit a remote evidence pack with `MINIX_REMOTE_EVIDENCE_OUTPUT="<path>" pnpm verify:api:remote`
 4. render copy-ready markdown with `pnpm verify:api:remote:render <path> <label>`
-5. confirm the matching `/ops/diagnostics` `providerReadiness.*` keys are `ready`, or explicitly record `sample`, `review`, or `blocked`
-6. paste the rendered snippet and the manual validation result into [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md)
-7. close the corresponding task card only after the evidence log, rollout owner, and target posture all match
+5. generate the release report with `pnpm release:report -- --preview-evidence <path>` or both preview and production evidence packs
+6. confirm the matching `/ops/diagnostics` `providerReadiness.*` keys are `ready`, or explicitly record `sample`, `review`, or `blocked`
+7. paste the rendered snippet, report section, and manual validation result into [`./VERIFICATION_LOG.md`](./VERIFICATION_LOG.md)
+8. close the corresponding task card only after the evidence log, rollout owner, and target posture all match
 
 This sequence does not replace manual validation. It keeps preview and production evidence comparable and makes rollout deferrals explicit instead of implicit.
 

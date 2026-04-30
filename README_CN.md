@@ -1,12 +1,22 @@
 # MiniX 中文说明
 
-MiniX 是一个面向 Agent 协作的小型跨端内核，当前聚焦 WeChat Mini Program 与 H5。
+MiniX 是一个面向 Agent 协作的小型跨端应用内核，当前聚焦 WeChat Mini Program 与 H5。它是 manifest 驱动的 multi-host application kernel，不是跨端 UI 一次编写框架。
 
 仓库最初从一条极窄的共享链路出发：
 
 `login -> /auth/login -> protected /items -> settings -> logout`
 
 现在仓库已经冻结在 `v1.0.0` 的官方 sample 面上，目标不是继续扩张成“大而全”的跨端框架，而是在清晰边界内把共享运行时、平台适配器、Host 接线和示例应用维护到可验证、可演进。
+
+可复用的核心面是：
+
+- contracts：路由 id 与标准后端 envelope
+- controllers：平台无关的 feature 状态与工作流
+- adapters：H5 与 WeChat 的运行时能力适配
+- manifests：Host 可见页面、路由和能力声明
+- verification：包边界、契约、host wiring、集成与发布检查
+
+MiniX 不统一视图渲染，不默认扩展新平台家族，也不追求成为泛用跨端框架。它适合需要长期维护 H5 + WeChat 多 Host、共享业务流和强验证门禁的项目；不适合只做单端 MVP、营销页，或主要诉求是“一套 UI 多端渲染”的项目。
 
 ## 当前发布状态
 
@@ -125,6 +135,7 @@ pnpm gen:shells
 
 - [README.md](./README.md)
 - [docs/README.md](./docs/README.md)
+- [docs/QUICK_ARCHITECTURE.md](./docs/QUICK_ARCHITECTURE.md)
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - [docs/architecture/README.md](./docs/architecture/README.md)
 - [docs/modules/README.md](./docs/modules/README.md)

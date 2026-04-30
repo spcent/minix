@@ -2,6 +2,8 @@
 
 This file complements [`AGENTS.md`](../AGENTS.md). Keep it short, practical, and aligned with the current `v1.0.0` sample surface.
 
+For the shortest architecture path, start with [`QUICK_ARCHITECTURE.md`](./QUICK_ARCHITECTURE.md).
+
 ## Use This Order
 
 1. Change shared contracts only if the shared surface changes.
@@ -94,6 +96,7 @@ Use docs-only skips explicitly when no code changed.
 If a change affects behavior, release posture, or accepted exceptions, check:
 
 - [`README.md`](../README.md)
+- [`docs/QUICK_ARCHITECTURE.md`](./QUICK_ARCHITECTURE.md)
 - [`docs/BACKEND_CONTRACT.md`](./BACKEND_CONTRACT.md)
 - [`docs/DOMAIN_COMPLETENESS_MATRIX.md`](./DOMAIN_COMPLETENESS_MATRIX.md)
 - [`docs/PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md)

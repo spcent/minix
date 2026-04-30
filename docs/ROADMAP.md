@@ -44,6 +44,18 @@ These are the active release-facing tracks:
 
 Coordination card [`0247`](../tasks/cards/done/0247-release-follow-up-queue-coordination.md) is already closed and defines the queue shape. Keep `0246` open until provider evidence, remote verification, manual WeChat validation, and final go/no-go ownership are recorded in [`VERIFICATION_LOG.md`](./VERIFICATION_LOG.md).
 
+## Release Closure Freeze
+
+Until the active release queue above is closed, keep repository changes inside the current official sample surface:
+
+- do not add new platform families, top-level packages, or broad host abstractions
+- do not expand product scope to new business domains
+- do not replace the current host rendering model with a shared UI layer
+- do not mark provider rollout complete from source-only checks
+- do use [`./QUICK_ARCHITECTURE.md`](./QUICK_ARCHITECTURE.md) for common change paths and [`./FEATURE_REUSE_MATRIX.md`](./FEATURE_REUSE_MATRIX.md) before extracting host-local repetition
+
+Allowed work during the freeze is release closure, documentation clarity, provider evidence hardening, validation automation, and narrowly scoped fixes required by the release gates.
+
 ## Priority 1: Safe Hardening
 
 After release closure, safe work should stay inside the current contracts and hosts:

@@ -4,6 +4,7 @@ entrypoints:
   default_read_order:
     - AGENTS.md
     - README.md
+    - docs/QUICK_ARCHITECTURE.md
     - docs/AGENT_GUIDE.md
     - docs/ARCHITECTURE.md
     - packages/features/README.md

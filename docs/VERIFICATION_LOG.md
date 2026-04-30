@@ -14,6 +14,7 @@ Use it together with:
 - Record actual values once a step is executed.
 - Write `pending` explicitly when an operator-owned step has not been completed yet.
 - Keep provider rollout evidence separated by area instead of merging it into one generic note.
+- Use `pnpm release:report -- --release <name> --preview-evidence <path> --production-evidence <path>` to generate a copy-ready evidence section, then fill the manual WeChat and operator-owned fields.
 
 ## Required Fields
 
@@ -60,32 +61,43 @@ Source-only validation can confirm the runbook and evidence slots exist, but it 
 - `pnpm verify:official-integrations`:
 - `pnpm verify:h5:blackbox`:
 - `pnpm verify:release`:
+- `pnpm release:report`:
 
 #### Provider Rollout
 
 - auth:
   - provider-readiness summary:
   - target env confirmation:
+  - configured provider:
+  - required remote inputs:
   - provider or callback evidence:
   - manual validation note:
 - messages:
   - provider-readiness summary:
   - target env confirmation:
+  - configured provider:
+  - required remote inputs:
   - provider ownership evidence:
   - polling-only acceptance note:
 - payment:
   - provider-readiness summary:
   - target env confirmation:
+  - configured provider:
+  - required remote inputs:
   - merchant or callback evidence:
   - purchase or refund validation note:
 - upload:
   - provider-readiness summary:
   - target env confirmation:
+  - configured provider:
+  - required remote inputs:
   - storage or review evidence:
   - asset-host validation note:
 - share:
   - provider-readiness summary:
   - target env confirmation:
+  - configured provider:
+  - required remote inputs:
   - short-link or poster evidence:
   - attribution validation note:
 

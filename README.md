@@ -1,6 +1,6 @@
 # MiniX
 
-MiniX is a `v1.0.0` release-cut sample kernel for shared H5 and WeChat apps.
+MiniX is a `v1.0.0` release-cut sample kernel for shared H5 and WeChat apps. It is a manifest-driven multi-host application kernel, not a UI portability framework.
 
 The repository is intentionally bounded. It supports four official sample apps plus one shared API:
 
@@ -10,7 +10,21 @@ The repository is intentionally bounded. It supports four official sample apps p
 - `apps/novel-wechat`
 - `apps/api`
 
-MiniX is not a general-purpose cross-platform framework. The current goal is to keep shared contracts, runtime boundaries, host wiring, and release validation explicit and safe to change.
+The reusable surface is:
+
+- contracts: route ids and canonical backend-facing envelopes
+- controllers: platform-neutral feature state and workflows
+- adapters: H5 and WeChat runtime capability implementations
+- manifests: host-visible page wiring and route metadata
+- verification: executable boundary, contract, host, integration, and release checks
+
+MiniX does not unify view rendering, does not add new platform families by default, and does not aim to become a broad cross-platform framework. The current goal is to keep shared contracts, runtime boundaries, host wiring, and release validation explicit and safe to change.
+
+## When MiniX Fits
+
+Use this workspace when you need to maintain shared business behavior across H5 and WeChat hosts, keep host wiring manifest-driven, validate package boundaries with automation, and preserve provider rollout evidence for release.
+
+MiniX is a poor fit for a single-host MVP, a marketing page, or a project that primarily wants one UI layer to render unchanged across platforms.
 
 ## Workspace
 
@@ -122,6 +136,7 @@ This repository includes release and operator guidance, but real credentials, cl
 Use these documents together:
 
 - [`docs/README.md`](docs/README.md)
+- [`docs/QUICK_ARCHITECTURE.md`](docs/QUICK_ARCHITECTURE.md)
 - [`docs/BACKEND_CONTRACT.md`](docs/BACKEND_CONTRACT.md)
 - [`docs/DOMAIN_COMPLETENESS_MATRIX.md`](docs/DOMAIN_COMPLETENESS_MATRIX.md)
 - [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md)

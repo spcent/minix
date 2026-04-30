@@ -45,6 +45,7 @@
     "verify:api:remote:render": "node scripts/render-remote-evidence-log.mjs",
     "verify:preview:remote": "node scripts/verify-preview-promotion.mjs",
     "verify:h5:blackbox": "pnpm exec playwright test tests/e2e",
+    "release:report": "node scripts/generate-release-report.mjs",
     "verify:official-integrations": "node --import tsx scripts/verify-official-integrations.mjs",
     "verify": "node --import tsx scripts/check-specs.mjs && node scripts/check-boundaries.mjs && node scripts/check-contract-purity.mjs && node scripts/check-contract-shapes.mjs && node scripts/check-contract-behaviors.mjs && node scripts/check-contract-governance.mjs && node scripts/check-platform-calls.mjs && node scripts/check-result-discipline.mjs && node scripts/check-result-signatures.mjs && node scripts/check-package-entries.mjs && node scripts/check-feature-public-surface.mjs && node scripts/check-package-deps.mjs && node scripts/check-api-structure.mjs && node scripts/check-style-modules.mjs && node scripts/sync-novel-mock-content.mjs --check && node --import tsx scripts/sync-host-manifests.ts --check && node --import tsx scripts/sync-host-wechat-shells.ts --check && node --import tsx scripts/check-host-routes.mjs && node --import tsx scripts/check-host-wiring.mjs && node --import tsx scripts/check-capabilities.mjs && pnpm typecheck && pnpm test",
     "verify:feature": "node scripts/verify-feature.mjs",
