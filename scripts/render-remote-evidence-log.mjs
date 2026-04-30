@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { flattenProviderReadiness, loadRemoteEvidence } from "./lib/remote-evidence.mjs";
 
 const [path, labelArg] = process.argv.slice(2);
 
@@ -8,26 +8,16 @@ if (!path) {
 }
 
 async function main() {
-  const raw = await readFile(path, "utf8");
-  const json = JSON.parse(raw);
-  const label = labelArg ?? json.deployEnv ?? "remote";
-
-  if (!json?.providerReadiness || !json?.compareKey) {
-    throw new Error(`${path} is not a valid remote evidence pack`);
-  }
+  const evidence = await loadRemoteEvidence(path, labelArg ?? "remote", { requireProviderReadiness: true });
+  const label = labelArg ?? evidence.deployEnv ?? "remote";
 
   console.log(`- ${label} evidence pack path: \`${path}\``);
-  console.log(`- ${label} rollout posture: \`${json.releasePosture ?? "unknown"}\``);
-  console.log(`- ${label} compare key: \`${json.compareKey}\``);
+  console.log(`- ${label} rollout posture: \`${evidence.releasePosture ?? "unknown"}\``);
+  console.log(`- ${label} compare key: \`${evidence.compareKey}\``);
   console.log(`- ${label} \`/ops/diagnostics\` provider-readiness:`);
 
-  for (const [domain, value] of Object.entries(json.providerReadiness)) {
-    const nested = typeof value === "object" && value ? value : {};
-    for (const [key, entry] of Object.entries(nested)) {
-      const status = entry?.status ?? "unknown";
-      const detail = entry?.detail ?? "no detail recorded";
-      console.log(`  - ${domain}.${key}: \`${status}\` - ${detail}`);
-    }
+  for (const row of flattenProviderReadiness([evidence])) {
+    console.log(`  - ${row.area}.${row.key}: \`${row.status}\` - ${row.detail}`);
   }
 }
 
