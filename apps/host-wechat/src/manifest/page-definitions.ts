@@ -1,4 +1,4 @@
-import { APP_ROUTE_IDS } from "@minix/contracts";
+import { APP_ROUTE_IDS, type CapabilityRequirement } from "@minix/contracts";
 import {
   createAuthenticatedGuardPolicy,
   createWechatShellConfig,
@@ -36,6 +36,87 @@ export const hostWechatFeatureFlags = defineHostFeatureFlags({
 
 function authenticatedPage(name: string) {
   return createAuthenticatedGuardPolicy(`authenticated-${name}`);
+}
+
+function deviceCapabilities(): CapabilityRequirement[] {
+  return [{ capability: "device" }];
+}
+
+function createMinuteEnglishPagePreset() {
+  return {
+    overview: {
+      feature: itemsFeatureManifest,
+      routeId: APP_ROUTE_IDS.overview,
+      routePath: "/pages/overview/index",
+      pageData: createMinuteEnglishOverviewPageModel(),
+      controller: {
+        loginRouteId: APP_ROUTE_IDS.login,
+        planRouteId: APP_ROUTE_IDS.items,
+        settingsRouteId: APP_ROUTE_IDS.settings,
+        authRedirectSource: "overview",
+      },
+      guardPolicy: authenticatedPage("overview"),
+      requiredCapabilities: deviceCapabilities(),
+      featureConfig: {
+        landingVariant: "overview",
+      },
+      ...createWechatShellConfig({
+        page: "overview",
+        navigationBarTitleText: "Overview",
+        shellTemplate: "overview",
+        shellStyle: "overview",
+      }),
+    },
+    items: {
+      feature: itemsFeatureManifest,
+      routeId: APP_ROUTE_IDS.items,
+      routePath: "/pages/items/index",
+      pageData: createMinuteEnglishPracticePlanPageModel(),
+      controller: {
+        loginRouteId: APP_ROUTE_IDS.login,
+        overviewRouteId: APP_ROUTE_IDS.overview,
+        settingsRouteId: APP_ROUTE_IDS.settings,
+        authRedirectSource: "plan",
+      },
+      guardPolicy: authenticatedPage("plan"),
+      requiredCapabilities: deviceCapabilities(),
+      featureConfig: {
+        experience: "daily-plan",
+        showCompletionSummary: true,
+      },
+      ...createWechatShellConfig({
+        page: "items",
+        navigationBarTitleText: "Today's Plan",
+        enablePullDownRefresh: true,
+        shellTemplate: "items",
+        shellStyle: "items",
+      }),
+    },
+    feed: {
+      feature: feedFeatureManifest,
+      routeId: APP_ROUTE_IDS.feed,
+      routePath: "/pages/feed/index",
+      pageData: createMinuteEnglishSearchFeedState(),
+      controller: {
+        loginRouteId: APP_ROUTE_IDS.login,
+        feedRouteId: APP_ROUTE_IDS.feed,
+        detailRouteId: APP_ROUTE_IDS.overview,
+        settingsRouteId: APP_ROUTE_IDS.settings,
+        authRedirectSource: "feed",
+      },
+      guardPolicy: authenticatedPage("feed"),
+      featureConfig: {
+        surface: "search",
+      },
+      ...createWechatShellConfig({
+        page: "feed",
+        navigationBarTitleText: "Discover",
+        enablePullDownRefresh: true,
+        shellTemplate: "feed-basic",
+        shellStyle: "generic",
+      }),
+    },
+  };
 }
 
 export const hostWechatPageDefinitions = defineHostPageDefinitions({
@@ -130,75 +211,7 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
       shellStyle: "generic",
     }),
   },
-  overview: {
-    feature: itemsFeatureManifest,
-    routeId: APP_ROUTE_IDS.overview,
-    routePath: "/pages/overview/index",
-    pageData: createMinuteEnglishOverviewPageModel(),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      planRouteId: APP_ROUTE_IDS.items,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      authRedirectSource: "overview",
-    },
-    guardPolicy: authenticatedPage("overview"),
-    requiredCapabilities: [{ capability: "device" }],
-    featureConfig: {
-      landingVariant: "overview",
-    },
-    miniprogramPage: "pages/overview/index",
-    registrationModule: "../../../src/registrations/wechat/pages/overview",
-    navigationBarTitleText: "Overview",
-    shellTemplate: "overview",
-    shellStyle: "overview",
-  },
-  items: {
-    feature: itemsFeatureManifest,
-    routeId: APP_ROUTE_IDS.items,
-    routePath: "/pages/items/index",
-    pageData: createMinuteEnglishPracticePlanPageModel(),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      overviewRouteId: APP_ROUTE_IDS.overview,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      authRedirectSource: "plan",
-    },
-    guardPolicy: authenticatedPage("plan"),
-    requiredCapabilities: [{ capability: "device" }],
-    featureConfig: {
-      experience: "daily-plan",
-      showCompletionSummary: true,
-    },
-    miniprogramPage: "pages/items/index",
-    registrationModule: "../../../src/registrations/wechat/pages/items",
-    navigationBarTitleText: "Today's Plan",
-    enablePullDownRefresh: true,
-    shellTemplate: "items",
-    shellStyle: "items",
-  },
-  feed: {
-    feature: feedFeatureManifest,
-    routeId: APP_ROUTE_IDS.feed,
-    routePath: "/pages/feed/index",
-    pageData: createMinuteEnglishSearchFeedState(),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      feedRouteId: APP_ROUTE_IDS.feed,
-      detailRouteId: APP_ROUTE_IDS.overview,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      authRedirectSource: "feed",
-    },
-    guardPolicy: authenticatedPage("feed"),
-    featureConfig: {
-      surface: "search",
-    },
-    miniprogramPage: "pages/feed/index",
-    registrationModule: "../../../src/registrations/wechat/pages/feed",
-    navigationBarTitleText: "Discover",
-    enablePullDownRefresh: true,
-    shellTemplate: "feed-basic",
-    shellStyle: "generic",
-  },
+  ...createMinuteEnglishPagePreset(),
   feedback: {
     feature: feedbackFeatureManifest,
     routeId: APP_ROUTE_IDS.feedback,

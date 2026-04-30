@@ -1,4 +1,4 @@
-import { APP_ROUTE_IDS } from "@minix/contracts";
+import { APP_ROUTE_IDS, type CapabilityRequirement } from "@minix/contracts";
 import {
   createAuthenticatedGuardPolicy,
   defineHostFeatureFlags,
@@ -27,6 +27,71 @@ export const hostH5FeatureFlags = defineHostFeatureFlags({
 
 function authenticatedPage(name: string) {
   return createAuthenticatedGuardPolicy(`authenticated-${name}`);
+}
+
+function deviceCapabilities(): CapabilityRequirement[] {
+  return [{ capability: "device" }];
+}
+
+function createMinuteEnglishPagePreset() {
+  return {
+    overview: {
+      feature: itemsFeatureManifest,
+      routeId: APP_ROUTE_IDS.overview,
+      routePath: "/overview",
+      pageData: createMinuteEnglishOverviewPageModel(),
+      controller: {
+        loginRouteId: APP_ROUTE_IDS.login,
+        planRouteId: APP_ROUTE_IDS.items,
+        settingsRouteId: APP_ROUTE_IDS.settings,
+        authRedirectSource: "overview",
+      },
+      guardPolicy: authenticatedPage("overview"),
+      requiredCapabilities: deviceCapabilities(),
+      featureConfig: {
+        landingVariant: "overview",
+      },
+      renderMode: "custom" as const,
+    },
+    items: {
+      feature: itemsFeatureManifest,
+      routeId: APP_ROUTE_IDS.items,
+      routePath: "/plan",
+      pageData: createMinuteEnglishPracticePlanPageModel(),
+      controller: {
+        loginRouteId: APP_ROUTE_IDS.login,
+        overviewRouteId: APP_ROUTE_IDS.overview,
+        settingsRouteId: APP_ROUTE_IDS.settings,
+        authRedirectSource: "plan",
+      },
+      guardPolicy: authenticatedPage("plan"),
+      requiredCapabilities: deviceCapabilities(),
+      featureConfig: {
+        experience: "daily-plan",
+        showCompletionSummary: true,
+      },
+      renderMode: "custom" as const,
+    },
+    feed: {
+      feature: feedFeatureManifest,
+      routeId: APP_ROUTE_IDS.feed,
+      routePath: "/discover",
+      pageData: createMinuteEnglishSearchFeedState(),
+      controller: {
+        loginRouteId: APP_ROUTE_IDS.login,
+        feedRouteId: APP_ROUTE_IDS.feed,
+        detailRouteId: APP_ROUTE_IDS.overview,
+        settingsRouteId: APP_ROUTE_IDS.settings,
+        authRedirectSource: "feed",
+      },
+      guardPolicy: authenticatedPage("feed"),
+      requiredCapabilities: deviceCapabilities(),
+      featureConfig: {
+        surface: "search",
+      },
+      renderMode: "custom" as const,
+    },
+  };
 }
 
 export const hostH5PageDefinitions = defineHostPageDefinitions({
@@ -98,62 +163,7 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     },
     renderMode: "custom",
   },
-  overview: {
-    feature: itemsFeatureManifest,
-    routeId: APP_ROUTE_IDS.overview,
-    routePath: "/overview",
-    pageData: createMinuteEnglishOverviewPageModel(),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      planRouteId: APP_ROUTE_IDS.items,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      authRedirectSource: "overview",
-    },
-    guardPolicy: authenticatedPage("overview"),
-    requiredCapabilities: [{ capability: "device" }],
-    featureConfig: {
-      landingVariant: "overview",
-    },
-    renderMode: "custom",
-  },
-  items: {
-    feature: itemsFeatureManifest,
-    routeId: APP_ROUTE_IDS.items,
-    routePath: "/plan",
-    pageData: createMinuteEnglishPracticePlanPageModel(),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      overviewRouteId: APP_ROUTE_IDS.overview,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      authRedirectSource: "plan",
-    },
-    guardPolicy: authenticatedPage("plan"),
-    requiredCapabilities: [{ capability: "device" }],
-    featureConfig: {
-      experience: "daily-plan",
-      showCompletionSummary: true,
-    },
-    renderMode: "custom",
-  },
-  feed: {
-    feature: feedFeatureManifest,
-    routeId: APP_ROUTE_IDS.feed,
-    routePath: "/discover",
-    pageData: createMinuteEnglishSearchFeedState(),
-    controller: {
-      loginRouteId: APP_ROUTE_IDS.login,
-      feedRouteId: APP_ROUTE_IDS.feed,
-      detailRouteId: APP_ROUTE_IDS.overview,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      authRedirectSource: "feed",
-    },
-    guardPolicy: authenticatedPage("feed"),
-    requiredCapabilities: [{ capability: "device" }],
-    featureConfig: {
-      surface: "search",
-    },
-    renderMode: "custom",
-  },
+  ...createMinuteEnglishPagePreset(),
   feedback: {
     feature: feedbackFeatureManifest,
     routeId: APP_ROUTE_IDS.feedback,
