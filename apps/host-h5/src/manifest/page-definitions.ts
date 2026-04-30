@@ -94,6 +94,55 @@ function createMinuteEnglishPagePreset() {
   };
 }
 
+function createH5IdentityWorkflowPages() {
+  const controller = {
+    successRouteId: APP_ROUTE_IDS.account,
+    stayOnSuccess: true,
+    overviewRouteId: APP_ROUTE_IDS.overview,
+    planRouteId: APP_ROUTE_IDS.items,
+    settingsRouteId: APP_ROUTE_IDS.settings,
+  };
+
+  return {
+    identityUpgrade: {
+      feature: authFeatureManifest,
+      routeId: APP_ROUTE_IDS.identityUpgrade,
+      routePath: "/auth/identity/upgrade",
+      pageData: createAuthIdentityPageState("h5", "identity-upgrade"),
+      controller,
+      guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-upgrade"),
+      featureConfig: {
+        surface: "identity-upgrade",
+      },
+      renderMode: "custom" as const,
+    },
+    identityBindPhone: {
+      feature: authFeatureManifest,
+      routeId: APP_ROUTE_IDS.identityBindPhone,
+      routePath: "/auth/identity/bind-phone",
+      pageData: createAuthIdentityPageState("h5", "identity-bind-phone"),
+      controller,
+      guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-bind-phone"),
+      featureConfig: {
+        surface: "identity-bind-phone",
+      },
+      renderMode: "custom" as const,
+    },
+    identityMerge: {
+      feature: authFeatureManifest,
+      routeId: APP_ROUTE_IDS.identityMerge,
+      routePath: "/auth/identity/merge",
+      pageData: createAuthIdentityPageState("h5", "identity-merge"),
+      controller,
+      guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-merge"),
+      featureConfig: {
+        surface: "identity-merge",
+      },
+      renderMode: "custom" as const,
+    },
+  };
+}
+
 export const hostH5PageDefinitions = defineHostPageDefinitions({
   login: {
     feature: authFeatureManifest,
@@ -109,61 +158,8 @@ export const hostH5PageDefinitions = defineHostPageDefinitions({
     },
     renderMode: "custom",
   },
-  identityUpgrade: {
-    feature: authFeatureManifest,
-    routeId: APP_ROUTE_IDS.identityUpgrade,
-    routePath: "/auth/identity/upgrade",
-    pageData: createAuthIdentityPageState("h5", "identity-upgrade"),
-    controller: {
-      successRouteId: APP_ROUTE_IDS.account,
-      stayOnSuccess: true,
-      overviewRouteId: APP_ROUTE_IDS.overview,
-      planRouteId: APP_ROUTE_IDS.items,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-    },
-    guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-upgrade"),
-    featureConfig: {
-      surface: "identity-upgrade",
-    },
-    renderMode: "custom",
-  },
-  identityBindPhone: {
-    feature: authFeatureManifest,
-    routeId: APP_ROUTE_IDS.identityBindPhone,
-    routePath: "/auth/identity/bind-phone",
-    pageData: createAuthIdentityPageState("h5", "identity-bind-phone"),
-    controller: {
-      successRouteId: APP_ROUTE_IDS.account,
-      stayOnSuccess: true,
-      overviewRouteId: APP_ROUTE_IDS.overview,
-      planRouteId: APP_ROUTE_IDS.items,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-    },
-    guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-bind-phone"),
-    featureConfig: {
-      surface: "identity-bind-phone",
-    },
-    renderMode: "custom",
-  },
-  identityMerge: {
-    feature: authFeatureManifest,
-    routeId: APP_ROUTE_IDS.identityMerge,
-    routePath: "/auth/identity/merge",
-    pageData: createAuthIdentityPageState("h5", "identity-merge"),
-    controller: {
-      successRouteId: APP_ROUTE_IDS.account,
-      stayOnSuccess: true,
-      overviewRouteId: APP_ROUTE_IDS.overview,
-      planRouteId: APP_ROUTE_IDS.items,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-    },
-    guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-merge"),
-    featureConfig: {
-      surface: "identity-merge",
-    },
-    renderMode: "custom",
-  },
-  ...createMinuteEnglishPagePreset(),
+  ...createH5IdentityWorkflowPages(),
+  ...createMinuteEnglishPagePreset(),  ...createMinuteEnglishPagePreset(),
   feedback: {
     feature: feedbackFeatureManifest,
     routeId: APP_ROUTE_IDS.feedback,

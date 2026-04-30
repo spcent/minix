@@ -7,9 +7,9 @@ import type {
 
 import {
   loadRouteClientContext,
-  loadRouteUserState,
-  parseRouteBody,
-  parseRouteQuery,
+  withRouteUserState,
+  withRouteUserStateMutationBody,
+  withRouteUserStateQuery,
 } from "../../http/route-context";
 import { jsonError } from "../../http/response";
 import type { UserState } from "../../types";
@@ -66,32 +66,24 @@ export function registerFeedbackRoutes(options: RegisterFeedbackRoutesOptions) {
   app.use("/feedback/*", requireSession);
 
   app.get("/feedback/bootstrap", async (c) => {
-    const { userState } = await loadRouteUserState(c, resolveStore);
-    return c.json(createFeedbackBootstrapResponse(userState));
+    return withRouteUserState(c, resolveStore, ({ userState }) =>
+      c.json(createFeedbackBootstrapResponse(userState)),
+    );
   });
 
   app.get("/feedback/ticket", async (c) => {
-    const query = parseRouteQuery(c, feedbackTicketIdQuerySchema);
-    if (query instanceof Response) {
-      return query;
-    }
-
-    const { traceId, userState } = await loadRouteUserState(c, resolveStore);
+    return withRouteUserStateQuery(c, resolveStore, feedbackTicketIdQuerySchema, ({ query, traceId, userState }) => {
     const response = getFeedbackTicket(userState, query.ticketId);
     if (!response) {
       return jsonError("NOT_FOUND", "Feedback ticket not found.", 404, traceId);
     }
 
     return c.json(response);
+    });
   });
 
   app.get("/feedback/tickets", async (c) => {
-    const query = parseRouteQuery(c, feedbackTicketListQuerySchema);
-    if (query instanceof Response) {
-      return query;
-    }
-
-    const { userState } = await loadRouteUserState(c, resolveStore);
+    return withRouteUserStateQuery(c, resolveStore, feedbackTicketListQuerySchema, ({ query, userState }) => {
     const request: ListFeedbackTicketsRequest = pickDefinedApiFields(query, [
       "page",
       "pageSize",
@@ -100,15 +92,11 @@ export function registerFeedbackRoutes(options: RegisterFeedbackRoutesOptions) {
       "keyword",
     ]);
     return c.json(listFeedbackTickets(userState, request) satisfies ListFeedbackTicketsResponse);
+    });
   });
 
   app.post("/feedback/ticket/revisit", async (c) => {
-    const payload = await parseRouteBody(c, revisitFeedbackSchema);
-    if (payload instanceof Response) {
-      return payload;
-    }
-
-    const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
+    return withRouteUserStateMutationBody(c, resolveStore, revisitFeedbackSchema, ({ payload, traceId, userState }) => {
     const response = revisitFeedbackTicket(userState, {
       ticketId: payload.ticketId,
       ...pickDefinedApiFields(payload, ["userMessage"]),
@@ -117,33 +105,23 @@ export function registerFeedbackRoutes(options: RegisterFeedbackRoutesOptions) {
       return jsonError("NOT_FOUND", "Feedback ticket not found.", 404, traceId);
     }
 
-    await store.saveUserState(session.userId, userState);
     return c.json(response satisfies FeedbackRevisitResponse);
+    });
   });
 
   app.post("/feedback/ticket/action", async (c) => {
-    const payload = await parseRouteBody(c, feedbackTicketActionSchema);
-    if (payload instanceof Response) {
-      return payload;
-    }
-
-    const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
+    return withRouteUserStateMutationBody(c, resolveStore, feedbackTicketActionSchema, ({ payload, traceId, userState }) => {
     const response = applyFeedbackTicketAction(userState, normalizeFeedbackTicketActionRequest(payload));
     if (!response) {
       return jsonError("NOT_FOUND", "Feedback ticket not found.", 404, traceId);
     }
 
-    await store.saveUserState(session.userId, userState);
     return c.json(response satisfies FeedbackTicketActionResponse);
+    });
   });
 
   app.post("/feedback", async (c) => {
-    const payload = await parseRouteBody(c, submitFeedbackSchema);
-    if (payload instanceof Response) {
-      return payload;
-    }
-
-    const { traceId, session, store, userState } = await loadRouteUserState(c, resolveStore);
+    return withRouteUserStateMutationBody(c, resolveStore, submitFeedbackSchema, async ({ payload, traceId, session, store, userState }) => {
     const clientContext = loadRouteClientContext(c, resolveClientId, resolveRequestDeviceId);
     const rateLimitGuard = await guardFeedbackSubmitRateLimit({
       c,
@@ -167,7 +145,7 @@ export function registerFeedbackRoutes(options: RegisterFeedbackRoutesOptions) {
       traceId,
       ticketId: response.feedbackTicket.ticketId,
     });
-    await store.saveUserState(session.userId, userState);
     return c.json(response);
+    });
   });
 }

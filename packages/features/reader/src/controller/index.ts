@@ -5,14 +5,10 @@ import {
   createSingleFlightHydrator,
   ok,
   createStore,
-  deriveNovelAccessPresentation,
   LATEST_READING_MILESTONE_HISTORY_STORAGE_KEY,
   LATEST_READING_MILESTONE_STORAGE_KEY,
-  mergeLatestReadingMilestoneHistory,
   READER_DISPLAY_STORAGE_KEY,
   type AppKernel,
-  type LatestReadingMilestoneSnapshot,
-  type LatestMilestoneType,
   type ReaderDisplayPreferences,
   type Result,
 } from "@minix/core";
@@ -28,6 +24,25 @@ import {
   createInitialReaderState,
   type ReaderState,
 } from "../model";
+import { resolveAccessState } from "./access-presentation";
+import {
+  applyDisplayPreferences,
+  applyNightModeDefault,
+  createDisplayPreferences,
+  READER_MODES,
+  READER_THEMES,
+} from "./display-preferences";
+import {
+  createProgramMilestoneCopy,
+  createProgramMilestoneMeta,
+  createProgramMilestoneTitle,
+  persistLatestReadingMilestone,
+} from "./milestone-flow";
+import {
+  DEFAULT_READER_SESSION_STORAGE_KEY,
+  refreshReaderSession,
+  restoreOrCreateReaderSession,
+} from "./reading-session";
 
 export interface CreateReaderControllerOptions {
   kernel: AppKernel;
@@ -48,70 +63,12 @@ export interface CreateReaderControllerOptions {
   initialState?: Partial<ReaderState>;
 }
 
-interface ReaderSessionSnapshot {
-  novelId: string;
-  chapterId: string;
-  startedAt: string;
-}
-
 function cloneInitialState(initialState: ReaderState): ReaderState {
   return {
     ...initialState,
     ...(initialState.chapter ? { chapter: cloneStateSnapshot(initialState.chapter) } : {}),
     readChapterIds: cloneStateSnapshotArray(initialState.readChapterIds),
   };
-}
-
-const READER_THEMES: ReaderState["theme"][] = ["paper", "sepia", "night"];
-const READER_MODES: ReaderState["mode"][] = ["scroll", "page"];
-const DEFAULT_READER_SESSION_STORAGE_KEY = "reader.session";
-const ACTIVE_READER_SESSION_WINDOW_MS = 1000 * 60 * 90;
-
-function createDisplayPreferences(state: ReaderState): ReaderDisplayPreferences {
-  return {
-    theme: state.theme,
-    mode: state.mode,
-    fontScale: state.fontScale,
-    nightModeDefault: state.nightModeDefault,
-  };
-}
-
-function applyDisplayPreferences(
-  state: ReaderState,
-  preferences: ReaderDisplayPreferences | null,
-): Pick<ReaderState, "theme" | "mode" | "fontScale" | "nightModeDefault"> {
-  return {
-    theme: preferences?.theme ?? state.theme,
-    mode: preferences?.mode ?? state.mode,
-    fontScale: preferences?.fontScale ?? state.fontScale,
-    nightModeDefault: preferences?.nightModeDefault ?? state.nightModeDefault,
-  };
-}
-
-function isDuskReadingWindow(currentTime: Date): boolean {
-  const hour = currentTime.getHours();
-  return hour >= 20 || hour < 6;
-}
-
-function applyNightModeDefault(
-  displayState: Pick<ReaderState, "theme" | "mode" | "fontScale" | "nightModeDefault">,
-  currentTime: Date,
-): Pick<ReaderState, "theme" | "mode" | "fontScale" | "nightModeDefault"> {
-  if (displayState.nightModeDefault === "always-night") {
-    return {
-      ...displayState,
-      theme: "night",
-    };
-  }
-
-  if (displayState.nightModeDefault === "after-dusk" && isDuskReadingWindow(currentTime)) {
-    return {
-      ...displayState,
-      theme: "night",
-    };
-  }
-
-  return displayState;
 }
 
 function deriveReadChapterIds(response: ChapterListResponse, currentChapterId?: string): string[] {
@@ -201,37 +158,6 @@ function deriveVolumeProgramSnapshot(
     nextVolumeTitle: nextVolume?.title,
     nextChapterStartsNextVolume: Boolean(nextChapterVolume && nextChapterVolume.id !== currentVolume.id),
   };
-}
-
-function clampSessionMinutes(startedAt: string | undefined, now: Date): number {
-  if (!startedAt) {
-    return 0;
-  }
-
-  const startMs = Date.parse(startedAt);
-  if (Number.isNaN(startMs)) {
-    return 0;
-  }
-
-  return Math.max(1, Math.round((now.getTime() - startMs) / (1000 * 60)));
-}
-
-function formatSessionElapsedLabel(minutes: number): string | undefined {
-  if (minutes <= 0) {
-    return undefined;
-  }
-
-  if (minutes < 60) {
-    return `${minutes} min active`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  if (remainingMinutes === 0) {
-    return `${hours} hr active`;
-  }
-
-  return `${hours} hr ${remainingMinutes} min active`;
 }
 
 function formatSaveStatusLabel(updatedAt: string | undefined, nowDate: Date, saving = false): string {
@@ -463,45 +389,6 @@ function createVolumeHandoffLabel(
   return `${nextVolumeTitle} is waiting as the next volume handoff while ${lane} stays active.`;
 }
 
-function findLatestFinishedVolume(response: ChapterListResponse | null, readChapterIds: string[]) {
-  if (!response) {
-    return undefined;
-  }
-
-  const finishedVolumes = response.volumes.filter((volume) => volume.chapters.length > 0 && volume.chapters.every((chapter) => readChapterIds.includes(chapter.id)));
-  return finishedVolumes[finishedVolumes.length - 1];
-}
-
-function createProgramMilestoneTitle(response: ChapterListResponse | null, readChapterIds: string[]): string | undefined {
-  const volume = findLatestFinishedVolume(response, readChapterIds);
-  return volume ? `${volume.title} complete` : undefined;
-}
-
-function createProgramMilestoneCopy(response: ChapterListResponse | null, readChapterIds: string[]): string | undefined {
-  const volume = findLatestFinishedVolume(response, readChapterIds);
-  if (!response || !volume) {
-    return undefined;
-  }
-
-  const volumeIndex = response.volumes.findIndex((item) => item.id === volume.id);
-  const nextVolume = volumeIndex >= 0 ? response.volumes[volumeIndex + 1] : undefined;
-
-  if (nextVolume) {
-    return `${volume.title} has closed as a stable volume milestone, and ${nextVolume.title} is now the next lane to carry forward.`;
-  }
-
-  return `${volume.title} is fully tracked and now behaves like a stable milestone at the edge of the reading run.`;
-}
-
-function createProgramMilestoneMeta(response: ChapterListResponse | null, readChapterIds: string[]): string | undefined {
-  const volume = findLatestFinishedVolume(response, readChapterIds);
-  if (!volume) {
-    return undefined;
-  }
-
-  return `${volume.chapters.length}/${volume.chapters.length} chapters tracked`;
-}
-
 export function createReaderController(options: CreateReaderControllerOptions) {
   const {
     kernel,
@@ -564,98 +451,6 @@ export function createReaderController(options: CreateReaderControllerOptions) {
     },
   );
 
-  async function restoreOrCreateSession(
-    novelId: string,
-    chapterId: string,
-    fallbackStartedAt?: string,
-  ): Promise<Pick<ReaderState, "sessionStartedAt" | "sessionElapsedMinutes" | "sessionElapsedLabel">> {
-    const currentTime = now();
-    const stored = await kernel.storage.get<ReaderSessionSnapshot>(sessionStorageKey);
-    const storedValue = stored.ok ? stored.value : null;
-    const storedStartedAt = storedValue?.startedAt;
-    const storedAgeMs = storedStartedAt ? currentTime.getTime() - Date.parse(storedStartedAt) : Number.POSITIVE_INFINITY;
-    const isStoredSessionLive =
-      !!storedValue &&
-      storedValue.novelId === novelId &&
-      storedAgeMs >= 0 &&
-      storedAgeMs <= ACTIVE_READER_SESSION_WINDOW_MS;
-    const fallbackAgeMs = fallbackStartedAt ? currentTime.getTime() - Date.parse(fallbackStartedAt) : Number.POSITIVE_INFINITY;
-    const canReuseFallback = fallbackStartedAt && fallbackAgeMs >= 0 && fallbackAgeMs <= ACTIVE_READER_SESSION_WINDOW_MS;
-    const startedAt =
-      (isStoredSessionLive ? storedValue?.startedAt : undefined) ??
-      (canReuseFallback ? fallbackStartedAt : undefined) ??
-      currentTime.toISOString();
-    const elapsedMinutes = clampSessionMinutes(startedAt, currentTime);
-
-    await kernel.storage.set<ReaderSessionSnapshot>(sessionStorageKey, {
-      novelId,
-      chapterId,
-      startedAt,
-    });
-
-    return {
-      sessionStartedAt: startedAt,
-      sessionElapsedMinutes: elapsedMinutes,
-      sessionElapsedLabel: formatSessionElapsedLabel(elapsedMinutes),
-    };
-  }
-
-  async function refreshReadingSession(chapterIdOverride?: string) {
-    const current = store.getState();
-    if (!current.novelId || !current.chapterId) {
-      return;
-    }
-
-    const currentTime = now();
-    const startedAt = current.sessionStartedAt ?? currentTime.toISOString();
-    const elapsedMinutes = clampSessionMinutes(startedAt, currentTime);
-    const chapterId = chapterIdOverride ?? current.chapterId;
-
-    await kernel.storage.set<ReaderSessionSnapshot>(sessionStorageKey, {
-      novelId: current.novelId,
-      chapterId,
-      startedAt,
-    });
-
-    store.setState({
-      sessionStartedAt: startedAt,
-      sessionElapsedMinutes: elapsedMinutes,
-      sessionElapsedLabel: formatSessionElapsedLabel(elapsedMinutes),
-    });
-  }
-
-  async function persistLatestMilestone(
-    novelId: string,
-    chapterId: string,
-    title: string | undefined,
-    copy: string | undefined,
-    meta: string | undefined,
-    type: LatestMilestoneType,
-  ) {
-    if (!title || !copy) {
-      return ok(undefined);
-    }
-
-    const snapshot: LatestReadingMilestoneSnapshot = {
-      novelId,
-      chapterId,
-      title,
-      copy,
-      ...(meta ? { meta } : {}),
-      source: "reader",
-      type,
-      savedAt: now().toISOString(),
-    };
-    const historyResult = await kernel.storage.get<LatestReadingMilestoneSnapshot[]>(latestMilestoneHistoryStorageKey);
-    const nextHistory = mergeLatestReadingMilestoneHistory(historyResult.ok ? historyResult.value : [], snapshot);
-    const latestResult = await kernel.storage.set<LatestReadingMilestoneSnapshot>(latestMilestoneStorageKey, snapshot);
-    if (!latestResult.ok) {
-      return latestResult;
-    }
-
-    return kernel.storage.set<LatestReadingMilestoneSnapshot[]>(latestMilestoneHistoryStorageKey, nextHistory);
-  }
-
   async function updateDisplayPreferences(
     nextState: Pick<ReaderState, "theme" | "mode" | "fontScale" | "nightModeDefault">,
   ): Promise<Result<void>> {
@@ -677,38 +472,17 @@ export function createReaderController(options: CreateReaderControllerOptions) {
     return ok(undefined);
   }
 
-  function resolveAccessState(
-    chapter: ChapterContent,
-  ): Pick<ReaderState, "accessState" | "accessBadgeLabel" | "accessMessage" | "membershipActionLabel" | "previewContent"> {
-    const access = deriveNovelAccessPresentation(chapter);
-
-    if (access.accessState === "trial" && typeof chapter.trialEndOffset === "number") {
-      return {
-        accessState: access.accessState,
-        accessBadgeLabel: access.accessBadgeLabel,
-        accessMessage: "Trial preview ends here. Unlock membership to keep reading.",
-        membershipActionLabel: access.membershipActionLabel,
-        previewContent: chapter.content.slice(0, chapter.trialEndOffset).trimEnd(),
-      };
+  async function refreshReadingSession(chapterIdOverride?: string) {
+    const sessionPatch = await refreshReaderSession({
+      kernel,
+      sessionStorageKey,
+      now,
+      state: store.getState(),
+      ...(chapterIdOverride ? { chapterIdOverride } : {}),
+    });
+    if (sessionPatch) {
+      store.setState(sessionPatch);
     }
-
-    if (access.accessState === "locked") {
-      return {
-        accessState: access.accessState,
-        accessBadgeLabel: access.accessBadgeLabel,
-        accessMessage: access.accessSummary,
-        membershipActionLabel: access.membershipActionLabel,
-        previewContent: chapter.content.slice(0, 220).trimEnd(),
-      };
-    }
-
-    return {
-      accessState: access.accessState,
-      accessBadgeLabel: access.accessBadgeLabel,
-      accessMessage: undefined,
-      membershipActionLabel: access.membershipActionLabel,
-      previewContent: undefined,
-    };
   }
 
   return {
@@ -922,14 +696,18 @@ export function createReaderController(options: CreateReaderControllerOptions) {
         errorText: undefined,
       });
       await refreshReadingSession(chapterId);
-      await persistLatestMilestone(
+      await persistLatestReadingMilestone({
+        kernel,
+        latestMilestoneStorageKey,
+        latestMilestoneHistoryStorageKey,
+        now,
         novelId,
         chapterId,
-        store.getState().programMilestoneTitle ?? store.getState().completionSummaryTitle,
-        store.getState().programMilestoneCopy ?? store.getState().completionSummaryCopy,
-        store.getState().programMilestoneMeta ?? store.getState().completionSummaryMeta,
-        store.getState().programMilestoneTitle ? "volume-complete" : "chapter-recap",
-      );
+        title: store.getState().programMilestoneTitle ?? store.getState().completionSummaryTitle,
+        copy: store.getState().programMilestoneCopy ?? store.getState().completionSummaryCopy,
+        meta: store.getState().programMilestoneMeta ?? store.getState().completionSummaryMeta,
+        type: store.getState().programMilestoneTitle ? "volume-complete" : "chapter-recap",
+      });
 
       return result;
     },
@@ -992,7 +770,14 @@ export function createReaderController(options: CreateReaderControllerOptions) {
         chapterResult.value.nav.nextChapterId,
         readChapterIds,
       );
-      const sessionState = await restoreOrCreateSession(novelId, chapterId, progress?.updatedAt);
+      const sessionState = await restoreOrCreateReaderSession({
+        kernel,
+        sessionStorageKey,
+        now,
+        novelId,
+        chapterId,
+        ...(progress?.updatedAt ? { fallbackStartedAt: progress.updatedAt } : {}),
+      });
       const chapterCompletionState =
         progressPercent >= 1 ? "completed" : completionFromPreviousChapter ? "continued" : "reading";
       const currentTime = now();
@@ -1080,14 +865,18 @@ export function createReaderController(options: CreateReaderControllerOptions) {
         previewContent: access.previewContent,
         errorText: undefined,
       });
-      await persistLatestMilestone(
+      await persistLatestReadingMilestone({
+        kernel,
+        latestMilestoneStorageKey,
+        latestMilestoneHistoryStorageKey,
+        now,
         novelId,
         chapterId,
-        createProgramMilestoneTitle(chapterList, readChapterIds),
-        createProgramMilestoneCopy(chapterList, readChapterIds),
-        createProgramMilestoneMeta(chapterList, readChapterIds),
-        "volume-complete",
-      );
+        title: createProgramMilestoneTitle(chapterList, readChapterIds),
+        copy: createProgramMilestoneCopy(chapterList, readChapterIds),
+        meta: createProgramMilestoneMeta(chapterList, readChapterIds),
+        type: "volume-complete",
+      });
 
       return chapterResult;
     },

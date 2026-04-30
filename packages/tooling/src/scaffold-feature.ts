@@ -175,8 +175,20 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
 
 function listControllerSource(names: FeatureNames): string {
   return `import type { AppRouteId } from "@minix/contracts";
-import { createStore, type AppKernel } from "@minix/core";
+import {
+  createControllerRouterHelpers,
+  createListRequestSuccessStatus,
+  createSearchListRequestFlow,
+  createStore,
+  ok,
+  type AppKernel,
+} from "@minix/core";
 import { createDefault${names.pascal}State, type ${names.pascal}State } from "../model";
+
+interface ${names.pascal}ListResponse {
+  items: ${names.pascal}State["items"];
+  total: number;
+}
 
 export interface Create${names.pascal}ControllerOptions {
   kernel: AppKernel;
@@ -192,42 +204,49 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
     ...createDefault${names.pascal}State(),
     ...initialState,
   });
-
-  async function routeToOptional(routeId?: AppRouteId, params?: Record<string, string | number | boolean>) {
-    if (!routeId) {
-      return undefined;
-    }
-
-    return kernel.router.toRoute(routeId, params);
-  }
+  const { routeToOptional } = createControllerRouterHelpers({ kernel });
+  const runListRequest = createSearchListRequestFlow<${names.pascal}State, ${names.pascal}ListResponse>({
+    store,
+    request: async ({ state }) =>
+      ok({
+        items: state.items,
+        total: state.items.length,
+      }),
+    applyResponse: ({ response, page, state }) => {
+      const items = page > 1 ? [...state.items, ...response.items] : response.items;
+      const selectedItemId = state.selectedItemId ?? items[0]?.id;
+      return {
+        ready: true,
+        loading: false,
+        refreshing: false,
+        items,
+        selectedItemId,
+        total: response.total,
+        pagination: {
+          ...state.pagination,
+          page,
+          total: response.total,
+          hasMore: false,
+        },
+        hasMore: false,
+        status: createListRequestSuccessStatus(items.length, selectedItemId),
+      };
+    },
+  });
 
   return {
     store,
 
     loadInitial() {
-      store.setState({
-        ready: true,
-        loading: false,
-        refreshing: false,
-        errorText: undefined,
-      });
+      return runListRequest("initial");
     },
 
     refresh() {
-      store.setState({
-        refreshing: true,
-      });
-      this.loadInitial();
+      return runListRequest("refresh");
     },
 
     loadMore() {
-      store.setState({
-        loading: false,
-        query: {
-          ...store.getState().query,
-          page: store.getState().query.page + 1,
-        },
-      });
+      return runListRequest("append");
     },
 
     selectItem(itemId: string) {
@@ -319,7 +338,14 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
 
 function formControllerSource(names: FeatureNames): string {
   return `import type { AppRouteId } from "@minix/contracts";
-import { createStore, type AppKernel } from "@minix/core";
+import {
+  beginFormSubmit,
+  createControllerRouterHelpers,
+  createFormSubmissionKey,
+  createStore,
+  finalizeFormSubmit,
+  type AppKernel,
+} from "@minix/core";
 import { createDefault${names.pascal}State, type ${names.pascal}State, type ${names.pascal}Values } from "../model";
 
 export interface Create${names.pascal}ControllerOptions {
@@ -335,14 +361,7 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
     ...createDefault${names.pascal}State(),
     ...initialState,
   });
-
-  async function routeToOptional(routeId?: AppRouteId) {
-    if (!routeId) {
-      return undefined;
-    }
-
-    return kernel.router.toRoute(routeId);
-  }
+  const { routeToOptional } = createControllerRouterHelpers({ kernel });
 
   return {
     store,
@@ -377,11 +396,38 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
     },
 
     async submit() {
+      const current = store.getState();
+      const submissionKey = createFormSubmissionKey("${names.kebab}", "submit", current.values);
+      const submission = beginFormSubmit(current.submitState, {
+        mode: "submit",
+        submissionKey,
+      });
+      if (submission.blocked) {
+        store.setState({
+          submitState: submission.submitState,
+        });
+        return routeToOptional(successRouteId);
+      }
+
+      const submittedAt = Date.now();
       store.setState({
         ready: true,
         submitting: false,
         errorCode: undefined,
         errorText: undefined,
+        submitState: finalizeFormSubmit(submission.submitState, {
+          mode: "submit",
+          submissionKey,
+          submittedAt,
+          result: {
+            status: "submitted",
+            message: "${names.pascal} submitted.",
+          },
+        }),
+        submitResult: {
+          status: "submitted",
+          message: "${names.pascal} submitted.",
+        },
       });
 
       return routeToOptional(successRouteId);
@@ -467,7 +513,12 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
 
 function workspaceControllerSource(names: FeatureNames): string {
   return `import type { AppRouteId } from "@minix/contracts";
-import { createStore, type AppKernel } from "@minix/core";
+import {
+  createControllerRouterHelpers,
+  createStore,
+  createUploadClientFlow,
+  type AppKernel,
+} from "@minix/core";
 import { createDefault${names.pascal}State, type ${names.pascal}Result, type ${names.pascal}State } from "../model";
 
 export interface Create${names.pascal}ControllerOptions {
@@ -475,23 +526,30 @@ export interface Create${names.pascal}ControllerOptions {
   loginRouteId?: AppRouteId;
   settingsRouteId?: AppRouteId;
   successRouteId?: AppRouteId;
+  uploadRequestPath?: string;
+  uploadSessionPath?: string;
+  uploadChunkPath?: string;
+  uploadCompletePath?: string;
   initialState?: Partial<${names.pascal}State>;
 }
 
 export function create${names.pascal}Controller(options: Create${names.pascal}ControllerOptions) {
-  const { kernel, loginRouteId, settingsRouteId, successRouteId, initialState } = options;
+  const {
+    kernel,
+    loginRouteId,
+    settingsRouteId,
+    successRouteId,
+    uploadRequestPath = "/uploads",
+    uploadSessionPath = "/uploads/session",
+    uploadChunkPath = "/uploads/chunk",
+    uploadCompletePath = "/uploads/complete",
+    initialState,
+  } = options;
   const store = createStore<${names.pascal}State>({
     ...createDefault${names.pascal}State(),
     ...initialState,
   });
-
-  async function routeToOptional(routeId?: AppRouteId) {
-    if (!routeId) {
-      return undefined;
-    }
-
-    return kernel.router.toRoute(routeId);
-  }
+  const { routeToOptional } = createControllerRouterHelpers({ kernel });
 
   function setResult(result: ${names.pascal}Result | undefined) {
     store.setState({
@@ -512,7 +570,43 @@ export function create${names.pascal}Controller(options: Create${names.pascal}Co
       });
     },
 
-    startPrimaryAction() {
+    async startPrimaryAction() {
+      const uploadStatus = kernel.capability?.status("upload");
+      if (kernel.capability && uploadStatus?.ok && uploadStatus.value.available) {
+        store.setState({
+          loading: true,
+          errorText: undefined,
+        });
+        const uploadResult = await createUploadClientFlow({
+          kernel,
+          uploadRequestPath,
+          uploadSessionPath,
+          uploadChunkPath,
+          uploadCompletePath,
+        }).selectAndUpload({
+          scenario: "attachment",
+          selection: {
+            scenario: "attachment",
+            preferredFileType: "attachment",
+            acceptedFileTypes: ["attachment", "image", "pdf"],
+            maxSelectCount: 1,
+            governance: {
+              maxSizeBytes: 15_000_000,
+              acceptedFileTypes: ["attachment", "image", "pdf"],
+              sensitiveReviewRequired: true,
+              expiresInDays: 30,
+            },
+          },
+        });
+        if (!uploadResult.ok) {
+          setResult({
+            status: "failed",
+            message: uploadResult.error.message,
+          });
+          return uploadResult;
+        }
+      }
+
       setResult({
         status: "succeeded",
         message: "${names.pascal} primary action completed.",
@@ -968,6 +1062,10 @@ export interface ${names.pascal}FeatureControllerOptions {
   loginRouteId?: AppRouteId;
   settingsRouteId?: AppRouteId;
   successRouteId?: AppRouteId;
+  uploadRequestPath?: string;
+  uploadSessionPath?: string;
+  uploadChunkPath?: string;
+  uploadCompletePath?: string;
   initialState?: Partial<${names.pascal}State>;
 }
 
@@ -998,6 +1096,10 @@ export const ${names.camel}FeatureManifest = defineFeatureManifest<
       loginRouteId: options.loginRouteId,
       settingsRouteId: options.settingsRouteId,
       successRouteId: options.successRouteId,
+      uploadRequestPath: options.uploadRequestPath,
+      uploadSessionPath: options.uploadSessionPath,
+      uploadChunkPath: options.uploadChunkPath,
+      uploadCompletePath: options.uploadCompletePath,
       initialState: {
         ...createDefault${names.pascal}State(),
         ...pageData,

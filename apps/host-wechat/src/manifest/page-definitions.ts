@@ -119,6 +119,71 @@ function createMinuteEnglishPagePreset() {
   };
 }
 
+function createWechatIdentityWorkflowPages() {
+  const controller = {
+    successRouteId: APP_ROUTE_IDS.settings,
+    stayOnSuccess: true,
+    overviewRouteId: APP_ROUTE_IDS.overview,
+    planRouteId: APP_ROUTE_IDS.items,
+    settingsRouteId: APP_ROUTE_IDS.settings,
+    reportError: reportWechatAuthError,
+  };
+
+  return {
+    identityUpgrade: {
+      feature: authFeatureManifest,
+      routeId: APP_ROUTE_IDS.identityUpgrade,
+      routePath: "/pages/identityUpgrade/index",
+      pageData: createAuthIdentityPageState("wechat", "identity-upgrade"),
+      controller,
+      guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-upgrade"),
+      featureConfig: {
+        surface: "identity-upgrade",
+      },
+      ...createWechatShellConfig({
+        page: "identityUpgrade",
+        navigationBarTitleText: "Upgrade Account",
+        shellTemplate: "generic",
+        shellStyle: "generic",
+      }),
+    },
+    identityBindPhone: {
+      feature: authFeatureManifest,
+      routeId: APP_ROUTE_IDS.identityBindPhone,
+      routePath: "/pages/identityBindPhone/index",
+      pageData: createAuthIdentityPageState("wechat", "identity-bind-phone"),
+      controller,
+      guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-bind-phone"),
+      featureConfig: {
+        surface: "identity-bind-phone",
+      },
+      ...createWechatShellConfig({
+        page: "identityBindPhone",
+        navigationBarTitleText: "Bind Phone",
+        shellTemplate: "generic",
+        shellStyle: "generic",
+      }),
+    },
+    identityMerge: {
+      feature: authFeatureManifest,
+      routeId: APP_ROUTE_IDS.identityMerge,
+      routePath: "/pages/identityMerge/index",
+      pageData: createAuthIdentityPageState("wechat", "identity-merge"),
+      controller,
+      guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-merge"),
+      featureConfig: {
+        surface: "identity-merge",
+      },
+      ...createWechatShellConfig({
+        page: "identityMerge",
+        navigationBarTitleText: "Merge Accounts",
+        shellTemplate: "generic",
+        shellStyle: "generic",
+      }),
+    },
+  };
+}
+
 export const hostWechatPageDefinitions = defineHostPageDefinitions({
   login: {
     feature: authFeatureManifest,
@@ -139,79 +204,8 @@ export const hostWechatPageDefinitions = defineHostPageDefinitions({
     shellTemplate: "login",
     shellStyle: "login",
   },
-  identityUpgrade: {
-    feature: authFeatureManifest,
-    routeId: APP_ROUTE_IDS.identityUpgrade,
-    routePath: "/pages/identityUpgrade/index",
-    pageData: createAuthIdentityPageState("wechat", "identity-upgrade"),
-    controller: {
-      successRouteId: APP_ROUTE_IDS.settings,
-      stayOnSuccess: true,
-      overviewRouteId: APP_ROUTE_IDS.overview,
-      planRouteId: APP_ROUTE_IDS.items,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      reportError: reportWechatAuthError,
-    },
-    guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-upgrade"),
-    featureConfig: {
-      surface: "identity-upgrade",
-    },
-    ...createWechatShellConfig({
-      page: "identityUpgrade",
-      navigationBarTitleText: "Upgrade Account",
-      shellTemplate: "generic",
-      shellStyle: "generic",
-    }),
-  },
-  identityBindPhone: {
-    feature: authFeatureManifest,
-    routeId: APP_ROUTE_IDS.identityBindPhone,
-    routePath: "/pages/identityBindPhone/index",
-    pageData: createAuthIdentityPageState("wechat", "identity-bind-phone"),
-    controller: {
-      successRouteId: APP_ROUTE_IDS.settings,
-      stayOnSuccess: true,
-      overviewRouteId: APP_ROUTE_IDS.overview,
-      planRouteId: APP_ROUTE_IDS.items,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      reportError: reportWechatAuthError,
-    },
-    guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-bind-phone"),
-    featureConfig: {
-      surface: "identity-bind-phone",
-    },
-    ...createWechatShellConfig({
-      page: "identityBindPhone",
-      navigationBarTitleText: "Bind Phone",
-      shellTemplate: "generic",
-      shellStyle: "generic",
-    }),
-  },
-  identityMerge: {
-    feature: authFeatureManifest,
-    routeId: APP_ROUTE_IDS.identityMerge,
-    routePath: "/pages/identityMerge/index",
-    pageData: createAuthIdentityPageState("wechat", "identity-merge"),
-    controller: {
-      successRouteId: APP_ROUTE_IDS.settings,
-      stayOnSuccess: true,
-      overviewRouteId: APP_ROUTE_IDS.overview,
-      planRouteId: APP_ROUTE_IDS.items,
-      settingsRouteId: APP_ROUTE_IDS.settings,
-      reportError: reportWechatAuthError,
-    },
-    guardPolicy: createAuthenticatedGuardPolicy("authenticated-identity-merge"),
-    featureConfig: {
-      surface: "identity-merge",
-    },
-    ...createWechatShellConfig({
-      page: "identityMerge",
-      navigationBarTitleText: "Merge Accounts",
-      shellTemplate: "generic",
-      shellStyle: "generic",
-    }),
-  },
-  ...createMinuteEnglishPagePreset(),
+  ...createWechatIdentityWorkflowPages(),
+  ...createMinuteEnglishPagePreset(),  ...createMinuteEnglishPagePreset(),
   feedback: {
     feature: feedbackFeatureManifest,
     routeId: APP_ROUTE_IDS.feedback,

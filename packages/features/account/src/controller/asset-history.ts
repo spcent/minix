@@ -5,22 +5,7 @@ import type {
 } from "@minix/contracts";
 
 import type { AccountSection, AccountState } from "../model";
-
-function upsertSection(sections: AccountSection[], nextSection: AccountSection): AccountSection[] {
-  const existingIndex = sections.findIndex((section) => section.key === nextSection.key);
-  if (existingIndex === -1) {
-    return [...sections, nextSection];
-  }
-
-  return sections.map((section, index) =>
-    index === existingIndex
-      ? {
-          ...nextSection,
-          items: [...nextSection.items],
-        }
-      : section,
-  );
-}
+import { upsertSection } from "./section-utils";
 
 export function createAssetLedgerSection(entries: UserAssetLedgerEntry[]): AccountSection | undefined {
   if (entries.length === 0) {
